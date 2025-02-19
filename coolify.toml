@@ -1,0 +1,29 @@
+[phases.setup]
+nixPkgs = [
+  "nodejs_18",
+  "npm-9_x",
+  "openssl",
+  "curl",
+  "wget"
+]
+nixLibs = ["gcc-unwrapped"]
+nixOverlays = ["https://github.com/railwayapp/nix-npm-overlay/archive/main.tar.gz"]
+nixpkgsArchive = "e05605ec414618eab4a7a6aea8b38f6fbbcc8f08"
+
+[phases.install]
+dependsOn = ["setup"]
+# Use --legacy-peer-deps to bypass react-mde's peer dependency requirement for React 17.
+cmds = ["npm ci --legacy-peer-deps"]
+cacheDirectories = ["/root/.npm"]
+paths = ["/app/node_modules/.bin"]
+
+[phases.build]
+dependsOn = ["install"]
+cmds = ["npm run build"]
+cacheDirectories = [
+  ".next/cache",
+  "node_modules/.cache"
+]
+
+[start]
+cmd = "npm run start"
