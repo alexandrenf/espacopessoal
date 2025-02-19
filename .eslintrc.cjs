@@ -37,6 +37,7 @@ const config = {
         }
       }
     ]
-  }
+  },
+  "ignorePatterns": ["tailwind.config.js"]
 }
 module.exports = config;
