@@ -28,7 +28,6 @@ export const userUpdateRouter = createTRPCRouter({
 
 
     changeName: protectedProcedure
-    changeName: protectedProcedure
     .input(z.object({
       name: z.string()
         .min(1, "Name cannot be empty")
