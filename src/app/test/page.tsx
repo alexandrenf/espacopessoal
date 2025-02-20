@@ -23,7 +23,7 @@ export default async function Home() {
               Please complete your profile information to access all features.
             </p>
             <a
-              href="/settings/profile"
+              href="/profile"
               className="block w-full text-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
             >
               Update Profile
