@@ -28,13 +28,14 @@ export const userUpdateRouter = createTRPCRouter({
 
 
     changeName: protectedProcedure
-    .input(z.object({ name: z.string().min(1) }))
+    changeName: protectedProcedure
     .input(z.object({
-    name: z.string()
-    .min(1, "Name cannot be empty")
-    .max(50, "Name is too long")
-    .trim()
-    .regex(/^[a-zA-Z\s-']+$/, "Name contains invalid characters")}))
+      name: z.string()
+        .min(1, "Name cannot be empty")
+        .max(50, "Name is too long")
+        .trim()
+        .regex(/^[a-zA-Z\s-']+$/, "Name contains invalid characters")
+    }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findFirst({
         where: { id: ctx.session.user.id },
