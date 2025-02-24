@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Post {
@@ -75,7 +74,7 @@ model UserThings {
   password            String?
   ownedById           String
   ownedBy             User     @relation(fields: [ownedById], references: [id])
-}
+} 
 
 model Notepad {
   id          Int      @id @default(autoincrement())

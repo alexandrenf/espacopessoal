@@ -7,7 +7,7 @@ import "react-mde/lib/styles/css/react-mde-all.css";
 import type { Note } from "../notas/[url]/page";
 
 interface EditorProps {
-  currentNote: Note;
+  currentNote: Note | { id: number | null; content: string };
   updateNote: (text: string) => void;
 }
 
@@ -24,7 +24,7 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
   return (
     <div className="w-full h-screen">
       <ReactMde
-        value={currentNote.body}
+        value={currentNote.content}
         onChange={updateNote}
         selectedTab={selectedTab}
         onTabChange={(tab: "write" | "preview") => setSelectedTab(tab)}
