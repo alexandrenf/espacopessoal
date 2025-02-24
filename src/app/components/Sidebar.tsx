@@ -2,16 +2,16 @@
 
 import React from "react";
 import type { Note } from "../notas/[url]/page";
-import { FaTrash } from "react-icons/fa"; // Import the trash icon
+import { FaTrash } from "react-icons/fa";
 
 interface SidebarProps {
   notes: Note[];
-  currentNote: Note;
-  setCurrentNoteId: (id: string) => void;
+  currentNote: Note | { id: number | null; content: string };
+  setCurrentNoteId: (id: number) => void;
   newNote: () => void;
   deleteNote: (
     event: React.MouseEvent<HTMLButtonElement>,
-    noteId: string
+    noteId: number
   ) => void;
 }
 
@@ -32,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           : ""
       }`}
     >
-      <span>{note.body.split("\n")[0]}</span>
+      <span>{note.content.split("\n")[0]}</span>
       <button
         onClick={(event) => deleteNote(event, note.id)}
         className="absolute right-4 top-[1.2rem] text-[#070600] bg-transparent cursor-pointer hover:text-white"
