@@ -74,7 +74,7 @@ model UserThings {
   password            String?
   ownedById           String
   ownedBy             User     @relation(fields: [ownedById], references: [id])
-}
+} 
 
 model Notepad {
   id          Int      @id @default(autoincrement())
