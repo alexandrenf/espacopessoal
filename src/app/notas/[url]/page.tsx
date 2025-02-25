@@ -416,7 +416,7 @@ export default function App(): JSX.Element {
   if (!url) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Invalid URL</div>
+        <div className="text-lg">URL inválida</div>
       </div>
     );
   }
@@ -424,7 +424,7 @@ export default function App(): JSX.Element {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Carregando...</div>
       </div>
     );
   }
@@ -462,12 +462,12 @@ export default function App(): JSX.Element {
               isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
             />
           </div>
-          {/* Mobile Sidebar Toggle Button */}
+          {/* Botão de alternância da barra lateral para mobile */}
           {isMobile && (
             <button
               onClick={() => setShowSidebar(!showSidebar)}
               className="fixed top-4 left-4 z-50 p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
-              aria-label="Toggle sidebar"
+              aria-label="Alternar barra lateral"
               type="button"
             >
               <svg 
@@ -499,14 +499,14 @@ export default function App(): JSX.Element {
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-gray-500">
-                Select a note to start editing
+                Selecione uma nota para começar a editar
               </div>
             )}
           </div>
         </div>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-8 px-4">
-          <h1 className="text-lg font-semibold text-center">You have no notes</h1>
+          <h1 className="text-lg font-semibold text-center">Você não tem notas</h1>
           <button
             className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
             onClick={createNewNote}
@@ -515,10 +515,10 @@ export default function App(): JSX.Element {
             {createNoteMutation.isPending ? (
               <span className="flex items-center">
                 <LoadingSpinner className="w-4 h-4 mr-2" />
-                Creating...
+                Criando...
               </span>
             ) : (
-              "Create one now"
+              "Criar agora"
             )}
           </button>
         </div>
