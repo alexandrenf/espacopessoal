@@ -72,7 +72,7 @@ model UserThings {
   notePadUrl          String
   privateOrPublicUrl  Boolean?
   password            String?
-  ownedById           String
+  ownedById           String   @unique
   ownedBy             User     @relation(fields: [ownedById], references: [id])
 } 
 

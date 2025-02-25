@@ -6,14 +6,20 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import "react-mde/lib/styles/css/react-mde-all.css";
-import type { Note } from "../notas/[url]/page";
+interface Note {
+  id: number;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 interface EditorProps {
   currentNote: Note | { id: number | null; content: string };
   updateNote: (text: string) => void;
+  isSaving?: boolean; // Add this prop
 }
 
-const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
+const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
 
   const l18n = {
@@ -39,22 +45,28 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     tasklists: true,
   });
 
-  // Memoize the content extraction function
+  // Memoize the content extraction function with improved handling
   const getContentWithoutTitle = useCallback((content: string) => {
     const lines = content.split("\n");
-    return lines.slice(1).join("\n").trim();
+    return lines.slice(1).join("\n");  // Remove .trim() to preserve spacing
   }, []);
 
-  // Memoize the content combination function
+  // Memoize the content combination function with improved spacing
   const combineContent = useCallback((newTitle: string, content: string): string => {
-    return `${newTitle}\n${content}`;
+    const trimmedTitle = newTitle.trim();
+    const processedContent = content.startsWith("\n") ? content : "\n" + content;
+    return `${trimmedTitle}${processedContent}`;
   }, []);
 
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
-    updateNote(combineContent(newTitle, contentWithoutTitle));
+    
+    // Delay the update slightly to ensure proper state handling
+    setTimeout(() => {
+      const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
+      updateNote(combineContent(newTitle, contentWithoutTitle));
+    }, 0);
   }, [currentNote.content, getContentWithoutTitle, combineContent, updateNote]);
 
   const handleContentChange = useCallback((newContent: string) => {
@@ -69,18 +81,22 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     <div className="w-full h-screen bg-white">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center">
-          {/* Smaller space for the mobile toggle button */}
           <div className="w-10 md:hidden"></div>
-          <label htmlFor="note-title" className="sr-only">Note Title</label>
-          <input
-            id="note-title"
-            type="text"
-            value={title}
-            onChange={handleTitleChange}
-            className="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded pl-0 py-1"
-            placeholder={l18n.untitledNote}
-            aria-label="Note title"
-          />
+          <div className="flex-1 flex items-center gap-2">
+            <label htmlFor="note-title" className="sr-only">Note Title</label>
+            <input
+              id="note-title"
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              className="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded pl-0 py-1"
+              placeholder={l18n.untitledNote}
+              aria-label="Note title"
+            />
+            {isSaving && (
+              <span className="text-sm text-gray-500">Salvando...</span>
+            )}
+          </div>
         </div>
       </div>
       <div className="p-4">
