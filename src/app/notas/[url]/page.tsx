@@ -68,6 +68,8 @@ export default function App(): JSX.Element {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<{ id: number; title: string } | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // Refs to track optimistic updates:
   // - lastSentTextRef: holds the text that was sent with the mutation
@@ -128,6 +130,17 @@ export default function App(): JSX.Element {
       }
     }
   }, [data, currentNoteId]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Mutation to update a note.
   const errorTimeoutRef = useRef<NodeJS.Timeout>();
@@ -403,7 +416,7 @@ export default function App(): JSX.Element {
   if (!url) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Invalid URL</div>
+        <div className="text-lg">URL inválida</div>
       </div>
     );
   }
@@ -411,7 +424,7 @@ export default function App(): JSX.Element {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Carregando...</div>
       </div>
     );
   }
@@ -428,42 +441,84 @@ export default function App(): JSX.Element {
     <main className="h-screen flex">
       <Alert error={updateError} isSaving={isSaving} />
       {notes.length > 0 ? (
-        <div className="flex w-full h-full">
-          <div className="w-1/6 h-full border-r border-gray-300">
+        <div className="flex w-full h-full flex-col md:flex-row">
+          {/* Sidebar */}
+          <div className={`
+            w-full md:w-1/6 h-full border-r border-gray-300 transition-all duration-200
+            ${isMobile && !showSidebar ? 'hidden' : 'block'}
+          `}>
             <Sidebar
               notes={notes}
               currentNote={findCurrentNote()}
-              setCurrentNoteId={setCurrentNoteId}
+              setCurrentNoteId={(id) => {
+                setCurrentNoteId(id);
+                if (isMobile) {
+                  setShowSidebar(false);
+                }
+              }}
               newNote={createNewNote}
               deleteNote={deleteNote}
               isCreating={createNoteMutation.isPending}
               isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
             />
           </div>
-          <div className="w-5/6 h-full">
-            {currentNoteId !== null && notes.length > 0 && (
-              <Editor
-                currentNote={findCurrentNote()}
-                updateNote={updateNote}
-              />
+          {/* Botão de alternância da barra lateral para mobile */}
+          {isMobile && (
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="fixed top-4 left-4 z-50 p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              aria-label="Alternar barra lateral"
+              type="button"
+            >
+              <svg 
+                className="w-5 h-5" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M4 6h16M4 12h16M4 18h16" 
+                />
+              </svg>
+            </button>
+          )}
+          {/* Editor */}
+          <div className={`
+            w-full md:w-5/6 h-full transition-all duration-200
+            ${currentNoteId !== null ? 'block' : 'hidden md:block'}
+          `}>
+            {currentNoteId !== null && notes.length > 0 ? (
+              <div className="relative">
+                <Editor
+                  currentNote={findCurrentNote()}
+                  updateNote={updateNote}
+                />
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                Selecione uma nota para começar a editar
+              </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-8">
-          <h1 className="text-lg font-semibold">You have no notes</h1>
+        <div className="w-full h-full flex flex-col items-center justify-center gap-8 px-4">
+          <h1 className="text-lg font-semibold text-center">Você não tem notas</h1>
           <button
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
+            className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
             onClick={createNewNote}
             disabled={createNoteMutation.isPending}
           >
             {createNoteMutation.isPending ? (
               <span className="flex items-center">
                 <LoadingSpinner className="w-4 h-4 mr-2" />
-                Creating...
+                Criando...
               </span>
             ) : (
-              "Create one now"
+              "Criar agora"
             )}
           </button>
         </div>
