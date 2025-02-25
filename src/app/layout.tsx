@@ -5,6 +5,7 @@ import { type Metadata } from "next";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from 'sonner';
+import { SessionProvider } from "~/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "Espaço Pessoal",
@@ -16,7 +17,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${GeistSans.variable}`}>
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <SessionProvider>
+            {children}
+          </SessionProvider>
+        </TRPCReactProvider>
         <Toaster />
       </body>
     </html>
