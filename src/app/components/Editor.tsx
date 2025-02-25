@@ -3,6 +3,8 @@
 import React from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
+import DOMPurify from "dompurify";
+import type { Config } from "dompurify";
 import "react-mde/lib/styles/css/react-mde-all.css";
 import type { Note } from "../notas/[url]/page";
 
@@ -13,7 +15,21 @@ interface EditorProps {
 
 const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
-  const [title, setTitle] = React.useState(currentNote.content.split("\n")[0] ?? "Untitled Note");
+
+  const l18n = {
+    write: "Escrever",
+    preview: "Visualizar",
+    uploadingImage: "Uploading image...",
+    pasteDropSelect: "Click to paste an image, or drag and drop"
+  };
+
+  // Get the title from content or default to "Untitled Note" if empty/undefined
+  const getTitleFromContent = (content: string): string => {
+    const firstLine = content.split("\n")[0];
+    return firstLine?.trim() ?? "Untitled Note";
+  };
+
+  const [title, setTitle] = React.useState(getTitleFromContent(currentNote.content));
 
   const converter = new Converter({
     tables: true,
@@ -22,39 +38,45 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     tasklists: true,
   });
 
-  // Get content without the first line, preserving trailing newlines
+  // Get content without the first line
   const getContentWithoutTitle = (content: string) => {
     const lines = content.split("\n");
-    return lines.slice(1).join("\n");
+    return lines.slice(1).join("\n").trim();
+  };
+
+  // Combine title and content
+  const combineContent = (newTitle: string, content: string): string => {
+    return `${newTitle}\n${content}`;
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    // Combine new title with existing content
     const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
-    updateNote(`${newTitle}\n${contentWithoutTitle}`);
+    updateNote(combineContent(newTitle, contentWithoutTitle));
   };
 
   const handleContentChange = (newContent: string) => {
-    // Preserve the title when content changes
-    updateNote(`${title}\n${newContent}`);
+    updateNote(combineContent(title, newContent));
   };
 
   React.useEffect(() => {
     // Update title when currentNote changes
-    setTitle(currentNote.content.split("\n")[0] ?? "Untitled Note");
+    setTitle(getTitleFromContent(currentNote.content));
   }, [currentNote.id]);
 
   return (
     <div className="w-full h-screen bg-white">
       <div className="p-4 border-b border-gray-200">
+        <label htmlFor="note-title" className="sr-only">Note Title</label>
         <input
+          id="note-title"
           type="text"
           value={title}
           onChange={handleTitleChange}
           className="w-full text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-2 py-1"
           placeholder="Untitled Note"
+          aria-label="Note title"
         />
       </div>
       <div className="p-4">
@@ -63,11 +85,19 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
           onChange={handleContentChange}
           selectedTab={selectedTab}
           onTabChange={setSelectedTab}
+          l18n={l18n}
           generateMarkdownPreview={(markdown: string): Promise<React.ReactNode> => {
             const html = converter.makeHtml(markdown);
+            const purify = DOMPurify as {
+              sanitize: (dirty: string, config?: Config) => string;
+            };
+            const sanitizedHtml = purify.sanitize(html, {
+              ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'strong', 'em', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+              ALLOWED_ATTR: ['href', 'target', 'rel']
+            });
             return Promise.resolve(
               <div className="prose max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: html }} />
+                <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
               </div>
             );
           }}
