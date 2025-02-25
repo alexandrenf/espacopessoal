@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -24,11 +24,11 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     untitledNote: "Nota sem título"
   };
 
-  // Get the title from content or default to "Untitled Note" if empty/undefined
-  const getTitleFromContent = (content: string): string => {
+  // Memoize the title extraction function
+  const getTitleFromContent = useCallback((content: string): string => {
     const firstLine = content.split("\n")[0];
     return firstLine?.trim() ?? l18n.untitledNote;
-  };
+  }, [l18n.untitledNote]);
 
   const [title, setTitle] = React.useState(getTitleFromContent(currentNote.content));
 
@@ -39,32 +39,31 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     tasklists: true,
   });
 
-  // Get content without the first line
-  const getContentWithoutTitle = (content: string) => {
+  // Memoize the content extraction function
+  const getContentWithoutTitle = useCallback((content: string) => {
     const lines = content.split("\n");
     return lines.slice(1).join("\n").trim();
-  };
+  }, []);
 
-  // Combine title and content
-  const combineContent = (newTitle: string, content: string): string => {
+  // Memoize the content combination function
+  const combineContent = useCallback((newTitle: string, content: string): string => {
     return `${newTitle}\n${content}`;
-  };
+  }, []);
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
     const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
     updateNote(combineContent(newTitle, contentWithoutTitle));
-  };
+  }, [currentNote.content, getContentWithoutTitle, combineContent, updateNote]);
 
-  const handleContentChange = (newContent: string) => {
+  const handleContentChange = useCallback((newContent: string) => {
     updateNote(combineContent(title, newContent));
-  };
+  }, [title, combineContent, updateNote]);
 
   React.useEffect(() => {
-    // Update title when currentNote changes
     setTitle(getTitleFromContent(currentNote.content));
-  }, [currentNote.id]);
+  }, [currentNote.id, getTitleFromContent, currentNote.content]);
 
   return (
     <div className="w-full h-screen bg-white">

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import Sidebar from "../../components/Sidebar";
 import Editor from "../../components/Editor";
 import { Alert } from "../../components/Alert";
+import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { api } from "~/trpc/react";
 import { useParams } from "next/navigation";
 import { default as debounce } from "lodash/debounce";
@@ -184,23 +185,39 @@ export default function App(): JSX.Element {
               noteId,
               textLength: text.length,
             });
-            setIsSaving(true); // Set saving state when update starts
+            setIsSaving(true);
             lastSentTextRef.current = text;
-            updateMutateAsyncRef
-              .current({ id: noteId, content: text })
-              .then((result) => {
+            
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            const retryUpdate = async () => {
+              try {
+                const result = await updateMutateAsyncRef.current({ id: noteId, content: text });
                 console.log("Note saved successfully:", result);
-                setIsSaving(false); // Clear saving state on success
-              })
-              .catch((error: unknown) => {
-                console.error("Error updating note:", error);
-                setIsSaving(false); // Clear saving state on error
-                if (error instanceof Error) {
-                  setUpdateError(error.message);
+                setIsSaving(false);
+              } catch (error) {
+                if (retryCount < maxRetries) {
+                  retryCount++;
+                  console.log(`Retrying update (${retryCount}/${maxRetries})...`);
+                  setTimeout(() => void retryUpdate(), 1000 * retryCount);
                 } else {
-                  setUpdateError("Failed to update note");
+                  handleError(error);
                 }
-              });
+              }
+            };
+
+            const handleError = (error: unknown) => {
+              console.error("Error updating note:", error);
+              setIsSaving(false);
+              if (error instanceof Error) {
+                setUpdateError(error.message);
+              } else {
+                setUpdateError("Failed to update note");
+              }
+            };
+
+            void retryUpdate();
           },
           DEBOUNCE_DELAY,
           { maxWait: MAX_WAIT }
@@ -440,7 +457,14 @@ export default function App(): JSX.Element {
             onClick={createNewNote}
             disabled={createNoteMutation.isPending}
           >
-            {createNoteMutation.isPending ? "Creating..." : "Create one now"}
+            {createNoteMutation.isPending ? (
+              <span className="flex items-center">
+                <LoadingSpinner className="w-4 h-4 mr-2" />
+                Creating...
+              </span>
+            ) : (
+              "Create one now"
+            )}
           </button>
         </div>
       )}
