@@ -97,6 +97,9 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving, isLo
             {isSaving && (
               <span className="text-sm text-gray-500">Salvando...</span>
             )}
+            {isLoading && (
+            <span className="text-sm text-gray-500 ml-2">Carregando...</span>
+           )}
           </div>
         </div>
       </div>
