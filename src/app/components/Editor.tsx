@@ -68,16 +68,20 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
   return (
     <div className="w-full h-screen bg-white">
       <div className="p-4 border-b border-gray-200">
-        <label htmlFor="note-title" className="sr-only">Note Title</label>
-        <input
-          id="note-title"
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          className="w-full text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-2 py-1"
-          placeholder={l18n.untitledNote}
-          aria-label="Note title"
-        />
+        <div className="flex items-center">
+          {/* Smaller space for the mobile toggle button */}
+          <div className="w-10 md:hidden"></div>
+          <label htmlFor="note-title" className="sr-only">Note Title</label>
+          <input
+            id="note-title"
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            className="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded pl-0 py-1"
+            placeholder={l18n.untitledNote}
+            aria-label="Note title"
+          />
+        </div>
       </div>
       <div className="p-4">
         <ReactMde
