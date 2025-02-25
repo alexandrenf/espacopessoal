@@ -1,18 +1,25 @@
 "use client";
 
 import React from "react";
-import type { Note } from "../notas/[url]/page";
 import { FaTrash } from "react-icons/fa";
+import { ImSpinner8 } from "react-icons/im";
+
+interface Note {
+  id: number;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isOptimistic?: boolean;
+}
 
 interface SidebarProps {
-  notes: Note[];
+  notes: (Note | { id: number; content: string; createdAt: Date; updatedAt: Date; isOptimistic?: boolean })[];
   currentNote: Note | { id: number | null; content: string };
   setCurrentNoteId: (id: number) => void;
   newNote: () => void;
-  deleteNote: (
-    event: React.MouseEvent<HTMLButtonElement>,
-    noteId: number
-  ) => void;
+  deleteNote: (event: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
+  isCreating: boolean;
+  isDeletingId: number | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -21,6 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   setCurrentNoteId,
   newNote,
   deleteNote,
+  isCreating,
+  isDeletingId,
 }) => {
   const noteList = notes.map((note) => (
     <li
@@ -30,15 +39,26 @@ const Sidebar: React.FC<SidebarProps> = ({
         note.id === currentNote.id
           ? "bg-[#3C91E6] text-white text-xl font-bold"
           : ""
-      }`}
+      } ${note.isOptimistic ? 'opacity-50' : ''}`}
     >
-      <span>{note.content.split("\n")[0]}</span>
-      <button
-        onClick={(event) => deleteNote(event, note.id)}
-        className="absolute right-4 top-[1.2rem] text-[#070600] bg-transparent cursor-pointer hover:text-white"
-      >
-        <FaTrash />
-      </button>
+      <div className="flex items-center justify-between">
+        <span>{note.content.split("\n")[0]}</span>
+        {note.isOptimistic ? (
+          <ImSpinner8 className="animate-spin mr-4" />
+        ) : (
+          <button
+            onClick={(event) => deleteNote(event, note.id)}
+            disabled={isDeletingId === note.id}
+            className="absolute right-4 top-[1.2rem] text-[#070600] bg-transparent cursor-pointer hover:text-white disabled:cursor-not-allowed"
+          >
+            {isDeletingId === note.id ? (
+              <ImSpinner8 className="animate-spin" />
+            ) : (
+              <FaTrash />
+            )}
+          </button>
+        )}
+      </div>
     </li>
   ));
 
