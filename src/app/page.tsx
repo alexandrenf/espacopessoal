@@ -1,5 +1,5 @@
-import Header from "~/app/components/Header"
-import { Button } from "~/components/ui/button"
+import Header from "~/app/components/Header";
+import { Button } from "~/components/ui/button";
 import { auth } from "~/server/auth";
 import { api, HydrateClient } from "~/trpc/server";
 import Link from "next/link";
