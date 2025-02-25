@@ -14,11 +14,28 @@ export const userUpdateRouter = createTRPCRouter({
       if (!user) {
         throw new Error("User not found");
       }
+      
+      // Check user profile data
       if (!user.name || !user.email) {
         return {
           isHealthy: false,
         };
       }
+      
+      // Check if user has set up their notepad URL
+      const userThings = await ctx.db.userThings.findFirst({
+        where: { ownedById: ctx.session.user.id },
+        select: {
+          notePadUrl: true,
+        },
+      });
+      
+      if (!userThings?.notePadUrl) {
+        return {
+          isHealthy: false,
+        };
+      }
+      
       return {
         isHealthy: true,
       };
