@@ -16,10 +16,11 @@ interface Note {
 interface EditorProps {
   currentNote: Note | { id: number | null; content: string };
   updateNote: (text: string) => void;
-  isSaving?: boolean; // Add this prop
+  isSaving?: boolean;
+  isLoading?: boolean;
 }
 
-const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving }) => {
+const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving, isLoading }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
 
   const l18n = {
