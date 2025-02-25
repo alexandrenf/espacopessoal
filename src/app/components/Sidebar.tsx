@@ -63,10 +63,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={(event) => deleteNote(event, note.id)}
             disabled={isDeletingId === note.id}
-            className={`opacity-0 group-hover:opacity-100 absolute right-4 p-1.5 rounded-full transition-all duration-200
-              ${note.id === currentNote.id ? "opacity-100" : ""}
+            className={`
+              md:opacity-0 md:group-hover:opacity-100 absolute right-4 p-1.5 rounded-full transition-all duration-200
+              ${note.id === currentNote.id ? "md:opacity-100" : ""}
               ${isDeletingId === note.id ? "bg-red-50 dark:bg-red-900/20" : "hover:bg-red-50 dark:hover:bg-red-900/20"}
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
+              focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900
               focus:opacity-100
               disabled:opacity-50 disabled:cursor-not-allowed
               ${isDeletingId === note.id ? "cursor-wait" : ""}
@@ -93,11 +95,34 @@ const Sidebar: React.FC<SidebarProps> = ({
   ));
 
   return (
-    <section className="w-full h-screen bg-white border-r border-gray-200">
+    <section className="w-full h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-800">
-          Notas
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => notes.length > 0 && notes[0]?.id ? setCurrentNoteId(notes[0].id) : undefined}
+            className="md:hidden p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+            aria-label="Back to notes list"
+            type="button"
+          >
+            <svg 
+              className="w-5 h-5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M15 19l-7-7 7-7" 
+              />
+            </svg>
+          </button>
+          <h1 className="text-xl font-semibold text-gray-800">
+            Notas
+          </h1>
+        </div>
         <Button
           onClick={newNote}
           disabled={isCreating}
@@ -113,14 +138,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <>
               <span className="text-lg">+</span>
-              <span>Criar</span>
+              <span className="hidden md:inline">Criar</span>
             </>
           )}
         </Button>
       </div>
       <ul 
-        className="flex flex-col divide-y divide-gray-100 overflow-y-auto"
-        style={{ height: "calc(100vh - 65px)" }}
+        className="flex-1 flex flex-col divide-y divide-gray-100 overflow-y-auto"
         role="listbox"
         aria-label="Notes list"
       >
