@@ -30,7 +30,6 @@ interface OptimisticNote extends Note {
   isOptimistic: boolean;
 }
 
-// Add a type for error handling
 type ErrorWithMessage = {
   message: string;
 };
@@ -50,8 +49,6 @@ function toErrorWithMessage(maybeError: unknown): ErrorWithMessage {
   try {
     return new Error(JSON.stringify(maybeError));
   } catch {
-    // fallback in case there's an error stringifying the maybeError
-    // like with circular references for example
     return new Error(String(maybeError));
   }
 }
@@ -70,31 +67,33 @@ const App: React.FC<AppProps> = ({ password }) => {
   const [currentNoteId, setCurrentNoteId] = useState<number | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<{ id: number; title: string } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
 
   // Refs to track optimistic updates:
-  // - lastSentTextRef: holds the text that was sent with the mutation
-  // - lastGoodContentRef: holds the last successfully saved content
   const lastSentTextRef = useRef<string>("");
   const lastGoodContentRef = useRef<string>("");
 
-  // Add a ref to track the latest local content
+  // Ref to track the latest local content
   const currentContentRef = useRef<string>("");
 
-  // Add this to track if we're expecting a refetch
+  // Track if we're expecting a refetch
   const expectingRefetchRef = useRef(false);
 
   // Fetch notes from the server.
-  const { data, error, isLoading } = api.notes.fetchNotesPublic.useQuery(
+  const { data, error, isLoading, isFetching: queryIsFetching } = api.notes.fetchNotesPublic.useQuery(
     { url, password: password ?? undefined },
     {
       enabled: Boolean(url),
       retry: 1,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
+      staleTime: 0, // Consider data always stale to ensure fresh data
+      gcTime: 5 * 60 * 1000, // Cache for 5 minutes
+      refetchInterval: false,
       select: (newData: {
         id: number;
         content: string | null;
@@ -162,12 +161,14 @@ const App: React.FC<AppProps> = ({ password }) => {
         );
         lastGoodContentRef.current = updatedNote.content ?? "";
       }
+      
+      // Invalidate the query cache to ensure fresh data on next fetch
+      void utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
     },
     onError: (error) => {
       const errorMessage = getErrorMessage(error);
       setUpdateError(errorMessage);
       console.error('Failed to update note:', errorMessage);
-
       if (lastSentTextRef.current === currentContentRef.current) {
         setNotes((prev) =>
           prev.map((note) =>
@@ -177,7 +178,6 @@ const App: React.FC<AppProps> = ({ password }) => {
           )
         );
       }
-
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
@@ -186,7 +186,7 @@ const App: React.FC<AppProps> = ({ password }) => {
     retry: 2,
   });
 
-  // Store the mutateAsync function in a ref to avoid recreating the debounced function.
+  // Store the mutateAsync function in a ref.
   const updateMutateAsyncRef = useRef(updateNoteMutation.mutateAsync);
   useEffect(() => {
     updateMutateAsyncRef.current = updateNoteMutation.mutateAsync;
@@ -247,7 +247,6 @@ const App: React.FC<AppProps> = ({ password }) => {
       []
     );
 
-  // Add cleanup effect for debounced updates
   useEffect(() => {
     return () => {
       debouncedUpdate.flush();
@@ -308,30 +307,48 @@ const App: React.FC<AppProps> = ({ password }) => {
     createNoteMutation.mutate({
       url,
       content: newNoteContent,
-      password: password ?? undefined  // Add the password here
+      password: password ?? undefined
     });
   }
 
   // Handler to update a note.
   function updateNote(text: string): void {
     if (currentNoteId !== null) {
-      // Check if the note still exists
       const noteExists = notes.some(note => note.id === currentNoteId);
       if (!noteExists) {
-        return; // Silently ignore updates for non-existent notes
+        return; // Ignore updates for non-existent notes
       }
 
-      // Update our ref with the latest content
       currentContentRef.current = text;
       
-      // Update local state immediately
       setNotes((prev) =>
         prev.map((note) =>
           note.id === currentNoteId ? { ...note, content: text } : note
         )
       );
-      // Schedule the debounced update
       debouncedUpdate(text, currentNoteId);
+    }
+  }
+
+  // New: Handler for switching notes that flushes any pending update.
+  function handleSwitchNote(newNoteId: number): void {
+    if (currentNoteId !== null && currentNoteId !== newNoteId) {
+      // Flush pending changes for the current note before switching
+      debouncedUpdate.flush();
+      
+      // Force a refetch to ensure we have the latest data
+      void utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
+    }
+    
+    setCurrentNoteId(newNoteId);
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+    
+    // Get the latest version of the note from our notes array
+    const newNote = notes.find(note => note.id === newNoteId);
+    if (newNote) {
+      lastGoodContentRef.current = newNote.content;
     }
   }
 
@@ -427,6 +444,10 @@ const App: React.FC<AppProps> = ({ password }) => {
     );
   }
 
+  useEffect(() => {
+    setIsFetching(queryIsFetching);
+  }, [queryIsFetching]);
+
   if (!url) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -464,19 +485,14 @@ const App: React.FC<AppProps> = ({ password }) => {
             <Sidebar
               notes={notes}
               currentNote={findCurrentNote()}
-              setCurrentNoteId={(id) => {
-                setCurrentNoteId(id);
-                if (isMobile) {
-                  setShowSidebar(false);
-                }
-              }}
+              setCurrentNoteId={handleSwitchNote}  // Use the new handler
               newNote={createNewNote}
               deleteNote={deleteNote}
               isCreating={createNoteMutation.isPending}
               isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
             />
           </div>
-          {/* Botão de alternância da barra lateral para mobile */}
+          {/* Toggle sidebar button for mobile */}
           {isMobile && (
             <button
               onClick={() => setShowSidebar(!showSidebar)}
@@ -510,6 +526,7 @@ const App: React.FC<AppProps> = ({ password }) => {
                   currentNote={findCurrentNote()}
                   updateNote={updateNote}
                   isSaving={isSaving}
+                  isLoading={isFetching}
                 />
               </div>
             ) : (
