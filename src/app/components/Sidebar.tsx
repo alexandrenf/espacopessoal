@@ -65,8 +65,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             disabled={isDeletingId === note.id}
             className={`opacity-0 group-hover:opacity-100 absolute right-4 p-1.5 rounded-full transition-all duration-200
               ${note.id === currentNote.id ? "opacity-100" : ""}
-              ${isDeletingId === note.id ? "bg-red-50" : "hover:bg-red-50"}
-              focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+              ${isDeletingId === note.id ? "bg-red-50 dark:bg-red-900/20" : "hover:bg-red-50 dark:hover:bg-red-900/20"}
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900
               focus:opacity-100
               disabled:opacity-50 disabled:cursor-not-allowed
               ${isDeletingId === note.id ? "cursor-wait" : ""}
@@ -79,12 +79,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             {isDeletingId === note.id ? (
               <ImSpinner8 
-                className="animate-spin text-red-500" 
+                className="animate-spin text-red-500 dark:text-red-400" 
                 role="status"
                 aria-label="Deleting note..."
               />
             ) : (
-              <FaTrash className="text-red-500 w-3.5 h-3.5" />
+              <FaTrash className="text-red-500 dark:text-red-400 w-3.5 h-3.5" />
             )}
           </button>
         )}

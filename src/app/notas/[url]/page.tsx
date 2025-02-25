@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Sidebar from "../../components/Sidebar";
 import Editor from "../../components/Editor";
+import { Alert } from "../../components/Alert";
 import { api } from "~/trpc/react";
 import { useParams } from "next/navigation";
 import { default as debounce } from "lodash/debounce";
@@ -237,7 +238,9 @@ export default function App(): JSX.Element {
         
         return { previousNotes, previousCurrentNoteId, tempId };
       } catch (error) {
-        console.error('Error in onMutate:', getErrorMessage(error));
+        const errorMessage = getErrorMessage(error);
+        console.error('Failed to prepare optimistic update:', errorMessage);
+        setUpdateError(`Failed to create note: ${errorMessage}`);
         return { previousNotes: notes, previousCurrentNoteId: currentNoteId, tempId: null };
       }
     },
@@ -406,43 +409,7 @@ export default function App(): JSX.Element {
 
   return (
     <main className="h-screen flex">
-      {(updateError !== null || isSaving) && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className={`fixed top-4 right-4 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 transition-all duration-200 ${
-            updateError
-              ? "bg-red-100 border border-red-400 text-red-700"
-              : "bg-blue-50 border border-blue-200 text-blue-700"
-          }`}
-        >
-          {isSaving && (
-            <svg 
-              className="animate-spin h-4 w-4" 
-              xmlns="http://www.w3.org/2000/svg" 
-              fill="none" 
-              viewBox="0 0 24 24"
-            >
-              <circle 
-                className="opacity-25" 
-                cx="12" 
-                cy="12" 
-                r="10" 
-                stroke="currentColor" 
-                strokeWidth="4"
-              />
-              <path 
-                className="opacity-75" 
-                fill="currentColor" 
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-          )}
-          <span className="block text-sm font-medium">
-            {updateError ?? (isSaving ? "Saving changes..." : "")}
-          </span>
-        </div>
-      )}
+      <Alert error={updateError} isSaving={isSaving} />
       {notes.length > 0 ? (
         <div className="flex w-full h-full">
           <div className="w-1/6 h-full border-r border-gray-300">

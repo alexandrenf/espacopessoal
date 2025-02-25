@@ -20,13 +20,14 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     write: "Escrever",
     preview: "Visualizar",
     uploadingImage: "Uploading image...",
-    pasteDropSelect: "Click to paste an image, or drag and drop"
+    pasteDropSelect: "Click to paste an image, or drag and drop",
+    untitledNote: "Nota sem título"
   };
 
   // Get the title from content or default to "Untitled Note" if empty/undefined
   const getTitleFromContent = (content: string): string => {
     const firstLine = content.split("\n")[0];
-    return firstLine?.trim() ?? "Untitled Note";
+    return firstLine?.trim() ?? l18n.untitledNote;
   };
 
   const [title, setTitle] = React.useState(getTitleFromContent(currentNote.content));
@@ -75,7 +76,7 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
           value={title}
           onChange={handleTitleChange}
           className="w-full text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-2 py-1"
-          placeholder="Untitled Note"
+          placeholder={l18n.untitledNote}
           aria-label="Note title"
         />
       </div>
@@ -92,8 +93,26 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
               sanitize: (dirty: string, config?: Config) => string;
             };
             const sanitizedHtml = purify.sanitize(html, {
-              ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'strong', 'em', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-              ALLOWED_ATTR: ['href', 'target', 'rel']
+              ALLOWED_TAGS: [
+                'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'ul', 'ol', 'li',
+                'a', 'strong', 'em',
+                'code', 'pre', 'blockquote'
+              ],
+              ALLOWED_ATTR: [
+                'href', 'target', 'rel', 'title',
+                'aria-label', 'class'
+              ],
+              ALLOW_DATA_ATTR: false,
+              ADD_ATTR: ['target'],
+              FORBID_TAGS: ['style', 'script', 'iframe'],
+              FORBID_ATTR: ['style', 'onerror', 'onload'],
+              FORCE_BODY: true,
+              SANITIZE_DOM: true,
+              KEEP_CONTENT: true,
+              RETURN_DOM_FRAGMENT: false,
+              RETURN_DOM: false,
+              ALLOW_UNKNOWN_PROTOCOLS: false
             });
             return Promise.resolve(
               <div className="prose max-w-none">
