@@ -1,131 +1,52 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { api } from "~/trpc/react";
-import type { RouterOutputs } from "~/trpc/react";
-import { Button } from "~/components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Switch } from "../../components/ui/switch";
+import { auth } from "~/server/auth";
+import { api } from "~/trpc/server";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { NotepadSettingsForm } from "~/app/components/profile/NotepadSettingsForm";
+import Link from "next/link";
+import { HydrateClient } from "~/trpc/server";
+import Header from "../components/Header";
 
-export default function ConfiguracoesPage() {
-  const router = useRouter();
-  
-  const [isPrivate, setIsPrivate] = useState(true);
-  const [url, setUrl] = useState("");
-  const [password, setPassword] = useState<string>("");
+export default async function ConfiguracoesPage() {
+  const session = await auth();
 
-  // Fetch current settings
-  const { data: settings, isLoading } = api.userSettings.getNoteSettings.useQuery();
-
-  // Update state when settings data changes
-  useEffect(() => {
-    if (settings) {
-      setIsPrivate(settings.privateOrPublicUrl ?? true);
-      setUrl(settings.notePadUrl ?? "");
-      setPassword(settings.password ?? "");
-    }
-  }, [settings]);
-
-  const updateSettings = api.userSettings.updateNoteSettings.useMutation({
-    onSuccess: () => {
-      toast.success("Configurações atualizadas", {
-        description: "Suas configurações foram salvas com sucesso."
-      });
-      router.refresh();
-    },
-    onError: (error) => {
-      toast.error("Erro", {
-        description: error.message
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettings.mutate({
-      notePadUrl: url,
-      privateOrPublicUrl: isPrivate,
-      password: isPrivate ? password : null,
-    });
-  };
-
-  if (isLoading) {
+  if (!session?.user) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner className="h-8 w-8" />
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-grow flex items-center justify-center bg-gray-100">
+          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Acesso Negado</h2>
+            <p className="text-gray-600 mb-6">Por favor, faça login para configurar seu bloco de notas.</p>
+            <Link
+              href="/api/auth/signin"
+              className="inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Entrar
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
+  const settings = await api.userSettings.getNoteSettings();
+
   return (
-    <div className="container mx-auto max-w-2xl p-4">
-      <h1 className="mb-8 text-2xl font-bold">Configurações do Bloco de Notas</h1>
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="url">URL do seu bloco de notas</Label>
-          <Input
-            id="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="meu-bloco-de-notas"
-          />
-          <p className="text-sm text-gray-500">
-            Esta será a URL para acessar suas notas: /notas/{url}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="private"
-              checked={isPrivate}
-              onCheckedChange={setIsPrivate}
-            />
-            <Label htmlFor="private">Bloco de notas privado</Label>
+    <HydrateClient>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-grow container mx-auto max-w-2xl p-4">
+          <h1 className="mb-8 text-2xl font-bold">Configurações do Bloco de Notas</h1>
+          
+          <div className="bg-white shadow rounded-lg p-6">
+            <NotepadSettingsForm initialSettings={{
+              notePadUrl: settings?.notePadUrl ?? '',
+              privateOrPublicUrl: settings?.privateOrPublicUrl ?? true,
+              password: settings?.password ?? ''
+            }} />
           </div>
-          <p className="text-sm text-gray-500">
-            {isPrivate
-              ? "Apenas você pode ver e editar as notas"
-              : "Qualquer pessoa com a URL pode ver e editar as notas"}
-          </p>
         </div>
-
-        {isPrivate && (
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha (opcional)</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Digite uma senha"
-            />
-            <p className="text-sm text-gray-500">
-              Se definida, será necessária para acessar suas notas
-            </p>
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={updateSettings.isPending}
-        >
-          {updateSettings.isPending ? (
-            <>
-              <LoadingSpinner className="mr-2 h-4 w-4" />
-              Salvando...
-            </>
-          ) : (
-            "Salvar configurações"
-          )}
-        </Button>
-      </form>
-    </div>
+      </div>
+    </HydrateClient>
   );
 }
