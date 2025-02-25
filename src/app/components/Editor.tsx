@@ -19,8 +19,8 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
   const l18n = {
     write: "Escrever",
     preview: "Visualizar",
-    uploadingImage: "Uploading image...",
-    pasteDropSelect: "Click to paste an image, or drag and drop",
+    uploadingImage: "Enviando imagem...",
+    pasteDropSelect: "Clique para colar uma imagem, ou arraste e solte",
     untitledNote: "Nota sem título"
   };
 

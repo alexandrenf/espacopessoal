@@ -28,9 +28,9 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Delete Note</DialogTitle>
+          <DialogTitle>Excluir Nota</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete &quot;{noteTitle}&quot;? This action cannot be undone.
+            Tem certeza que deseja excluir &quot;{noteTitle}&quot;? Esta ação não pode ser desfeita.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
@@ -39,14 +39,14 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
             onClick={onClose}
             disabled={isDeleting}
           >
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirm}
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "Excluindo..." : "Excluir"}
           </Button>
         </DialogFooter>
       </DialogContent>
