@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { api } from "~/trpc/react";
-import type { RouterOutputs } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Switch } from "../../components/ui/switch";
-import { LoadingSpinner } from "../components/LoadingSpinner";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Switch } from "~/components/ui/switch";
+import { useToast } from "~/components/ui/use-toast";
+import { LoadingSpinner } from "~/components/loading";
 
 export default function ConfiguracoesPage() {
+  const { toast } = useToast();
   const router = useRouter();
   
   const [isPrivate, setIsPrivate] = useState(true);
@@ -19,27 +19,27 @@ export default function ConfiguracoesPage() {
   const [password, setPassword] = useState<string>("");
 
   // Fetch current settings
-  const { data: settings, isLoading } = api.userSettings.getNoteSettings.useQuery();
-
-  // Update state when settings data changes
-  useEffect(() => {
-    if (settings) {
-      setIsPrivate(settings.privateOrPublicUrl ?? true);
-      setUrl(settings.notePadUrl ?? "");
-      setPassword(settings.password ?? "");
-    }
-  }, [settings]);
+  const { data: settings, isLoading } = api.userSettings.getNoteSettings.useQuery(undefined, {
+    onSuccess: (data) => {
+      setIsPrivate(data.privateOrPublicUrl ?? true);
+      setUrl(data.notePadUrl ?? "");
+      setPassword(data.password ?? "");
+    },
+  });
 
   const updateSettings = api.userSettings.updateNoteSettings.useMutation({
     onSuccess: () => {
-      toast.success("Configurações atualizadas", {
-        description: "Suas configurações foram salvas com sucesso."
+      toast({
+        title: "Configurações atualizadas",
+        description: "Suas configurações foram salvas com sucesso.",
       });
       router.refresh();
     },
     onError: (error) => {
-      toast.error("Erro", {
-        description: error.message
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -123,9 +123,4 @@ export default function ConfiguracoesPage() {
             </>
           ) : (
             "Salvar configurações"
-          )}
-        </Button>
-      </form>
-    </div>
-  );
-}
+          
