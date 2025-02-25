@@ -14,7 +14,7 @@ interface Note {
 }
 
 interface SidebarProps {
-  notes: (Note | { id: number; content: string; createdAt: Date; updatedAt: Date; isOptimistic?: boolean })[];
+  notes: Note[];
   currentNote: Note | { id: number | null; content: string };
   setCurrentNoteId: (id: number) => void;
   newNote: () => void;
@@ -66,9 +66,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             className={`opacity-0 group-hover:opacity-100 absolute right-4 p-1.5 rounded-full transition-all duration-200
               ${note.id === currentNote.id ? "opacity-100" : ""}
               ${isDeletingId === note.id ? "bg-red-50" : "hover:bg-red-50"}
+              focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+              focus:opacity-100
+              disabled:opacity-50 disabled:cursor-not-allowed
+              ${isDeletingId === note.id ? "cursor-wait" : ""}
             `}
-            aria-label="Delete note"
+            aria-label={`Delete note: ${note.content.split("\n")[0] ?? "Untitled Note"}`}
             aria-busy={isDeletingId === note.id}
+            aria-disabled={isDeletingId === note.id}
+            role="button"
+            tabIndex={isDeletingId === note.id ? -1 : 0}
           >
             {isDeletingId === note.id ? (
               <ImSpinner8 

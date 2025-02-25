@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { useParams } from "next/navigation";
 import { default as debounce } from "lodash/debounce";
 import type { DebouncedFunc } from "lodash";
+import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 
 const DEBOUNCE_DELAY = 4000;
 const MAX_WAIT = DEBOUNCE_DELAY * 2;
@@ -23,6 +24,36 @@ interface OptimisticNote extends Note {
   isOptimistic: boolean;
 }
 
+// Add a type for error handling
+type ErrorWithMessage = {
+  message: string;
+};
+
+function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as Record<string, unknown>).message === 'string'
+  );
+}
+
+function toErrorWithMessage(maybeError: unknown): ErrorWithMessage {
+  if (isErrorWithMessage(maybeError)) return maybeError;
+
+  try {
+    return new Error(JSON.stringify(maybeError));
+  } catch {
+    // fallback in case there's an error stringifying the maybeError
+    // like with circular references for example
+    return new Error(String(maybeError));
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  return toErrorWithMessage(error).message;
+}
+
 export default function App(): JSX.Element {
   const params = useParams();
   const url = (params.url as string) || "";
@@ -33,6 +64,8 @@ export default function App(): JSX.Element {
   const [currentNoteId, setCurrentNoteId] = useState<number | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<{ id: number; title: string } | null>(null);
 
   // Refs to track optimistic updates:
   // - lastSentTextRef: holds the text that was sent with the mutation
@@ -100,7 +133,6 @@ export default function App(): JSX.Element {
     onSuccess: (updatedNote) => {
       setUpdateError(null);
       
-      // Only update if the content hasn't changed since we sent the mutation
       if (lastSentTextRef.current === currentContentRef.current) {
         setNotes((prev) =>
           prev.map((note) =>
@@ -109,16 +141,14 @@ export default function App(): JSX.Element {
               : note
           )
         );
-        // Update last good content only if we actually used the server response
         lastGoodContentRef.current = updatedNote.content ?? "";
       }
     },
     onError: (error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to update note";
+      const errorMessage = getErrorMessage(error);
       setUpdateError(errorMessage);
+      console.error('Failed to update note:', errorMessage);
 
-      // Only revert if no new changes were made
       if (lastSentTextRef.current === currentContentRef.current) {
         setNotes((prev) =>
           prev.map((note) =>
@@ -135,7 +165,6 @@ export default function App(): JSX.Element {
       errorTimeoutRef.current = setTimeout(() => setUpdateError(null), ERROR_MESSAGE_TIMEOUT);
     },
     retry: 2,
-    retryDelay: 1000,
   });
 
   // Store the mutateAsync function in a ref to avoid recreating the debounced function.
@@ -189,49 +218,51 @@ export default function App(): JSX.Element {
   // Handler to create a new note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (newNoteData) => {
-      // Cancel any outgoing refetches
-      await utils.notes.fetchNotesPublic.cancel({ url });
+      try {
+        await utils.notes.fetchNotesPublic.cancel({ url });
 
-      // Snapshot the previous value
-      const previousNotes = notes;
-      const previousCurrentNoteId = currentNoteId;
-      
-      // Generate a temporary negative ID to ensure uniqueness
-      const tempId = -Math.floor(Math.random() * 1000000);
-      
-      const optimisticNote: OptimisticNote = {
-        id: tempId,
-        content: newNoteData.content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isOptimistic: true,
-      };
-      
-      // Update state optimistically, but maintain current selection
-      setNotes((prev) => [optimisticNote, ...prev]);
-      
-      return { 
-        previousNotes, 
-        previousCurrentNoteId,
-        tempId 
-      };
+        const previousNotes = notes;
+        const previousCurrentNoteId = currentNoteId;
+        const tempId = -Math.floor(Math.random() * 1000000);
+        
+        const optimisticNote: OptimisticNote = {
+          id: tempId,
+          content: newNoteData.content,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isOptimistic: true,
+        };
+        
+        setNotes((prev) => [optimisticNote, ...prev]);
+        
+        return { previousNotes, previousCurrentNoteId, tempId };
+      } catch (error) {
+        console.error('Error in onMutate:', getErrorMessage(error));
+        return { previousNotes: notes, previousCurrentNoteId: currentNoteId, tempId: null };
+      }
     },
-    onError: (err, newNote, context) => {
+    onError: (error, newNote, context) => {
       if (context) {
         setNotes(context.previousNotes);
         setCurrentNoteId(context.previousCurrentNoteId);
       }
-      setUpdateError("Failed to create note");
+      const errorMessage = getErrorMessage(error);
+      console.error('Failed to create note:', errorMessage);
+      setUpdateError(`Failed to create note: ${errorMessage}`);
     },
     onSuccess: async (newNote, variables, context) => {
-      // Invalidate and refetch
-      await utils.notes.fetchNotesPublic.invalidate({ url });
+      try {
+        await utils.notes.fetchNotesPublic.invalidate({ url });
+      } catch (error) {
+        console.error('Error invalidating cache:', getErrorMessage(error));
+      }
     },
+    retry: 2,
   });
 
   function createNewNote(): void {
     if (createNoteMutation.isPending) return;
-    const newNoteContent = "# Enter title here \n\n";
+    const newNoteContent = "Título da nota\n\n";
     createNoteMutation.mutate({
       url,
       content: newNoteContent,
@@ -241,6 +272,12 @@ export default function App(): JSX.Element {
   // Handler to update a note.
   function updateNote(text: string): void {
     if (currentNoteId !== null) {
+      // Check if the note still exists
+      const noteExists = notes.some(note => note.id === currentNoteId);
+      if (!noteExists) {
+        return; // Silently ignore updates for non-existent notes
+      }
+
       // Update our ref with the latest content
       currentContentRef.current = text;
       
@@ -258,56 +295,56 @@ export default function App(): JSX.Element {
   // Handler to delete a note
   const deleteNoteMutation = api.notes.deleteNotePublic.useMutation({
     onMutate: async (deleteData) => {
-      // Cancel any outgoing refetches
-      await utils.notes.fetchNotesPublic.cancel({ url });
-      
-      // Snapshot current state
-      const previousNotes = notes;
-      const previousCurrentNoteId = currentNoteId;
-      
-      // Find the next note to select
-      const currentIndex = notes.findIndex(note => note.id === deleteData.id);
-      const nextNote = notes[currentIndex + 1] ?? notes[currentIndex - 1];
-      
-      // Update state optimistically
-      setNotes((prev) => prev.filter(note => note.id !== deleteData.id));
-      
-      // Update current note selection
-      if (currentNoteId === deleteData.id) {
-        setCurrentNoteId(nextNote?.id ?? null);
-        if (nextNote) {
-          lastGoodContentRef.current = nextNote.content;
+      try {
+        await utils.notes.fetchNotesPublic.cancel({ url });
+        
+        const previousNotes = notes;
+        const previousCurrentNoteId = currentNoteId;
+        
+        const currentIndex = notes.findIndex(note => note.id === deleteData.id);
+        const nextNote = notes[currentIndex + 1] ?? notes[currentIndex - 1];
+        
+        setNotes((prev) => prev.filter(note => note.id !== deleteData.id));
+        
+        if (currentNoteId === deleteData.id) {
+          setCurrentNoteId(nextNote?.id ?? null);
+          if (nextNote) {
+            lastGoodContentRef.current = nextNote.content;
+          }
         }
+        
+        return { previousNotes, previousCurrentNoteId, deletedNoteId: deleteData.id };
+      } catch (error) {
+        console.error('Error in delete onMutate:', getErrorMessage(error));
+        return { previousNotes: notes, previousCurrentNoteId: currentNoteId, deletedNoteId: null };
       }
-      
-      return { 
-        previousNotes, 
-        previousCurrentNoteId,
-        deletedNoteId: deleteData.id 
-      };
     },
-    onError: (err, deleteData, context) => {
+    onError: (error, deleteData, context) => {
       if (context) {
-        // Revert all changes
         setNotes(context.previousNotes);
         setCurrentNoteId(context.previousCurrentNoteId);
         lastGoodContentRef.current = context.previousNotes.find(
           note => note.id === context.previousCurrentNoteId
         )?.content ?? "";
       }
-      setUpdateError("Failed to delete note");
+      const errorMessage = getErrorMessage(error);
+      console.error('Failed to delete note:', errorMessage);
+      setUpdateError(`Failed to delete note: ${errorMessage}`);
     },
     onSuccess: async (_, variables, context) => {
       if (!context) return;
       
-      // Clear any pending updates for the deleted note
       if (currentNoteId === context.deletedNoteId) {
         debouncedUpdate.cancel();
       }
 
-      // Invalidate and refetch
-      await utils.notes.fetchNotesPublic.invalidate({ url });
+      try {
+        await utils.notes.fetchNotesPublic.invalidate({ url });
+      } catch (error) {
+        console.error('Error invalidating cache after delete:', getErrorMessage(error));
+      }
     },
+    retry: 2,
   });
 
   function deleteNote(
@@ -316,7 +353,20 @@ export default function App(): JSX.Element {
   ): void {
     event.stopPropagation();
     if (deleteNoteMutation.isPending) return;
-    deleteNoteMutation.mutate({ id: noteId });
+    
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+    
+    const noteTitle = note.content.split('\n')[0]?.trim() ?? "Untitled Note";
+    setNoteToDelete({ id: noteId, title: noteTitle });
+    setIsDeleteModalOpen(true);
+  }
+
+  function handleConfirmDelete(): void {
+    if (!noteToDelete || deleteNoteMutation.isPending) return;
+    deleteNoteMutation.mutate({ id: noteToDelete.id });
+    setIsDeleteModalOpen(false);
+    setNoteToDelete(null);
   }
 
   function findCurrentNote():
@@ -427,6 +477,16 @@ export default function App(): JSX.Element {
           </button>
         </div>
       )}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setNoteToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        noteTitle={noteToDelete?.title ?? ""}
+        isDeleting={deleteNoteMutation.isPending}
+      />
     </main>
   );
 }
