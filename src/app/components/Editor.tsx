@@ -13,6 +13,7 @@ interface EditorProps {
 
 const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
+  const [title, setTitle] = React.useState(currentNote.content.split("\n")[0] ?? "Untitled Note");
 
   const converter = new Converter({
     tables: true,
@@ -21,20 +22,107 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote }) => {
     tasklists: true,
   });
 
+  // Get content without the first line, preserving trailing newlines
+  const getContentWithoutTitle = (content: string) => {
+    const lines = content.split("\n");
+    return lines.slice(1).join("\n");
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    // Combine new title with existing content
+    const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
+    updateNote(`${newTitle}\n${contentWithoutTitle}`);
+  };
+
+  const handleContentChange = (newContent: string) => {
+    // Preserve the title when content changes
+    updateNote(`${title}\n${newContent}`);
+  };
+
+  React.useEffect(() => {
+    // Update title when currentNote changes
+    setTitle(currentNote.content.split("\n")[0] ?? "Untitled Note");
+  }, [currentNote.id]);
+
   return (
-    <div className="w-full h-screen">
-      <ReactMde
-        value={currentNote.content}
-        onChange={updateNote}
-        selectedTab={selectedTab}
-        onTabChange={(tab: "write" | "preview") => setSelectedTab(tab)}
-        generateMarkdownPreview={(markdown: string): Promise<React.ReactNode> => {
-          const html = converter.makeHtml(markdown);
-          return Promise.resolve(<div dangerouslySetInnerHTML={{ __html: html }} />);
-        }}
-        minEditorHeight={80}
-        heightUnits="vh"
-      />
+    <div className="w-full h-screen bg-white">
+      <div className="p-4 border-b border-gray-200">
+        <input
+          type="text"
+          value={title}
+          onChange={handleTitleChange}
+          className="w-full text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-2 py-1"
+          placeholder="Untitled Note"
+        />
+      </div>
+      <div className="p-4">
+        <ReactMde
+          value={getContentWithoutTitle(currentNote.content)}
+          onChange={handleContentChange}
+          selectedTab={selectedTab}
+          onTabChange={setSelectedTab}
+          generateMarkdownPreview={(markdown: string): Promise<React.ReactNode> => {
+            const html = converter.makeHtml(markdown);
+            return Promise.resolve(
+              <div className="prose max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: html }} />
+              </div>
+            );
+          }}
+          minEditorHeight={75}
+          heightUnits="vh"
+          classes={{
+            reactMde: "border-none shadow-none",
+            toolbar: "border-none bg-gray-50 rounded-t-lg",
+            preview: "prose max-w-none p-4 bg-gray-50 rounded-lg",
+            textArea: "bg-gray-50 rounded-lg p-4 focus:outline-none"
+          }}
+        />
+      </div>
+      <style jsx global>{`
+        .mde-header {
+          border: none !important;
+          background: none !important;
+          padding: 0.5rem !important;
+        }
+        .mde-header .mde-tabs button {
+          padding: 0.5rem 1rem !important;
+          margin-right: 0.5rem !important;
+          border-radius: 0.375rem !important;
+          color: #4B5563 !important;
+        }
+        .mde-header .mde-tabs button.selected {
+          background: #EFF6FF !important;
+          color: #1D4ED8 !important;
+          border: 1px solid #BFDBFE !important;
+        }
+        .mde-text {
+          border: none !important;
+        }
+        .mde-preview {
+          border: none !important;
+          margin-top: 1rem !important;
+        }
+        .mde-header .svg-icon {
+          width: 1rem !important;
+          height: 1rem !important;
+          margin: 0 0.25rem !important;
+        }
+        .mde-header .mde-header-group {
+          margin-left: 0.5rem !important;
+        }
+        .mde-header .mde-header-group button {
+          color: #4B5563 !important;
+          padding: 0.25rem 0.5rem !important;
+          border-radius: 0.375rem !important;
+        }
+        .mde-header .mde-header-group button:hover {
+          background: #EFF6FF !important;
+          color: #1D4ED8 !important;
+        }
+      `}</style>
     </div>
   );
 };
