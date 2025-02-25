@@ -10,6 +10,7 @@ import type { DebouncedFunc } from "lodash";
 
 const DEBOUNCE_DELAY = 4000;
 const MAX_WAIT = DEBOUNCE_DELAY * 2;
+const ERROR_MESSAGE_TIMEOUT = 5000;
 
 export interface Note {
   id: number;
@@ -131,7 +132,7 @@ export default function App(): JSX.Element {
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
-      errorTimeoutRef.current = setTimeout(() => setUpdateError(null), 5000);
+      errorTimeoutRef.current = setTimeout(() => setUpdateError(null), ERROR_MESSAGE_TIMEOUT);
     },
     retry: 2,
     retryDelay: 1000,
@@ -153,17 +154,17 @@ export default function App(): JSX.Element {
               noteId,
               textLength: text.length,
             });
-            // Record the text that is being sent
+            setIsSaving(true); // Set saving state when update starts
             lastSentTextRef.current = text;
             updateMutateAsyncRef
               .current({ id: noteId, content: text })
               .then((result) => {
                 console.log("Note saved successfully:", result);
-                setIsSaving(false);
+                setIsSaving(false); // Clear saving state on success
               })
               .catch((error: unknown) => {
                 console.error("Error updating note:", error);
-                setIsSaving(false);
+                setIsSaving(false); // Clear saving state on error
                 if (error instanceof Error) {
                   setUpdateError(error.message);
                 } else {
@@ -249,7 +250,6 @@ export default function App(): JSX.Element {
           note.id === currentNoteId ? { ...note, content: text } : note
         )
       );
-      setIsSaving(true);
       // Schedule the debounced update
       debouncedUpdate(text, currentNoteId);
     }
@@ -356,18 +356,40 @@ export default function App(): JSX.Element {
 
   return (
     <main className="h-screen flex">
-      {(updateError !== null || isSaving === true) && (
+      {(updateError !== null || isSaving) && (
         <div
           role="alert"
           aria-live="polite"
-          className={`fixed top-4 right-4 px-4 py-3 rounded shadow-md ${
+          className={`fixed top-4 right-4 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 transition-all duration-200 ${
             updateError
               ? "bg-red-100 border border-red-400 text-red-700"
-              : "bg-blue-100 border border-blue-400 text-blue-700"
+              : "bg-blue-50 border border-blue-200 text-blue-700"
           }`}
         >
-          <span className="block sm:inline">
-            {updateError ?? (isSaving ? "Saving..." : "")}
+          {isSaving && (
+            <svg 
+              className="animate-spin h-4 w-4" 
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle 
+                className="opacity-25" 
+                cx="12" 
+                cy="12" 
+                r="10" 
+                stroke="currentColor" 
+                strokeWidth="4"
+              />
+              <path 
+                className="opacity-75" 
+                fill="currentColor" 
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          )}
+          <span className="block text-sm font-medium">
+            {updateError ?? (isSaving ? "Saving changes..." : "")}
           </span>
         </div>
       )}
