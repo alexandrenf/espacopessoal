@@ -3,18 +3,16 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { api } from "~/trpc/react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent } from "~/components/ui/sheet";
 
 export default function Header() {
   const { data: session, status } = useSession();
   const [authError, setAuthError] = useState<boolean>(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Fetch user's notepad URL only when authenticated
-  const { data: noteSettings, isLoading: isLoadingNoteSettings } = api.userSettings.getNoteSettings.useQuery(
+  const { data: noteSettings, isLoading: isLoadingNoteSettings, error } = api.userSettings.getNoteSettings.useQuery(
     undefined, 
     {
       enabled: status === "authenticated",
@@ -23,14 +21,14 @@ export default function Header() {
       refetchOnWindowFocus: false, // Prevent unnecessary refetches
     }
   );
-  
-  // Handle authentication errors - only run when status changes
+
+  // Handle error effect
   useEffect(() => {
-    if (status === "unauthenticated" && session === undefined) {
+    if (error && status === "unauthenticated" && !session) {
       console.error("Authentication error occurred");
       setAuthError(true);
     }
-  }, [status, session]);
+  }, [error, status, session]);
   
   // Memoize authentication state to prevent unnecessary re-renders
   const isAuthenticated = useMemo(() => 
@@ -44,24 +42,6 @@ export default function Header() {
     [noteSettings?.notePadUrl]
   );
 
-  // Close mobile menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const nav = document.getElementById('mobile-menu');
-      if (nav && !nav.contains(event.target as Node)) {
-        setIsMobileMenuOpen(false);
-      }
-    };
-
-    if (isMobileMenuOpen) {
-      document.addEventListener('click', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [isMobileMenuOpen]);
-  
   return (
     <header className="bg-white shadow-sm relative">
       {authError && (
@@ -151,11 +131,14 @@ export default function Header() {
             </SheetContent>
           </Sheet>
 
-          <Button disabled={status === "loading"}>
-            <Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
+          <Link 
+            href={session ? "/api/auth/signout" : "/api/auth/signin"}
+            className="z-20"
+          >
+            <Button disabled={status === "loading"}>
               {status === "loading" ? "Carregando..." : session ? "Sair" : "Entrar"}
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         </div>
       </div>
     </header>
