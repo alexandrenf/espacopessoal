@@ -73,7 +73,7 @@ export default function Header() {
                   <Link 
                     href={notepadUrl} 
                     className="text-gray-600 hover:text-primary"
-                    prefetch={true}
+                    prefetch={false}
                   >
                     Bloco de Notas
                   </Link>
