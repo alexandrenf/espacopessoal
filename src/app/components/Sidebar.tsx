@@ -98,27 +98,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     <section className="w-full h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => notes.length > 0 && notes[0]?.id ? setCurrentNoteId(notes[0].id) : undefined}
-            className="md:hidden p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
-            aria-label="Back to notes list"
-            type="button"
-          >
-            <svg 
-              className="w-5 h-5" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M15 19l-7-7 7-7" 
-              />
-            </svg>
-          </button>
           <h1 className="text-xl font-semibold text-gray-800">
             Notas
           </h1>

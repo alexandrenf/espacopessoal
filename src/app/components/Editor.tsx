@@ -80,27 +80,24 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving, isLo
 
   return (
     <div className="w-full h-screen bg-white">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center">
+      <div className="flex items-center justify-between p-4 border-t border-gray-100 border-b border-gray-200">
+        <div className="flex-1 flex items-center gap-2">
           <div className="w-10 md:hidden"></div>
-          <div className="flex-1 flex items-center gap-2">
-            <label htmlFor="note-title" className="sr-only">Note Title</label>
-            <input
-              id="note-title"
-              type="text"
-              value={title}
-              onChange={handleTitleChange}
-              className="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded pl-0 py-1"
-              placeholder={l18n.untitledNote}
-              aria-label="Note title"
-            />
-            {isSaving && (
-              <span className="text-sm text-gray-500">Salvando...</span>
-            )}
-            {isLoading && (
+          <input
+            id="note-title"
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none"
+            placeholder={l18n.untitledNote}
+            aria-label="Note title"
+          />
+          {isSaving && (
+            <span className="text-sm text-gray-500">Salvando...</span>
+          )}
+          {isLoading && (
             <span className="text-sm text-gray-500 ml-2">Carregando...</span>
-           )}
-          </div>
+          )}
         </div>
       </div>
       <div className="p-4">

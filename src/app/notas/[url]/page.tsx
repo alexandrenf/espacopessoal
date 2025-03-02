@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { NotepadPasswordAuth } from "~/app/components/NotepadPasswordAuth";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
-import Header from "../../components/Header";
 import App from "./notepad";
 
 // Create a simple password storage helper
@@ -71,7 +70,6 @@ export default function NotepadPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header />
         <div className="flex-grow flex items-center justify-center">
           <LoadingSpinner className="h-8 w-8" />
         </div>
@@ -83,7 +81,6 @@ export default function NotepadPage() {
   if (error?.data?.code === "UNAUTHORIZED" && !password) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header />
         <div className="flex-grow">
           <NotepadPasswordAuth 
             url={url as string} 
@@ -101,7 +98,6 @@ export default function NotepadPage() {
   if (error) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header />
         <div className="flex-grow flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-red-600">Error</h2>
@@ -115,7 +111,6 @@ export default function NotepadPage() {
   // Render notes
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       <div className="flex-grow">
         <App password={password} />
       </div>
