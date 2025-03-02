@@ -247,7 +247,7 @@ const App: React.FC<AppProps> = ({ password }) => {
           DEBOUNCE_DELAY,
           { maxWait: MAX_WAIT }
         ),
-      []
+      [password, url]
     );
 
   useEffect(() => {
@@ -294,7 +294,7 @@ const App: React.FC<AppProps> = ({ password }) => {
       console.error('Failed to create note:', errorMessage);
       setUpdateError(`Failed to create note: ${errorMessage}`);
     },
-    onSuccess: async (newNote, variables, context) => {
+    onSuccess: async (_newNote, _variables, _context) => {
       try {
         await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
       } catch (error) {
