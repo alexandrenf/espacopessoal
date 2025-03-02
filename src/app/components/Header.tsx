@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { api } from "~/trpc/react";
+import { Menu } from "lucide-react";
+import { Sheet, SheetTrigger, SheetContent } from "~/components/ui/sheet";
 
 export default function Header() {
   const { data: session, status } = useSession();
   const [authError, setAuthError] = useState<boolean>(false);
   
-  // Fetch user's notepad URL only when authenticated
-  const { data: noteSettings, isLoading: isLoadingNoteSettings } = api.userSettings.getNoteSettings.useQuery(
+  const { data: noteSettings, isLoading: isLoadingNoteSettings, error } = api.userSettings.getNoteSettings.useQuery(
     undefined, 
     {
       enabled: status === "authenticated",
@@ -20,14 +21,14 @@ export default function Header() {
       refetchOnWindowFocus: false, // Prevent unnecessary refetches
     }
   );
-  
-  // Handle authentication errors - only run when status changes
+
+  // Handle error effect
   useEffect(() => {
-    if (status === "unauthenticated" && session === undefined) {
+    if (error && status === "unauthenticated" && !session) {
       console.error("Authentication error occurred");
       setAuthError(true);
     }
-  }, [status, session]);
+  }, [error, status, session]);
   
   // Memoize authentication state to prevent unnecessary re-renders
   const isAuthenticated = useMemo(() => 
@@ -40,9 +41,9 @@ export default function Header() {
     noteSettings?.notePadUrl ? `/notas/${noteSettings.notePadUrl}` : null,
     [noteSettings?.notePadUrl]
   );
-  
+
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-white shadow-sm relative">
       {authError && (
         <div className="bg-red-500 text-white p-2 text-center text-sm">
           Ocorreu um erro na autenticação. Por favor, tente novamente mais tarde.
@@ -50,9 +51,11 @@ export default function Header() {
       )}
       
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="text-2xl font-bold text-primary">
+        <Link href="/" className="text-2xl font-bold text-primary z-20">
           Espaço Pessoal
         </Link>
+
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-6">
           <Link href="/#recursos" className="text-gray-600 hover:text-primary">
             Recursos
@@ -82,11 +85,61 @@ export default function Header() {
             </>
           )}
         </nav>
-        <Button disabled={status === "loading"}>
-          <Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
-            {status === "loading" ? "Carregando..." : session ? "Sair" : "Entrar"}
+
+        {/* Mobile Menu Button */}
+        <div className="flex items-center gap-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button 
+                variant="ghost"
+                className="md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[400px] p-0">
+              <nav className="flex flex-col h-full py-6">
+                <div className="px-6 space-y-4">
+                  <Link
+                    href="/#recursos"
+                    className="block text-gray-600 hover:text-primary py-2 text-lg"
+                  >
+                    Recursos
+                  </Link>
+                  
+                  {isAuthenticated && (
+                    <>
+                      {notepadUrl && (
+                        <Link
+                          href={notepadUrl}
+                          className="block text-gray-600 hover:text-primary py-2 text-lg"
+                        >
+                          Bloco de Notas
+                        </Link>
+                      )}
+                      <Link
+                        href="/profile"
+                        className="block text-gray-600 hover:text-primary py-2 text-lg"
+                      >
+                        Perfil
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
+
+          <Link 
+            href={session ? "/api/auth/signout" : "/api/auth/signin"}
+            className="z-20"
+          >
+            <Button disabled={status === "loading"}>
+              {status === "loading" ? "Carregando..." : session ? "Sair" : "Entrar"}
+            </Button>
           </Link>
-        </Button>
+        </div>
       </div>
     </header>
   );
