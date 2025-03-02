@@ -12,6 +12,7 @@ import type { DebouncedFunc } from "lodash";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
+import { Menu } from "lucide-react";
 
 interface AppProps {
   password: string | null;
@@ -495,46 +496,29 @@ const App: React.FC<AppProps> = ({ password }) => {
                 deleteNote={deleteNote}
                 isCreating={createNoteMutation.isPending}
                 isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
+                onToggleSidebar={isMobile ? () => setShowSidebar(!showSidebar) : undefined}
+                showSidebar={showSidebar}
               />
             </div>
 
-            {/* Toggle sidebar button for mobile */}
-            {isMobile && (
-              <Button
-                onClick={() => setShowSidebar(!showSidebar)}
-                variant="outline"
-                size="icon"
-                className={`
-                  fixed z-10 shadow-sm
-                  ${showSidebar 
-                    ? 'top-20 right-16' // When sidebar and header are visible
-                    : 'top-4 left-4'   // When sidebar and header are hidden
-                  }
-                `}
-                aria-label="Alternar barra lateral"
-              >
-                <svg 
-                  className="w-4 h-4" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth={2}
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  viewBox="0 0 24 24"
-                >
-                  {showSidebar 
-                    ? <path d="M19 12H5M12 19l-7-7 7-7" />
-                    : <path d="M4 6h16M4 12h16M4 18h16" />
-                  }
-                </svg>
-              </Button>
-            )}
-
             {/* Editor */}
             <div className={`
-              w-full md:w-5/6 h-full transition-all duration-200
+              w-full md:w-5/6 h-full transition-all duration-200 relative
               ${currentNoteId !== null ? 'block' : 'hidden md:block'}
             `}>
+              {isMobile && !showSidebar && (
+                <div className="absolute top-4 left-4 z-10">
+                  <Button
+                    onClick={() => setShowSidebar(true)}
+                    variant="outline"
+                    size="icon"
+                    className="md:hidden"
+                    aria-label="Alternar barra lateral"
+                  >
+                    <Menu className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
               {currentNoteId !== null && notes.length > 0 ? (
                 <div className="relative">
                   <Editor
