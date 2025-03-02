@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { api } from "~/trpc/react";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "~/components/ui/sheet";
@@ -34,11 +34,21 @@ export default function Header() {
   );
 
   // Handle scroll effect
-  if (typeof window !== 'undefined') {
-    window.addEventListener('scroll', () => {
+  useEffect(() => {
+    const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
-    });
-  }
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', handleScroll);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
