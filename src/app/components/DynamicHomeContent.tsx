@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button } from "~/components/ui/button";
+import { useSession } from "next-auth/react";
 import HeroSection from "./HeroSection";
 import FeaturesSection from "./FeaturesSection";
 import HowItWorksSection from "./HowItWorksSection";
 import CTASection from "./CTASection";
 
 export default function DynamicHomeContent() {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+
   return (
     <main>
       <HeroSection />
       <FeaturesSection />
       <HowItWorksSection />
-      <CTASection />
+      {!isAuthenticated && <CTASection />}
     </main>
   );
 }
