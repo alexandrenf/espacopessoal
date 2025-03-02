@@ -4,6 +4,7 @@ import React from "react";
 import { FaTrash } from "react-icons/fa";
 import { ImSpinner8 } from "react-icons/im";
 import { Button } from "~/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface Note {
   id: number;
@@ -21,6 +22,8 @@ interface SidebarProps {
   deleteNote: (event: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
   isCreating: boolean;
   isDeletingId: number | null;
+  onToggleSidebar?: () => void;
+  showSidebar?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +34,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   deleteNote,
   isCreating,
   isDeletingId,
+  onToggleSidebar,
+  showSidebar,
 }) => {
   const noteList = notes.map((note) => (
     <li
@@ -98,50 +103,39 @@ const Sidebar: React.FC<SidebarProps> = ({
     <section className="w-full h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => notes.length > 0 && notes[0]?.id ? setCurrentNoteId(notes[0].id) : undefined}
-            className="md:hidden p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
-            aria-label="Back to notes list"
-            type="button"
-          >
-            <svg 
-              className="w-5 h-5" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M15 19l-7-7 7-7" 
-              />
-            </svg>
-          </button>
           <h1 className="text-xl font-semibold text-gray-800">
             Notas
           </h1>
         </div>
-        <Button
-          onClick={newNote}
-          disabled={isCreating}
-          aria-busy={isCreating}
-          aria-label="Create new note"
-          variant="outline"
-          size="sm"
-          className={`gap-2 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700
-            ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          {isCreating ? (
-            <ImSpinner8 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <span className="text-lg">+</span>
-              <span className="hidden md:inline">Criar</span>
-            </>
+        <div className="flex items-center gap-2">
+          {onToggleSidebar && showSidebar && (
+            <Button
+              onClick={onToggleSidebar}
+              variant="outline"
+              size="icon"
+              className="md:hidden"
+              aria-label="Alternar barra lateral"
+            >
+              <ArrowLeft className="w-3 h-3" />
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={newNote}
+            disabled={isCreating}
+            aria-busy={isCreating}
+            aria-label="Create new note"
+            variant="outline"
+            size="icon"
+            className={`bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700
+              ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isCreating ? (
+              <ImSpinner8 className="w-4 h-4 animate-spin" />
+            ) : (
+              <span className="text-lg">+</span>
+            )}
+          </Button>
+        </div>
       </div>
       <ul 
         className="flex-1 flex flex-col divide-y divide-gray-100 overflow-y-auto"
