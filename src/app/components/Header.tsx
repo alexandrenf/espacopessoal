@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect, useMemo } from "react";
 import { api } from "~/trpc/react";
 import { Menu, X } from "lucide-react";
+import { Sheet, SheetTrigger, SheetContent } from "~/components/ui/sheet";
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -106,64 +107,55 @@ export default function Header() {
         </nav>
 
         {/* Mobile Menu Button */}
-        <div className="flex items-center gap-4 z-20">
-          <Button 
-            variant="ghost"
-            className="md:hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </Button>
+        <div className="flex items-center gap-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button 
+                variant="ghost"
+                className="md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[400px] p-0">
+              <nav className="flex flex-col h-full py-6">
+                <div className="px-6 space-y-4">
+                  <Link
+                    href="/#recursos"
+                    className="block text-gray-600 hover:text-primary py-2 text-lg"
+                  >
+                    Recursos
+                  </Link>
+                  
+                  {isAuthenticated && (
+                    <>
+                      {notepadUrl && (
+                        <Link
+                          href={notepadUrl}
+                          className="block text-gray-600 hover:text-primary py-2 text-lg"
+                        >
+                          Bloco de Notas
+                        </Link>
+                      )}
+                      <Link
+                        href="/profile"
+                        className="block text-gray-600 hover:text-primary py-2 text-lg"
+                      >
+                        Perfil
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
 
-          <Button disabled={status === "loading"} className="z-20">
+          <Button disabled={status === "loading"}>
             <Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
               {status === "loading" ? "Carregando..." : session ? "Sair" : "Entrar"}
             </Link>
           </Button>
-        </div>
-
-        {/* Mobile Navigation */}
-        <div
-          id="mobile-menu"
-          className={`fixed inset-0 bg-white z-10 transition-transform duration-300 ease-in-out transform ${
-            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-          } md:hidden`}
-        >
-          <div className="pt-20 px-6 space-y-4">
-            <Link
-              href="/#recursos"
-              className="block text-gray-600 hover:text-primary py-2 text-lg"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Recursos
-            </Link>
-            
-            {isAuthenticated && (
-              <>
-                {notepadUrl && (
-                  <Link
-                    href={notepadUrl}
-                    className="block text-gray-600 hover:text-primary py-2 text-lg"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Bloco de Notas
-                  </Link>
-                )}
-                <Link
-                  href="/profile"
-                  className="block text-gray-600 hover:text-primary py-2 text-lg"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Perfil
-                </Link>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </header>
