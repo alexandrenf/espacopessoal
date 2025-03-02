@@ -33,9 +33,11 @@ export default function CTASection() {
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link 
               href="/api/auth/signin" 
-              className="group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-white px-8 py-4 text-lg font-bold text-blue-700 transition duration-300 ease-out hover:scale-105"
+              className="group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-white px-8 py-4 text-lg font-bold text-blue-700 transition-all duration-300 hover:scale-105 will-change-[opacity,transform]"
             >
-              <span className="absolute inset-0 h-full w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out"></span>
+              <span 
+                className="absolute inset-0 h-full w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out will-change-[opacity]"
+              />
               <span className="relative group-hover:text-white transition-colors duration-300 ease-out">
                 Começar Agora
               </span>
@@ -44,7 +46,10 @@ export default function CTASection() {
               href="#recursos" 
               className="group relative px-8 py-4 text-lg font-semibold transition-all duration-300 ease-out hover:text-white"
             >
-              <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-white transition-all duration-300 ease-out group-hover:w-full"></span>
+              <span 
+                className="absolute bottom-0 left-0 h-[2px] w-0 bg-white transition-all duration-300 ease-out group-hover:w-full will-change-[width]"
+                aria-hidden="true"
+              />
               Conhecer Recursos
             </Link>
           </div>
