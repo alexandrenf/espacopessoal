@@ -4,7 +4,7 @@ import React from "react";
 import { FaTrash } from "react-icons/fa";
 import { ImSpinner8 } from "react-icons/im";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft, Menu } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 interface Note {
   id: number;
