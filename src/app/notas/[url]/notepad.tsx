@@ -10,6 +10,8 @@ import { useParams } from "next/navigation";
 import { default as debounce } from "lodash/debounce";
 import type { DebouncedFunc } from "lodash";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
+import Header from "~/app/components/Header";
+import { Button } from "~/components/ui/button";
 
 interface AppProps {
   password: string | null;
@@ -473,98 +475,114 @@ const App: React.FC<AppProps> = ({ password }) => {
   }
 
   return (
-    <main className="h-screen flex">
-      <Alert error={updateError} isSaving={isSaving} />
-      {notes.length > 0 ? (
-        <div className="flex w-full h-full flex-col md:flex-row">
-          {/* Sidebar */}
-          <div className={`
-            w-full md:w-1/6 h-full border-r border-gray-300 transition-all duration-200
-            ${isMobile && !showSidebar ? 'hidden' : 'block'}
-          `}>
-            <Sidebar
-              notes={notes}
-              currentNote={findCurrentNote()}
-              setCurrentNoteId={handleSwitchNote}  // Use the new handler
-              newNote={createNewNote}
-              deleteNote={deleteNote}
-              isCreating={createNoteMutation.isPending}
-              isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
-            />
-          </div>
-          {/* Toggle sidebar button for mobile */}
-          {isMobile && (
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="fixed top-4 left-4 z-50 p-2 rounded-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
-              aria-label="Alternar barra lateral"
-              type="button"
-            >
-              <svg 
-                className="w-5 h-5" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
+    <main className="h-full flex flex-col flex-grow">
+      {/* Only show header when sidebar is visible on mobile */}
+      {(!isMobile || (isMobile && showSidebar)) && <Header />}
+      <div className="flex-grow flex">
+        <Alert error={updateError} isSaving={isSaving} />
+        {notes.length > 0 ? (
+          <div className="flex w-full h-full flex-col md:flex-row">
+            {/* Sidebar */}
+            <div className={`
+              w-full md:w-1/6 h-full border-r border-gray-200 transition-all duration-200
+              ${isMobile && !showSidebar ? 'hidden' : 'block'}
+            `}>
+              <Sidebar
+                notes={notes}
+                currentNote={findCurrentNote()}
+                setCurrentNoteId={handleSwitchNote}
+                newNote={createNewNote}
+                deleteNote={deleteNote}
+                isCreating={createNoteMutation.isPending}
+                isDeletingId={deleteNoteMutation.isPending ? (deleteNoteMutation.variables?.id ?? null) : null}
+              />
+            </div>
+
+            {/* Toggle sidebar button for mobile */}
+            {isMobile && (
+              <Button
+                onClick={() => setShowSidebar(!showSidebar)}
+                variant="outline"
+                size="icon"
+                className={`
+                  fixed z-10 shadow-sm
+                  ${showSidebar 
+                    ? 'top-20 right-16' // When sidebar and header are visible
+                    : 'top-4 left-4'   // When sidebar and header are hidden
+                  }
+                `}
+                aria-label="Alternar barra lateral"
               >
-                <path 
+                <svg 
+                  className="w-4 h-4" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth={2}
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M4 6h16M4 12h16M4 18h16" 
-                />
-              </svg>
-            </button>
-          )}
-          {/* Editor */}
-          <div className={`
-            w-full md:w-5/6 h-full transition-all duration-200
-            ${currentNoteId !== null ? 'block' : 'hidden md:block'}
-          `}>
-            {currentNoteId !== null && notes.length > 0 ? (
-              <div className="relative">
-                <Editor
-                  currentNote={findCurrentNote()}
-                  updateNote={updateNote}
-                  isSaving={isSaving}
-                  isLoading={isFetching}
-                />
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
-                Selecione uma nota para começar a editar
-              </div>
+                  viewBox="0 0 24 24"
+                >
+                  {showSidebar 
+                    ? <path d="M19 12H5M12 19l-7-7 7-7" />
+                    : <path d="M4 6h16M4 12h16M4 18h16" />
+                  }
+                </svg>
+              </Button>
             )}
+
+            {/* Editor */}
+            <div className={`
+              w-full md:w-5/6 h-full transition-all duration-200
+              ${currentNoteId !== null ? 'block' : 'hidden md:block'}
+            `}>
+              {currentNoteId !== null && notes.length > 0 ? (
+                <div className="relative">
+                  <Editor
+                    currentNote={findCurrentNote()}
+                    updateNote={updateNote}
+                    isSaving={isSaving}
+                    isLoading={isFetching}
+                  />
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">
+                  Selecione uma nota para começar a editar
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-8 px-4">
-          <h1 className="text-lg font-semibold text-center">Você não tem notas</h1>
-          <button
-            className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
-            onClick={createNewNote}
-            disabled={createNoteMutation.isPending}
-          >
-            {createNoteMutation.isPending ? (
-              <span className="flex items-center">
-                <LoadingSpinner className="w-4 h-4 mr-2" />
-                Criando...
-              </span>
-            ) : (
-              "Criar agora"
-            )}
-          </button>
-        </div>
-      )}
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setNoteToDelete(null);
-        }}
-        onConfirm={handleConfirmDelete}
-        noteTitle={noteToDelete?.title ?? ""}
-        isDeleting={deleteNoteMutation.isPending}
-      />
+        ) : (
+          <div className="w-full h-full flex flex-col">
+            <div className="flex-grow flex flex-col items-center justify-center gap-8 px-4">
+              <h1 className="text-lg font-semibold text-center">Você não tem notas</h1>
+              <button
+                className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
+                onClick={createNewNote}
+                disabled={createNoteMutation.isPending}
+              >
+                {createNoteMutation.isPending ? (
+                  <span className="flex items-center">
+                    <LoadingSpinner className="w-4 h-4 mr-2" />
+                    Criando...
+                  </span>
+                ) : (
+                  "Criar agora"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setNoteToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          noteTitle={noteToDelete?.title ?? ""}
+          isDeleting={deleteNoteMutation.isPending}
+        />
+      </div>
     </main>
   );
 }
