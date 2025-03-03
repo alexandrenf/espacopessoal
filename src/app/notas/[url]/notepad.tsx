@@ -213,13 +213,12 @@ const App: React.FC<AppProps> = ({ password }) => {
             
             const retryUpdate = async () => {
               try {
-                const result = await updateMutateAsyncRef.current({ 
+                await updateMutateAsyncRef.current({ 
                   id: noteId, 
                   content: text,
                   url,
                   password: password ?? undefined
                 });
-                //console.log("Note saved successfully:", result);
                 setIsSaving(false);
               } catch (error) {
                 if (retryCount < maxRetries) {
