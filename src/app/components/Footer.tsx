@@ -38,12 +38,12 @@ export default function Footer() {
             <h4 className="text-lg font-semibold mb-4">Legal</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/privacidade" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Link href="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Privacidade
                 </Link>
               </li>
               <li>
-                <Link href="/termos" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Link href="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Termos de Uso
                 </Link>
               </li>
