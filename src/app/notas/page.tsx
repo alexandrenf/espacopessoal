@@ -1,6 +1,5 @@
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
-import { LoadingSpinner } from "../components/LoadingSpinner";
 import { NotepadSettingsForm } from "~/app/components/profile/NotepadSettingsForm";
 import Link from "next/link";
 import { HydrateClient } from "~/trpc/server";

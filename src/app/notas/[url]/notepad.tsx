@@ -201,10 +201,10 @@ const App: React.FC<AppProps> = ({ password }) => {
       () =>
         debounce(
           (text: string, noteId: number) => {
-            console.log("Debounced update triggered:", {
-              noteId,
-              textLength: text.length,
-            });
+            //console.log("Debounced update triggered:", {
+            //  noteId,
+            //  textLength: text.length,
+            //});
             setIsSaving(true);
             lastSentTextRef.current = text;
             
@@ -213,18 +213,17 @@ const App: React.FC<AppProps> = ({ password }) => {
             
             const retryUpdate = async () => {
               try {
-                const result = await updateMutateAsyncRef.current({ 
+                await updateMutateAsyncRef.current({ 
                   id: noteId, 
                   content: text,
                   url,
                   password: password ?? undefined
                 });
-                console.log("Note saved successfully:", result);
                 setIsSaving(false);
               } catch (error) {
                 if (retryCount < maxRetries) {
                   retryCount++;
-                  console.log(`Retrying update (${retryCount}/${maxRetries})...`);
+                  //console.log(`Retrying update (${retryCount}/${maxRetries})...`);
                   setTimeout(() => void retryUpdate(), 1000 * retryCount);
                 } else {
                   handleError(error);

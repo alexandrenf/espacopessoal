@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { api } from "~/trpc/react";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "~/components/ui/sheet";
+import debounce from "lodash/debounce"; // Using lodash's debounce since it's already in dependencies
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -33,22 +34,29 @@ export default function Header() {
     [noteSettings?.notePadUrl]
   );
 
-  // Handle scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
+  // Create a memoized debounced scroll handler
+  const handleScroll = useCallback(() => {
+    const debouncedScroll = debounce(() => {
       setIsScrolled(window.scrollY > 20);
-    };
+    }, 50, { maxWait: 150 });
     
+    return debouncedScroll;
+  }, []); // Empty dependencies since we don't use any external values
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', handleScroll);
+      const scrollHandler = handleScroll();
+      window.addEventListener('scroll', scrollHandler);
+      
+      return () => {
+        if (typeof window !== 'undefined') {
+          scrollHandler.cancel(); // Cancel any pending debounced calls
+          window.removeEventListener('scroll', scrollHandler);
+        }
+      };
     }
-    
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, []);
+  }, [handleScroll]);
+
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${

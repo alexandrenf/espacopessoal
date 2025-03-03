@@ -73,6 +73,26 @@ const config: Config = {
             'background-position': 'right center'
           },
         },
+        pulse: {
+          '0%, 100%': {
+            opacity: '0.2',
+          },
+          '50%': {
+            opacity: '0.3',
+          },
+        },
+      },
+      // Add custom delay utilities
+      transitionDelay: {
+        '400': '400ms',
+        '600': '600ms',
+        '700': '700ms',
+        '800': '800ms',
+        '900': '900ms',
+        '1000': '1000ms',
+        '1100': '1100ms',
+        '1200': '1200ms',
+
       },
     },
   },
