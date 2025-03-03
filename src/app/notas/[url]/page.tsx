@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import { NotepadPasswordAuth } from "~/app/components/NotepadPasswordAuth";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
@@ -34,7 +34,6 @@ const storePassword = (url: string, password: string) => {
 export default function NotepadPage() {
   const { url } = useParams();
   const [password, setPassword] = useState<string | null>(null);
-  const router = useRouter();
   
   // Load stored password on mount
   useEffect(() => {
@@ -46,7 +45,7 @@ export default function NotepadPage() {
   }, [url]);
 
   // Try to fetch notes
-  const { data: notes, isLoading, error } = api.notes.fetchNotesPublic.useQuery(
+  const { isLoading, error } = api.notes.fetchNotesPublic.useQuery(
     { 
       url: url as string,
       password: password ?? undefined
