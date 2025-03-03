@@ -57,6 +57,7 @@ export default function Header() {
     }
   }, [handleScroll]);
 
+
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
       isScrolled ? 'bg-background/80 backdrop-blur-lg shadow-sm' : 'bg-background'
