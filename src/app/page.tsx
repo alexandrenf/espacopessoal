@@ -15,7 +15,7 @@ export default function Home() {
       <Suspense fallback={<div className="flex-grow flex items-center justify-center">Loading...</div>}>
         <DynamicHomeContent />
       </Suspense>
-      <Suspense>
+      <Suspense fallback={<div aria-hidden="true"></div>}>
         <HealthCheckModal />
       </Suspense>
       <Footer />
