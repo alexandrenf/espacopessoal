@@ -151,36 +151,47 @@ const App: React.FC<AppProps> = ({ password }) => {
   // Mutation to update a note.
   const errorTimeoutRef = useRef<NodeJS.Timeout>();
   const updateNoteMutation = api.notes.updateNotePublic.useMutation({
+    onMutate: async (newNoteData) => {
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await utils.notes.fetchNotesPublic.cancel({ url });
+
+      // Snapshot the previous state
+      const previousNotes = notes;
+
+      // Optimistically update the note
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === newNoteData.id
+            ? { ...note, content: newNoteData.content }
+            : note
+        )
+      );
+
+      // Return context with the previous state
+      return { previousNotes };
+    },
     onSuccess: (updatedNote) => {
       setUpdateError(null);
+      setIsSaving(false);
       
+      // Only update if the server response matches our last sent content
       if (lastSentTextRef.current === currentContentRef.current) {
-        setNotes((prev) =>
-          prev.map((note) =>
-            note.id === updatedNote.id
-              ? { ...updatedNote, content: updatedNote.content ?? "" }
-              : note
-          )
-        );
         lastGoodContentRef.current = updatedNote.content ?? "";
       }
       
-      // Invalidate the query cache to ensure fresh data on next fetch
+      // Quietly invalidate in the background
       void utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
     },
-    onError: (error) => {
+    onError: (error, newNote, context) => {
+      // On error, restore the previous state
+      if (context) {
+        setNotes(context.previousNotes);
+      }
+      
       const errorMessage = getErrorMessage(error);
       setUpdateError(errorMessage);
-      console.error('Failed to update note:', errorMessage);
-      if (lastSentTextRef.current === currentContentRef.current) {
-        setNotes((prev) =>
-          prev.map((note) =>
-            note.id === currentNoteId
-              ? { ...note, content: lastGoodContentRef.current }
-              : note
-          )
-        );
-      }
+      setIsSaving(false);
+      
       if (errorTimeoutRef.current) {
         clearTimeout(errorTimeoutRef.current);
       }
