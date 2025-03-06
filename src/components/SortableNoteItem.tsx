@@ -53,9 +53,10 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
     <li
       ref={setNodeRef}
       style={style}
+      onClick={onSelect}  // Add click handler to the entire li element
       className={`
         group relative flex items-center justify-between
-        w-full p-4 hover:bg-gray-50
+        w-full p-4 hover:bg-gray-50 cursor-pointer
         ${note.id === currentNoteId ? "bg-blue-50 border-l-4 border-blue-500" : ""}
         ${note.isOptimistic ? "opacity-50" : ""}
         transition-colors duration-200
@@ -63,7 +64,7 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
     >
       <div 
         className="flex-1 min-w-0"
-        onClick={onSelect}
+        // Remove onClick from here since it's now on the parent li
       >
         <span
           className={`
@@ -79,7 +80,7 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
         {!note.isOptimistic && (
           <button
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation();  // Make sure this is present to prevent note selection when deleting
               onDelete(e);
             }}
             disabled={isDeletingId === note.id}
@@ -97,6 +98,7 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
         <div
           {...attributes}
           {...listeners}
+          onClick={(e) => e.stopPropagation()}  // Add this to prevent note selection when using drag handle
           className="touch-none p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing"
         >
           <DragHandle />
@@ -128,3 +130,4 @@ const DragHandle = () => (
 );
 
 export default SortableNoteItem;
+
