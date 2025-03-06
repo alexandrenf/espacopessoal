@@ -233,7 +233,6 @@ useEffect(() => {
               url,
               password: password ?? undefined,
             });
-            // Remove the refetchNotes() call since we don't want to update the UI
             setIsSaving(false);
           } catch (err) {
             handleError(err);
@@ -243,16 +242,19 @@ useEffect(() => {
         },
         ACTIVE_WAIT
       ),
-    [url, password, currentNoteId]  // Remove refetchNotes from dependencies
+    [url, password, currentNoteId]
   );
 
   const handleTextChange = (text: string) => {
     latestContentRef.current = text;
 
     // Update local notes immediately for UI responsiveness
+    // This will update the title in the sidebar letter by letter
     setNotes((prev) =>
       prev.map((note) =>
-        note.id === currentNoteId ? { ...note, content: text } : note
+        note.id === currentNoteId 
+          ? { ...note, content: text }  // Using the new content directly
+          : note
       )
     );
 
@@ -303,47 +305,58 @@ useEffect(() => {
     });
   }
 
-  function handleSwitchNote(noteId: number) {
-    // First, save current note's content if there are pending changes
-    if (currentNoteId && latestContentRef.current) {
-      // Update local state immediately with the latest content before switching
-      const updatedNotes = notes.map((note) =>
-        note.id === currentNoteId 
-          ? { ...note, content: latestContentRef.current }
-          : note
-      );
-      setNotes(updatedNotes);
+  async function handleSwitchNote(newNoteId: number) {
+    // If we are switching to a different note
+    if (currentNoteId !== null && currentNoteId !== newNoteId) {
+      // Flush pending changes for the current note first
+      await Promise.all([
+        idleDebounce.flush(),
+        activeDebounce.flush()
+      ]).catch(err => handleError(err));
 
-      // Ensure server is updated with the latest content
-      void idleDebounce.flush();
-      void activeDebounce.flush();
+      // Force a refetch to ensure we have latest data
+      await refetchNotes().catch(err => handleError(err));
     }
 
-    // Switch to new note
-    const newNote = notes.find(n => n.id === noteId);
+    // Switch current note
+    setCurrentNoteId(newNoteId);
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+
+    // Update our local ref to the selected note's content so the Editor sees the correct text
+    const newNote = notes.find(note => note.id === newNoteId);
     if (newNote) {
-      // Update the latestContentRef with the new note's content
       latestContentRef.current = newNote.content;
-      setCurrentNoteId(noteId);
-
-      // No need to update notes state here since we already have the correct content
-
-      if (isMobile) setShowSidebar(false);
     }
   }
 
-  // Add this new effect to handle content updates
+  // When server data arrives, merge it with our local state
   useEffect(() => {
-    if (currentNoteId && latestContentRef.current) {
-      setNotes((prev) =>
-        prev.map((note) =>
-          note.id === currentNoteId 
-            ? { ...note, content: latestContentRef.current }
-            : note
-        )
-      );
+    if (data) {
+      setNotes((prevNotes) => {
+        return prevNotes.map(localNote => {
+          const serverNote = data.find(n => n.id === localNote.id);
+          // If we have local changes (in latestContentRef) for the current note, preserve them
+          if (localNote.id === currentNoteId && latestContentRef.current) {
+            return { ...localNote, content: latestContentRef.current };
+          }
+          // Otherwise use server data if available, or keep local version
+          return serverNote ?? localNote;
+        });
+      });
+
+      // Set initial note if needed
+      if (currentNoteId === null && data.length > 0) {
+        if (data[0]?.id) {
+          setCurrentNoteId(data[0].id);
+          if (data[0]) {
+            latestContentRef.current = data[0].content;
+          }
+        }
+      }
     }
-  }, [currentNoteId]);
+  }, [data, currentNoteId]);
 
   function handleDeleteNote(e: React.MouseEvent<HTMLButtonElement>, noteId: number) {
     e.stopPropagation();
@@ -502,35 +515,6 @@ useEffect(() => {
 };
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

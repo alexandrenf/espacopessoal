@@ -27,7 +27,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  notes,
+  notes,  // This will now always be the local version
   currentNote,
   setCurrentNoteId,
   newNote,
