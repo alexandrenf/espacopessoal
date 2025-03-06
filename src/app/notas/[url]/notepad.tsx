@@ -81,6 +81,7 @@ const App: React.FC<AppProps> = ({ password }) => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(250); // Default width
   const [isResizing, setIsResizing] = useState(false);
+  const [isNoteLoading, setIsNoteLoading] = useState(false);
 
   // --- Refs
   const latestContentRef = useRef<string>("");
@@ -393,8 +394,15 @@ const App: React.FC<AppProps> = ({ password }) => {
 
   async function handleSwitchNote(noteId: number) {
     if (currentNoteId !== null && currentNoteId !== noteId) {
-      await Promise.all([idleDebounce.flush(), activeDebounce.flush()]).catch(handleError);
-      await refetchNotes().catch(handleError);
+      setIsNoteLoading(true);
+      try {
+        await Promise.all([idleDebounce.flush(), activeDebounce.flush()]);
+        await refetchNotes();
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setIsNoteLoading(false);
+      }
     }
 
     setCurrentNoteId(noteId);
@@ -652,7 +660,7 @@ const App: React.FC<AppProps> = ({ password }) => {
                   currentNote={currentNote}
                   updateNote={handleTextChange}
                   isSaving={isSaving}
-                  isLoading={false}
+                  isLoading={isNoteLoading}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500">
