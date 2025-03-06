@@ -21,7 +21,6 @@ import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import ResizeHandle from '~/components/ResizeHandle';
-
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
@@ -551,6 +550,7 @@ const App: React.FC<AppProps> = ({ password }) => {
 
   // The currently selected note for the editor
   const currentNote = notes.find((n) => n.id === currentNoteId) ?? null;
+
 
   // ------------------------------
   // Render
