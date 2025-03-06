@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useRef,
   useCallback,
-  MouseEvent,
+  type MouseEvent,
 } from "react";
 import Sidebar, { type NoteStructure } from "../../components/Sidebar";
 import Editor from "../../components/Editor";
@@ -278,19 +278,6 @@ const App: React.FC<AppProps> = ({ password }) => {
     retry: 2,
   });
 
-  // 4. Update the structure note
-  const updateStructureMutation = api.notes.updateStructureNote.useMutation({
-    onError: (err) => {
-      handleError(err);
-    },
-    onSuccess: async () => {
-      // Force a refetch to update the data
-      await utils.notes.fetchNotesPublic.invalidate({ 
-        url, 
-        password: password ?? undefined 
-      });
-    }
-  });
 
   // Add this mutation along with your other mutations
   const updateNoteStructureMutation = api.notes.updateStructure.useMutation({
@@ -547,11 +534,14 @@ const App: React.FC<AppProps> = ({ password }) => {
 
   // Cleanup
   useEffect(() => {
+    // Store ref value in a variable inside the effect
+    const timerRef = continuousTypingTimerRef.current;
+
     return () => {
       idleDebounce.cancel();
       activeDebounce.cancel();
-      if (continuousTypingTimerRef.current) {
-        clearTimeout(continuousTypingTimerRef.current);
+      if (timerRef) {
+        clearTimeout(timerRef);
       }
     };
   }, [idleDebounce, activeDebounce]);

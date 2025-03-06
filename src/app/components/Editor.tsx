@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect } from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -30,7 +30,6 @@ const Editor: React.FC<EditorProps> = ({
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
-  const lastCursorPosition = useRef<number | null>(null);
 
   const l18n = {
     write: "Escrever",
