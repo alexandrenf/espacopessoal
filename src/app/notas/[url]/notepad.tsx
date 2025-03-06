@@ -26,6 +26,11 @@ const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
 const STRUCTURE_NOTE_TITLE = "!FStruct!";
 
+// ---- Constants: tweak as needed
+const IDLE_WAIT = 4000;    // Send update after 4s of no typing
+const ACTIVE_WAIT = 8000;  // Force update if typing continues for 8s
+const ERROR_MESSAGE_TIMEOUT = 5000;
+
 interface AppProps {
   password: string | null;
 }
@@ -133,7 +138,9 @@ const App: React.FC<AppProps> = ({ password }) => {
         latestContentRef.current = normalNotes[0].content;
       }
     }
-  }, [data, currentNoteId]);
+  }
+}, [data, currentNoteId]);
+// ...
 
   // Check if user is on mobile
   useEffect(() => {
@@ -380,7 +387,6 @@ const App: React.FC<AppProps> = ({ password }) => {
       content: "Título da nota\n\n",
       password: password ?? undefined,
     });
-  }
 
   function handleNewFolder() {
     toast({
@@ -542,6 +548,8 @@ const App: React.FC<AppProps> = ({ password }) => {
     );
   }
 
+  const currentNote = findCurrentNote();
+
   return (
     <main className="h-full flex flex-col flex-grow">
       {(!isMobile || (isMobile && showSidebar)) && <Header />}
@@ -578,7 +586,6 @@ const App: React.FC<AppProps> = ({ password }) => {
                 onUpdateStructure={handleUpdateStructure}
               />
             </div>
-
             {/* Editor */}
             <div
               className={`w-full md:w-5/6 h-full transition-all duration-200 relative
@@ -611,6 +618,7 @@ const App: React.FC<AppProps> = ({ password }) => {
             </div>
           </div>
         ) : (
+          // No notes
           <div className="w-full h-full flex flex-col">
             <div className="flex-grow flex flex-col items-center justify-center gap-8 px-4">
               <h1 className="text-lg font-semibold text-center">
@@ -633,7 +641,6 @@ const App: React.FC<AppProps> = ({ password }) => {
             </div>
           </div>
         )}
-
         {/* Delete Confirmation */}
         <DeleteConfirmationModal
           isOpen={isDeleteModalOpen}
@@ -651,3 +658,9 @@ const App: React.FC<AppProps> = ({ password }) => {
 };
 
 export default App;
+
+
+
+
+
+
