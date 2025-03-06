@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Editor from "../../components/Editor";
 import { Alert } from "../../components/Alert";
@@ -179,18 +179,76 @@ useEffect(() => {
     retry: 2,
   });
 
+  // Single source of truth for merging server and local state
+  const handleServerDataUpdate = useCallback((serverData: Note[]) => {
+    setNotes((prevNotes) => {
+      return prevNotes.map(localNote => {
+        const serverNote = serverData.find(n => n.id === localNote.id);
+        // Preserve local changes for current note
+        if (localNote.id === currentNoteId && latestContentRef.current) {
+          return { ...localNote, content: latestContentRef.current };
+        }
+        // Use server data if available, otherwise keep local version
+        return serverNote ?? localNote;
+      });
+    });
+
+    // Handle initial note selection
+    if (currentNoteId === null && serverData.length > 0) {
+      const firstNote = serverData[0];
+      if (firstNote?.id) {
+        setCurrentNoteId(firstNote.id);
+        latestContentRef.current = firstNote.content ?? "";
+      }
+    }
+  }, [currentNoteId]);
+
+  // Use the handler in the data effect
+  useEffect(() => {
+    if (data) {
+      handleServerDataUpdate(data);
+    }
+  }, [data, handleServerDataUpdate]);
+
   // Delete note
   const deleteNoteMutation = api.notes.deleteNotePublic.useMutation({
-    onMutate: async (variables) => {
+    onMutate: async (deleteData) => {
       await utils.notes.fetchNotesPublic.cancel({ url });
-      setNotes((prev) => prev.filter((n) => n.id !== variables.id));
-      if (variables.id === currentNoteId) {
+      const previousNotes = notes;
+      const previousCurrentNoteId = currentNoteId;
+
+      // Optimistic update
+      setNotes((prev) => prev.filter((n) => n.id !== deleteData.id));
+      if (deleteData.id === currentNoteId) {
         setCurrentNoteId(null);
       }
+
+      return { previousNotes, previousCurrentNoteId, deletedNoteId: deleteData.id };
     },
-    onError: (err) => handleError(err),
-    onSuccess: () => {
-      // Rely on “long pause” refetch for final sync
+    onError: (error, _, context) => {
+      if (context) {
+        setNotes(context.previousNotes);
+        setCurrentNoteId(context.previousCurrentNoteId);
+        if (context.previousCurrentNoteId) {
+          latestContentRef.current = context.previousNotes.find(
+            note => note.id === context.previousCurrentNoteId
+          )?.content ?? "";
+        }
+      }
+      handleError(error);
+    },
+    onSuccess: async (_, variables, context) => {
+      if (!context) return;
+
+      if (currentNoteId === context.deletedNoteId) {
+        idleDebounce.cancel();
+        activeDebounce.cancel();
+      }
+
+      await utils.notes.fetchNotesPublic.invalidate({ 
+        url, 
+        password: password ?? undefined 
+      });
     },
     retry: 2,
   });
@@ -330,33 +388,6 @@ useEffect(() => {
       latestContentRef.current = newNote.content;
     }
   }
-
-  // When server data arrives, merge it with our local state
-  useEffect(() => {
-    if (data) {
-      setNotes((prevNotes) => {
-        return prevNotes.map(localNote => {
-          const serverNote = data.find(n => n.id === localNote.id);
-          // If we have local changes (in latestContentRef) for the current note, preserve them
-          if (localNote.id === currentNoteId && latestContentRef.current) {
-            return { ...localNote, content: latestContentRef.current };
-          }
-          // Otherwise use server data if available, or keep local version
-          return serverNote ?? localNote;
-        });
-      });
-
-      // Set initial note if needed
-      if (currentNoteId === null && data.length > 0) {
-        if (data[0]?.id) {
-          setCurrentNoteId(data[0].id);
-          if (data[0]) {
-            latestContentRef.current = data[0].content;
-          }
-        }
-      }
-    }
-  }, [data, currentNoteId]);
 
   function handleDeleteNote(e: React.MouseEvent<HTMLButtonElement>, noteId: number) {
     e.stopPropagation();
