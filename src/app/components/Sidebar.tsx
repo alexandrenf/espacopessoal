@@ -1,12 +1,36 @@
-"use client";
+"use client"
 
-import React from "react";
-import { FaTrash } from "react-icons/fa";
+import React, { useMemo } from "react";
 import { ImSpinner8 } from "react-icons/im";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FolderPlus, Plus, FilePlus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  restrictToVerticalAxis,
+  restrictToParentElement,
+} from '@dnd-kit/modifiers';
+import { SortableNoteItem } from "~/components/SortableNoteItem";
 
-interface Note {
+export interface Note {
   id: number;
   content: string;
   createdAt: Date;
@@ -14,16 +38,24 @@ interface Note {
   isOptimistic?: boolean;
 }
 
+export interface NoteStructure {
+  id: number;
+  parentId: number | null;
+  order: number;
+}
+
 interface SidebarProps {
   notes: Note[];
-  currentNote: Note | { id: number | null; content: string };
+  currentNote: Note;
   setCurrentNoteId: (id: number) => void;
   newNote: () => void;
+  newFolder?: () => void;
   deleteNote: (event: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
   isCreating: boolean;
   isDeletingId: number | null;
   onToggleSidebar?: () => void;
   showSidebar?: boolean;
+  onUpdateStructure?: (structure: NoteStructure[]) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -31,77 +63,59 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentNote,
   setCurrentNoteId,
   newNote,
+  newFolder,
   deleteNote,
   isCreating,
   isDeletingId,
   onToggleSidebar,
-  showSidebar,
+  showSidebar = true,
+  onUpdateStructure,
 }) => {
-  const noteList = notes.map((note) => {
-    // Get the title from the note's content - always use the first line
-    const noteTitle = note.content.split("\n")[0]?.trim() ?? "Untitled Note";
-    
-    return (
-      <li
-        key={note.id}
-        onClick={() => setCurrentNoteId(note.id)}
-        className={`group w-full p-4 border-b border-gray-200 cursor-pointer relative transition-all duration-200 hover:bg-gray-50 ${
-          note.id === currentNote.id
-            ? "bg-blue-50 border-l-4 border-l-blue-500"
-            : ""
-        } ${note.isOptimistic ? 'opacity-50' : ''}`}
-        role="option"
-        aria-selected={note.id === currentNote.id}
-        aria-busy={note.isOptimistic}
-      >
-        <div className="flex items-center justify-between">
-          <span className={`line-clamp-1 text-sm ${
-            note.id === currentNote.id 
-              ? "text-blue-700 font-medium" 
-              : "text-gray-700"
-          }`}>
-            {noteTitle}
-          </span>
-          {note.isOptimistic ? (
-            <ImSpinner8 
-              className="animate-spin text-blue-500 mr-4" 
-              role="status"
-              aria-label="Creating note..."
-            />
-          ) : (
-            <button
-              onClick={(event) => deleteNote(event, note.id)}
-              disabled={isDeletingId === note.id}
-              className={`
-                md:opacity-0 md:group-hover:opacity-100 absolute right-4 p-1.5 rounded-full transition-all duration-200
-                ${note.id === currentNote.id ? "md:opacity-100" : ""}
-                ${isDeletingId === note.id ? "bg-red-50 dark:bg-red-900/20" : "hover:bg-red-50 dark:hover:bg-red-900/20"}
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
-                focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900
-                focus:opacity-100
-              `}
-              aria-label={`Delete note: ${noteTitle}`}
-            >
-              {isDeletingId === note.id ? (
-                <ImSpinner8 className="w-4 h-4 animate-spin text-red-500" />
-              ) : (
-                <FaTrash className="w-4 h-4 text-red-500" />
-              )}
-            </button>
-          )}
-        </div>
-      </li>
-    );
-  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const displayNotes = useMemo(() => 
+    notes.filter(note => !note.content.startsWith("!FStruct!")),
+    [notes]
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (!onUpdateStructure) return;
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = displayNotes.findIndex((note) => note.id === active.id);
+      if (!over) return;
+      const newIndex = displayNotes.findIndex((note) => note.id === over.id);
+      
+      // Create a copy of the notes array
+      const reorderedNotes = [...displayNotes];
+      // Remove the dragged item
+      const [movedItem] = reorderedNotes.splice(oldIndex, 1);
+      // Insert it at the new position
+      reorderedNotes.splice(newIndex, 0, movedItem!);
+      
+      // Create new structure based on the reordered array
+      const newStructure: NoteStructure[] = reorderedNotes.map((note, index) => ({
+        id: note.id,
+        parentId: null,
+        order: index,  // This order is only stored in the structure note
+      }));
+
+      onUpdateStructure(newStructure);
+    }
+  };
+
 
   return (
     <section className="h-full flex flex-col bg-white">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-800">
-            Notes
-          </h1>
-        </div>
+        <h1 className="text-xl font-semibold text-gray-800">Notes</h1>
         <div className="flex items-center gap-2">
           {onToggleSidebar && showSidebar && (
             <Button
@@ -109,36 +123,65 @@ const Sidebar: React.FC<SidebarProps> = ({
               variant="outline"
               size="icon"
               className="md:hidden"
-              aria-label="Toggle sidebar"
             >
-              <ArrowLeft className="w-3 h-3" />
+              <ArrowLeft className="w-4 h-4" />
             </Button>
           )}
-          <Button
-            onClick={newNote}
-            disabled={isCreating}
-            aria-busy={isCreating}
-            aria-label="Create new note"
-            variant="outline"
-            size="icon"
-            className={`bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700
-              ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isCreating ? (
-              <ImSpinner8 className="w-4 h-4 animate-spin" />
-            ) : (
-              <span className="text-lg">+</span>
-            )}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={isCreating}
+                variant="outline"
+                size="icon"
+                className="bg-blue-50"
+              >
+                {isCreating ? (
+                  <ImSpinner8 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={newNote}>
+                <FilePlus className="mr-2 h-4 w-4" />
+                Nova nota
+              </DropdownMenuItem>
+              {newFolder && (
+                <DropdownMenuItem onClick={newFolder}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  Nova pasta
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-      <ul 
-        className="flex-1 flex flex-col divide-y divide-gray-100 overflow-y-auto"
-        role="listbox"
-        aria-label="Notes list"
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
-        {noteList}
-      </ul>
+        <SortableContext 
+          items={displayNotes.map(note => note.id)} 
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="flex-1 flex flex-col divide-y divide-gray-100 overflow-y-auto">
+            {displayNotes.map((note) => (
+              <SortableNoteItem
+                key={note.id}
+                note={note}
+                currentNoteId={currentNote.id}
+                onSelect={() => setCurrentNoteId(note.id)}
+                onDelete={(e) => deleteNote(e, note.id)}
+                isDeletingId={isDeletingId}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
     </section>
   );
 };
