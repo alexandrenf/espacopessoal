@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -74,9 +74,11 @@ const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving, isLo
     updateNote(combineContent(title, newContent));
   }, [title, combineContent, updateNote]);
 
-  React.useEffect(() => {
-    setTitle(getTitleFromContent(currentNote.content));
-  }, [currentNote.id, getTitleFromContent, currentNote.content]);
+  // Update title when note changes
+  useEffect(() => {
+    const newTitle = getTitleFromContent(currentNote.content);
+    setTitle(newTitle);
+  }, [currentNote.id, currentNote.content, getTitleFromContent]); // Added currentNote.id as dependency
 
   return (
     <div className="w-full h-screen bg-white">
