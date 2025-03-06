@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { ImSpinner8 } from "react-icons/im";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft, FolderPlus, Plus, FilePlus } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,7 +71,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar,
   showSidebar = true,
   onUpdateStructure,
-  isMobile,
 }) => {
 
   const sensors = useSensors(
