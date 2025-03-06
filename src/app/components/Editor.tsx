@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import "react-mde/lib/styles/css/react-mde-all.css";
+
 interface Note {
   id: number;
   content: string;
@@ -20,7 +21,12 @@ interface EditorProps {
   isLoading?: boolean;
 }
 
-const Editor: React.FC<EditorProps> = ({ currentNote, updateNote, isSaving, isLoading }) => {
+const Editor: React.FC<EditorProps> = ({
+  currentNote,
+  updateNote,
+  isSaving,
+  isLoading,
+}) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
 
   const l18n = {
