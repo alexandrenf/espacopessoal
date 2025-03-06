@@ -59,7 +59,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  notes,
+  notes,  // This will now always be the local version
   currentNote,
   setCurrentNoteId,
   newNote,
@@ -71,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   showSidebar = true,
   onUpdateStructure,
 }) => {
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -109,6 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       onUpdateStructure(newStructure);
     }
   };
+
 
   return (
     <section className="h-full flex flex-col bg-white">
