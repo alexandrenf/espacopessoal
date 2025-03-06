@@ -83,4 +83,5 @@ model Notepad {
   updatedAt   DateTime @updatedAt 
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+  parentId    Int?
 }

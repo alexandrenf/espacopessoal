@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -28,6 +28,9 @@ const Editor: React.FC<EditorProps> = ({
   isLoading,
 }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
+  const [title, setTitle] = React.useState("");
+  const [content, setContent] = React.useState("");
+  const lastCursorPosition = useRef<number | null>(null);
 
   const l18n = {
     write: "Escrever",
@@ -37,13 +40,31 @@ const Editor: React.FC<EditorProps> = ({
     untitledNote: "Nota sem título"
   };
 
-  // Memoize the title extraction function
-  const getTitleFromContent = useCallback((content: string): string => {
-    const firstLine = content.split("\n")[0];
-    return firstLine?.trim() ?? l18n.untitledNote;
+  // Improved content parsing
+  const parseNote = useCallback((fullContent: string) => {
+    const lines = fullContent.split('\n');
+    const noteTitle = lines[0]?.trim() ?? l18n.untitledNote;
+    const noteContent = lines.slice(1).join('\n');
+    return { noteTitle, noteContent };
   }, [l18n.untitledNote]);
 
-  const [title, setTitle] = React.useState(getTitleFromContent(currentNote.content));
+  // Initialize and update content when note changes
+  useEffect(() => {
+    const { noteTitle, noteContent } = parseNote(currentNote.content);
+    setTitle(noteTitle);
+    setContent(noteContent);
+  }, [currentNote.id, currentNote.content, parseNote]);
+
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    updateNote(`${newTitle.trim()}\n${content}`);
+  }, [content, updateNote]);
+
+  const handleContentChange = useCallback((newContent: string) => {
+    setContent(newContent);
+    updateNote(`${title.trim()}\n${newContent}`);
+  }, [title, updateNote]);
 
   const converter = new Converter({
     tables: true,
@@ -51,40 +72,6 @@ const Editor: React.FC<EditorProps> = ({
     strikethrough: true,
     tasklists: true,
   });
-
-  // Memoize the content extraction function with improved handling
-  const getContentWithoutTitle = useCallback((content: string) => {
-    const lines = content.split("\n");
-    return lines.slice(1).join("\n");  // Remove .trim() to preserve spacing
-  }, []);
-
-  // Memoize the content combination function with improved spacing
-  const combineContent = useCallback((newTitle: string, content: string): string => {
-    const trimmedTitle = newTitle.trim();
-    const processedContent = content.startsWith("\n") ? content : "\n" + content;
-    return `${trimmedTitle}${processedContent}`;
-  }, []);
-
-  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    
-    // Delay the update slightly to ensure proper state handling
-    setTimeout(() => {
-      const contentWithoutTitle = getContentWithoutTitle(currentNote.content);
-      updateNote(combineContent(newTitle, contentWithoutTitle));
-    }, 0);
-  }, [currentNote.content, getContentWithoutTitle, combineContent, updateNote]);
-
-  const handleContentChange = useCallback((newContent: string) => {
-    updateNote(combineContent(title, newContent));
-  }, [title, combineContent, updateNote]);
-
-  // Update title when note changes
-  useEffect(() => {
-    const newTitle = getTitleFromContent(currentNote.content);
-    setTitle(newTitle);
-  }, [currentNote.id, currentNote.content, getTitleFromContent]); // Added currentNote.id as dependency
 
   return (
     <div className="w-full h-screen bg-white">
@@ -110,7 +97,7 @@ const Editor: React.FC<EditorProps> = ({
       </div>
       <div className="p-4">
         <ReactMde
-          value={getContentWithoutTitle(currentNote.content)}
+          value={content}
           onChange={handleContentChange}
           selectedTab={selectedTab}
           onTabChange={setSelectedTab}
