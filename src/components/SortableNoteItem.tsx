@@ -20,7 +20,6 @@ interface SortableNoteItemProps {
   onSelect: () => void;
   onDelete: (e: React.MouseEvent<HTMLButtonElement>) => void;
   isDeletingId: number | null;
-  disabled?: boolean;
 }
 
 export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
