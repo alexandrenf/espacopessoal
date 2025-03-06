@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import Sidebar from "../../components/Sidebar";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  MouseEvent,
+} from "react";
+import Sidebar, { type NoteStructure } from "../../components/Sidebar";
 import Editor from "../../components/Editor";
 import { Alert } from "../../components/Alert";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
@@ -12,11 +19,12 @@ import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModa
 import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
+import { toast } from "~/hooks/use-toast";
 
-// ---- Constants: tweak as needed
-const IDLE_WAIT = 4000;    // Send update after 4s of no typing
-const ACTIVE_WAIT = 8000;  // Force update if typing continues for 8s
+const IDLE_WAIT = 4000; // Debounce for idle updates
+const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
+const STRUCTURE_NOTE_TITLE = "!FStruct!";
 
 interface AppProps {
   password: string | null;
@@ -27,7 +35,7 @@ export interface Note {
   content: string;
   createdAt: Date;
   updatedAt: Date;
-  isOptimistic?: boolean; // Added optional flag for optimistic updates
+  isOptimistic?: boolean; // Mark a note as optimistic if needed
 }
 
 type ErrorWithMessage = { message: string };
@@ -60,6 +68,7 @@ const App: React.FC<AppProps> = ({ password }) => {
 
   // --- Local states
   const [notes, setNotes] = useState<Note[]>([]);
+  const [structureNote, setStructureNote] = useState<Note | null>(null); // <--- Store our special note
   const [currentNoteId, setCurrentNoteId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,56 +81,61 @@ const App: React.FC<AppProps> = ({ password }) => {
   const [showSidebar, setShowSidebar] = useState(true);
 
   // --- Refs
-  const latestContentRef = useRef("");
+  const latestContentRef = useRef<string>("");
   const errorTimeoutRef = useRef<NodeJS.Timeout>();
-  const utils = api.useUtils();
   const typingStartTimeRef = useRef<number | null>(null);
   const continuousTypingTimerRef = useRef<NodeJS.Timeout>();
+  const utils = api.useUtils();
 
-  // ==========================
-  // =        Queries         =
-  // ==========================
-  // Fetch all notes
-  // ...
-const {
-  data,
-  error,
-  isLoading,
-  refetch: refetchNotes
-} = api.notes.fetchNotesPublic.useQuery(
-  { url, password: password ?? undefined },
-  {
-    enabled: Boolean(url),
-    retry: 1,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    // Transform data as it arrives
-    select: (fetchedNotes) =>
-      fetchedNotes.map(note => ({
-        ...note,
-        content: note.content ?? ""
-      })),
-  }
-);
+  // ------------------------------
+  // Fetch notes from the server
+  // ------------------------------
+  const { data, error, isLoading, refetch: refetchNotes } =
+    api.notes.fetchNotesPublic.useQuery(
+      { url, password: password ?? undefined },
+      {
+        enabled: Boolean(url),
+        retry: 1,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        staleTime: 30000,
+        select: (fetchedNotes) =>
+          fetchedNotes.map((note) => ({
+            ...note,
+            content: note.content ?? "",
+          })),
+      }
+    );
 
-// 2) Then handle "onSuccess" style logic with a useEffect
-useEffect(() => {
-  if (data && data.length > 0) {
-    // e.g. store them in local state:
-    setNotes(data);
+  // After data is loaded, separate out the structure note from normal notes
+  useEffect(() => {
+    if (!data) return;
+    // Look for the special note
+    let structNote: Note | null = null;
+    const normalNotes: Note[] = [];
 
-    // If needed, pick a default note:
-    if (currentNoteId === null) {
-      if (data[0]?.id) {
-        setCurrentNoteId(data[0].id);
+    for (const note of data) {
+      const firstLine = note.content.split("\n")[0]?.trim();
+      if (firstLine === STRUCTURE_NOTE_TITLE) {
+        structNote = note;
+      } else {
+        normalNotes.push(note);
       }
     }
-  }
-}, [data, currentNoteId]);
-// ...
 
-  // Track screen resizing for mobile
+    setStructureNote(structNote);
+    setNotes(normalNotes);
+
+    // If no currentNoteId, pick the first normal note if it exists
+    if (currentNoteId === null && normalNotes.length > 0) {
+      if (normalNotes[0]?.id) {
+        setCurrentNoteId(normalNotes[0].id);
+        latestContentRef.current = normalNotes[0].content;
+      }
+    }
+  }, [data, currentNoteId]);
+
+  // Check if user is on mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -131,17 +145,16 @@ useEffect(() => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ==========================
-  // =       Mutations        =
-  // ==========================
-  // Update note
+  // ------------------------------
+  // Mutations
+  // ------------------------------
+  // 1. Update a note
   const updateNoteMutation = api.notes.updateNotePublic.useMutation({
     onMutate: async () => {
-      // optional: cancel queries so we don’t overwrite local state
+      // Cancel any incoming refetch so we don’t overwrite local state
       await utils.notes.fetchNotesPublic.cancel({ url });
     },
     onSuccess: () => {
-      // Don’t update local state here; we only do that after a “long pause” refetch
       setIsSaving(false);
     },
     onError: (err) => {
@@ -151,144 +164,163 @@ useEffect(() => {
     retry: 2,
   });
 
-  // We’ll store our update mutate function in a ref
+  // We'll store our update mutate function in a ref for easy usage
   const updateNoteRef = useRef(updateNoteMutation.mutateAsync);
   useEffect(() => {
     updateNoteRef.current = updateNoteMutation.mutateAsync;
   }, [updateNoteMutation]);
 
-  // Create note
+  // 2. Create a new note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (variables) => {
-      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      // Disallow creating a note with "!FStruct!" as its first line
+      const firstLine = variables.content.split("\n")[0]?.trim() ?? "";
+      if (firstLine === STRUCTURE_NOTE_TITLE) {
+        throw new Error(
+          `"${STRUCTURE_NOTE_TITLE}" is reserved and cannot be used as a note title.`
+        );
+      }
+
       await utils.notes.fetchNotesPublic.cancel({ url });
 
-      // Create an optimistic note
-      const optimisticNote: Note = {
-        id: -Math.floor(Math.random() * 100000), // Temporary negative ID
+      // Add an optimistic note
+      const tempId = -Math.floor(Math.random() * 100_000);
+      const newNote: Note = {
+        id: tempId,
         content: variables.content,
         createdAt: new Date(),
         updatedAt: new Date(),
-        isOptimistic: true // Flag to identify optimistic notes
+        isOptimistic: true,
       };
 
-      // Update notes list with optimistic note
-      setNotes(prev => [optimisticNote, ...prev]);
-      setCurrentNoteId(optimisticNote.id);
-      latestContentRef.current = optimisticNote.content;
+      // Insert optimistically
+      setNotes((prev) => [newNote, ...prev]);
+      setCurrentNoteId(tempId);
+      latestContentRef.current = newNote.content;
 
-      return { optimisticNote };
+      return { optimisticNote: newNote };
     },
-    onError: (err, variables, context) => {
-      // On error, revert the optimistic update
-      if (context?.optimisticNote) {
-        setNotes(prev => prev.filter(note => note.id !== context.optimisticNote.id));
-        if (currentNoteId === context.optimisticNote.id) {
+    onError: (err, _, ctx) => {
+      // If error creating note, revert
+      if (ctx?.optimisticNote) {
+        setNotes((prev) =>
+          prev.filter((note) => note.id !== ctx.optimisticNote.id)
+        );
+        if (currentNoteId === ctx.optimisticNote.id) {
           setCurrentNoteId(null);
           latestContentRef.current = "";
         }
       }
       handleError(err);
     },
-    onSuccess: async (newNote, variables, context) => {
-      // Replace the optimistic note with the real one
-      if (context?.optimisticNote) {
-        setNotes(prev => prev.map(note => 
-          note.id === context.optimisticNote.id ? {
-            ...newNote,
-            content: latestContentRef.current // Preserve any edits made while creating
-          } : note
-        ));
-        setCurrentNoteId(newNote.id);
+    onSuccess: async (actualNote, _, ctx) => {
+      if (ctx?.optimisticNote) {
+        // Replace the optimistic note with the actual one
+        setNotes((prev) =>
+          prev.map((note) =>
+            note.id === ctx.optimisticNote.id
+              ? { ...actualNote, content: latestContentRef.current }
+              : note
+          )
+        );
+        setCurrentNoteId(actualNote.id);
       }
 
-      // Refresh the notes list to ensure consistency
-      await utils.notes.fetchNotesPublic.invalidate({ 
-        url, 
-        password: password ?? undefined 
-      });
+      // Force a refetch
+      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
     },
     retry: 2,
   });
 
-  // Single source of truth for merging server and local state
-  const handleServerDataUpdate = useCallback((serverData: Note[]) => {
-    setNotes((prevNotes) => {
-      return prevNotes.map(localNote => {
-        const serverNote = serverData.find(n => n.id === localNote.id);
-        // Preserve local changes for current note
-        if (localNote.id === currentNoteId && latestContentRef.current) {
-          return { ...localNote, content: latestContentRef.current };
-        }
-        // Use server data if available, otherwise keep local version
-        return serverNote ?? localNote;
-      });
-    });
-
-    // Handle initial note selection
-    if (currentNoteId === null && serverData.length > 0) {
-      const firstNote = serverData[0];
-      if (firstNote?.id) {
-        setCurrentNoteId(firstNote.id);
-        latestContentRef.current = firstNote.content ?? "";
-      }
-    }
-  }, [currentNoteId]);
-
-  // Use the handler in the data effect
-  useEffect(() => {
-    if (data) {
-      handleServerDataUpdate(data);
-    }
-  }, [data, handleServerDataUpdate]);
-
-  // Delete note
+  // 3. Delete a note
   const deleteNoteMutation = api.notes.deleteNotePublic.useMutation({
-    onMutate: async (deleteData) => {
+    onMutate: async (variables) => {
       await utils.notes.fetchNotesPublic.cancel({ url });
-      const previousNotes = notes;
-      const previousCurrentNoteId = currentNoteId;
 
-      // Optimistic update
-      setNotes((prev) => prev.filter((n) => n.id !== deleteData.id));
-      if (deleteData.id === currentNoteId) {
+      const prev = notes;
+      const prevCurrent = currentNoteId;
+
+      // Remove from local
+      setNotes((old) => old.filter((n) => n.id !== variables.id));
+      if (variables.id === currentNoteId) {
         setCurrentNoteId(null);
       }
 
-      return { previousNotes, previousCurrentNoteId, deletedNoteId: deleteData.id };
+      return {
+        previousNotes: prev,
+        previousCurrentNoteId: prevCurrent,
+        deletedId: variables.id,
+      };
     },
-    onError: (error, _, context) => {
-      if (context) {
-        setNotes(context.previousNotes);
-        setCurrentNoteId(context.previousCurrentNoteId);
-        if (context.previousCurrentNoteId) {
-          latestContentRef.current = context.previousNotes.find(
-            note => note.id === context.previousCurrentNoteId
-          )?.content ?? "";
-        }
+    onError: (err, _vars, ctx) => {
+      // Revert if error
+      if (ctx) {
+        setNotes(ctx.previousNotes);
+        setCurrentNoteId(ctx.previousCurrentNoteId);
+        latestContentRef.current =
+          ctx.previousNotes.find((n) => n.id === ctx.previousCurrentNoteId)
+            ?.content ?? "";
       }
-      handleError(error);
+      handleError(err);
     },
-    onSuccess: async (_, variables, context) => {
-      if (!context) return;
-
-      if (currentNoteId === context.deletedNoteId) {
+    onSuccess: async (_data, _vars, ctx) => {
+      if (ctx?.deletedId === currentNoteId) {
         idleDebounce.cancel();
         activeDebounce.cancel();
       }
 
-      await utils.notes.fetchNotesPublic.invalidate({ 
-        url, 
-        password: password ?? undefined 
-      });
+      // Force refetch
+      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
     },
     retry: 2,
   });
 
-  // ==========================
-  // =       Debouncing       =
-  // ==========================
-  // This callback sends an update to the server after user stops typing
+  // 4. Update the structure note
+  const updateStructureMutation = api.notes.updateStructureNote.useMutation({
+    onError: (err) => {
+      handleError(err);
+    },
+    onSuccess: async () => {
+      // Force a refetch to update the data
+      await utils.notes.fetchNotesPublic.invalidate({ 
+        url, 
+        password: password ?? undefined 
+      });
+    }
+  });
+
+  // Add this mutation along with your other mutations
+  const updateNoteStructureMutation = api.notes.updateStructure.useMutation({
+    onError: (err) => {
+      handleError(err);
+    },
+    onSuccess: async () => {
+      // Force a refetch to update the data
+      await utils.notes.fetchNotesPublic.invalidate({ 
+        url, 
+        password: password ?? undefined 
+      });
+    }
+  });
+
+  // Add this mutation with your other mutations
+  const createStructureNoteMutation = api.notes.createStructureNote.useMutation({
+    onError: (err) => {
+      handleError(err);
+    },
+    onSuccess: async () => {
+      // Force a refetch to update the data
+      await utils.notes.fetchNotesPublic.invalidate({ 
+        url, 
+        password: password ?? undefined 
+      });
+    }
+  });
+
+  // ------------------------------
+  // Debounced Updates
+  // ------------------------------
+  // For user typing
   const idleDebounce = useMemo(
     () =>
       debounce(async () => {
@@ -306,84 +338,39 @@ useEffect(() => {
           handleError(err);
         }
       }, IDLE_WAIT),
-    [url, password, currentNoteId]
+    [currentNoteId, url, password]
   );
 
-  // This callback forces an update if user keeps typing
   const activeDebounce = useMemo(
     () =>
-      debounce(
-        async () => {
-          if (!currentNoteId) return;
-          setIsSaving(true);
-          try {
-            await updateNoteRef.current({
-              id: currentNoteId,
-              content: latestContentRef.current,
-              url,
-              password: password ?? undefined,
-            });
-            setIsSaving(false);
-          } catch (err) {
-            handleError(err);
-          }
-          // Reset typing start time after save
-          typingStartTimeRef.current = null;
-        },
-        ACTIVE_WAIT
-      ),
-    [url, password, currentNoteId]
+      debounce(async () => {
+        if (!currentNoteId) return;
+        setIsSaving(true);
+        try {
+          await updateNoteRef.current({
+            id: currentNoteId,
+            content: latestContentRef.current,
+            url,
+            password: password ?? undefined,
+          });
+          setIsSaving(false);
+        } catch (err) {
+          handleError(err);
+        }
+        typingStartTimeRef.current = null;
+      }, ACTIVE_WAIT),
+    [currentNoteId, url, password]
   );
 
-  const handleTextChange = (text: string) => {
-    latestContentRef.current = text;
-
-    // Update local notes immediately for UI responsiveness
-    // This will update the title in the sidebar letter by letter
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === currentNoteId 
-          ? { ...note, content: text }  // Using the new content directly
-          : note
-      )
-    );
-
-    // Start tracking continuous typing if not already started
-    if (!typingStartTimeRef.current) {
-      typingStartTimeRef.current = Date.now();
-    }
-
-    // Calculate elapsed time since typing started
-    const elapsedTime = Date.now() - (typingStartTimeRef.current ?? Date.now());
-    
-    // If we've been typing continuously for 8s or more, trigger an update
-    if (elapsedTime >= ACTIVE_WAIT) {
-      void activeDebounce();
-      typingStartTimeRef.current = null; // Reset the timer after triggering
-      return;
-    }
-
-    // Handle idle debounce normally
-    void idleDebounce();
-  };
-
-  // Cleanup timers
-  useEffect(() => {
-    return () => {
-      if (continuousTypingTimerRef.current) {
-        clearTimeout(continuousTypingTimerRef.current);
-      }
-    };
-  }, []);
-
-  // ==========================
-  // =         Helpers        =
-  // ==========================
+  // ------------------------------
+  // Handlers
+  // ------------------------------
   function handleError(err: unknown) {
-    const message = getErrorMessage(err);
+    const msg = getErrorMessage(err);
     if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
-    setErrorMessage(message);
+    setErrorMessage(msg);
     errorTimeoutRef.current = setTimeout(() => setErrorMessage(null), ERROR_MESSAGE_TIMEOUT);
+    console.error("[Error]", msg);
   }
 
   function createNewNote() {
@@ -395,33 +382,29 @@ useEffect(() => {
     });
   }
 
-  async function handleSwitchNote(newNoteId: number) {
-    // If we are switching to a different note
-    if (currentNoteId !== null && currentNoteId !== newNoteId) {
-      // Flush pending changes for the current note first
-      await Promise.all([
-        idleDebounce.flush(),
-        activeDebounce.flush()
-      ]).catch(err => handleError(err));
+  function handleNewFolder() {
+    toast({
+      title: "Coming soon!",
+      description: "Folder creation logic is not yet implemented.",
+    });
+  }
 
-      // Force a refetch to ensure we have latest data
-      await refetchNotes().catch(err => handleError(err));
+  async function handleSwitchNote(noteId: number) {
+    if (currentNoteId !== null && currentNoteId !== noteId) {
+      await Promise.all([idleDebounce.flush(), activeDebounce.flush()]).catch(handleError);
+      await refetchNotes().catch(handleError);
     }
 
-    // Switch current note
-    setCurrentNoteId(newNoteId);
-    if (isMobile) {
-      setShowSidebar(false);
-    }
+    setCurrentNoteId(noteId);
+    if (isMobile) setShowSidebar(false);
 
-    // Update our local ref to the selected note's content so the Editor sees the correct text
-    const newNote = notes.find(note => note.id === newNoteId);
-    if (newNote) {
-      latestContentRef.current = newNote.content;
+    const found = notes.find((n) => n.id === noteId);
+    if (found) {
+      latestContentRef.current = found.content;
     }
   }
 
-  function handleDeleteNote(e: React.MouseEvent<HTMLButtonElement>, noteId: number) {
+  function handleDeleteNote(e: MouseEvent<HTMLButtonElement>, noteId: number) {
     e.stopPropagation();
     const note = notes.find((n) => n.id === noteId);
     if (!note) return;
@@ -442,14 +425,99 @@ useEffect(() => {
     setNoteToDelete(null);
   }
 
-  function findCurrentNote(): Note | null {
-    return notes.find((n) => n.id === currentNoteId) ?? null;
+  function handleTextChange(text: string) {
+    latestContentRef.current = text;
+    setNotes((old) =>
+      old.map((note) =>
+        note.id === currentNoteId ? { ...note, content: text } : note
+      )
+    );
+
+    if (!typingStartTimeRef.current) {
+      typingStartTimeRef.current = Date.now();
+    }
+
+    const elapsed = Date.now() - (typingStartTimeRef.current ?? Date.now());
+    if (elapsed >= ACTIVE_WAIT) {
+      void activeDebounce();
+      typingStartTimeRef.current = null;
+      return;
+    }
+    void idleDebounce();
   }
 
-  // ==========================
-  // =        Rendering       =
-  // ==========================
+  const ensureStructureNote = async () => {
+    if (structureNote) return structureNote;
 
+    // Se não existe nota de estrutura, cria uma com a ordem atual das notas
+    const initialStructure = notes
+      .filter(note => !note.content?.startsWith(STRUCTURE_NOTE_TITLE))
+      .map((note, index) => ({
+        id: note.id,
+        parentId: null,
+        order: index
+      }));
+
+    try {
+      // Use a mutation específica para criar a nota de estrutura
+      const result = await createStructureNoteMutation.mutateAsync({
+        url,
+        password: password ?? undefined,
+        structure: initialStructure
+      });
+
+      // Atualize o estado local
+      setStructureNote(result ? { ...result, content: result.content ?? '' } : null);
+      return result;
+    } catch (err) {
+      console.error("[Debug] Error creating structure note:", err);
+      handleError(err);
+      return null;
+    }
+  };
+
+  const handleUpdateStructure = async (newStructure: NoteStructure[]) => {
+    // Optimistically update the notes order in the UI
+    const reorderedNotes = [...notes].sort((a, b) => {
+      const aOrder = newStructure.find(s => s.id === a.id)?.order ?? 0;
+      const bOrder = newStructure.find(s => s.id === b.id)?.order ?? 0;
+      return aOrder - bOrder;
+    });
+    
+    // Update the local state immediately
+    setNotes(reorderedNotes);
+
+    try {
+      // Use the mutation to update the structure
+      await updateNoteStructureMutation.mutateAsync({
+        url,
+        password: password ?? undefined,
+        structure: newStructure
+      });
+    } catch (error) {
+      // If the API call fails, revert to the original order
+      setNotes(notes);
+      console.error('Failed to update note structure:', error);
+    }
+  };
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      idleDebounce.cancel();
+      activeDebounce.cancel();
+      if (continuousTypingTimerRef.current) {
+        clearTimeout(continuousTypingTimerRef.current);
+      }
+    };
+  }, [idleDebounce, activeDebounce]);
+
+  // The currently selected note for the editor
+  const currentNote = notes.find((n) => n.id === currentNoteId) ?? null;
+
+  // ------------------------------
+  // Render
+  // ------------------------------
   if (!url) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -474,8 +542,6 @@ useEffect(() => {
     );
   }
 
-  const currentNote = findCurrentNote();
-
   return (
     <main className="h-full flex flex-col flex-grow">
       {(!isMobile || (isMobile && showSidebar)) && <Header />}
@@ -491,9 +557,15 @@ useEffect(() => {
             >
               <Sidebar
                 notes={notes}
-                currentNote={currentNote ?? { id: null, content: "" }}
+                currentNote={currentNote ?? { 
+                  id: 0, 
+                  content: "", 
+                  createdAt: new Date(), 
+                  updatedAt: new Date() 
+                }}
                 setCurrentNoteId={handleSwitchNote}
                 newNote={createNewNote}
+                newFolder={handleNewFolder}
                 deleteNote={handleDeleteNote}
                 isCreating={createNoteMutation.isPending}
                 isDeletingId={
@@ -503,8 +575,10 @@ useEffect(() => {
                 }
                 onToggleSidebar={isMobile ? () => setShowSidebar(!showSidebar) : undefined}
                 showSidebar={showSidebar}
+                onUpdateStructure={handleUpdateStructure}
               />
             </div>
+
             {/* Editor */}
             <div
               className={`w-full md:w-5/6 h-full transition-all duration-200 relative
@@ -525,7 +599,6 @@ useEffect(() => {
               {currentNote ? (
                 <Editor
                   currentNote={currentNote}
-                  // Instead of passing "updateNote", we pass our handleTextChange
                   updateNote={handleTextChange}
                   isSaving={isSaving}
                   isLoading={false}
@@ -538,7 +611,6 @@ useEffect(() => {
             </div>
           </div>
         ) : (
-          // No notes
           <div className="w-full h-full flex flex-col">
             <div className="flex-grow flex flex-col items-center justify-center gap-8 px-4">
               <h1 className="text-lg font-semibold text-center">
@@ -561,6 +633,7 @@ useEffect(() => {
             </div>
           </div>
         )}
+
         {/* Delete Confirmation */}
         <DeleteConfirmationModal
           isOpen={isDeleteModalOpen}
@@ -578,9 +651,3 @@ useEffect(() => {
 };
 
 export default App;
-
-
-
-
-
-
