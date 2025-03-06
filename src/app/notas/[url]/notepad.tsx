@@ -27,6 +27,7 @@ export interface Note {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  isOptimistic?: boolean; // Added optional flag for optimistic updates
 }
 
 type ErrorWithMessage = { message: string };
@@ -159,22 +160,53 @@ useEffect(() => {
   // Create note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (variables) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
       await utils.notes.fetchNotesPublic.cancel({ url });
-      // Basic optimistic approach
-      const newId = -Math.floor(Math.random() * 100000);
-      const newNote: Note = {
-        id: newId,
+
+      // Create an optimistic note
+      const optimisticNote: Note = {
+        id: -Math.floor(Math.random() * 100000), // Temporary negative ID
         content: variables.content,
         createdAt: new Date(),
         updatedAt: new Date(),
+        isOptimistic: true // Flag to identify optimistic notes
       };
-      setNotes((prev) => [newNote, ...prev]);
-      setCurrentNoteId(newId);
+
+      // Update notes list with optimistic note
+      setNotes(prev => [optimisticNote, ...prev]);
+      setCurrentNoteId(optimisticNote.id);
+      latestContentRef.current = optimisticNote.content;
+
+      return { optimisticNote };
     },
-    onError: (err) => handleError(err),
-    onSuccess: () => {
-      // After creating, we’re not forcibly refreshing right away
-      // We rely on the “long pause” refetch for a full sync
+    onError: (err, variables, context) => {
+      // On error, revert the optimistic update
+      if (context?.optimisticNote) {
+        setNotes(prev => prev.filter(note => note.id !== context.optimisticNote.id));
+        if (currentNoteId === context.optimisticNote.id) {
+          setCurrentNoteId(null);
+          latestContentRef.current = "";
+        }
+      }
+      handleError(err);
+    },
+    onSuccess: async (newNote, variables, context) => {
+      // Replace the optimistic note with the real one
+      if (context?.optimisticNote) {
+        setNotes(prev => prev.map(note => 
+          note.id === context.optimisticNote.id ? {
+            ...newNote,
+            content: latestContentRef.current // Preserve any edits made while creating
+          } : note
+        ));
+        setCurrentNoteId(newNote.id);
+      }
+
+      // Refresh the notes list to ensure consistency
+      await utils.notes.fetchNotesPublic.invalidate({ 
+        url, 
+        password: password ?? undefined 
+      });
     },
     retry: 2,
   });
