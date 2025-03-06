@@ -20,6 +20,7 @@ import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
+import ResizeHandle from '~/components/ResizeHandle';
 
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
@@ -79,6 +80,8 @@ const App: React.FC<AppProps> = ({ password }) => {
   } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(250); // Default width
+  const [isResizing, setIsResizing] = useState(false);
 
   // --- Refs
   const latestContentRef = useRef<string>("");
@@ -501,6 +504,40 @@ const App: React.FC<AppProps> = ({ password }) => {
     }
   };
 
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = (e: globalThis.MouseEvent) => {
+      if (!isResizing) return;
+      
+      const newWidth = e.clientX;
+      // Limit the sidebar width between 150px and 50% of the window width
+      const minWidth = 150;
+      const maxWidth = window.innerWidth * 0.5;
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResize);
+      window.addEventListener('mouseup', handleResizeEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleResize);
+      window.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, [isResizing]);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -552,8 +589,15 @@ const App: React.FC<AppProps> = ({ password }) => {
           <div className="flex w-full h-full flex-col md:flex-row">
             {/* Sidebar */}
             <div
-              className={`w-full md:w-1/6 h-full border-r border-gray-200 transition-all duration-200
-              ${isMobile && !showSidebar ? "hidden" : "block"}`}
+              className={`h-full border-r border-gray-200 transition-all duration-200 relative
+                ${isMobile && !showSidebar ? "hidden" : "block"}
+                ${isMobile ? "w-full" : ""}`}
+              style={{ 
+                width: isMobile ? '100%' : `${sidebarWidth}px`,
+                minWidth: isMobile ? '100%' : '150px',
+                maxWidth: isMobile ? '100%' : '50%',
+                transition: isResizing ? 'none' : undefined 
+              }}
             >
               <Sidebar
                 notes={notes}
@@ -576,13 +620,20 @@ const App: React.FC<AppProps> = ({ password }) => {
                 onToggleSidebar={isMobile ? () => setShowSidebar(!showSidebar) : undefined}
                 showSidebar={showSidebar}
                 onUpdateStructure={handleUpdateStructure}
+                isMobile={isMobile}
               />
+              {/* Only show resize handle on desktop */}
+              {!isMobile && <ResizeHandle onMouseDown={handleResizeStart} />}
             </div>
 
             {/* Editor */}
             <div
-              className={`w-full md:w-5/6 h-full transition-all duration-200 relative
-              ${currentNoteId !== null ? "block" : "hidden md:block"}`}
+              className={`h-full transition-all duration-200 relative
+                ${currentNoteId !== null ? "block" : "hidden md:block"}
+                ${isMobile ? "w-full" : ""}`}
+              style={{ 
+                width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)` 
+              }}
             >
               {isMobile && !showSidebar && (
                 <div className="absolute top-4 left-4 z-10">

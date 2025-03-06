@@ -56,6 +56,7 @@ interface SidebarProps {
   onToggleSidebar?: () => void;
   showSidebar?: boolean;
   onUpdateStructure?: (structure: NoteStructure[]) => void;
+  isMobile: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -70,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar,
   showSidebar = true,
   onUpdateStructure,
+  isMobile,
 }) => {
 
   const sensors = useSensors(
@@ -113,8 +115,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 
   return (
-    <section className="h-full flex flex-col bg-white">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+    <section className="w-full h-full md:h-screen flex flex-col bg-white">
+      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200">
         <h1 className="text-xl font-semibold text-gray-800">Notes</h1>
         <div className="flex items-center gap-2">
           {onToggleSidebar && showSidebar && (
@@ -124,7 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               size="icon"
               className="md:hidden"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3 h-3" />
             </Button>
           )}
           <DropdownMenu>
@@ -133,12 +135,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 disabled={isCreating}
                 variant="outline"
                 size="icon"
-                className="bg-blue-50"
+                className="bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700"
               >
                 {isCreating ? (
                   <ImSpinner8 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Plus className="w-4 h-4" />
+                  <span className="text-lg">+</span>
                 )}
               </Button>
             </DropdownMenuTrigger>
@@ -158,30 +160,32 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-      >
-        <SortableContext 
-          items={displayNotes.map(note => note.id)} 
-          strategy={verticalListSortingStrategy}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
         >
-          <ul className="flex-1 flex flex-col divide-y divide-gray-100 overflow-y-auto">
-            {displayNotes.map((note) => (
-              <SortableNoteItem
-                key={note.id}
-                note={note}
-                currentNoteId={currentNote.id}
-                onSelect={() => setCurrentNoteId(note.id)}
-                onDelete={(e) => deleteNote(e, note.id)}
-                isDeletingId={isDeletingId}
-              />
-            ))}
-          </ul>
-        </SortableContext>
-      </DndContext>
+          <SortableContext 
+            items={displayNotes.map(note => note.id)} 
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="h-full overflow-y-auto">
+              {displayNotes.map((note) => (
+                <SortableNoteItem
+                  key={note.id}
+                  note={note}
+                  currentNoteId={currentNote.id}
+                  onSelect={() => setCurrentNoteId(note.id)}
+                  onDelete={(e) => deleteNote(e, note.id)}
+                  isDeletingId={isDeletingId}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
+      </div>
     </section>
   );
 };
