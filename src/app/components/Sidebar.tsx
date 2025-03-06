@@ -126,7 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               size="icon"
               className="md:hidden"
             >
-              <ArrowLeft className="w-3 h-3" />
+              <ArrowLeft className="w-4 h-4" />
             </Button>
           )}
           <DropdownMenu>
@@ -186,6 +186,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </SortableContext>
         </DndContext>
       </div>
+
     </section>
   );
 };
