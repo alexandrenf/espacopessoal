@@ -14,11 +14,41 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
+  console.log('Received background message:', payload);
+  
+  if (!payload.notification) {
+    console.error('No notification in payload:', payload);
+    return;
+  }
+
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
     icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: 'notification-' + Date.now(),
+    requireInteraction: true,
+    data: payload.data // Include any additional data
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .catch(error => console.error('Error showing notification:', error));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event);
+  event.notification.close();
+  
+  const urlToOpen = new URL('/', self.location.origin).href;
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((windowClients) => {
+      for (let client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(urlToOpen);
+    })
+  );
 });

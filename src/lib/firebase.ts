@@ -1,6 +1,13 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getApp, getApps, initializeApp } from "firebase/app";
+import { 
+  getMessaging, 
+  getToken, 
+  isSupported, 
+  onMessage, 
+  type MessagePayload 
+} from "firebase/messaging";
 
+// Replace the following with your app's Firebase project configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBec6lEqs4sv6h7JcyeL1LuELZLzknz5u4",
   authDomain: "espacopessoal-6f167.firebaseapp.com",
@@ -8,53 +15,46 @@ const firebaseConfig = {
   storageBucket: "espacopessoal-6f167.firebasestorage.app",
   messagingSenderId: "428339453220",
   appId: "1:428339453220:web:a301151e39b56e77e6a7b1",
-  measurementId: "G-YE68R8GDE8"
+  measurementId: "G-YE68R8GDE8",
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Cloud Messaging
-const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+const messaging = async () => {
+  const supported = await isSupported();
+  return supported ? getMessaging(app) : null;
+};
 
-export const requestNotificationPermission = async () => {
+export const requestNotificationPermission = async (): Promise<string | null> => {
   try {
-    if (!messaging) return null;
-    
-    // Check if it's iOS
-    interface WindowWithMSStream extends Window {
-      MSStream?: unknown;
-    }
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowWithMSStream).MSStream;
-    if (isIOS) {
-      throw new Error("iOS_UNSUPPORTED");
-    }
-
     const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      // Get FCM token
-      const token = await getToken(messaging, {
-        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
-      });
-      return token;
+    if (permission === "granted") {
+      const fcmMessaging = await messaging();
+      if (fcmMessaging) {
+        const token = await getToken(fcmMessaging, {
+          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_FCM_VAPID_KEY,
+        });
+        return token;
+      }
     }
     return null;
-  } catch (error) {
-    if ((error as Error).message === "iOS_UNSUPPORTED") {
-      throw error;
-    }
-    console.error('Notification permission error:', error);
+  } catch (err) {
+    console.error("An error occurred while requesting permission:", err);
     return null;
   }
 };
 
 export const onMessageListener = () => {
-  if (!messaging) return Promise.reject(new Error('Messaging not initialized'));
-
-  return new Promise((resolve) => {
-    onMessage(messaging, (payload) => {
-      resolve(payload);
-    });
+  return new Promise<MessagePayload>((resolve) => {
+    const handleMessage = async () => {
+      const messagingInstance = await messaging();
+      if (messagingInstance) {
+        onMessage(messagingInstance, (payload) => {
+          resolve(payload);
+        });
+      }
+    };
+    void handleMessage();
   });
 };
 

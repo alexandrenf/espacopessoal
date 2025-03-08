@@ -42,7 +42,9 @@ export const env = createEnv({
     FIREBASE_ADMIN_PROJECT_ID: z.string(),
     FIREBASE_ADMIN_CLIENT_EMAIL: z.string(),
     FIREBASE_ADMIN_PRIVATE_KEY: z.string(),
+    FIREBASE_FCM_VAPID_KEY: z.string(),
   },
+
 
   /**
    * Specify your client-side environment variables schema here. This way you can ensure the app
@@ -75,6 +77,7 @@ export const env = createEnv({
     FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID,
     FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
     FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
+    FIREBASE_FCM_VAPID_KEY: process.env.FIREBASE_FCM_VAPID_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
