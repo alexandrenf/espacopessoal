@@ -9,11 +9,22 @@ declare global {
 }
 
 export function registerServiceWorker() {
-  if (
-    typeof window !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    window.workbox !== undefined
-  ) {
+  if (typeof window === 'undefined') return;
+
+  // Register Firebase messaging service worker first
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .register('/firebase-messaging-sw.js')
+      .then((registration) => {
+        console.log('Firebase SW registered:', registration);
+      })
+      .catch((err) => {
+        console.error('Firebase SW registration failed:', err);
+      });
+  }
+
+  // Then register the PWA service worker
+  if ('serviceWorker' in navigator && window.workbox !== undefined) {
     const wb = window.workbox;
     
     // Add event listeners to handle PWA lifecycle
@@ -37,7 +48,7 @@ export function registerServiceWorker() {
       wb.messageSkipWaiting();
     });
 
-    // Register the ServiceWorker
+    // Register the PWA ServiceWorker
     wb.register();
   }
 }

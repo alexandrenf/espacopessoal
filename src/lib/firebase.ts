@@ -1,5 +1,5 @@
-import { getMessaging, onMessage } from "firebase/messaging";
-import { initializeApp } from "firebase/app";
+import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
 import type { Messaging, MessagePayload } from "firebase/messaging";
 
@@ -22,85 +22,98 @@ export interface CustomNotificationPayload extends MessagePayload {
   };
 }
 
-/** 
- * A function that unsubscribes from onMessage events.
- */
 export type Unsubscribe = () => void;
 
-/** 
- * Initialize the Firebase App and messaging. 
- */
-try {
-  console.log('Initializing Firebase app...');
-  const app: FirebaseApp = initializeApp(firebaseConfig);
+// Initialize Firebase app
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
+// Initialize messaging with support check
+const initializeMessaging = async () => {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-    console.log('Setting up messaging...');
-    messagingInstance = getMessaging(app);
-    console.log('Messaging setup complete');
-  } else {
-    console.log('Messaging not supported in this environment.');
+    const isMessagingSupported = await isSupported();
+    if (isMessagingSupported) {
+      messagingInstance = getMessaging(app);
+      return messagingInstance;
+    }
   }
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-}
+  console.log('Messaging not supported in this environment.');
+  return null;
+};
+
+// Export a function to get messaging instance
+export const getMessagingInstance = async (): Promise<Messaging | null> => {
+  if (!messagingInstance) {
+    await initializeMessaging();
+  }
+  return messagingInstance;
+};
 
 export const messaging = messagingInstance;
 
-/**
- * Set up an onMessage listener that shows notifications immediately.
- * Returns a Promise resolving to an unsubscribe function.
- */
-export const onMessageListener = (): Promise<Unsubscribe> => {
-  if (!messagingInstance) {
+// Request notification permission and get FCM token
+export const requestNotificationPermission = async (): Promise<string | null> => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted" && messagingInstance) {
+      const token = await getToken(messagingInstance, {
+        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_FCM_VAPID_KEY,
+      });
+      return token;
+    }
+    return null;
+  } catch (err) {
+    console.error("Error requesting permission:", err);
+    return null;
+  }
+};
+
+export const onMessageListener = async (): Promise<Unsubscribe> => {
+  const messaging = await getMessagingInstance();
+  
+  if (!messaging) {
     console.error('Messaging not initialized; cannot set up listener.');
-    return Promise.resolve(() => {
+    return () => {
       console.warn('Attempted to unsubscribe from messaging that was never initialized');
-    });
+    };
   }
 
   return new Promise<Unsubscribe>((resolve) => {
-    // Subscribe to FCM messages
-    const unsubscribe = onMessage(messagingInstance, (payload) => {
+    const unsubscribe = onMessage(messaging, (payload) => {
       console.log('Message received in foreground:', payload);
       
-      // Show the notification using the Notification API
-      if (payload.notification?.title && typeof window !== 'undefined') {
-        // Request permission if not granted
-        if (Notification.permission === 'granted') {
-          void navigator.serviceWorker.ready
-            .then(registration => {
-              return registration.showNotification(payload.notification?.title ?? 'New Notification', {
-                body: payload.notification!.body,
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
-                tag: 'notification-' + Date.now(),
-                requireInteraction: true,
-                data: payload.data
-              });
-            })
-            .catch(error => {
-              console.error('Error showing notification:', error);
-            });
+      // Create and show notification immediately without checking title
+      const showNotification = async () => {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(
+            payload.notification?.title ?? 'New Notification',
+            {
+              body: payload.notification?.body ?? '',
+              icon: '/favicon.ico',
+              badge: '/favicon.ico',
+              tag: 'notification-' + Date.now(),
+              requireInteraction: true,
+              data: {
+                url: payload.data?.url ?? '/',
+                clickAction: payload.data?.clickAction,
+                timestamp: Date.now()
+              },
+              vibrate: [100, 50, 100],
+              renotify: true,
+              silent: false
+            }
+          );
+        } catch (error) {
+          console.error('Error showing notification:', error);
         }
+      };
+
+      // Always try to show notification if permission is granted
+      if (Notification.permission === 'granted') {
+        void showNotification();
       }
     });
 
     resolve(unsubscribe);
   });
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
