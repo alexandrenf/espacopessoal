@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useNotifications, checkPermissionStatus } from "~/lib/notifications";
 import { Button } from "~/components/ui/button";
-import { Bell, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Bell, CheckCircle, XCircle, AlertTriangle, SmartphoneIcon } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import Header from "~/app/components/Header";
 import { useState, useEffect } from "react";
@@ -12,8 +12,13 @@ export default function TestNotificationsPage() {
   const { data: session } = useSession();
   const { initializeNotifications, notify, isInitializing, isSending } = useNotifications();
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | "unknown">("unknown");
+  const [isIOS, setIsIOS] = useState(false);
   
   useEffect(() => {
+    // Check if it's iOS
+    const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+    setIsIOS(checkIOS);
+    
     const checkPermission = async () => {
       const status = await checkPermissionStatus();
       setPermissionStatus(status);
@@ -95,35 +100,50 @@ export default function TestNotificationsPage() {
               Test Notifications
             </h1>
 
-            <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
-              {getPermissionIcon()}
-              <div>
-                <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
-                {permissionStatus === 'denied' && (
-                  <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
-                )}
-                {permissionStatus === 'default' && (
-                  <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
-                )}
+            {isIOS ? (
+              <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <SmartphoneIcon className="w-5 h-5 text-yellow-600" />
+                  <h2 className="font-medium text-yellow-800">iOS Device Detected</h2>
+                </div>
+                <p className="text-sm text-yellow-700">
+                  Push notifications are not supported on iOS devices through the browser. 
+                  For the best experience, please use an Android device or desktop browser.
+                </p>
               </div>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Click the button below to send yourself a test notification. Make sure 
-              you have allowed notifications in your browser settings.
-            </p>
+            ) : (
+              <>
+                <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
+                  {getPermissionIcon()}
+                  <div>
+                    <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
+                    {permissionStatus === 'denied' && (
+                      <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
+                    )}
+                    {permissionStatus === 'default' && (
+                      <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
+                    )}
+                  </div>
+                </div>
+                
+                <p className="text-gray-600 mb-6">
+                  Click the button below to send yourself a test notification. Make sure 
+                  you have allowed notifications in your browser settings.
+                </p>
 
-            <Button
-              onClick={handleTestNotification}
-              disabled={isInitializing || isSending}
-              className="w-full"
-            >
-              {isInitializing || isSending ? (
-                "Sending..."
-              ) : (
-                "Send Test Notification"
-              )}
-            </Button>
+                <Button
+                  onClick={handleTestNotification}
+                  disabled={isInitializing || isSending}
+                  className="w-full"
+                >
+                  {isInitializing || isSending ? (
+                    "Sending..."
+                  ) : (
+                    "Send Test Notification"
+                  )}
+                </Button>
+              </>
+            )}
 
             {!session?.user && (
               <p className="mt-4 text-sm text-red-600">
