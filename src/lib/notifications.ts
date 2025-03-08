@@ -3,8 +3,10 @@ import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
 import {
   messaging as messagingInstance,
+  requestNotificationPermission,
   onMessageListener,
-  type Unsubscribe
+  type Unsubscribe,
+  getMessagingInstance
 } from "./firebase";
 
 /** 
@@ -26,9 +28,16 @@ export function useNotifications() {
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
 
-    // Setup FCM onMessage listener
     const setupNotifications = async () => {
       try {
+        // Initialize messaging first
+        const messagingInstance = await getMessagingInstance();
+        if (!messagingInstance) {
+          console.error('Failed to initialize Firebase messaging');
+          return;
+        }
+        
+        // Then set up the message listener
         unsubscribe = await onMessageListener();
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
@@ -39,7 +48,6 @@ export function useNotifications() {
 
     void setupNotifications();
 
-    // Cleanup on unmount
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -51,6 +59,7 @@ export function useNotifications() {
     try {
       console.log('Starting notification initialization...');
       
+      const messagingInstance = await getMessagingInstance();
       if (!messagingInstance) {
         console.error('Firebase messaging not initialized.');
         return false;
@@ -62,17 +71,16 @@ export function useNotifications() {
       }
 
       console.log('Requesting notification permission...');
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        console.error('Notification permission not granted:', permission);
+      const token = await requestNotificationPermission();
+      
+      if (!token) {
+        console.error('Failed to get FCM token');
         return false;
       }
 
-      // Optionally, get FCM token if you need it:
-      // const token = await getToken(messagingInstance, { vapidKey: '...' });
-      // if (token) {
-      //   await saveToken.mutateAsync({ token });
-      // }
+      // Save the token to the database
+      await saveToken.mutateAsync({ token });
+      console.log('Token saved successfully');
 
       console.log('Notifications initialized successfully');
       return true;

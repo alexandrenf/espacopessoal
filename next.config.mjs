@@ -22,4 +22,7 @@ export default withPWA({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   publicExcludes: ['!firebase-messaging-sw.js'],
+  // Add this to exclude Firebase SW from PWA scope
+  scope: '/',
+  sw: '/sw.js',
 })(config);
