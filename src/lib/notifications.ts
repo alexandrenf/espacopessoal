@@ -1,16 +1,22 @@
 import { api } from "~/trpc/react";
 import { messaging as messagingInstance, requestNotificationPermission, onMessageListener } from "./firebase";
 import { useEffect } from "react";
+import { useSession } from "next-auth/react";
+
+interface NotificationResponse {
+  success: boolean;
+  result?: { success: boolean; messageId: string };
+  error?: string;
+}
 
 export function useNotifications() {
   const saveToken = api.notifications.saveToken.useMutation();
   const sendNotification = api.notifications.sendNotification.useMutation();
+  const { data: session } = useSession();
 
-  // Add foreground message handler
   useEffect(() => {
     const unsubscribePromise = onMessageListener()
       .then((payload) => {
-        // Show notification even when app is in foreground
         if (payload.notification?.title) {
           new Notification(payload.notification.title, {
             body: payload.notification?.body ?? '',
@@ -19,11 +25,18 @@ export function useNotifications() {
           });
         }
       })
-      .catch(err => console.error('Failed to setup foreground notification handler:', err));
+      .catch(err => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to setup foreground notification handler:', err);
+        }
+      });
 
     return () => {
-      // Handle cleanup without trying to call the promise
-      void unsubscribePromise;
+      void unsubscribePromise.then(() => {
+        return () => {
+          // Cleanup will be handled by the effect's return function
+        };
+      });
     };
   }, []);
 
@@ -31,43 +44,78 @@ export function useNotifications() {
     try {
       const messaging = messagingInstance;
       if (!messaging) {
-        console.error('Firebase messaging not initialized');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Firebase messaging not initialized');
+        }
         return false;
       }
 
-      // Check if notifications are supported
       if (!('Notification' in window)) {
-        console.error('This browser does not support notifications');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('This browser does not support notifications');
+        }
         return false;
       }
 
-      // Request permission and get token
       const token = await requestNotificationPermission();
-      console.log('FCM Token:', token); // Debug log
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('FCM Token:', token);
+      }
 
       if (!token) {
-        console.error('Failed to get FCM token');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to get FCM token');
+        }
         return false;
       }
 
-      // Save token to database
       await saveToken.mutateAsync({ token });
-      console.log('Token saved successfully');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Token saved successfully');
+      }
+      
       return true;
     } catch (error) {
-      console.error('Failed to initialize notifications:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to initialize notifications:', error);
+      }
       return false;
     }
   };
 
-  const notify = async (userId: string, title: string, body: string) => {
+  const notify = async (title: string, body: string): Promise<NotificationResponse> => {
     try {
-      const result = await sendNotification.mutateAsync({ userId, title, body });
-      console.log('Notification sent:', result);
-      return true;
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: "User must be logged in to send notifications"
+        };
+      }
+
+      const result = await sendNotification.mutateAsync({ 
+        userId: session.user.id,
+        title, 
+        body 
+      });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Notification sent:', result);
+      }
+      
+      return {
+        success: true,
+        result
+      };
     } catch (error) {
-      console.error('Failed to send notification:', error);
-      return false;
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to send notification:', error);
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+      };
     }
   };
 
