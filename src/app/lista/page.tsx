@@ -36,27 +36,35 @@ export default function TestNotificationsPage() {
   const handleTestNotification = async (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     
-    try {
-      if (!session?.user?.id) {
-        toast({
-          title: "Error",
-          description: "You must be logged in to test notifications",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!session?.user?.id) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to test notifications",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    if (permissionStatus === "denied") {
+      toast({
+        title: "Notifications Blocked",
+        description: "Please enable notifications in your browser settings to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
       const initialized = await initializeNotifications();
       if (!initialized) {
         toast({
-          title: "Error",
-          description: "Failed to initialize notifications. Please check your browser permissions.",
+          title: "Initialization Failed",
+          description: "Could not initialize notifications. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
-      // Updated to use structured response
       const notificationResult = await notify(
         "Test Notification",
         "If you see this, notifications are working! 🎉"
@@ -116,7 +124,6 @@ export default function TestNotificationsPage() {
             <Button
               onClick={handleTestNotification}
               onTouchEnd={handleTestNotification}
-              disabled={isInitializing || isSending}
               className="w-full cursor-pointer touch-manipulation"
               role="button"
               style={{
@@ -126,11 +133,7 @@ export default function TestNotificationsPage() {
                 userSelect: 'none',
               }}
             >
-              {isInitializing || isSending ? (
-                "Sending..."
-              ) : (
-                "Send Test Notification"
-              )}
+              Send Test Notification
             </Button>
 
             {!session?.user && (
