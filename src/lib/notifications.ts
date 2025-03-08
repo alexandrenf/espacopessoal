@@ -10,12 +10,24 @@ export function useNotifications() {
       const messaging = messagingInstance;
       if (!messaging) return false;
 
+      // Check if it's iOS
+      interface WindowWithMSStream extends Window {
+        MSStream?: unknown;
+      }
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowWithMSStream).MSStream;
+      if (isIOS) {
+        throw new Error("iOS_UNSUPPORTED");
+      }
+
       const token = await requestNotificationPermission();
       if (!token) return false;
 
       await saveToken.mutateAsync({ token });
       return true;
     } catch (error) {
+      if ((error as Error).message === "iOS_UNSUPPORTED") {
+        throw error;
+      }
       console.error('Failed to initialize notifications:', error);
       return false;
     }

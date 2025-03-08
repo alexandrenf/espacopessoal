@@ -20,6 +20,15 @@ const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
 export const requestNotificationPermission = async () => {
   try {
     if (!messaging) return null;
+    
+    // Check if it's iOS
+    interface WindowWithMSStream extends Window {
+      MSStream?: unknown;
+    }
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowWithMSStream).MSStream;
+    if (isIOS) {
+      throw new Error("iOS_UNSUPPORTED");
+    }
 
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
@@ -31,6 +40,9 @@ export const requestNotificationPermission = async () => {
     }
     return null;
   } catch (error) {
+    if ((error as Error).message === "iOS_UNSUPPORTED") {
+      throw error;
+    }
     console.error('Notification permission error:', error);
     return null;
   }
