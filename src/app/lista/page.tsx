@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useNotifications, checkPermissionStatus } from "~/lib/notifications";
 import { Button } from "~/components/ui/button";
-import { Bell, CheckCircle, XCircle, AlertTriangle, SmartphoneIcon } from "lucide-react";
+import { Bell, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import Header from "~/app/components/Header";
 import { useState, useEffect } from "react";
@@ -28,8 +28,6 @@ export default function TestNotificationsPage() {
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       case "denied": 
         return <XCircle className="w-5 h-5 text-red-500" />;
-      case "default":
-      case "unknown":
       default:
         return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
     }

@@ -31,13 +31,12 @@ export default function TestNotificationsPage() {
       return;
     }
 
-    const sent = await notify(
-      session.user.id,
+    const notificationResult = await notify(
       "Test Notification",
       "If you see this, notifications are working! 🎉"
     );
 
-    if (sent) {
+    if (notificationResult.success) {
       toast({
         title: "Success",
         description: "Test notification sent successfully!",
@@ -45,7 +44,7 @@ export default function TestNotificationsPage() {
     } else {
       toast({
         title: "Error",
-        description: "Failed to send test notification",
+        description: notificationResult.error ?? "Failed to send test notification",
         variant: "destructive",
       });
     }
