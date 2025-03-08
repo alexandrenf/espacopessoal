@@ -1,67 +1,75 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
-import { 
-  getMessaging, 
-  getToken, 
-  isSupported, 
-  onMessage, 
-  type MessagePayload 
-} from "firebase/messaging";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { initializeApp } from "firebase/app";
+import type { FirebaseApp } from "firebase/app";
+import type { Messaging } from "firebase/messaging";
 
-// Replace the following with your app's Firebase project configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBec6lEqs4sv6h7JcyeL1LuELZLzknz5u4",
-  authDomain: "espacopessoal-6f167.firebaseapp.com",
-  projectId: "espacopessoal-6f167",
-  storageBucket: "espacopessoal-6f167.firebasestorage.app",
-  messagingSenderId: "428339453220",
-  appId: "1:428339453220:web:a301151e39b56e77e6a7b1",
-  measurementId: "G-YE68R8GDE8",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let messagingInstance: Messaging | null = null;
 
-const messaging = async () => {
-  const supported = await isSupported();
-  return supported ? getMessaging(app) : null;
-};
+try {
+  console.log('Initializing Firebase app...');
+  const app: FirebaseApp = initializeApp(firebaseConfig);
+  
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    console.log('Setting up messaging...');
+    messagingInstance = getMessaging(app);
+    console.log('Messaging setup complete');
+  } else {
+    console.log('Messaging not supported:', {
+      isWindow: typeof window !== 'undefined',
+      hasServiceWorker: 'serviceWorker' in navigator
+    });
+  }
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+}
 
-export const requestNotificationPermission = async (): Promise<string | null> => {
+export const messaging = messagingInstance;
+
+export const requestNotificationPermission = async () => {
   try {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      const fcmMessaging = await messaging();
-      if (fcmMessaging) {
-        const token = await getToken(fcmMessaging, {
-          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_FCM_VAPID_KEY,
-        });
-        return token;
-      }
+    console.log('Starting permission request...');
+    if (!messagingInstance) {
+      console.error('Messaging not initialized');
+      return null;
     }
+
+    console.log('Current permission status:', Notification.permission);
+    const permission = await Notification.requestPermission();
+    console.log('Permission request result:', permission);
+
+    if (permission === 'granted') {
+      console.log('Getting FCM token...');
+      const token = await getToken(messagingInstance, {
+        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+      });
+      console.log('FCM token received:', !!token);
+      return token;
+    }
+    
+    console.log('Permission not granted:', permission);
     return null;
-  } catch (err) {
-    console.error("An error occurred while requesting permission:", err);
+  } catch (error) {
+    console.error('Permission request error:', error);
     return null;
   }
 };
 
 export const onMessageListener = () => {
-  return new Promise<MessagePayload>((resolve, reject) => {
-    const handleMessage = async () => {
-      try {
-        const messagingInstance = await messaging();
-        if (messagingInstance) {
-          onMessage(messagingInstance, (payload) => {
-            resolve(payload);
-          });
-        } else {
-          reject(new Error('Firebase Cloud Messaging is not supported in this environment'));
-        }
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error('Failed to initialize messaging'));
-      }
-    };
-    void handleMessage();
+  if (!messagingInstance) {
+    console.error('Messaging not initialized for listener');
+    return Promise.reject(new Error('Messaging not initialized'));
+  }
+  return onMessage(messagingInstance, (payload) => {
+    console.log('Message received:', payload);
   });
 };
-
-export { app, messaging };

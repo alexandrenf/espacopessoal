@@ -12,78 +12,101 @@ interface NotificationResponse {
   error?: string;
 }
 
+interface NotificationPayload {
+  notification?: {
+    title?: string;
+    body?: string;
+  };
+}
+
+type Unsubscribe = () => void;
+
 export function useNotifications() {
   const saveToken = api.notifications.saveToken.useMutation();
   const sendNotification = api.notifications.sendNotification.useMutation();
   const { data: session } = useSession();
 
   useEffect(() => {
-    const unsubscribePromise = onMessageListener()
-      .then((payload) => {
-        if (payload.notification?.title) {
-          new Notification(payload.notification.title, {
-            body: payload.notification?.body ?? '',
-            icon: '/favicon.ico',
-            tag: 'notification-' + Date.now(),
-          });
+    let unsubscribe: Unsubscribe | undefined;
+
+    const setupNotifications = async () => {
+      try {
+        const handleMessage = (payload: NotificationPayload) => {
+          if (payload.notification?.title) {
+            new Notification(payload.notification.title, {
+              body: payload.notification?.body ?? '',
+              icon: '/favicon.ico',
+              tag: 'notification-' + Date.now(),
+            });
+          }
+        };
+
+        const messageListener = await onMessageListener();
+        if (messageListener) {
+          unsubscribe = messageListener;
         }
-      })
-      .catch(err => {
+      } catch (err) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to setup foreground notification handler:', err);
+          console.error('Error setting up message listener:', err);
         }
-      });
+      }
+    };
+
+    void setupNotifications();
 
     return () => {
-      void unsubscribePromise.then(() => {
-        return () => {
-          // Cleanup will be handled by the effect's return function
-        };
-      });
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, []);
 
   const initializeNotifications = async () => {
     try {
+      console.log('Starting notification initialization...');
+      
       const messaging = messagingInstance;
       if (!messaging) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Firebase messaging not initialized');
-        }
+        console.error('Firebase messaging not initialized:', { 
+          messagingInstance, 
+          'window.firebase': 'firebase' in window 
+        });
         return false;
       }
 
       if (!('Notification' in window)) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('This browser does not support notifications');
-        }
+        console.error('Browser does not support notifications:', {
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+        });
         return false;
       }
 
+      console.log('Requesting notification permission...');
       const token = await requestNotificationPermission();
+      console.log('Permission request result:', { 
+        token: token ? 'Received' : 'Not received',
+        permission: Notification.permission 
+      });
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('FCM Token:', token);
-      }
-
       if (!token) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to get FCM token');
-        }
+        console.error('Failed to get FCM token:', { 
+          permission: Notification.permission,
+          messaging: !!messaging
+        });
         return false;
       }
 
+      console.log('Saving token to database...');
       await saveToken.mutateAsync({ token });
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Token saved successfully');
-      }
+      console.log('Token saved successfully');
       
       return true;
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to initialize notifications:', error);
-      }
+      console.error('Detailed initialization error:', {
+        error,
+        stack: error instanceof Error ? error.stack : undefined,
+        permission: 'Notification' in window ? Notification.permission : 'not supported'
+      });
       return false;
     }
   };
@@ -132,7 +155,6 @@ export function useNotifications() {
 
 export const checkPermissionStatus = async (): Promise<NotificationPermission | "unknown"> => {
   try {
-    // Check if notifications are supported
     if (!('Notification' in window)) {
       return "unknown";
     }
