@@ -36,6 +36,6 @@ const config = {
       },
     ],
   },
-  ignorePatterns: ["tailwind.config.js", "public/firebase-messaging-sw.js"],
+  ignorePatterns: ["tailwind.config.js", "public/firebase-messaging-sw.js", "public/sw.js"],
 };
 module.exports = config;

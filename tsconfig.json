@@ -41,5 +41,9 @@
     ".next/types/**/*.ts",
     "src/types/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "public/firebase-messaging-sw.js"]
+  "exclude": [
+    "node_modules",
+    "public/firebase-messaging-sw.js",
+    "public/sw.js"
+  ]
 }
