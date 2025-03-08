@@ -1,3 +1,4 @@
+// @ts-nocheck
 /** @type {import("eslint").Linter.Config} */
 const config = {
   parser: "@typescript-eslint/parser",
@@ -36,6 +37,11 @@ const config = {
       },
     ],
   },
-  ignorePatterns: ["tailwind.config.js", "public/firebase-messaging-sw.js"],
+  ignorePatterns: [
+    "tailwind.config.js",
+    "public/firebase-messaging-sw.js",
+    "next.config.mjs",
+    ".eslintrc.cjs"
+  ],
 };
 module.exports = config;

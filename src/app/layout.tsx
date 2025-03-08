@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Espaço Pessoal",
+    startupImage: [
+      {
+        url: "/splash/apple-splash-2048-2732.png",
+        media: "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)"
+      }
+    ]
   },
   icons: [
     { rel: "icon", url: "/favicon.ico" },
