@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -41,21 +42,27 @@ const FeatureCard = ({
   index,
   status
 }: FeatureCardProps & { status?: 'unconfigured' | 'configured' }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const cardContent = (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ 
         scale: isActive ? 1.02 : 1,
       }}
-      whileTap={{ scale: isActive ? 0.98 : 1 }}
+      whileTap={{ 
+        scale: isActive ? 0.98 : 1,
+        transition: {
+          type: "spring",
+          stiffness: 400,
+          damping: 10
+        }
+      }}
       onHoverEnd={() => {
-        if (isActive) {
-          // Reset the scale to its original value
-          const element = document.querySelector<HTMLElement>(`.feature-card-${index}`);
-          if (element) {
-            element.style.setProperty('transform', 'scale(1)');
-          }
+        if (isActive && cardRef.current) {
+          cardRef.current.style.setProperty('transform', 'scale(1)');
         }
       }}
       exit={{ scale: 1 }}
@@ -68,8 +75,10 @@ const FeatureCard = ({
           stiffness: 300
         }
       }}
-      className={`relative p-6 rounded-xl shadow-lg bg-white dark:bg-gray-800 
-        ${isActive ? 'cursor-pointer hover:shadow-xl transition-shadow feature-card-' + index : 'cursor-default opacity-80'}`}
+      className={cn(
+        "relative p-6 rounded-xl shadow-lg bg-white dark:bg-gray-800",
+        isActive ? 'cursor-pointer hover:shadow-xl transition-shadow' : 'cursor-default opacity-80'
+      )}
     >
       {!isActive && (
         <div className="absolute inset-0 rounded-xl bg-background/50 backdrop-blur-[1px] flex items-center justify-center">
@@ -154,10 +163,30 @@ const FeatureCard = ({
 
 export function UserDashboard() {
   const { data: session } = useSession();
-  const { data: noteSettings, isLoading: isLoadingNoteSettings } = api.userSettings.getNoteSettings.useQuery();
-  const firstName = session?.user?.name?.split(' ')[0];
+  const { 
+    data: noteSettings, 
+    isLoading: isLoadingNoteSettings,
+    error: noteSettingsError
+  } = api.userSettings.getNoteSettings.useQuery(undefined, {
+    retry: 1
+  });
 
+  if (noteSettingsError) {
+    console.error("Failed to fetch note settings:", noteSettingsError);
+  }
+  
+  const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
   const isNotepadConfigured = noteSettings?.notePadUrl && noteSettings.notePadUrl.length > 0;
+
+  if (noteSettingsError) {
+    return (
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <div className="text-center text-red-600 dark:text-red-400">
+          <p>Ocorreu um erro ao carregar suas configurações. Por favor, tente novamente mais tarde.</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-grow container mx-auto px-4 py-8">

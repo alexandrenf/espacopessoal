@@ -48,6 +48,7 @@ export const notificationsRouter = createTRPCRouter({
       userId: z.string(),
       title: z.string(),
       body: z.string(),
+      url: z.string().optional(), // Add optional URL field
     }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -68,6 +69,9 @@ export const notificationsRouter = createTRPCRouter({
           notification: {
             title: input.title,
             body: input.body,
+          },
+          data: {
+            url: input.url ?? '/', // Add the target URL in the notification data
           },
           token: user.fcmToken,
         };

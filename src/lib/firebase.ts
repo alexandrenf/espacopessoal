@@ -45,13 +45,19 @@ export const requestNotificationPermission = async (): Promise<string | null> =>
 };
 
 export const onMessageListener = () => {
-  return new Promise<MessagePayload>((resolve) => {
+  return new Promise<MessagePayload>((resolve, reject) => {
     const handleMessage = async () => {
-      const messagingInstance = await messaging();
-      if (messagingInstance) {
-        onMessage(messagingInstance, (payload) => {
-          resolve(payload);
-        });
+      try {
+        const messagingInstance = await messaging();
+        if (messagingInstance) {
+          onMessage(messagingInstance, (payload) => {
+            resolve(payload);
+          });
+        } else {
+          reject(new Error('Firebase Cloud Messaging is not supported in this environment'));
+        }
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error('Failed to initialize messaging'));
       }
     };
     void handleMessage();

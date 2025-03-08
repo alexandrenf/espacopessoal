@@ -1,5 +1,5 @@
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.4.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.4.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: "AIzaSyBec6lEqs4sv6h7JcyeL1LuELZLzknz5u4",
@@ -39,15 +39,19 @@ self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event);
   event.notification.close();
   
-  const urlToOpen = new URL('/', self.location.origin).href;
+  // Use notification data to determine where to navigate
+  const targetPath = event.notification.data?.url || '/';
+  const urlToOpen = new URL(targetPath, self.location.origin).href;
   
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((windowClients) => {
+      // Try to find an existing window/tab to focus
       for (let client of windowClients) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
+      // If no existing window found, open a new one
       return clients.openWindow(urlToOpen);
     })
   );

@@ -1,51 +1,84 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useNotifications } from "~/lib/notifications";
+import { useNotifications, checkPermissionStatus } from "~/lib/notifications";
 import { Button } from "~/components/ui/button";
-import { Bell } from "lucide-react";
+import { Bell, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import Header from "~/app/components/Header";
+import { useState, useEffect } from "react";
 
 export default function TestNotificationsPage() {
   const { data: session } = useSession();
   const { initializeNotifications, notify, isInitializing, isSending } = useNotifications();
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | "unknown">("unknown");
+  
+  useEffect(() => {
+    const checkPermission = async () => {
+      const status = await checkPermissionStatus();
+      setPermissionStatus(status);
+    };
+    
+    void checkPermission();
+  }, []);
+  
+  const getPermissionIcon = () => {
+    switch(permissionStatus) {
+      case "granted": 
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case "denied": 
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      case "default":
+      case "unknown":
+      default:
+        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+    }
+  };
 
   const handleTestNotification = async () => {
-    if (!session?.user?.id) {
+    try {
+      if (!session?.user?.id) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to test notifications",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const initialized = await initializeNotifications();
+      if (!initialized) {
+        toast({
+          title: "Error",
+          description: "Failed to initialize notifications. Please check your browser permissions.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const sent = await notify(
+        session.user.id,
+        "Test Notification",
+        "If you see this, notifications are working! 🎉"
+      );
+
+      if (sent) {
+        toast({
+          title: "Success",
+          description: "Test notification sent successfully!",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send test notification",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Notification error:", error);
       toast({
         title: "Error",
-        description: "You must be logged in to test notifications",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const initialized = await initializeNotifications();
-    if (!initialized) {
-      toast({
-        title: "Error",
-        description: "Failed to initialize notifications. Please check your browser permissions.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const sent = await notify(
-      session.user.id,
-      "Test Notification",
-      "If you see this, notifications are working! 🎉"
-    );
-
-    if (sent) {
-      toast({
-        title: "Success",
-        description: "Test notification sent successfully!",
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to send test notification",
+        description: "An unexpected error occurred while sending the notification",
         variant: "destructive",
       });
     }
@@ -61,6 +94,19 @@ export default function TestNotificationsPage() {
               <Bell className="w-6 h-6" />
               Test Notifications
             </h1>
+
+            <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
+              {getPermissionIcon()}
+              <div>
+                <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
+                {permissionStatus === 'denied' && (
+                  <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
+                )}
+                {permissionStatus === 'default' && (
+                  <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
+                )}
+              </div>
+            </div>
             
             <p className="text-gray-600 mb-6">
               Click the button below to send yourself a test notification. Make sure 

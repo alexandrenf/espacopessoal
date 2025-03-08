@@ -90,3 +90,16 @@ export function useNotifications() {
     isSending: sendNotification.isPending,
   };
 }
+
+export const checkPermissionStatus = async (): Promise<NotificationPermission | "unknown"> => {
+  try {
+    // Check if notifications are supported
+    if (!('Notification' in window)) {
+      return "unknown";
+    }
+    return Notification.permission;
+  } catch (error) {
+    console.error("Error checking notification permission:", error);
+    return "unknown";
+  }
+};
