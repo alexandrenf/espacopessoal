@@ -52,10 +52,20 @@ export function useNotifications() {
     }
   };
 
-  const notify = async (userId: string, title: string, body: string) => {
+  const notify = async (
+    userId: string,
+    title: string,
+    body: string,
+    scheduledFor?: Date
+  ) => {
     setIsSending(true);
     try {
-      const result = await sendNotification.mutateAsync({ userId, title, body });
+      const result = await sendNotification.mutateAsync({
+        userId,
+        title,
+        body,
+        scheduledFor,
+      });
       return result.success;
     } catch (error) {
       console.error('Failed to send notification:', error);

@@ -13,6 +13,20 @@ const config = {
     turbo: {
       enabled: true
     }
+  },
+  
+  async headers() {
+    return [
+      {
+        source: '/api/cron/process-notifications',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+        ],
+      },
+    ];
   }
 };
 
