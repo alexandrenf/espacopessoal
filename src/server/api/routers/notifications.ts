@@ -21,6 +21,27 @@ if (!admin.apps.length) {
 }
 
 export const notificationsRouter = createTRPCRouter({
+  saveToken: protectedProcedure
+    .input(z.object({
+      token: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Save the token to the database
+      const result = await ctx.db.userNotificationToken.upsert({
+        where: {
+          userId_token: {
+            userId: ctx.session.user.id,
+            token: input.token,
+          },
+        },
+        update: {},
+        create: {
+          userId: ctx.session.user.id,
+          token: input.token,
+        },
+      });
+      return result;
+    }),
   sendNotification: protectedProcedure
     .input(z.object({
       userId: z.string(),

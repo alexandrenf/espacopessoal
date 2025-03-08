@@ -1,8 +1,9 @@
 import { api } from "~/trpc/react";
-import { messaging as messagingInstance, requestNotificationPermission, onMessageListener } from "./firebase";
+import { requestNotificationPermission, onMessageListener } from "./firebase";
 import { useEffect, useState } from "react";
 
 export function useNotifications() {
+  const utils = api.useUtils();
   const saveToken = api.notifications.saveToken.useMutation();
   const sendNotification = api.notifications.sendNotification.useMutation();
   const [isInitializing, setIsInitializing] = useState(false);
@@ -57,7 +58,7 @@ export function useNotifications() {
     title: string,
     body: string,
     scheduledFor?: Date
-  ) => {
+  ): Promise<boolean> => {
     setIsSending(true);
     try {
       const result = await sendNotification.mutateAsync({
