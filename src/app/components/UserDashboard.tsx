@@ -234,8 +234,8 @@ export function UserDashboard() {
           title="Lista de Afazeres"
           description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente."
           icon={<CheckSquare className="w-6 h-6" />}
-          isActive={false}
-          comingSoon="Em breve"
+          isActive={true}
+          href="/lista"
         />
 
         <FeatureCard
