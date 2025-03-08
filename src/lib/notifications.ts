@@ -35,15 +35,6 @@ export function useNotifications() {
         return false;
       }
 
-      // Check if it's iOS
-      interface WindowWithMSStream extends Window {
-        MSStream?: unknown;
-      }
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowWithMSStream).MSStream;
-      if (isIOS) {
-        throw new Error("iOS_UNSUPPORTED");
-      }
-
       // Check if notifications are supported
       if (!('Notification' in window)) {
         console.error('This browser does not support notifications');
@@ -54,20 +45,9 @@ export function useNotifications() {
       const token = await requestNotificationPermission();
       console.log('FCM Token:', token); // Debug log
 
-      if (!token) {
-        console.error('Failed to get FCM token');
-        return false;
-      }
-
-      // Save token to database
-      await saveToken.mutateAsync({ token });
-      console.log('Token saved successfully');
-      return true;
+      return !!token;
     } catch (error) {
-      if ((error as Error).message === "iOS_UNSUPPORTED") {
-        throw error;
-      }
-      console.error('Failed to initialize notifications:', error);
+      console.error('Error initializing notifications:', error);
       return false;
     }
   };
