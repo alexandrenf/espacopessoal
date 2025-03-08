@@ -1,18 +1,28 @@
 import { inngest } from './client';
 import { processScheduledNotifications } from '../scheduler';
 
-// Create the scheduled function
 export const processNotifications = inngest.createFunction(
-  { id: 'process-scheduled-notifications' }, // Changed from name to id
-  { cron: '0 * * * *' }, // Run every hour
+  { 
+    id: 'process-scheduled-notifications',
+    retries: 3 // Add retries for reliability
+  },
+  { 
+    cron: '0 * * * *' // Run every hour
+  },
   async ({ event, step }) => {
-    await step.run('Process notifications', async () => {
+    return await step.run('Process notifications', async () => {
       try {
+        console.log('Starting scheduled notification processing');
         await processScheduledNotifications();
-        return { success: true };
+        console.log('Successfully processed scheduled notifications');
+        return { 
+          success: true,
+          timestamp: new Date().toISOString()
+        };
       } catch (error) {
         console.error('Failed to process scheduled notifications:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        // Rethrow the error to trigger retries
+        throw error;
       }
     });
   }
