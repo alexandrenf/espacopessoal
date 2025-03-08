@@ -35,15 +35,6 @@ export function useNotifications() {
         return false;
       }
 
-      // Check if it's iOS
-      interface WindowWithMSStream extends Window {
-        MSStream?: unknown;
-      }
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowWithMSStream).MSStream;
-      if (isIOS) {
-        throw new Error("iOS_UNSUPPORTED");
-      }
-
       // Check if notifications are supported
       if (!('Notification' in window)) {
         console.error('This browser does not support notifications');
@@ -64,9 +55,6 @@ export function useNotifications() {
       console.log('Token saved successfully');
       return true;
     } catch (error) {
-      if ((error as Error).message === "iOS_UNSUPPORTED") {
-        throw error;
-      }
       console.error('Failed to initialize notifications:', error);
       return false;
     }
