@@ -36,6 +36,12 @@ const config = {
       },
     ],
   },
-  ignorePatterns: ["tailwind.config.js", "public/firebase-messaging-sw.js", "public/sw.js"],
+  ignorePatterns: [
+    "tailwind.config.js",
+    "public/firebase-messaging-sw.js",
+    "public/sw.js",
+    "public/workbox-*.js",
+    "**/workbox-*.js"
+  ],
 };
 module.exports = config;
