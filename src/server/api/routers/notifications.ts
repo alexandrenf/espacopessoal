@@ -21,34 +21,13 @@ if (!admin.apps.length) {
 }
 
 export const notificationsRouter = createTRPCRouter({
-  saveToken: protectedProcedure
-    .input(z.object({ 
-      token: z.string().min(1),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      try {
-        await ctx.db.user.update({
-          where: { id: ctx.session.user.id },
-          data: { fcmToken: input.token },
-        });
-        console.log('Token saved for user:', ctx.session.user.id);
-        return { success: true };
-      } catch (error) {
-        console.error('Error saving token:', error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to save notification token",
-          cause: error,
-        });
-      }
-    }),
-
   sendNotification: protectedProcedure
     .input(z.object({
       userId: z.string(),
       title: z.string(),
       body: z.string(),
-      url: z.string().optional(), // Add optional URL field
+      url: z.string().optional(),
+      scheduledFor: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -58,34 +37,68 @@ export const notificationsRouter = createTRPCRouter({
         });
 
         if (!user?.fcmToken) {
-          console.error('No FCM token found for user:', input.userId);
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "User has no notification token",
           });
         }
 
-        const message = {
+        const messagePayload: admin.messaging.Message = {
           notification: {
             title: input.title,
             body: input.body,
           },
           data: {
-            url: input.url ?? '/', // Add the target URL in the notification data
+            url: input.url ?? '/',
           },
           token: user.fcmToken,
         };
 
-        console.log('Sending notification:', message);
-        const response = await admin.messaging().send(message);
-        console.log('Notification sent successfully:', response);
+        if (input.scheduledFor) {
+          const delay = input.scheduledFor.getTime() - Date.now();
+          
+          if (delay <= 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Scheduled time must be in the future",
+            });
+          }
 
-        return { success: true, messageId: response };
+          // Store the scheduled notification in the database
+          const scheduledNotification = await ctx.db.scheduledNotification.create({
+            data: {
+              userId: input.userId,
+              title: input.title,
+              body: input.body,
+              url: input.url,
+              scheduledFor: input.scheduledFor,
+              fcmToken: user.fcmToken,
+            },
+          });
+
+          return { 
+            success: true, 
+            messageId: scheduledNotification.id,
+            scheduled: true 
+          };
+        }
+
+        // Send immediate notification
+        const response = await admin.messaging().send(messagePayload);
+        return { 
+          success: true, 
+          messageId: response,
+          scheduled: false 
+        };
+
       } catch (error) {
-        console.error('Error sending notification:', error);
+        console.error('Error handling notification:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to send notification",
+          message: "Failed to handle notification",
           cause: error,
         });
       }

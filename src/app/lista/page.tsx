@@ -56,15 +56,25 @@ export default function TestNotificationsPage() {
         return;
       }
 
+      // Send immediate notification
       await notify(
         session.user.id,
-        "Test Notification",
-        "If you see this, notifications are working! 🎉"
+        "Immediate Notification",
+        "This notification appears right away! 🚀"
+      );
+
+      // Schedule notification for 30 seconds later
+      const scheduledTime = new Date(Date.now() + 30 * 1000); // 30 seconds from now
+      await notify(
+        session.user.id,
+        "Scheduled Notification",
+        "This notification was scheduled 30 seconds ago! ⏰",
+        scheduledTime
       );
 
       toast({
         title: "Success",
-        description: "Test notification sent successfully!",
+        description: "Immediate notification sent and another scheduled for 30 seconds!",
       });
     } catch (error: unknown) {
       console.error("Notification error:", error);

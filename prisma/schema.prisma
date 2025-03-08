@@ -58,6 +58,7 @@ model User {
   sessions      Session[]
   notepad       Notepad[]
   userThings    UserThings[]
+  scheduledNotifications ScheduledNotification[]
 }
 
 model VerificationToken {
@@ -84,4 +85,21 @@ model Notepad {
   updatedAt   DateTime @updatedAt 
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+}
+
+model ScheduledNotification {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  body         String
+  url          String?
+  scheduledFor DateTime
+  fcmToken     String
+  sent         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor, sent])
+  @@index([userId])
 }
