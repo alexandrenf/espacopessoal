@@ -6,46 +6,44 @@ export function useNotifications() {
   const saveToken = api.notifications.saveToken.useMutation();
   const sendNotification = api.notifications.sendNotification.useMutation();
 
-  // Add foreground message handler
   useEffect(() => {
     const unsubscribePromise = onMessageListener()
       .then((payload) => {
-        // Show notification even when app is in foreground
         if (payload.notification?.title) {
-          new Notification(payload.notification.title, {
-            body: payload.notification?.body ?? '',
-            icon: '/favicon.ico',
-            tag: 'notification-' + Date.now(),
-          });
+          try {
+            new Notification(payload.notification.title, {
+              body: payload.notification?.body ?? '',
+              icon: '/favicon.ico',
+              tag: 'notification-' + Date.now(),
+            });
+          } catch (error) {
+            console.error('Failed to show notification:', error);
+          }
         }
       })
       .catch(err => console.error('Failed to setup foreground notification handler:', err));
 
     return () => {
-      // Handle cleanup without trying to call the promise
       void unsubscribePromise;
     };
   }, []);
 
   const initializeNotifications = async () => {
     try {
-      const messaging = messagingInstance;
-      if (!messaging) {
-        console.error('Firebase messaging not initialized');
-        return false;
-      }
-
       // Check if notifications are supported
       if (!('Notification' in window)) {
-        console.error('This browser does not support notifications');
-        return false;
+        throw new Error('This browser does not support notifications');
       }
 
       // Request permission and get token
       const token = await requestNotificationPermission();
-      console.log('FCM Token:', token); // Debug log
+      if (!token) {
+        throw new Error('Failed to obtain notification token');
+      }
 
-      return !!token;
+      // Save token to backend
+      await saveToken.mutateAsync({ token });
+      return true;
     } catch (error) {
       console.error('Error initializing notifications:', error);
       return false;
@@ -55,11 +53,10 @@ export function useNotifications() {
   const notify = async (userId: string, title: string, body: string) => {
     try {
       const result = await sendNotification.mutateAsync({ userId, title, body });
-      console.log('Notification sent:', result);
-      return true;
+      return result.success;
     } catch (error) {
       console.error('Failed to send notification:', error);
-      return false;
+      throw error; // Let the caller handle the error
     }
   };
 

@@ -56,29 +56,21 @@ export default function TestNotificationsPage() {
         return;
       }
 
-      const sent = await notify(
+      await notify(
         session.user.id,
         "Test Notification",
         "If you see this, notifications are working! 🎉"
       );
 
-      if (sent) {
-        toast({
-          title: "Success",
-          description: "Test notification sent successfully!",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to send test notification",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Test notification sent successfully!",
+      });
+    } catch (error: unknown) {
       console.error("Notification error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred while sending the notification",
+        description: error instanceof Error ? error.message : "An unexpected error occurred while sending the notification",
         variant: "destructive",
       });
     }
