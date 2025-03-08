@@ -1,10 +1,12 @@
 import { api } from "~/trpc/react";
 import { messaging as messagingInstance, requestNotificationPermission, onMessageListener } from "./firebase";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function useNotifications() {
   const saveToken = api.notifications.saveToken.useMutation();
   const sendNotification = api.notifications.sendNotification.useMutation();
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const unsubscribePromise = onMessageListener()
@@ -29,54 +31,51 @@ export function useNotifications() {
   }, []);
 
   const initializeNotifications = async () => {
+    setIsInitializing(true);
     try {
-      // Check if notifications are supported
       if (!('Notification' in window)) {
         throw new Error('This browser does not support notifications');
       }
 
-      // Request permission and get token
       const token = await requestNotificationPermission();
       if (!token) {
         throw new Error('Failed to obtain notification token');
       }
 
-      // Save token to backend
       await saveToken.mutateAsync({ token });
       return true;
     } catch (error) {
       console.error('Error initializing notifications:', error);
       return false;
+    } finally {
+      setIsInitializing(false);
     }
   };
 
   const notify = async (userId: string, title: string, body: string) => {
+    setIsSending(true);
     try {
       const result = await sendNotification.mutateAsync({ userId, title, body });
       return result.success;
     } catch (error) {
       console.error('Failed to send notification:', error);
-      throw error; // Let the caller handle the error
+      throw error;
+    } finally {
+      setIsSending(false);
     }
   };
 
   return {
     initializeNotifications,
     notify,
-    isInitializing: saveToken.isPending,
-    isSending: sendNotification.isPending,
+    isInitializing,
+    isSending
   };
 }
 
-export const checkPermissionStatus = async (): Promise<NotificationPermission | "unknown"> => {
-  try {
-    // Check if notifications are supported
-    if (!('Notification' in window)) {
-      return "unknown";
-    }
-    return Notification.permission;
-  } catch (error) {
-    console.error("Error checking notification permission:", error);
-    return "unknown";
+export const checkPermissionStatus = async (): Promise<NotificationPermission> => {
+  if (!('Notification' in window)) {
+    return 'denied';
   }
+  return Notification.permission;
 };

@@ -48,14 +48,12 @@ self.addEventListener('notificationclick', (event) => {
     includeUncontrolled: true
   })
   .then((windowClients) => {
-    // Check if there is already a window/tab open with the target URL
     for (let i = 0; i < windowClients.length; i++) {
       const client = windowClients[i];
       if (client.url === urlToOpen && 'focus' in client) {
         return client.focus();
       }
     }
-    // If no window/tab is open, open a new one
     if (clients.openWindow) {
       return clients.openWindow(urlToOpen);
     }
