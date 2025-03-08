@@ -3,6 +3,7 @@ import { userUpdateRouter } from "~/server/api/routers/userUpdate";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { notesRouter } from "./routers/notes";
 import { userSettingsRouter } from "~/server/api/routers/userSettings";
+import { notificationsRouter } from "./routers/notifications";
 
 /**
  * This is the primary router for your server.
@@ -14,6 +15,7 @@ export const appRouter = createTRPCRouter({
   userUpdate: userUpdateRouter,
   notes: notesRouter,
   userSettings: userSettingsRouter,
+  notifications: notificationsRouter,
 });
 
 // export type definition of API
