@@ -55,25 +55,37 @@ export const onMessageListener = (): Promise<Unsubscribe> => {
   if (!messagingInstance) {
     console.error('Messaging not initialized; cannot set up listener.');
     return Promise.resolve(() => {
-      // No-op function when messaging is not initialized
       console.warn('Attempted to unsubscribe from messaging that was never initialized');
     });
   }
 
   return new Promise<Unsubscribe>((resolve) => {
-    // Subscribe to FCM messages.
+    // Subscribe to FCM messages
     const unsubscribe = onMessage(messagingInstance, (payload) => {
-      console.log('Message received:', payload);
-      // Show the notification right here:
-      if (payload.notification?.title) {
-        new Notification(payload.notification.title, {
-          body: payload.notification.body,
-          icon: '/favicon.ico',
-        });
+      console.log('Message received in foreground:', payload);
+      
+      // Show the notification using the Notification API
+      if (payload.notification?.title && typeof window !== 'undefined') {
+        // Request permission if not granted
+        if (Notification.permission === 'granted') {
+          void navigator.serviceWorker.ready
+            .then(registration => {
+              return registration.showNotification(payload.notification?.title ?? 'New Notification', {
+                body: payload.notification!.body,
+                icon: '/favicon.ico',
+                badge: '/favicon.ico',
+                tag: 'notification-' + Date.now(),
+                requireInteraction: true,
+                data: payload.data
+              });
+            })
+            .catch(error => {
+              console.error('Error showing notification:', error);
+            });
+        }
       }
     });
 
-    // Return the unsubscribe function so callers can clean up.
     resolve(unsubscribe);
   });
 };

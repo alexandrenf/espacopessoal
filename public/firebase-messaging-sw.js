@@ -13,6 +13,7 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('Received background message:', payload);
   
@@ -28,13 +29,18 @@ messaging.onBackgroundMessage((payload) => {
     badge: '/favicon.ico',
     tag: 'notification-' + Date.now(),
     requireInteraction: true,
-    data: payload.data // Include any additional data
+    data: payload.data,
+    // Add vibration pattern
+    vibrate: [100, 50, 100],
+    // Ensure notification is shown immediately
+    timestamp: Date.now()
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions)
     .catch(error => console.error('Error showing notification:', error));
 });
 
+// Improve notification click handling
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event);
   event.notification.close();
@@ -44,15 +50,26 @@ self.addEventListener('notificationclick', (event) => {
   const urlToOpen = new URL(targetPath, self.location.origin).href;
   
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((windowClients) => {
-      // Try to find an existing window/tab to focus
-      for (let client of windowClients) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        // Try to find an existing window/tab to focus
+        for (let client of windowClients) {
+          if (client.url === urlToOpen && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      // If no existing window found, open a new one
-      return clients.openWindow(urlToOpen);
-    })
+        // If no existing window found, open a new one
+        return clients.openWindow(urlToOpen);
+      })
   );
+});
+
+// Add install event handler
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+// Add activate event handler
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
 });
