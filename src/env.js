@@ -39,6 +39,9 @@ export const env = createEnv({
       .default("development"),
     GOOGLE_CLIENT_ID: z.string(),
     GOOGLE_CLIENT_SECRET: z.string(),
+    FIREBASE_ADMIN_PROJECT_ID: z.string(),
+    FIREBASE_ADMIN_CLIENT_EMAIL: z.string(),
+    FIREBASE_ADMIN_PRIVATE_KEY: z.string(),
   },
 
   /**
@@ -69,6 +72,9 @@ export const env = createEnv({
     EMAIL_FROM: process.env.EMAIL_FROM,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID,
+    FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
