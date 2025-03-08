@@ -1,9 +1,15 @@
-import { api } from "~/trpc/react";
-import { messaging as messagingInstance, requestNotificationPermission, onMessageListener } from "./firebase";
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { api } from "~/trpc/react";
+import {
+  messaging as messagingInstance,
+  onMessageListener,
+  type Unsubscribe
+} from "./firebase";
 
-// Add explicit type imports
+/** 
+ * Notification permission can be 'default' (not yet decided), 'granted', or 'denied'. 
+ */
 type NotificationPermission = "granted" | "denied" | "default";
 
 interface NotificationResponse {
@@ -11,15 +17,6 @@ interface NotificationResponse {
   result?: { success: boolean; messageId: string };
   error?: string;
 }
-
-interface NotificationPayload {
-  notification?: {
-    title?: string;
-    body?: string;
-  };
-}
-
-type Unsubscribe = () => void;
 
 export function useNotifications() {
   const saveToken = api.notifications.saveToken.useMutation();
@@ -29,22 +26,10 @@ export function useNotifications() {
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
 
+    // Setup FCM onMessage listener
     const setupNotifications = async () => {
       try {
-        const handleMessage = (payload: NotificationPayload) => {
-          if (payload.notification?.title) {
-            new Notification(payload.notification.title, {
-              body: payload.notification?.body ?? '',
-              icon: '/favicon.ico',
-              tag: 'notification-' + Date.now(),
-            });
-          }
-        };
-
-        const messageListener = await onMessageListener();
-        if (messageListener) {
-          unsubscribe = messageListener;
-        }
+        unsubscribe = await onMessageListener();
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
           console.error('Error setting up message listener:', err);
@@ -54,6 +39,7 @@ export function useNotifications() {
 
     void setupNotifications();
 
+    // Cleanup on unmount
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -65,48 +51,33 @@ export function useNotifications() {
     try {
       console.log('Starting notification initialization...');
       
-      const messaging = messagingInstance;
-      if (!messaging) {
-        console.error('Firebase messaging not initialized:', { 
-          messagingInstance, 
-          'window.firebase': 'firebase' in window 
-        });
+      if (!messagingInstance) {
+        console.error('Firebase messaging not initialized.');
         return false;
       }
 
       if (!('Notification' in window)) {
-        console.error('Browser does not support notifications:', {
-          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
-        });
+        console.error('Browser does not support notifications.');
         return false;
       }
 
       console.log('Requesting notification permission...');
-      const token = await requestNotificationPermission();
-      console.log('Permission request result:', { 
-        token: token ? 'Received' : 'Not received',
-        permission: Notification.permission 
-      });
-      
-      if (!token) {
-        console.error('Failed to get FCM token:', { 
-          permission: Notification.permission,
-          messaging: !!messaging
-        });
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        console.error('Notification permission not granted:', permission);
         return false;
       }
 
-      console.log('Saving token to database...');
-      await saveToken.mutateAsync({ token });
-      console.log('Token saved successfully');
-      
+      // Optionally, get FCM token if you need it:
+      // const token = await getToken(messagingInstance, { vapidKey: '...' });
+      // if (token) {
+      //   await saveToken.mutateAsync({ token });
+      // }
+
+      console.log('Notifications initialized successfully');
       return true;
     } catch (error) {
-      console.error('Detailed initialization error:', {
-        error,
-        stack: error instanceof Error ? error.stack : undefined,
-        permission: 'Notification' in window ? Notification.permission : 'not supported'
-      });
+      console.error('Detailed initialization error:', error);
       return false;
     }
   };
@@ -114,26 +85,20 @@ export function useNotifications() {
   const notify = async (title: string, body: string): Promise<NotificationResponse> => {
     try {
       if (!session?.user?.id) {
-        return {
-          success: false,
-          error: "User must be logged in to send notifications"
-        };
+        return { success: false, error: "User must be logged in to send notifications" };
       }
 
-      const result = await sendNotification.mutateAsync({ 
+      const result = await sendNotification.mutateAsync({
         userId: session.user.id,
-        title, 
-        body 
+        title,
+        body
       });
-      
+
       if (process.env.NODE_ENV === 'development') {
         console.log('Notification sent:', result);
       }
-      
-      return {
-        success: true,
-        result
-      };
+
+      return { success: true, result };
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to send notification:', error);
@@ -153,6 +118,9 @@ export function useNotifications() {
   };
 }
 
+/**
+ * Helper function to check the user’s current notification permission.
+ */
 export const checkPermissionStatus = async (): Promise<NotificationPermission | "unknown"> => {
   try {
     if (!('Notification' in window)) {
@@ -164,3 +132,39 @@ export const checkPermissionStatus = async (): Promise<NotificationPermission | 
     return "unknown";
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
