@@ -16,7 +16,10 @@ if (!admin.apps.length) {
     console.log('Firebase Admin initialized successfully');
   } catch (error) {
     console.error('Firebase Admin initialization error:', error);
-    throw error;
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('Unknown error during Firebase Admin initialization');
   }
 }
 
@@ -26,21 +29,30 @@ export const notificationsRouter = createTRPCRouter({
       token: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Save the token to the database
-      const result = await ctx.db.userNotificationToken.upsert({
-        where: {
-          userId_token: {
-            userId: ctx.session.user.id,
-            token: input.token,
+      try {
+        // Save the token to the database
+        const result = await ctx.db.user.update({
+          where: {
+            id: ctx.session.user.id,
           },
-        },
-        update: {},
-        create: {
-          userId: ctx.session.user.id,
-          token: input.token,
-        },
-      });
-      return result;
+          data: {
+            fcmToken: input.token,
+          },
+        });
+        
+        return { success: true, userId: result.id };
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message,
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to save notification token",
+        });
+      }
     }),
   sendNotification: protectedProcedure
     .input(z.object({
@@ -120,7 +132,7 @@ export const notificationsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to handle notification",
-          cause: error,
+          cause: error instanceof Error ? error : new Error(String(error)),
         });
       }
     }),
