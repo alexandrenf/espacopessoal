@@ -4,12 +4,13 @@ import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
 import Link from "next/link";
 import { UserCog } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function HealthCheckModal() {
   const { data: session } = useSession();
   const utils = api.useContext();
-  
+  const [isDismissed, setIsDismissed] = useState(false);
+
   const { data: healthCheck, isLoading } = api.userUpdate.checkUserHealth.useQuery(
     undefined,
     {
@@ -25,21 +26,21 @@ export function HealthCheckModal() {
       }
     }
   );
-  
+
   // Handle scroll lock with improved accessibility
   useEffect(() => {
-    if (session?.user && !isLoading && healthCheck && !healthCheck.isHealthy) {
+    if (session?.user && !isLoading && healthCheck && !healthCheck.isHealthy && !isDismissed) {
       // Save current scroll position and calculate scrollbar width
       const scrollY = window.scrollY;
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-      
+
       // Save original styles
       const originalStyles = {
         overflow: document.body.style.overflow,
         paddingRight: document.body.style.paddingRight,
         height: document.body.style.height
       };
-      
+
       // Apply scroll lock
       document.body.style.overflow = 'hidden';
       document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -55,15 +56,16 @@ export function HealthCheckModal() {
         window.scrollTo(0, scrollY);
       };
     }
-  }, [session?.user, isLoading, healthCheck]);
-  
-  if (!session?.user || isLoading || !healthCheck || healthCheck.isHealthy) {
+  }, [session?.user, isLoading, healthCheck, isDismissed]);
+
+  if (!session?.user || isLoading || !healthCheck || healthCheck.isHealthy || isDismissed) {
     return null;
   }
 
   const handleDismiss = () => {
     // Store in localStorage to prevent showing again for 24 hours
     localStorage.setItem('healthCheckDismissed', String(Date.now() + 86400000));
+    setIsDismissed(true);
     // Force refetch to update the UI
     void utils.userUpdate.checkUserHealth.invalidate();
   };

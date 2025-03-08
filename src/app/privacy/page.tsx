@@ -1,5 +1,19 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
+import { Metadata, Viewport } from "next";
+
+export const metadata: Metadata = {
+  title: "Política de Privacidade",
+  description: "Política de privacidade do Espaço Pessoal",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export default function PrivacyPolicy() {
   return (
