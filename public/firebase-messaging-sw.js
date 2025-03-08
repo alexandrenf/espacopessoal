@@ -14,45 +14,52 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('Received background message:', payload);
+  console.log('[Firebase SW] Received background message:', payload);
   
-  if (!payload.notification) {
-    console.error('No notification in payload:', payload);
-    return;
-  }
-
-  const notificationTitle = payload.notification.title;
   const notificationOptions = {
-    body: payload.notification.body,
+    title: payload.notification?.title || 'New Notification',
+    body: payload.notification?.body,
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     tag: 'notification-' + Date.now(),
     requireInteraction: true,
-    data: payload.data // Include any additional data
+    data: payload.data,
+    actions: [
+      {
+        action: 'open_app',
+        title: 'Open App'
+      }
+    ]
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions)
-    .catch(error => console.error('Error showing notification:', error));
+  return self.registration.showNotification(notificationOptions.title, notificationOptions)
+    .catch(error => console.error('[Firebase SW] Error showing notification:', error));
 });
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification clicked:', event);
+  console.log('[Firebase SW] Notification clicked:', event);
   event.notification.close();
   
-  // Use notification data to determine where to navigate
   const targetPath = event.notification.data?.url || '/';
   const urlToOpen = new URL(targetPath, self.location.origin).href;
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((windowClients) => {
-      // Try to find an existing window/tab to focus
-      for (let client of windowClients) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
+
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  })
+  .then((windowClients) => {
+    // Check if there is already a window/tab open with the target URL
+    for (let i = 0; i < windowClients.length; i++) {
+      const client = windowClients[i];
+      if (client.url === urlToOpen && 'focus' in client) {
+        return client.focus();
       }
-      // If no existing window found, open a new one
+    }
+    // If no window/tab is open, open a new one
+    if (clients.openWindow) {
       return clients.openWindow(urlToOpen);
-    })
-  );
+    }
+  });
+
+  event.waitUntil(promiseChain);
 });
