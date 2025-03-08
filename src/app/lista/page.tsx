@@ -105,6 +105,33 @@ export default function TestNotificationsPage() {
     }
   };
 
+  const getBrowserSpecificInstructions = () => {
+    const ua = navigator.userAgent;
+    if (ua.includes('Safari') && !ua.includes('Chrome')) {
+      return (
+        <ol className="list-decimal ml-4 text-sm text-gray-600 mt-2">
+          <li>Open Safari Settings (tap the &quot;aA&quot; icon in the address bar)</li>
+          <li>Tap &quot;Website Settings&quot;</li>
+          <li>Find &quot;Notifications&quot; and select &quot;Allow&quot;</li>
+        </ol>
+      );
+    }
+    if (ua.includes('Chrome')) {
+      return (
+        <ol className="list-decimal ml-4 text-sm text-gray-600 mt-2">
+          <li>Click the lock icon in the address bar</li>
+          <li>Find &quot;Notifications&quot; in the permissions list</li>
+          <li>Change the setting to &quot;Allow&quot;</li>
+        </ol>
+      );
+    }
+    return (
+      <p className="text-sm text-gray-600 mt-2">
+        Please check your browser settings to enable notifications for this site.
+      </p>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -116,30 +143,48 @@ export default function TestNotificationsPage() {
               Test Notifications
             </h1>
 
-            <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
-              {getPermissionIcon()}
+            <div className={`mb-4 p-4 rounded-lg flex items-start gap-3 ${
+              permissionStatus === "denied" ? "bg-red-50" : 
+              permissionStatus === "granted" ? "bg-green-50" : "bg-yellow-50"
+            }`}>
+              <div className="mt-1">{getPermissionIcon()}</div>
               <div>
-                <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
-                {permissionStatus === 'denied' && (
-                  <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
+                <p className="font-medium">
+                  {permissionStatus === "granted" && "Notifications are enabled"}
+                  {permissionStatus === "denied" && "Notifications are blocked"}
+                  {permissionStatus === "default" && "Notifications need permission"}
+                  {permissionStatus === "unknown" && "Checking notification status..."}
+                </p>
+                
+                {permissionStatus === "denied" && (
+                  <>
+                    <p className="text-sm text-red-600 mb-2">
+                      To receive notifications, you&apos;ll need to enable them in your browser settings.
+                    </p>
+                    {getBrowserSpecificInstructions()}
+                  </>
                 )}
-                {permissionStatus === 'default' && (
-                  <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
+                
+                {permissionStatus === "default" && (
+                  <p className="text-sm text-yellow-600">
+                    Click the button below and allow notifications when prompted.
+                  </p>
                 )}
               </div>
             </div>
             
-            <p className="text-gray-600 mb-6">
-              Click the button below to send yourself a test notification. Make sure 
-              you have allowed notifications in your browser settings.
-            </p>
-
             <Button
               onClick={handleTestNotification}
-              className="w-full active:opacity-80"
+              className={`w-full ${
+                permissionStatus === "denied" 
+                  ? "bg-gray-100 hover:bg-gray-200" 
+                  : "active:opacity-80"
+              }`}
               type="button"
             >
-              Send Test Notification
+              {permissionStatus === "denied" 
+                ? "Enable Notifications First" 
+                : "Send Test Notification"}
             </Button>
 
             {!session?.user && (
