@@ -35,7 +35,9 @@ export default function TestNotificationsPage() {
     }
   };
 
-  const handleTestNotification = async () => {
+  const handleTestNotification = async (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    
     try {
       if (!session?.user?.id) {
         toast({
@@ -56,13 +58,13 @@ export default function TestNotificationsPage() {
         return;
       }
 
-      const sent = await notify(
-        session.user.id,
+      // Updated to use structured response
+      const notificationResult = await notify(
         "Test Notification",
         "If you see this, notifications are working! 🎉"
       );
 
-      if (sent) {
+      if (notificationResult.success) {
         toast({
           title: "Success",
           description: "Test notification sent successfully!",
@@ -70,7 +72,7 @@ export default function TestNotificationsPage() {
       } else {
         toast({
           title: "Error",
-          description: "Failed to send test notification",
+          description: notificationResult.error ?? "Failed to send test notification",
           variant: "destructive",
         });
       }
@@ -115,8 +117,16 @@ export default function TestNotificationsPage() {
 
             <Button
               onClick={handleTestNotification}
+              onTouchEnd={handleTestNotification}
               disabled={isInitializing || isSending}
-              className="w-full"
+              className="w-full cursor-pointer touch-manipulation"
+              role="button"
+              style={{
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+              }}
             >
               {isInitializing || isSending ? (
                 "Sending..."
