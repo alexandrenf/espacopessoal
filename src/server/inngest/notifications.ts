@@ -3,7 +3,7 @@ import { processScheduledNotifications } from '../scheduler';
 
 // Create the scheduled function
 export const processNotifications = inngest.createFunction(
-  { name: 'Process Scheduled Notifications' },
+  { id: 'process-scheduled-notifications' }, // Changed from name to id
   { cron: '0 * * * *' }, // Run every hour
   async ({ event, step }) => {
     await step.run('Process notifications', async () => {
