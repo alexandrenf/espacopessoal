@@ -3,6 +3,9 @@ import { messaging as messagingInstance, requestNotificationPermission, onMessag
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 
+// Add explicit type imports
+type NotificationPermission = "granted" | "denied" | "default";
+
 interface NotificationResponse {
   success: boolean;
   result?: { success: boolean; messageId: string };
