@@ -7,7 +7,11 @@ import withPWA from 'next-pwa';
 
 /** @type {import("next").NextConfig} */
 const config = {
-  // ... other config options
+  experimental: {
+    turbo: {
+      enabled: true
+    }
+  }
 };
 
 export default withPWA({
