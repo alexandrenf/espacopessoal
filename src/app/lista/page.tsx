@@ -34,9 +34,16 @@ export default function TestNotificationsPage() {
   };
 
   const handleTestNotification = async (e: React.MouseEvent | React.TouchEvent) => {
+    console.log('Button clicked!', {
+      type: e.type,
+      timestamp: new Date().toISOString(),
+      target: e.target,
+    });
+
     e.preventDefault();
     
     if (!session?.user?.id) {
+      console.log('No user session found');
       toast({
         title: "Login Required",
         description: "Please log in to test notifications",
@@ -46,6 +53,7 @@ export default function TestNotificationsPage() {
     }
 
     if (permissionStatus === "denied") {
+      console.log('Notifications permission denied');
       toast({
         title: "Notifications Blocked",
         description: "Please enable notifications in your browser settings to continue",
@@ -55,8 +63,10 @@ export default function TestNotificationsPage() {
     }
 
     try {
+      console.log('Initializing notifications...');
       const initialized = await initializeNotifications();
       if (!initialized) {
+        console.log('Failed to initialize notifications');
         toast({
           title: "Initialization Failed",
           description: "Could not initialize notifications. Please try again.",
@@ -65,17 +75,20 @@ export default function TestNotificationsPage() {
         return;
       }
 
+      console.log('Sending test notification...');
       const notificationResult = await notify(
         "Test Notification",
         "If you see this, notifications are working! 🎉"
       );
 
       if (notificationResult.success) {
+        console.log('Notification sent successfully');
         toast({
           title: "Success",
           description: "Test notification sent successfully!",
         });
       } else {
+        console.log('Notification failed:', notificationResult.error);
         toast({
           title: "Error",
           description: notificationResult.error ?? "Failed to send test notification",
@@ -83,7 +96,7 @@ export default function TestNotificationsPage() {
         });
       }
     } catch (error) {
-      console.error("Notification error:", error);
+      console.error('Notification error:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred while sending the notification",
@@ -123,15 +136,8 @@ export default function TestNotificationsPage() {
 
             <Button
               onClick={handleTestNotification}
-              onTouchEnd={handleTestNotification}
-              className="w-full cursor-pointer touch-manipulation"
-              role="button"
-              style={{
-                WebkitTapHighlightColor: 'transparent',
-                WebkitTouchCallout: 'none',
-                WebkitUserSelect: 'none',
-                userSelect: 'none',
-              }}
+              className="w-full active:opacity-80"
+              type="button"
             >
               Send Test Notification
             </Button>
