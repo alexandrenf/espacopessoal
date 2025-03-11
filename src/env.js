@@ -43,8 +43,8 @@ export const env = createEnv({
     FIREBASE_ADMIN_CLIENT_EMAIL: z.string(),
     FIREBASE_ADMIN_PRIVATE_KEY: z.string(),
     FIREBASE_FCM_VAPID_KEY: z.string(),
-    INNGEST_EVENT_KEY: z.string(),
-    INNGEST_SIGNING_KEY: z.string(),
+    DENO_API_KEY: z.string(),
+    DENO_API_URL: z.string().url(),
   },
 
 
@@ -80,8 +80,8 @@ export const env = createEnv({
     FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
     FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
     FIREBASE_FCM_VAPID_KEY: process.env.FIREBASE_FCM_VAPID_KEY,
-    INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
-    INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
+    DENO_API_KEY: process.env.DENO_API_KEY,
+    DENO_API_URL: process.env.DENO_API_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
