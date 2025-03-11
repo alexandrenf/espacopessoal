@@ -4,7 +4,6 @@ import { API_KEY } from "../../../config/env.ts";
 
 export const handler: Handlers = {
   async OPTIONS(req) {
-    // Handle CORS preflight requests
     const headers = new Headers({
       "Access-Control-Allow-Origin": Deno.env.get("NODE_ENV") === "production"
         ? "https://dev.espacopessoal.com"
@@ -28,7 +27,6 @@ export const handler: Handlers = {
     });
 
     try {
-      // Verify API key
       const authHeader = req.headers.get("Authorization");
       if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
         return new Response(
@@ -37,60 +35,30 @@ export const handler: Handlers = {
         );
       }
 
-      // Process notifications
       const result = await processScheduledNotifications();
 
       return new Response(
         JSON.stringify({
           success: true,
-          processed: result.processed,
+          total: result.total,
+          successful: result.successful,
           failed: result.failed,
           timestamp: new Date().toISOString(),
         }),
-        { 
-          status: 200,
-          headers,
-        }
+        { status: 200, headers }
       );
 
     } catch (error) {
       console.error("Error processing notifications:", error);
-
-      // Return appropriate error response
       return new Response(
         JSON.stringify({
+          success: false,
           error: "Internal Server Error",
           message: error instanceof Error ? error.message : "Unknown error occurred",
           timestamp: new Date().toISOString(),
         }),
-        { 
-          status: 500,
-          headers,
-        }
+        { status: 500, headers }
       );
     }
   },
-
-  async GET(req) {
-    const headers = new Headers({
-      "Access-Control-Allow-Origin": Deno.env.get("NODE_ENV") === "production"
-        ? "https://dev.espacopessoal.com"
-        : "http://localhost:3000",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Content-Type": "application/json",
-    });
-
-    // Simple health check endpoint
-    return new Response(
-      JSON.stringify({ 
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-      }),
-      { 
-        status: 200,
-        headers,
-      }
-    );
-  }
 };
