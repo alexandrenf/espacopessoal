@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
+import { type RouterOutputs } from "~/trpc/react";
+import { UseQueryResult } from '@tanstack/react-query';
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
@@ -51,9 +53,7 @@ const FeatureCard = ({
       ref={cardRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ 
-        scale: isActive ? 1.02 : 1,
-      }}
+      whileHover={{ scale: isActive ? 1.02 : 1 }}
       whileTap={{ 
         scale: isActive ? 0.98 : 1,
         transition: {
@@ -188,33 +188,35 @@ const LoadingState = () => (
 export function UserDashboard() {
   const { data: session, status } = useSession();
   
-  // Define the query result types
+  // Define types for the query results
   type NoteSettingsResult = {
-    notePadUrl: string | null;
-    // Add other fields from getNoteSettings if any
+    notePadUrl: string;
+    privateOrPublicUrl: boolean | null;
+    password: string | null;
   };
 
   type HealthCheckResult = {
-    // Add fields from checkUserHealth if any
-    status: string;
+    isHealthy: boolean;
   };
 
-  // Optimize queries with better caching and parallel execution
-  const queries = api.useQueries((t) => ([
-    {
-      queryKey: ['userSettings.getNoteSettings'],
-      queryFn: () => t.userSettings.getNoteSettings(),
+  // Use proper typing with useQueries
+  const queries = [
+    api.userSettings.getNoteSettings.useQuery(undefined, {
       enabled: status === "authenticated"
-    },
-    {
-      queryKey: ['userUpdate.checkUserHealth'],
-      queryFn: () => t.userUpdate.checkUserHealth(),
+    }),
+    api.userUpdate.checkUserHealth.useQuery(undefined, {
       enabled: status === "authenticated"
-    }
-  ]));
+    })
+  ] as const;
 
-  const noteSettings = queries[0].data as NoteSettingsResult | undefined;
-  const healthCheck = queries[1].data as HealthCheckResult | undefined;
+  // Properly type the query results
+  const [noteSettingsQuery, healthCheckQuery] = queries as readonly [
+    UseQueryResult<NoteSettingsResult>,
+    UseQueryResult<HealthCheckResult>
+  ];
+  
+  const noteSettings = noteSettingsQuery.data;
+  const healthCheck = healthCheckQuery.data;
   const isLoading = queries.some(q => q.isLoading);
   const error = queries.find(q => q.error)?.error;
 
@@ -250,7 +252,7 @@ export function UserDashboard() {
         className="mb-12"
       >
         <h1 className="text-4xl font-bold mb-4 flex items-center gap-2">
-          Olá, {firstName}! 
+          Olá, {firstName}!
           <motion.div
             animate={{ 
               rotate: [0, 10, -10, 10, 0],
@@ -343,3 +345,71 @@ export function UserDashboard() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
