@@ -7,6 +7,8 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from 'sonner';
 import { SessionProvider } from "~/components/SessionProvider";
 import { PWAProvider } from "~/components/PWAProvider";
+import { Suspense } from 'react';
+import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 
 export const metadata: Metadata = {
   title: "Espaço Pessoal",
@@ -37,14 +39,24 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={`${GeistSans.variable}`}>
       <body>
         <TRPCReactProvider>
           <SessionProvider>
             <PWAProvider>
-              {children}
+              <Suspense fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                  <LoadingSpinner className="h-8 w-8" />
+                </div>
+              }>
+                {children}
+              </Suspense>
             </PWAProvider>
           </SessionProvider>
         </TRPCReactProvider>
