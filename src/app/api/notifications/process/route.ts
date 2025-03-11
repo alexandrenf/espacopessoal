@@ -1,21 +1,36 @@
 import { NextResponse } from 'next/server';
 import { DenoClient } from '~/lib/deno-client';
 
-interface ProcessNotificationsResponse {
-  success: boolean;
-  processed: number;
-  failed: number;
-  timestamp: string;
-}
-
 export async function POST() {
+  const requestId = crypto.randomUUID();
+  const startTime = Date.now();
+  
+  console.log(`[API] ${requestId} - Starting notification processing request`);
+  
   try {
-    const result = await DenoClient.processNotifications() as ProcessNotificationsResponse;
+    const result = await DenoClient.processNotifications();
+    const duration = Date.now() - startTime;
+    
+    console.log(`[API] ${requestId} - Notification processing completed:`, {
+      duration: `${duration}ms`,
+      result
+    });
+    
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Failed to process notifications:', error);
+    const duration = Date.now() - startTime;
+    console.error(`[API] ${requestId} - Failed to process notifications:`, {
+      duration: `${duration}ms`,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+    
     return NextResponse.json(
-      { error: 'Failed to process notifications' },
+      {
+        success: false,
+        error: 'Failed to process notifications',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 }
     );
   }

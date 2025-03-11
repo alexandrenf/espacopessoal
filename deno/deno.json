@@ -25,5 +25,8 @@
       "tags": ["fresh", "recommended"]
     }
   },
-  "exclude": ["**/_fresh/*"]
+  "exclude": ["**/_fresh/*"],
+  "comments": {
+    "cron": "Notifications are processed every 5 minutes using Deno.cron"
+  }
 }
