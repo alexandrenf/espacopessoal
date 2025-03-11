@@ -12,21 +12,22 @@ export async function processScheduledNotifications() {
     console.log('Processing scheduled notifications at:', now);
 
     // Find pending notifications that are due
-    const result = await db.queryObject<{
-      id: string;
-      title: string;
-      body: string;
-      url: string | null;
-      fcm_token: string;
-    }>`
+    const result = await db.queryArray`
       SELECT id, title, body, url, fcm_token
       FROM "ScheduledNotification"
-      WHERE "scheduledFor" <= $1
+      WHERE "scheduledFor" <= ${now}
       AND sent = false
       LIMIT 100
-    `([now]);
+    `;
 
-    const pendingNotifications = result.rows;
+    const pendingNotifications = result.rows.map(row => ({
+      id: row[0],
+      title: row[1],
+      body: row[2],
+      url: row[3],
+      fcm_token: row[4],
+    }));
+    
     console.log(`Found ${pendingNotifications.length} pending notifications`);
 
     const results = await Promise.allSettled(
@@ -54,7 +55,7 @@ export async function processScheduledNotifications() {
           });
 
           // Mark notification as sent
-          await db.queryObject`
+          await db.queryArray`
             UPDATE "ScheduledNotification"
             SET sent = true
             WHERE id = ${notification.id}
