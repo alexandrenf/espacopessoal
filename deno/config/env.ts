@@ -1,6 +1,10 @@
 /// <reference lib="deno.ns" />
 import { load } from "std/dotenv/mod.ts";
-import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { 
+  initializeApp, 
+  cert, 
+  getApps 
+} from "npm:firebase-admin@11.11.1/app";
 
 // Load environment variables from .env file
 await load({ export: true });
