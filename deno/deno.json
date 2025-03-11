@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read dev.ts",
+    "deploy": "deployctl deploy --project=your-project-name main.ts"
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.208.0/"
+  }
+}

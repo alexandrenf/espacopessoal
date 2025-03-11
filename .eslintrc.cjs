@@ -41,7 +41,8 @@ const config = {
     "tailwind.config.js",
     "public/firebase-messaging-sw.js",
     "next.config.mjs",
-    ".eslintrc.cjs"
+    ".eslintrc.cjs",
+    "deno/**/*"
   ],
 };
 module.exports = config;
