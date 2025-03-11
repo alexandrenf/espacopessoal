@@ -2,8 +2,6 @@ import "~/styles/globals.css";
 
 import { GeistSans } from "geist/font/sans";
 import { type Metadata, type Viewport } from "next";
-import { headers } from 'next/headers';
-import { auth } from "~/server/auth";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from 'sonner';
@@ -39,14 +37,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await auth();
-  const headersList = headers();
-  
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${GeistSans.variable}`}>
       <body>

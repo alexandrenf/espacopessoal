@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -163,22 +163,18 @@ const FeatureCard = ({
 
 export function UserDashboard() {
   const { data: session } = useSession();
-  const utils = api.useUtils();
+  const { 
+    data: noteSettings, 
+    isLoading: isLoadingNoteSettings,
+    error: noteSettingsError
+  } = api.userSettings.getNoteSettings.useQuery(undefined, {
+    retry: 1
+  });
+
+  if (noteSettingsError) {
+    console.error("Failed to fetch note settings:", noteSettingsError);
+  }
   
-  // Prefetch note settings
-  useEffect(() => {
-    void utils.userSettings.getNoteSettings.prefetch();
-  }, [utils]);
-
-  const { data: noteSettings, isLoading: isLoadingNoteSettings, error: noteSettingsError } = api.userSettings.getNoteSettings.useQuery(
-    undefined,
-    {
-      staleTime: 30000, // Consider data fresh for 30 seconds
-      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-      retry: 1
-    }
-  );
-
   const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
   const isNotepadConfigured = noteSettings?.notePadUrl && noteSettings.notePadUrl.length > 0;
 

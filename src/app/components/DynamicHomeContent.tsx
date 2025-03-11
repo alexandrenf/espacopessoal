@@ -6,33 +6,13 @@ import FeaturesSection from "./FeaturesSection";
 import HowItWorksSection from "./HowItWorksSection";
 import CTASection from "./CTASection";
 import { UserDashboard } from "~/app/components/UserDashboard";
-import { Suspense } from "react";
 
 export default function DynamicHomeContent() {
   const { status } = useSession();
-  
-  if (status === "loading") {
-    return (
-      <div className="flex-grow flex items-center justify-center">
-        <div className="animate-pulse text-lg text-muted-foreground">
-          Carregando...
-        </div>
-      </div>
-    );
-  }
+  const isAuthenticated = status === "authenticated";
 
-  if (status === "authenticated") {
-    return (
-      <Suspense fallback={
-        <div className="flex-grow flex items-center justify-center">
-          <div className="animate-pulse text-lg text-muted-foreground">
-            Carregando seu painel...
-          </div>
-        </div>
-      }>
-        <UserDashboard />
-      </Suspense>
-    );
+  if (isAuthenticated) {
+    return <UserDashboard />;
   }
 
   return (
