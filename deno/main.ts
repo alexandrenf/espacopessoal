@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
-import { initializeApp, cert, getApps } from "https://deno.land/x/firebase_admin/mod.ts";
+import { initializeApp, cert, getApps } from "npm:firebase-admin@11.11.1/app";
 import { processScheduledNotifications } from "./services/notifications.ts";
 import { getAccessToken } from "./utils/firebase.ts";
 import { API_KEY } from "./config/env.ts";
