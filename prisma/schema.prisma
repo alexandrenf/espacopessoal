@@ -59,6 +59,7 @@ model User {
   notepad       Notepad[]
   userThings    UserThings[]
   scheduledNotifications ScheduledNotification[]
+  @@index([id])
 }
 
 model VerificationToken {
@@ -70,12 +71,13 @@ model VerificationToken {
 }
 
 model UserThings {
-  id                  Int      @id @default(autoincrement())
+  id                  String   @id @default(cuid())
   notePadUrl          String
   privateOrPublicUrl  Boolean?
   password            String?
   ownedById           String   @unique
   ownedBy             User     @relation(fields: [ownedById], references: [id])
+  @@index([ownedById])
 } 
 
 model Notepad {
