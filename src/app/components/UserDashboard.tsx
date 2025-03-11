@@ -9,15 +9,17 @@ import {
   Calculator, 
   ArrowRight, 
   Clock,
-  Lock,
   Sparkles,
   Heart,
-  Settings
+  Settings,
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
+import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
+import React from "react";
 
 interface FeatureCardProps {
   title: string;
@@ -161,29 +163,73 @@ const FeatureCard = ({
   );
 };
 
+const LoadingState = () => (
+  <main className="flex-grow container mx-auto px-4 py-8 animate-in fade-in duration-500">
+    <div className="mb-12">
+      <div className="h-12 w-64 bg-gray-200 rounded-lg animate-pulse mb-4" />
+      <div className="h-6 w-96 bg-gray-200 rounded-lg animate-pulse" />
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="p-6 rounded-xl shadow-lg bg-white">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="flex-1">
+              <div className="h-6 w-32 bg-gray-200 rounded-lg animate-pulse mb-2" />
+              <div className="h-4 w-full bg-gray-200 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </main>
+);
+
 export function UserDashboard() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const utils = api.useUtils();
+  
+  // Prefetch data in parallel
   const { 
     data: noteSettings, 
     isLoading: isLoadingNoteSettings,
     error: noteSettingsError
-  } = api.userSettings.getNoteSettings.useQuery(undefined, {
-    retry: 1
-  });
+  } = api.userSettings.getNoteSettings.useQuery(
+    undefined, 
+    {
+      retry: 1,
+      enabled: status === "authenticated",
+      staleTime: 30 * 1000, // Cache for 30 seconds
+      suspense: false, // Handle loading state manually
+    }
+  );
 
-  if (noteSettingsError) {
-    console.error("Failed to fetch note settings:", noteSettingsError);
+  // Prefetch related queries when noteSettings are available
+  React.useEffect(() => {
+    if (noteSettings?.notePadUrl) {
+      void utils.notes.fetchNotesPublic.prefetch({ url: noteSettings.notePadUrl });
+    }
+  }, [noteSettings?.notePadUrl, utils.notes.fetchNotesPublic]);
+
+  // Show loading state while authentication is being checked
+  if (status === "loading" || (status === "authenticated" && isLoadingNoteSettings)) {
+    return <LoadingState />;
   }
-  
+
   const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
   const isNotepadConfigured = noteSettings?.notePadUrl && noteSettings.notePadUrl.length > 0;
 
+  // Show error in a more user-friendly way
   if (noteSettingsError) {
     return (
       <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="text-center text-red-600 dark:text-red-400">
-          <p>Ocorreu um erro ao carregar suas configurações. Por favor, tente novamente mais tarde.</p>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>
+            Ocorreu um erro ao carregar suas configurações. Por favor, atualize a página ou tente novamente mais tarde.
+          </AlertDescription>
+        </Alert>
       </main>
     );
   }
@@ -209,14 +255,16 @@ export function UserDashboard() {
           </motion.div>
         </h1>
         <p className="text-xl text-muted-foreground">
-          Que bom ter você por aqui! O que vamos fazer hoje?
+          {status === "authenticated" 
+            ? "Que bom ter você por aqui! O que vamos fazer hoje?"
+            : "Bem-vindo ao Espaço Pessoal! Faça login para começar."}
         </p>
       </motion.div>
 
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence>
-          {!isLoadingNoteSettings && (
+          {status === "authenticated" && !isLoadingNoteSettings && (
             <FeatureCard
               index={0}
               title="Bloco de Notas"
@@ -227,25 +275,25 @@ export function UserDashboard() {
               status={isNotepadConfigured ? 'configured' : 'unconfigured'}
             />
           )}
+
+          <FeatureCard
+            index={1}
+            title="Lista de Afazeres"
+            description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente."
+            icon={<CheckSquare className="w-6 h-6" />}
+            isActive={status === "authenticated"}
+            href={status === "authenticated" ? "/lista" : "/api/auth/signin"}
+          />
+
+          <FeatureCard
+            index={2}
+            title="Calculadoras Médicas"
+            description="Acesse calculadoras específicas para a área médica, facilitando seu dia a dia clínico."
+            icon={<Calculator className="w-6 h-6" />}
+            isActive={false}
+            comingSoon="Chegando em Março"
+          />
         </AnimatePresence>
-
-        <FeatureCard
-          index={1}
-          title="Lista de Afazeres"
-          description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente."
-          icon={<CheckSquare className="w-6 h-6" />}
-          isActive={true}
-          href="/lista"
-        />
-
-        <FeatureCard
-          index={2}
-          title="Calculadoras Médicas"
-          description="Acesse calculadoras específicas para a área médica, facilitando seu dia a dia clínico."
-          icon={<Calculator className="w-6 h-6" />}
-          isActive={false}
-          comingSoon="Chegando em Março"
-        />
       </div>
 
       {/* Quick Actions */}
@@ -256,20 +304,30 @@ export function UserDashboard() {
         className="mt-12"
       >
         <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-          Ações Rápidas
+          {status === "authenticated" ? "Ações Rápidas" : "Começar"}
           <Heart className="w-5 h-5 text-black-500" />
         </h2>
         <div className="flex flex-wrap gap-4">
-          <Button asChild>
-            <Link href="/profile" className="group">
-              Configurar Perfil
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/notas" className="group">
-              Configurar Bloco de Notas
-            </Link>
-          </Button>
+          {status === "authenticated" ? (
+            <>
+              <Button asChild>
+                <Link href="/profile" className="group">
+                  Configurar Perfil
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/notas" className="group">
+                  Configurar Bloco de Notas
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <Button asChild>
+              <Link href="/api/auth/signin" className="group">
+                Entrar para Começar
+              </Link>
+            </Button>
+          )}
         </div>
       </motion.div>
     </main>
