@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { processScheduledNotifications } from "./services/notifications.ts";
 import { API_KEY } from "./config/env.ts";
 
-// Process notifications every 5 minutes using Deno.cron
-Deno.cron("process-notifications", "*/5 * * * *", async () => {
+// Process notifications every minute using Deno.cron
+Deno.cron("process-notifications", "* * * * *", async () => {
   console.log(`[${new Date().toISOString()}] Starting scheduled notification processing (cron)`);
   try {
     const result = await processScheduledNotifications();
