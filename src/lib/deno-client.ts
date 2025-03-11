@@ -17,7 +17,7 @@ export class DenoClient {
       throw new Error(`Failed to process notifications: ${response.statusText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<unknown>;
   }
 
   static async healthCheck() {
