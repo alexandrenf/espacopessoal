@@ -49,6 +49,7 @@
   ],
   "exclude": [
     "node_modules",
-    "public/firebase-messaging-sw.js"
+    "public/firebase-messaging-sw.js",
+    "deno/**/*"
   ]
 }

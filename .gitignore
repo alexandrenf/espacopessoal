@@ -45,3 +45,7 @@ yarn-error.log*
 # idea files
 .idea
 certificates
+deno/.env
+deno/dist
+deno/.env.*
+!deno/.env.example
