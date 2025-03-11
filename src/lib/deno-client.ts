@@ -27,7 +27,7 @@ export class DenoClient {
         },
       });
 
-      const data = await response.json();
+      const data = await response.json() as NotificationProcessResult;
       const duration = Date.now() - startTime;
 
       if (!response.ok) {
@@ -37,7 +37,7 @@ export class DenoClient {
           data,
           duration: `${duration}ms`
         });
-        throw new Error(data.message || `Failed to process notifications: ${response.statusText}`);
+        throw new Error(data.message ?? `Failed to process notifications: ${response.statusText}`);
       }
 
       console.log('[DenoClient] Notification processing completed:', {
