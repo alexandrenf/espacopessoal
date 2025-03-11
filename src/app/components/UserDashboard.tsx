@@ -187,40 +187,47 @@ const LoadingState = () => (
 
 export function UserDashboard() {
   const { data: session, status } = useSession();
-  const utils = api.useUtils();
   
-  // Prefetch data in parallel
-  const { 
-    data: noteSettings, 
-    isLoading: isLoadingNoteSettings,
-    error: noteSettingsError
-  } = api.userSettings.getNoteSettings.useQuery(
-    undefined, 
-    {
-      retry: 1,
-      enabled: status === "authenticated",
-      staleTime: 30 * 1000, // Cache for 30 seconds
-      suspense: false, // Handle loading state manually
-    }
-  );
+  // Define the query result types
+  type NoteSettingsResult = {
+    notePadUrl: string | null;
+    // Add other fields from getNoteSettings if any
+  };
 
-  // Prefetch related queries when noteSettings are available
-  React.useEffect(() => {
-    if (noteSettings?.notePadUrl) {
-      void utils.notes.fetchNotesPublic.prefetch({ url: noteSettings.notePadUrl });
+  type HealthCheckResult = {
+    // Add fields from checkUserHealth if any
+    status: string;
+  };
+
+  // Optimize queries with better caching and parallel execution
+  const queries = api.useQueries((t) => ([
+    {
+      queryKey: ['userSettings.getNoteSettings'],
+      queryFn: () => t.userSettings.getNoteSettings(),
+      enabled: status === "authenticated"
+    },
+    {
+      queryKey: ['userUpdate.checkUserHealth'],
+      queryFn: () => t.userUpdate.checkUserHealth(),
+      enabled: status === "authenticated"
     }
-  }, [noteSettings?.notePadUrl, utils.notes.fetchNotesPublic]);
+  ]));
+
+  const noteSettings = queries[0].data as NoteSettingsResult | undefined;
+  const healthCheck = queries[1].data as HealthCheckResult | undefined;
+  const isLoading = queries.some(q => q.isLoading);
+  const error = queries.find(q => q.error)?.error;
 
   // Show loading state while authentication is being checked
-  if (status === "loading" || (status === "authenticated" && isLoadingNoteSettings)) {
+  if (status === "loading" || isLoading) {
     return <LoadingState />;
   }
 
   const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
-  const isNotepadConfigured = noteSettings?.notePadUrl && noteSettings.notePadUrl.length > 0;
+  const isNotepadConfigured = Boolean(noteSettings?.notePadUrl);
 
   // Show error in a more user-friendly way
-  if (noteSettingsError) {
+  if (error) {
     return (
       <main className="flex-grow container mx-auto px-4 py-8">
         <Alert variant="destructive">
@@ -264,19 +271,21 @@ export function UserDashboard() {
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence>
-          {status === "authenticated" && !isLoadingNoteSettings && (
+          {status === "authenticated" && !isLoading && (
             <FeatureCard
+              key="notepad"
               index={0}
               title="Bloco de Notas"
               description="Organize suas anotações, pensamentos e ideias em um único lugar seguro e acessível."
               icon={<Notebook className="w-6 h-6" />}
-              href={isNotepadConfigured ? `/notas/${noteSettings.notePadUrl}` : "/notas"}
+              href={isNotepadConfigured ? `/notas/${noteSettings?.notePadUrl}` : "/notas"}
               isActive={true}
               status={isNotepadConfigured ? 'configured' : 'unconfigured'}
             />
           )}
 
           <FeatureCard
+            key="todos"
             index={1}
             title="Lista de Afazeres"
             description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente."
@@ -286,6 +295,7 @@ export function UserDashboard() {
           />
 
           <FeatureCard
+            key="calculators"
             index={2}
             title="Calculadoras Médicas"
             description="Acesse calculadoras específicas para a área médica, facilitando seu dia a dia clínico."
