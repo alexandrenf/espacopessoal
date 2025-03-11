@@ -93,3 +93,31 @@ export async function processScheduledNotifications() {
     await db.end();
   }
 }
+
+export async function cleanupOldNotifications() {
+  const db = new Client(DATABASE_URL);
+  
+  try {
+    await db.connect();
+    
+    // Calculate the timestamp for 30 minutes ago
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    
+    // Delete old sent notifications
+    const result = await db.queryArray`
+      DELETE FROM "ScheduledNotification"
+      WHERE sent = true
+      AND "updatedAt" <= ${thirtyMinutesAgo}
+      RETURNING id
+    `;
+
+    return {
+      deleted: result.rows.length
+    };
+  } catch (error) {
+    console.error('Failed to cleanup old notifications:', error);
+    throw error;
+  } finally {
+    await db.end();
+  }
+}

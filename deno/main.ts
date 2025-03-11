@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { processScheduledNotifications } from "./services/notifications.ts";
+import { processScheduledNotifications, cleanupOldNotifications } from "./services/notifications.ts";
 import { API_KEY } from "./config/env.ts";
 
-// Process notifications every 5 minutes using Deno.cron
+// Process notifications every 5 minutes and cleanup old ones using Deno.cron
 Deno.cron("process-notifications", "*/5 * * * *", async () => {
   console.log(`[${new Date().toISOString()}] Starting scheduled notification processing (cron)`);
   try {
@@ -13,6 +13,10 @@ Deno.cron("process-notifications", "*/5 * * * *", async () => {
       successful: result.successful,
       failed: result.failed
     });
+
+    // Cleanup old notifications
+    const cleanupResult = await cleanupOldNotifications();
+    console.log(`[${new Date().toISOString()}] Cleaned up ${cleanupResult.deleted} old notifications`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error in cron notification processor:`, error);
   }
