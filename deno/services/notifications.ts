@@ -13,7 +13,7 @@ export async function processScheduledNotifications() {
 
     // Find pending notifications that are due
     const result = await db.queryArray`
-      SELECT id, title, body, url, fcm_token
+      SELECT id, title, body, url, "fcmToken"
       FROM "ScheduledNotification"
       WHERE "scheduledFor" <= ${now}
       AND sent = false
@@ -25,7 +25,7 @@ export async function processScheduledNotifications() {
       title: row[1],
       body: row[2],
       url: row[3],
-      fcm_token: row[4],
+      fcm_token: row[4], // We keep this as fcm_token for compatibility with the existing code
     }));
     
     console.log(`Found ${pendingNotifications.length} pending notifications`);
