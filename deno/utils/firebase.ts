@@ -3,9 +3,70 @@ import {
   FIREBASE_ADMIN_PRIVATE_KEY,
 } from "../config/env.ts";
 
+function formatPrivateKey(key: string): string {
+  // Remove any whitespace and ensure proper PEM format
+  const formattedKey = key
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----\s+/, '-----BEGIN PRIVATE KEY-----\n')
+    .replace(/\s+-----END PRIVATE KEY-----/, '\n-----END PRIVATE KEY-----')
+    .trim();
+
+  // Validate the key format
+  if (!formattedKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+    throw new Error('Private key must start with -----BEGIN PRIVATE KEY-----');
+  }
+  if (!formattedKey.endsWith('-----END PRIVATE KEY-----')) {
+    throw new Error('Private key must end with -----END PRIVATE KEY-----');
+  }
+
+  return formattedKey;
+}
+
+async function importPrivateKey(privateKeyPem: string): Promise<CryptoKey> {
+  try {
+    // Remove PEM headers and convert to base64
+    const pemContents = privateKeyPem
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s/g, '');
+
+    // Convert base64 to binary
+    const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+
+    // Import the key
+    return await crypto.subtle.importKey(
+      'pkcs8',
+      binaryDer,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
+  } catch (error) {
+    console.error('[Firebase] Failed to import private key:', error);
+    throw new Error(`Failed to import private key: ${error.message}`);
+  }
+}
+
 export async function getAccessToken(): Promise<string> {
   console.log("[Firebase] Starting access token generation");
+  
   try {
+    if (!FIREBASE_ADMIN_PRIVATE_KEY) {
+      throw new Error('FIREBASE_ADMIN_PRIVATE_KEY is not defined');
+    }
+    if (!FIREBASE_ADMIN_CLIENT_EMAIL) {
+      throw new Error('FIREBASE_ADMIN_CLIENT_EMAIL is not defined');
+    }
+
+    const formattedKey = formatPrivateKey(FIREBASE_ADMIN_PRIVATE_KEY);
+    console.log("[Firebase] Private key formatted successfully");
+
+    const privateKey = await importPrivateKey(formattedKey);
+    console.log("[Firebase] Private key imported successfully");
+
     const now = Math.floor(Date.now() / 1000);
     const hour = 3600;
   
@@ -18,19 +79,6 @@ export async function getAccessToken(): Promise<string> {
       exp: now + hour,
       scope: "https://www.googleapis.com/auth/firebase.messaging",
     };
-
-    // Convert private key from PEM format to CryptoKey
-    const privateKeyBuffer = new TextEncoder().encode(FIREBASE_ADMIN_PRIVATE_KEY);
-    const privateKey = await crypto.subtle.importKey(
-      "pkcs8",
-      privateKeyBuffer,
-      {
-        name: "RSASSA-PKCS1-v1_5",
-        hash: "SHA-256",
-      },
-      false,
-      ["sign"]
-    );
 
     // Create the JWT segments
     const encodedHeader = btoa(JSON.stringify(header));
@@ -49,9 +97,8 @@ export async function getAccessToken(): Promise<string> {
 
     // Combine to create the JWT
     const jwt = `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+    console.log("[Firebase] JWT generated successfully");
 
-    console.log("[Firebase] Successfully generated JWT");
-    
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -75,7 +122,8 @@ export async function getAccessToken(): Promise<string> {
     return data.access_token;
   } catch (error) {
     console.error("[Firebase] Error generating access token:", {
-      error,
+      error: error.message,
+      stack: error.stack,
       timestamp: new Date().toISOString()
     });
     throw error;
