@@ -24,11 +24,40 @@ interface BoardCardProps {
 export function BoardCard({ board }: BoardCardProps) {
   const utils = api.useUtils();
   const { mutate: deleteBoard } = api.board.deleteBoard.useMutation({
-    onMutate: async (_deletedBoardId) => {
+    onMutate: async (deletedBoardId) => {
+      // Cancel any outgoing refetches
       await utils.board.getBoards.cancel();
-      // Store previous data for potential rollback
-      utils.board.getBoards.getInfiniteData();
-      // ... rest of delete mutation logic
+      
+      // Snapshot the previous value
+      const previousBoards = utils.board.getBoards.getInfiniteData({ limit: 10 });
+      
+      // Optimistically update the cache
+      utils.board.getBoards.setInfiniteData(
+        { limit: 10 }, // Must match the query params used in BoardList
+        (old) => {
+          if (!old) return { pages: [], pageParams: [] };
+          return {
+            ...old,
+            pages: old.pages.map(page => ({
+              ...page,
+              boards: page.boards.filter(board => board.id !== deletedBoardId)
+            }))
+          };
+        }
+      );
+      
+      // Return context for potential rollback
+      return { previousBoards };
+    },
+    onError: (_err, _deletedBoardId, context) => {
+      // Restore previous data if mutation fails
+      if (context?.previousBoards) {
+        utils.board.getBoards.setInfiniteData({ limit: 10 }, context.previousBoards);
+      }
+    },
+    onSettled: () => {
+      // Invalidate and refetch after mutation settles
+      void utils.board.getBoards.invalidate();
     }
   });
 
@@ -104,7 +133,7 @@ export function BoardCard({ board }: BoardCardProps) {
         Add Task
       </Button>
 
-      <CreateTaskDialog
+      <TaskDialog
         boardId={board.id}
         open={isCreateTaskOpen}
         onOpenChange={setIsCreateTaskOpen}
