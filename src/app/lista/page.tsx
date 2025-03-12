@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Bell, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import Header from "~/app/components/Header";
+import { BoardList } from "~/components/boards/BoardList";
 import { useState, useEffect } from "react";
 
 export default function TestNotificationsPage() {
@@ -56,15 +57,13 @@ export default function TestNotificationsPage() {
         return;
       }
 
-      // Send immediate notification
       await notify(
         session.user.id,
         "Immediate Notification",
         "This notification appears right away! 🚀"
       );
 
-      // Schedule notification for 30 seconds later
-      const scheduledTime = new Date(Date.now() + 30 * 1000); // 30 seconds from now
+      const scheduledTime = new Date(Date.now() + 30 * 1000);
       await notify(
         session.user.id,
         "Scheduled Notification",
@@ -90,48 +89,52 @@ export default function TestNotificationsPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <div className="bg-white shadow-lg rounded-lg p-6">
-            <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <Bell className="w-6 h-6" />
-              Test Notifications
-            </h1>
+        <div className="space-y-8">
+          <BoardList />
+          
+          <div className="max-w-md mx-auto">
+            <div className="bg-white shadow-lg rounded-lg p-6">
+              <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Bell className="w-6 h-6" />
+                Test Notifications
+              </h1>
 
-            <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
-              {getPermissionIcon()}
-              <div>
-                <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
-                {permissionStatus === 'denied' && (
-                  <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
-                )}
-                {permissionStatus === 'default' && (
-                  <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
-                )}
+              <div className="mb-4 p-3 bg-gray-100 rounded-lg flex items-center gap-2">
+                {getPermissionIcon()}
+                <div>
+                  <p className="font-medium">Notification Permission: {permissionStatus === 'unknown' ? 'Not checked' : permissionStatus}</p>
+                  {permissionStatus === 'denied' && (
+                    <p className="text-sm text-red-600">You need to enable notifications in your browser settings.</p>
+                  )}
+                  {permissionStatus === 'default' && (
+                    <p className="text-sm text-yellow-600">You&apos;ll be prompted to allow notifications when testing.</p>
+                  )}
+                </div>
               </div>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Click the button below to send yourself a test notification. Make sure 
-              you have allowed notifications in your browser settings.
-            </p>
-
-            <Button
-              onClick={handleTestNotification}
-              disabled={isInitializing || isSending}
-              className="w-full"
-            >
-              {isInitializing || isSending ? (
-                "Sending..."
-              ) : (
-                "Send Test Notification"
-              )}
-            </Button>
-
-            {!session?.user && (
-              <p className="mt-4 text-sm text-red-600">
-                You must be logged in to test notifications.
+              
+              <p className="text-gray-600 mb-6">
+                Click the button below to send yourself a test notification. Make sure 
+                you have allowed notifications in your browser settings.
               </p>
-            )}
+
+              <Button
+                onClick={handleTestNotification}
+                disabled={isInitializing || isSending}
+                className="w-full"
+              >
+                {isInitializing || isSending ? (
+                  "Sending..."
+                ) : (
+                  "Send Test Notification"
+                )}
+              </Button>
+
+              {!session?.user && (
+                <p className="mt-4 text-sm text-red-600">
+                  You must be logged in to test notifications.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </main>
