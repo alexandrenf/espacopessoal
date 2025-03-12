@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Post {
@@ -47,18 +47,19 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  fcmToken      String?
-  accounts      Account[]
-  posts         Post[]
-  sessions      Session[]
-  notepad       Notepad[]
-  userThings    UserThings[]
+  id                     String                  @id @default(cuid())
+  name                   String?
+  email                  String?                 @unique
+  emailVerified          DateTime?
+  image                  String?
+  fcmToken               String?
+  accounts               Account[]
+  notepad                Notepad[]
+  posts                  Post[]
   scheduledNotifications ScheduledNotification[]
+  sessions               Session[]
+  userThings             UserThings?
+
   @@index([id])
 }
 
@@ -71,20 +72,21 @@ model VerificationToken {
 }
 
 model UserThings {
-  id                  String   @id @default(cuid())
-  notePadUrl          String
-  privateOrPublicUrl  Boolean?
-  password            String?
-  ownedById           String   @unique
-  ownedBy             User     @relation(fields: [ownedById], references: [id])
+  id                 String   @id @default(cuid())
+  notePadUrl         String
+  privateOrPublicUrl Boolean?
+  password           String?
+  ownedById          String   @unique
+  ownedBy            User     @relation(fields: [ownedById], references: [id])
+
   @@index([ownedById])
-} 
+}
 
 model Notepad {
   id          Int      @id @default(autoincrement())
   content     String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt 
+  updatedAt   DateTime @updatedAt
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
 }
