@@ -59,6 +59,8 @@ model User {
   scheduledNotifications ScheduledNotification[]
   sessions               Session[]
   userThings             UserThings?
+  boards                 Board[]
+  tasks                  Task[]
 
   @@index([id])
 }
@@ -106,4 +108,56 @@ model ScheduledNotification {
 
   @@index([scheduledFor, sent])
   @@index([userId])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  order     Int      @default(0)
+  userId    String
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Task {
+  id                String            @id @default(cuid())
+  name             String
+  description      String?           @db.Text
+  status           TaskStatus        @default(TODO)
+  order            Int               @default(0)
+  dueDate          DateTime?
+  boardId          String
+  userId           String
+  reminderEnabled  Boolean           @default(false)
+  reminderDateTime DateTime?
+  reminderFrequency ReminderFrequency?
+  
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([boardId])
+  @@index([dueDate])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum ReminderFrequency {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
 }
