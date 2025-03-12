@@ -121,25 +121,24 @@ export const taskRouter = createTRPCRouter({
     }),
 
   getTask: protectedProcedure
-    .input(z.object({
-      taskId: z.string(),
-    }))
+    .input(z.object({ taskId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const task = await ctx.db.task.findFirst({
-        where: {
+      return ctx.db.task.findFirstOrThrow({
+        where: { 
           id: input.taskId,
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id 
         },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          status: true,
+          dueDate: true,
+          reminderEnabled: true,
+          reminderDateTime: true,
+          reminderFrequency: true
+        }
       });
-
-      if (!task) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Task not found",
-        });
-      }
-
-      return task;
     }),
 
   updateTask: protectedProcedure
