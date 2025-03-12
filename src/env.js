@@ -2,11 +2,6 @@ import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
 // Set DATABASE_URL and NEXTAUTH_URL based on NODE_ENV before env validation
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.NODE_ENV === "production"
-    ? process.env.DATABASE_URL_PRODUCTION
-    : process.env.DATABASE_URL_DEVELOPMENT;
-}
 
 if (!process.env.NEXTAUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.NODE_ENV === "production"
@@ -26,11 +21,9 @@ export const env = createEnv({
         : z.string().optional(),
     AUTH_DISCORD_ID: z.string(),
     AUTH_DISCORD_SECRET: z.string(),
-    DATABASE_URL_DEVELOPMENT: z.string().url(),
-    DATABASE_URL_PRODUCTION: z.string().url(),
+    DATABASE_URL: z.string().url(),
     NEXTAUTH_URL_DEVELOPMENT: z.string().url(),
     NEXTAUTH_URL_PRODUCTION: z.string().url(),
-    DATABASE_URL: z.string().url(),
     NEXTAUTH_URL: z.string().url(),
     EMAIL_SERVER: z.string().url(),
     EMAIL_FROM: z.string().email(),
@@ -65,8 +58,6 @@ export const env = createEnv({
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_DISCORD_ID: process.env.AUTH_DISCORD_ID,
     AUTH_DISCORD_SECRET: process.env.AUTH_DISCORD_SECRET,
-    DATABASE_URL_DEVELOPMENT: process.env.DATABASE_URL_DEVELOPMENT,
-    DATABASE_URL_PRODUCTION: process.env.DATABASE_URL_PRODUCTION,
     NEXTAUTH_URL_DEVELOPMENT: process.env.NEXTAUTH_URL_DEVELOPMENT,
     NEXTAUTH_URL_PRODUCTION: process.env.NEXTAUTH_URL_PRODUCTION,
     DATABASE_URL: process.env.DATABASE_URL,
