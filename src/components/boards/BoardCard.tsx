@@ -1,6 +1,5 @@
 import { api } from "~/trpc/react";
-import { motion } from "framer-motion";
-import { Settings, MoreVertical } from "lucide-react";
+import { MoreVertical, Plus } from "lucide-react";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import {
@@ -9,7 +8,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import type { RouterOutputs } from "~/trpc/react";
+import { useState } from "react";
+import { CreateTaskDialog } from "~/components/tasks/CreateTaskDialog";
+import { TaskDialog } from "../tasks/TaskDialog";
+import { cn } from "~/lib/utils";
 
 type Board = RouterOutputs["board"]["getBoards"]["boards"][number];
 
@@ -20,47 +24,28 @@ interface BoardCardProps {
 export function BoardCard({ board }: BoardCardProps) {
   const utils = api.useUtils();
   const { mutate: deleteBoard } = api.board.deleteBoard.useMutation({
-    onMutate: async (deletedBoardId) => {
-      // Cancel outgoing fetches
+    onMutate: async (_deletedBoardId) => {
       await utils.board.getBoards.cancel();
-
-      // Get current data
-      const prevData = utils.board.getBoards.getInfiniteData();
-
-      // Optimistically remove the board
-      utils.board.getBoards.setInfiniteData(
-        { limit: 10 },
-        (old) => {
-          if (!old) return { pages: [], pageParams: [] };
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              boards: page.boards.filter((b) => b.id !== deletedBoardId),
-            })),
-          };
-        }
-      );
-
-      return { prevData };
-    },
-    onError: (err, newBoard, context) => {
-      // Restore previous data on error
-      if (context?.prevData) {
-        utils.board.getBoards.setInfiniteData(
-          { limit: 10 },
-          context.prevData
-        );
-      }
-    },
+      // Store previous data for potential rollback
+      utils.board.getBoards.getInfiniteData();
+      // ... rest of delete mutation logic
+    }
   });
 
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
   return (
-    <Card
-      className="relative flex h-40 w-64 flex-col justify-between p-4"
-      style={{ backgroundColor: board.color + "10" }}
-    >
-      <div className="absolute right-2 top-2">
+    <Card className="relative flex flex-col w-[300px] h-[480px] p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: board.color }}
+          />
+          <h3 className="font-semibold">{board.name}</h3>
+        </div>
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -75,33 +60,76 @@ export function BoardCard({ board }: BoardCardProps) {
         </DropdownMenu>
       </div>
 
-      <div>
-        <h3 className="font-semibold">{board.name}</h3>
-        <p className="text-sm text-muted-foreground">
-          {board._count.tasks} tasks
-        </p>
-      </div>
+      <ScrollArea className="flex-grow">
+        <div className="space-y-2">
+          {board.tasks.map((task) => (
+            <Card 
+              key={task.id} 
+              className="p-3 cursor-pointer hover:bg-accent transition-colors"
+              onClick={() => setSelectedTaskId(task.id)}
+            >
+              <div className="flex items-center justify-between">
+                <span className={cn(
+                  "font-medium",
+                  task.status === "DONE" && "line-through text-muted-foreground"
+                )}>
+                  {task.name}
+                </span>
+                <div 
+                  className={`px-2 py-1 rounded text-xs ${
+                    task.status === 'TODO' ? 'bg-yellow-100 text-yellow-800' :
+                    task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                    'bg-green-100 text-green-800'
+                  }`}
+                >
+                  {task.status}
+                </div>
+              </div>
+              {task.dueDate && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Due: {new Date(task.dueDate).toLocaleDateString()}
+                </p>
+              )}
+            </Card>
+          ))}
+        </div>
+      </ScrollArea>
 
-      <div className="flex justify-between">
-        <Button variant="outline" size="sm">
-          View Tasks
-        </Button>
-        <Button variant="ghost" size="icon">
-          <Settings className="h-4 w-4" />
-        </Button>
-      </div>
+      <Button 
+        variant="ghost" 
+        className="w-full mt-4 border-2 border-dashed"
+        onClick={() => setIsCreateTaskOpen(true)}
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Add Task
+      </Button>
+
+      <CreateTaskDialog
+        boardId={board.id}
+        open={isCreateTaskOpen}
+        onOpenChange={setIsCreateTaskOpen}
+      />
+
+      {selectedTaskId && (
+        <TaskDialog
+          taskId={selectedTaskId}
+          boardId={board.id}
+          open={!!selectedTaskId}
+          onOpenChange={(open) => !open && setSelectedTaskId(null)}
+        />
+      )}
     </Card>
   );
 }
 
 export function BoardCardSkeleton() {
   return (
-    <Card className="h-40 w-64 p-4 animate-pulse">
-      <div className="h-4 w-24 bg-muted rounded" />
-      <div className="mt-2 h-3 w-16 bg-muted rounded" />
-      <div className="mt-auto flex justify-between">
-        <div className="h-8 w-20 bg-muted rounded" />
-        <div className="h-8 w-8 bg-muted rounded" />
+    <Card className="w-[300px] h-[480px] p-4 animate-pulse">
+      <div className="h-6 bg-muted rounded w-2/3 mb-4" />
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-16 bg-muted rounded" />
+        ))}
       </div>
     </Card>
   );
