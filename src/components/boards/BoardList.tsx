@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { api } from "~/trpc/react";
 import { BoardCard, BoardCardSkeleton } from "./BoardCard";
 import { CreateBoardDialog } from "./CreateBoardDialog";
@@ -24,14 +23,14 @@ export function BoardList() {
       }
     );
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Handle infinite scroll
   const handleScroll = () => {
-    if (scrollRef.current && hasNextPage && !isFetching) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      if (scrollWidth - (scrollLeft + clientWidth) < 200) {
+    if (containerRef.current && hasNextPage && !isFetching) {
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      if (scrollHeight - (scrollTop + clientHeight) < 200) {
         void fetchNextPage();
       }
     }
@@ -52,35 +51,33 @@ export function BoardList() {
         </Button>
       </div>
 
-      <ScrollArea 
-        ref={scrollRef} 
-        className="w-full whitespace-nowrap rounded-md border"
+      <div 
+        ref={containerRef}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 min-h-[calc(100vh-12rem)] overflow-auto p-4"
         onScroll={handleScroll}
       >
-        <div className="flex space-x-4 p-4">
-          <AnimatePresence>
-            {boards.map((board, index) => (
-              <motion.div
-                key={board.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <BoardCard board={board} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+        <AnimatePresence>
+          {boards.map((board, index) => (
+            <motion.div
+              key={board.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <BoardCard board={board} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
-          {isFetching && (
-            <div className="flex space-x-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <BoardCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+        {isFetching && (
+          <>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <BoardCardSkeleton key={i} />
+            ))}
+          </>
+        )}
+      </div>
 
       <CreateBoardDialog 
         open={isCreateOpen} 

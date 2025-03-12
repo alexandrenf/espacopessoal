@@ -47,6 +47,55 @@ export const boardRouter = createTRPCRouter({
       };
     }),
 
+     // --- ADD THIS createTask PROCEDURE ---
+  createTask: protectedProcedure
+  .input(
+    z.object({
+      boardId: z.string(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      dueDate: z.string().optional(),
+      reminderEnabled: z.boolean().optional(),
+      reminderDateTime: z.string().optional(),
+      reminderFrequency: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    // Ensure the user owns the board
+    const board = await ctx.db.board.findFirst({
+      where: {
+        id: input.boardId,
+        userId: ctx.session.user.id,
+      },
+    });
+
+    if (!board) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Board not found or you do not own it.",
+      });
+    }
+
+    // Create the task
+    const newTask = await ctx.db.task.create({
+      data: {
+        boardId: input.boardId,
+        userId: ctx.session.user.id, // Add this line
+        name: input.name,
+        description: input.description ?? "",
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        reminderEnabled: input.reminderEnabled ?? false,
+        reminderDateTime: input.reminderDateTime ? new Date(input.reminderDateTime) : null,
+        reminderFrequency: input.reminderFrequency ?? "ONCE",
+        // Include any other fields (e.g., `status`, `order`) as needed
+      },
+    });
+
+    return newTask;
+  }),
+// --- END createTask ---
+
+
   createBoard: protectedProcedure
     .input(z.object({
       name: z.string().min(1).max(100),

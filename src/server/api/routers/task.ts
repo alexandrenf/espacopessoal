@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { TRPCError } from "@trpc/server";
 
 export const taskRouter = createTRPCRouter({
   getTasks: protectedProcedure
@@ -70,6 +71,140 @@ export const taskRouter = createTRPCRouter({
           order: (lastTask?.order ?? -1) + 1,
           userId: ctx.session.user.id,
         },
+      });
+    }),
+
+  getTask: protectedProcedure
+    .input(z.object({
+      taskId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const task = await ctx.db.task.findFirst({
+        where: {
+          id: input.taskId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!task) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Task not found",
+        });
+      }
+
+      return task;
+    }),
+
+  updateTask: protectedProcedure
+    .input(z.object({
+      taskId: z.string(),
+      boardId: z.string(),
+      name: z.string().min(1).max(200),
+      description: z.string().max(2000).optional(),
+      dueDate: z.string().optional(),
+      status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
+      reminderEnabled: z.boolean().optional(),
+      reminderDateTime: z.string().optional(),
+      reminderFrequency: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const task = await ctx.db.task.findFirst({
+        where: {
+          id: input.taskId,
+          boardId: input.boardId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!task) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Task not found",
+        });
+      }
+
+      return ctx.db.task.update({
+        where: { id: input.taskId },
+        data: {
+          name: input.name,
+          description: input.description,
+          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          status: input.status,
+          reminderEnabled: input.reminderEnabled,
+          reminderDateTime: input.reminderDateTime ? new Date(input.reminderDateTime) : null,
+          reminderFrequency: input.reminderFrequency,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          status: true,
+          order: true,
+          dueDate: true,
+          reminderEnabled: true,
+          reminderDateTime: true,
+          reminderFrequency: true,
+          boardId: true,
+        },
+      });
+    }),
+
+  toggleComplete: protectedProcedure
+    .input(z.object({
+      taskId: z.string(),
+      boardId: z.string(),
+      completed: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const task = await ctx.db.task.findFirst({
+        where: {
+          id: input.taskId,
+          boardId: input.boardId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!task) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Task not found",
+        });
+      }
+
+      return ctx.db.task.update({
+        where: { id: input.taskId },
+        data: {
+          status: input.completed ? "DONE" : "TODO",
+        },
+      });
+    }),
+
+  deleteTask: protectedProcedure
+    .input(z.object({
+      taskId: z.string(),
+      boardId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify task ownership and existence
+      const task = await ctx.db.task.findFirst({
+        where: {
+          id: input.taskId,
+          boardId: input.boardId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!task) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Task not found or you don't have permission to delete it",
+        });
+      }
+
+      // Delete the task
+      return ctx.db.task.delete({
+        where: { id: input.taskId },
       });
     }),
 });
