@@ -11,9 +11,10 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import type { RouterOutputs } from "~/trpc/react";
 import { useState } from "react";
-import { CreateTaskDialog } from "~/components/tasks/CreateTaskDialog";
 import { TaskDialog } from "../tasks/TaskDialog";
 import { cn } from "~/lib/utils";
+import { DeleteConfirmationModal } from "~/app/components/DeleteConfirmationModal";
+import { format, isValid, parseISO } from "date-fns";
 
 type Board = RouterOutputs["board"]["getBoards"]["boards"][number];
 
@@ -23,7 +24,10 @@ interface BoardCardProps {
 
 export function BoardCard({ board }: BoardCardProps) {
   const utils = api.useUtils();
-  const { mutate: deleteBoard } = api.board.deleteBoard.useMutation({
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const { mutate: deleteBoard, isPending: isDeleting } = api.board.deleteBoard.useMutation({
     onMutate: async (deletedBoardId) => {
       // Cancel any outgoing refetches
       await utils.board.getBoards.cancel();
@@ -61,93 +65,117 @@ export function BoardCard({ board }: BoardCardProps) {
     }
   });
 
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const handleDeleteConfirm = () => {
+    deleteBoard(board.id);
+    setIsDeleteModalOpen(false);
+  };
+
+  const formatDueDate = (dateString: string) => {
+    const date = parseISO(dateString);
+    return isValid(date) ? format(date, 'MMM d, yyyy') : 'Invalid date';
+  };
 
   return (
-    <Card className="relative flex flex-col w-[300px] h-[480px] p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-full" 
-            style={{ backgroundColor: board.color }}
-          />
-          <h3 className="font-semibold">{board.name}</h3>
+    <>
+      <Card className="relative flex flex-col w-[300px] h-[480px] p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: board.color }}
+            />
+            <h3 className="font-semibold">{board.name}</h3>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setIsDeleteModalOpen(true)}>
+                Delete Board
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => deleteBoard(board.id)}>
-              Delete Board
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
-      <ScrollArea className="flex-grow">
-        <div className="space-y-2">
-          {board.tasks.map((task) => (
-            <Card 
-              key={task.id} 
-              className="p-3 cursor-pointer hover:bg-accent transition-colors"
-              onClick={() => setSelectedTaskId(task.id)}
-            >
-              <div className="flex items-center justify-between">
-                <span className={cn(
-                  "font-medium",
-                  task.status === "DONE" && "line-through text-muted-foreground"
-                )}>
-                  {task.name}
-                </span>
-                <div 
-                  className={`px-2 py-1 rounded text-xs ${
-                    task.status === 'TODO' ? 'bg-yellow-100 text-yellow-800' :
-                    task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                    'bg-green-100 text-green-800'
-                  }`}
-                >
-                  {task.status}
+        <ScrollArea className="flex-grow">
+          <div className="space-y-2">
+            {board.tasks.map((task) => (
+              <Card 
+                key={task.id} 
+                className="p-3 cursor-pointer hover:bg-accent transition-colors"
+                onClick={() => setSelectedTaskId(task.id)}
+                tabIndex={0}
+                role="button"
+                aria-label={`View task: ${task.name}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault(); // Prevent page scroll on space
+                    setSelectedTaskId(task.id);
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={cn(
+                    "font-medium",
+                    task.status === "DONE" && "line-through text-muted-foreground"
+                  )}>
+                    {task.name}
+                  </span>
+                  <div 
+                    className={cn(
+                      "px-2 py-1 rounded text-xs",
+                      task.status === "TODO" && "bg-yellow-100 text-yellow-800",
+                      task.status === "IN_PROGRESS" && "bg-blue-100 text-blue-800",
+                      task.status === "DONE" && "bg-green-100 text-green-800"
+                    )}
+                  >
+                    {task.status}
+                  </div>
                 </div>
-              </div>
-              {task.dueDate && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Due: {new Date(task.dueDate).toLocaleDateString()}
-                </p>
-              )}
-            </Card>
-          ))}
-        </div>
-      </ScrollArea>
+                {task.dueDate && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Due: {task.dueDate ? format(task.dueDate, 'MMM d, yyyy') : 'No due date'}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
 
-      <Button 
-        variant="ghost" 
-        className="w-full mt-4 border-2 border-dashed"
-        onClick={() => setIsCreateTaskOpen(true)}
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Add Task
-      </Button>
+        <Button 
+          variant="ghost" 
+          className="w-full mt-4 border-2 border-dashed"
+          onClick={() => setIsCreateTaskOpen(true)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
 
-      <TaskDialog
-        boardId={board.id}
-        open={isCreateTaskOpen}
-        onOpenChange={setIsCreateTaskOpen}
-      />
-
-      {selectedTaskId && (
         <TaskDialog
-          taskId={selectedTaskId}
           boardId={board.id}
-          open={!!selectedTaskId}
-          onOpenChange={(open) => !open && setSelectedTaskId(null)}
+          taskId={selectedTaskId ?? undefined}
+          open={isCreateTaskOpen || !!selectedTaskId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsCreateTaskOpen(false);
+              setSelectedTaskId(null);
+            }
+          }}
         />
-      )}
-    </Card>
+
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleDeleteConfirm}
+          noteTitle={board.name}
+          isDeleting={isDeleting}
+        />
+      </Card>
+    </>
   );
 }
 
