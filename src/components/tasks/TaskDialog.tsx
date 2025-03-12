@@ -20,13 +20,13 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { DateTimePicker } from "~/components/ui/date-time-picker";
+import { DeleteConfirmationModal } from "~/app/components/DeleteConfirmationModal";
 
-// Define the types inline since the module is missing
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 export type ReminderFrequency = "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY";
 
 interface TaskDialogProps {
-  taskId: string;
+  taskId?: string;
   boardId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,15 +39,8 @@ export function TaskDialog({
   onOpenChange,
 }: TaskDialogProps) {
   const utils = api.useUtils();
-  
-  const { data: task } = api.task.getTask.useQuery(
-    { taskId },
-    { 
-      enabled: Boolean(taskId),
-      networkMode: 'always',
-    }
-  );
-  
+  const isEditMode = Boolean(taskId);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("TODO");
@@ -55,10 +48,38 @@ export function TaskDialog({
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDateTime, setReminderDateTime] = useState<Date | undefined>();
   const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>("ONCE");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
+  // Query task data with loading and error states
+  const { 
+    data: task, 
+    isLoading: isTaskLoading,
+    error: taskError 
+  } = api.task.getTask.useQuery(
+    { taskId: taskId! },
+    { 
+      enabled: isEditMode,
+      networkMode: 'always',
+    }
+  );
 
-  // Update form state when task data is loaded
+  // Reset form when dialog is closed
   useEffect(() => {
-    if (task) {
+    if (!open) {
+      setName("");
+      setDescription("");
+      setStatus("TODO");
+      setDueDate(undefined);
+      setReminderEnabled(false);
+      setReminderDateTime(undefined);
+      setReminderFrequency("ONCE");
+      setValidationError(null);
+    }
+  }, [open]);
+
+  // Update form state when task data is loaded in edit mode
+  useEffect(() => {
+    if (task && isEditMode) {
       setName(task.name);
       setDescription(task.description ?? "");
       setStatus(task.status);
@@ -67,27 +88,86 @@ export function TaskDialog({
       setReminderDateTime(task.reminderDateTime ? new Date(task.reminderDateTime) : undefined);
       setReminderFrequency(task.reminderFrequency ?? "ONCE");
     }
-  }, [task]);
+  }, [task, isEditMode]);
+
+  // Show loading state or return null if task is not loaded in edit mode
+  if (isEditMode) {
+    if (isTaskLoading) {
+      return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="w-full max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Loading Task...</DialogTitle>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    if (taskError) {
+      return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="w-full max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Error Loading Task</DialogTitle>
+            </DialogHeader>
+            <p className="text-destructive">
+              {taskError instanceof Error ? taskError.message : 'Failed to load task'}
+            </p>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    if (!task) {
+      return null;
+    }
+  }
+
+  const { mutate: createTask, isPending: isCreating } = api.board.createTask.useMutation({
+    onSuccess: async () => {
+      try {
+        // Invalidate the boards cache to refresh the task list
+        // We use board.getBoards instead of task.getTasks since tasks are fetched
+        // as part of the board query for optimized loading
+        await utils.board.getBoards.invalidate();
+        onOpenChange(false);
+      } catch (error) {
+        console.error("Failed to invalidate cache:", error instanceof Error ? error.message : String(error));
+      }
+    },
+    onError: (error) => {
+      console.error("Failed to create task:", error);
+      if (error instanceof Error) {
+        console.error(error.message);
+      } else if (typeof error === 'object' && error !== null) {
+        console.error(JSON.stringify(error));
+      } else {
+        console.error(String(error));
+      }
+    }
+  });
 
   const { mutate: updateTask, isPending: isUpdating } = api.task.updateTask.useMutation({
     onSuccess: async () => {
       try {
-        // Use the board router instead of task router since that's what exists
+        // Invalidate the boards cache to refresh the task list
+        // We use board.getBoards instead of task.getTasks since tasks are fetched
+        // as part of the board query for optimized loading
         await utils.board.getBoards.invalidate();
         onOpenChange(false);
       } catch (error) {
-        if (error instanceof Error) {
-          console.error("Failed to invalidate cache:", error.message);
-        } else {
-          console.error("Failed to invalidate cache:", String(error));
-        }
+        console.error("Failed to invalidate cache:", error instanceof Error ? error.message : String(error));
       }
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
+      console.error("Failed to update task:", error);
       if (error instanceof Error) {
-        console.error("Failed to update task:", error.message);
+        console.error(error.message);
+      } else if (typeof error === 'object' && error !== null) {
+        console.error(JSON.stringify(error));
       } else {
-        console.error("Failed to update task:", String(error));
+        console.error(String(error));
       }
     }
   });
@@ -108,10 +188,25 @@ export function TaskDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskId || !boardId) return;
     
-    updateTask({
-      taskId,
+    // Clear any previous validation errors
+    setValidationError(null);
+    
+    // Validate reminder settings
+    if (reminderEnabled) {
+      if (!reminderDateTime) {
+        setValidationError("Please select a reminder date and time");
+        return;
+      }
+      
+      // Validate that reminder date is in the future
+      if (reminderDateTime < new Date()) {
+        setValidationError("Reminder date must be in the future");
+        return;
+      }
+    }
+    
+    const taskData = {
       boardId,
       name,
       description,
@@ -120,123 +215,171 @@ export function TaskDialog({
       reminderEnabled,
       reminderDateTime: reminderDateTime?.toISOString(),
       reminderFrequency: reminderEnabled ? reminderFrequency : undefined,
-    });
+    };
+
+    if (isEditMode && taskId) {
+      updateTask({ ...taskData, taskId });
+    } else {
+      createTask(taskData);
+    }
   };
 
-  // Show loading state or return null if task is not loaded
-  if (!task) {
-    return null;
-  }
+  const isPending = isCreating || isUpdating || isDeleting;
+
+  const handleDeleteConfirm = () => {
+    if (!taskId) return;
+    deleteTask({ taskId, boardId });
+    setIsDeleteModalOpen(false);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Edit Task</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid w-full gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Task Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter task name"
-                required
-              />
-            </div>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{isEditMode ? "Edit Task" : "Create New Task"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+            <div className="space-y-4 py-4">
+              <div className="grid w-full gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Task Name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter task name"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add task description"
-                className="h-24"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Add task description"
+                    className="h-24"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODO">To Do</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="DONE">Done</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
-              <DateTimePicker
-                value={dueDate}
-                onChange={setDueDate}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="reminder">Enable Reminder</Label>
-                <Switch
-                  id="reminder"
-                  checked={reminderEnabled}
-                  onCheckedChange={setReminderEnabled}
-                />
-              </div>
-
-              {reminderEnabled && (
-                <>
+                {isEditMode && (
                   <div className="space-y-2">
-                    <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
-                    <DateTimePicker
-                      value={reminderDateTime}
-                      onChange={setReminderDateTime}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="reminderFrequency">Repeat</Label>
-                    <Select
-                      value={reminderFrequency}
-                      onValueChange={(value) => setReminderFrequency(value as ReminderFrequency)}
-                    >
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ONCE">Once</SelectItem>
-                        <SelectItem value="DAILY">Daily</SelectItem>
-                        <SelectItem value="WEEKLY">Weekly</SelectItem>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
+                        <SelectItem value="TODO">To Do</SelectItem>
+                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                        <SelectItem value="DONE">Done</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                </>
-              )}
-            </div>
-          </div>
+                )}
 
-          <DialogFooter className="gap-2 pt-4">
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => deleteTask({ taskId, boardId })}
-              disabled={isDeleting}
-            >
-              Delete
-            </Button>
-            <Button type="submit" disabled={isUpdating}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">Due Date</Label>
+                  <DateTimePicker
+                    value={dueDate}
+                    onChange={setDueDate}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="reminder">Enable Reminder</Label>
+                    <Switch
+                      id="reminder"
+                      checked={reminderEnabled}
+                      onCheckedChange={setReminderEnabled}
+                    />
+                  </div>
+
+                  {reminderEnabled && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
+                        <DateTimePicker
+                          value={reminderDateTime}
+                          onChange={setReminderDateTime}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reminderFrequency">Repeat</Label>
+                        <Select
+                          value={reminderFrequency}
+                          onValueChange={(value) => setReminderFrequency(value as ReminderFrequency)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ONCE">Once</SelectItem>
+                            <SelectItem value="DAILY">Daily</SelectItem>
+                            <SelectItem value="WEEKLY">Weekly</SelectItem>
+                            <SelectItem value="MONTHLY">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {validationError && (
+              <p className="text-sm text-destructive px-6 pb-2">
+                {validationError}
+              </p>
+            )}
+
+            <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
+              {isEditMode && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  disabled={isPending}
+                >
+                  Delete
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={
+                  isPending || 
+                  (reminderEnabled && !reminderDateTime) ||
+                  (reminderEnabled && reminderDateTime && reminderDateTime < new Date())
+                }
+              >
+                {isPending
+                  ? (isEditMode ? "Saving..." : "Creating...")
+                  : (isEditMode ? "Save Changes" : "Create Task")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        noteTitle={task?.name ?? ""}
+        isDeleting={isDeleting}
+      />
+    </>
   );
 }

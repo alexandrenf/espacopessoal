@@ -90,79 +90,81 @@ export function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-full max-w-lg">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Task Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter task name"
-              required
-            />
-          </div>
+          <div className="grid w-full gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Task Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter task name"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add task description"
-              className="h-24"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add task description"
+                className="h-24"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date</Label>
-            <DateTimePicker
-              value={dueDate}
-              onChange={(date?: Date) => setDueDate(date)}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Due Date</Label>
+              <DateTimePicker
+                value={dueDate}
+                onChange={(date?: Date) => setDueDate(date)}
+              />
+            </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="reminder">Enable Reminder</Label>
-            <Switch
-              id="reminder"
-              checked={reminderEnabled}
-              onCheckedChange={(checked: boolean) => setReminderEnabled(checked)}
-            />
-          </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="reminder">Enable Reminder</Label>
+              <Switch
+                id="reminder"
+                checked={reminderEnabled}
+                onCheckedChange={(checked: boolean) => setReminderEnabled(checked)}
+              />
+            </div>
 
-          {reminderEnabled && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
-                <DateTimePicker
-                  value={reminderDateTime}
-                  onChange={(date?: Date) => setReminderDateTime(date)}
-                />
+            {reminderEnabled && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
+                  <DateTimePicker
+                    value={reminderDateTime}
+                    onChange={(date?: Date) => setReminderDateTime(date)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reminderFrequency">Repeat</Label>
+                  <Select
+                    value={reminderFrequency}
+                    onValueChange={(value: string) => setReminderFrequency(value as ReminderFrequency)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ONCE">Once</SelectItem>
+                      <SelectItem value="DAILY">Daily</SelectItem>
+                      <SelectItem value="WEEKLY">Weekly</SelectItem>
+                      <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="reminderFrequency">Repeat</Label>
-                <Select
-                  value={reminderFrequency}
-                  onValueChange={(value: string) => setReminderFrequency(value as ReminderFrequency)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ONCE">Once</SelectItem>
-                    <SelectItem value="DAILY">Daily</SelectItem>
-                    <SelectItem value="WEEKLY">Weekly</SelectItem>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
+            )}
+          </div>
 
           <DialogFooter>
             <Button

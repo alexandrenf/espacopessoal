@@ -45,17 +45,58 @@ export const taskRouter = createTRPCRouter({
     }),
 
   createTask: protectedProcedure
-    .input(z.object({
-      boardId: z.string(),
-      name: z.string().min(1).max(200),
-      description: z.string().max(2000).optional(),
-      dueDate: z.date().optional(),
-      reminderEnabled: z.boolean().default(false),
-      reminderDateTime: z.date().optional(),
-      reminderFrequency: z.enum(['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY']).optional(),
-    }))
+    .input(
+      z.object({
+        boardId: z.string(),
+        name: z.string().min(1).max(200),
+        description: z.string().max(2000).optional(),
+        dueDate: z.date().optional(),
+        reminderEnabled: z.boolean().default(false),
+        reminderDateTime: z.string().optional(),
+        reminderFrequency: z.enum(['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY']).optional(),
+      }).refine(
+        (data) => {
+          // If reminder is enabled, both datetime and frequency are required
+          if (data.reminderEnabled) {
+            if (!data.reminderDateTime) {
+              return false;
+            }
+            if (!data.reminderFrequency) {
+              return false;
+            }
+            // Validate date format
+            if (isNaN(Date.parse(data.reminderDateTime))) {
+              return false;
+            }
+          }
+          return true;
+        },
+        {
+          message: "When reminder is enabled, both valid reminder date/time and frequency are required",
+          path: ["reminderDateTime"],
+        }
+      )
+    )
     .mutation(async ({ ctx, input }) => {
-      // Verify board ownership in the same query
+      // Ensure the user owns the board
+      const board = await ctx.db.board.findFirst({
+        where: {
+          id: input.boardId,
+          userId: ctx.session.user.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!board) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Board not found or you do not own it.",
+        });
+      }
+
+      // Get the last task order for positioning
       const lastTask = await ctx.db.task.findFirst({
         where: { 
           boardId: input.boardId,
@@ -102,10 +143,16 @@ export const taskRouter = createTRPCRouter({
       boardId: z.string(),
       name: z.string().min(1).max(200),
       description: z.string().max(2000).optional(),
-      dueDate: z.string().optional(),
+      dueDate: z.string().optional().refine(
+        (val) => !val || !isNaN(Date.parse(val)), 
+        { message: "Invalid date format for dueDate" }
+      ),
       status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
       reminderEnabled: z.boolean().optional(),
-      reminderDateTime: z.string().optional(),
+      reminderDateTime: z.string().optional().refine(
+        (val) => !val || !isNaN(Date.parse(val)), 
+        { message: "Invalid date format for reminderDateTime" }
+      ),
       reminderFrequency: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
