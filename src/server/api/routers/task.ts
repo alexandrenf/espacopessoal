@@ -65,14 +65,19 @@ export const taskRouter = createTRPCRouter({
               return false;
             }
             // Validate date format
-            if (isNaN(Date.parse(data.reminderDateTime))) {
+            const reminderDate = new Date(data.reminderDateTime);
+            if (isNaN(reminderDate.getTime())) {
+              return false;
+            }
+            // Ensure reminder is in the future
+            if (reminderDate <= new Date()) {
               return false;
             }
           }
           return true;
         },
         {
-          message: "When reminder is enabled, both valid reminder date/time and frequency are required",
+          message: "When reminder is enabled, both valid reminder date/time (in the future) and frequency are required",
           path: ["reminderDateTime"],
         }
       )
@@ -149,13 +154,30 @@ export const taskRouter = createTRPCRouter({
       ),
       status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
       reminderEnabled: z.boolean().optional(),
-      reminderDateTime: z.string().optional().refine(
-        (val) => !val || !isNaN(Date.parse(val)), 
-        { message: "Invalid date format for reminderDateTime" }
-      ),
+      reminderDateTime: z.string().optional()
+        .refine(
+          (val) => !val || !isNaN(Date.parse(val)), 
+          { message: "Invalid date format for reminderDateTime" }
+        )
+        .refine(
+          (val) => {
+            if (!val) return true;
+            const reminderDate = new Date(val);
+            return reminderDate > new Date();
+          },
+          { message: "Reminder date must be in the future" }
+        ),
       reminderFrequency: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Additional validation for reminder settings
+      if (input.reminderEnabled && (!input.reminderDateTime || !input.reminderFrequency)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "When reminder is enabled, both reminder date/time and frequency are required",
+        });
+      }
+
       const task = await ctx.db.task.findFirst({
         where: {
           id: input.taskId,

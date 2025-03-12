@@ -48,6 +48,11 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
   const handleTimeChange = (hour: number, minute: number, period: "AM" | "PM") => {
     if (!selectedDateTime) {
       const now = new Date()
+      const adjustedHour = hour === 12
+        ? (period === "AM" ? 0 : 12)
+        : (period === "PM" ? hour + 12 : hour)
+      now.setHours(adjustedHour)
+      now.setMinutes(minute)
       setSelectedDateTime(now)
       onChange?.(now)
       return
