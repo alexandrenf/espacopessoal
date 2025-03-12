@@ -177,7 +177,6 @@ export function TaskDialog({
               <DateTimePicker
                 value={dueDate}
                 onChange={setDueDate}
-                className="w-full"
               />
             </div>
 
@@ -198,7 +197,6 @@ export function TaskDialog({
                     <DateTimePicker
                       value={reminderDateTime}
                       onChange={setReminderDateTime}
-                      className="w-full"
                     />
                   </div>
 
