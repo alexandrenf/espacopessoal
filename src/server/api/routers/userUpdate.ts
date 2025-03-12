@@ -8,36 +8,31 @@ import {
 export const userUpdateRouter = createTRPCRouter({
   checkUserHealth: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = await ctx.db.user.findFirst({
-        where: { id: ctx.session.user.id },
+      // Combine queries into a single prisma call
+      const userData = await ctx.db.$transaction(async (tx) => {
+        const [user, userThings] = await Promise.all([
+          tx.user.findUnique({
+            where: { id: ctx.session.user.id },
+            select: { name: true, email: true },
+          }),
+          tx.userThings.findUnique({
+            where: { ownedById: ctx.session.user.id },
+            select: { notePadUrl: true },
+          }),
+        ]);
+        return { user, userThings };
       });
-      if (!user) {
+
+      if (!userData.user) {
         throw new Error("User not found");
       }
-      
-      // Check user profile data
-      if (!user.name || !user.email) {
-        return {
-          isHealthy: false,
-        };
-      }
-      
-      // Check if user has set up their notepad URL
-      const userThings = await ctx.db.userThings.findFirst({
-        where: { ownedById: ctx.session.user.id },
-        select: {
-          notePadUrl: true,
-        },
-      });
-      
-      if (!userThings?.notePadUrl) {
-        return {
-          isHealthy: false,
-        };
-      }
-      
+
       return {
-        isHealthy: true,
+        isHealthy: !!(
+          userData.user.name &&
+          userData.user.email &&
+          userData.userThings?.notePadUrl
+        ),
       };
     }),
 

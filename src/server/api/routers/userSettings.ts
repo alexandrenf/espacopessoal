@@ -4,8 +4,9 @@ import { TRPCError } from "@trpc/server";
 
 export const userSettingsRouter = createTRPCRouter({
   getNoteSettings: protectedProcedure.query(async ({ ctx }) => {
-    const userThings = await ctx.db.userThings.findFirst({
-      where: { ownedById: ctx.session.user.id },
+    // Select only the fields we need
+    const userThings = await ctx.db.userThings.findUnique({  // Use findUnique instead of findFirst
+      where: { ownedById: ctx.session.user.id },  // Use unique constraint
       select: {
         notePadUrl: true,
         privateOrPublicUrl: true,
@@ -14,13 +15,18 @@ export const userSettingsRouter = createTRPCRouter({
     });
 
     if (!userThings) {
-      // Create default settings if they don't exist
+      // Create with specific fields only
       return await ctx.db.userThings.create({
         data: {
           notePadUrl: "",
-          privateOrPublicUrl: true, // default to private
+          privateOrPublicUrl: true,
           password: null,
           ownedById: ctx.session.user.id,
+        },
+        select: {
+          notePadUrl: true,
+          privateOrPublicUrl: true,
+          password: true,
         },
       });
     }

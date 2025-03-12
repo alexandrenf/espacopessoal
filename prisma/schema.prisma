@@ -4,8 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Post {
@@ -47,16 +47,22 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  posts         Post[]
-  sessions      Session[]
-  notepad       Notepad[]
-  userThings    UserThings[]
+  id                     String                  @id @default(cuid())
+  name                   String?
+  email                  String?                 @unique
+  emailVerified          DateTime?
+  image                  String?
+  fcmToken               String?
+  accounts               Account[]
+  notepad                Notepad[]
+  posts                  Post[]
+  scheduledNotifications ScheduledNotification[]
+  sessions               Session[]
+  userThings             UserThings?
+  boards                 Board[]
+  tasks                  Task[]
+
+  @@index([id])
 }
 
 model VerificationToken {
@@ -68,19 +74,90 @@ model VerificationToken {
 }
 
 model UserThings {
-  id                  Int      @id @default(autoincrement())
-  notePadUrl          String
-  privateOrPublicUrl  Boolean?
-  password            String?
-  ownedById           String   @unique
-  ownedBy             User     @relation(fields: [ownedById], references: [id])
-} 
+  id                 String   @id @default(cuid())
+  notePadUrl         String
+  privateOrPublicUrl Boolean?
+  password           String?
+  ownedById          String   @unique
+  ownedBy            User     @relation(fields: [ownedById], references: [id])
+
+  @@index([ownedById])
+}
 
 model Notepad {
   id          Int      @id @default(autoincrement())
   content     String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt 
+  updatedAt   DateTime @updatedAt
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+}
+
+model ScheduledNotification {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  body         String
+  url          String?
+  scheduledFor DateTime
+  fcmToken     String
+  sent         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor, sent])
+  @@index([userId])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  order     Int      @default(0)
+  userId    String
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Task {
+  id                String            @id @default(cuid())
+  name             String
+  description      String?           @db.Text
+  status           TaskStatus        @default(TODO)
+  order            Int               @default(0)
+  dueDate          DateTime?
+  boardId          String
+  userId           String
+  reminderEnabled  Boolean           @default(false)
+  reminderDateTime DateTime?
+  reminderFrequency ReminderFrequency?
+  
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([boardId])
+  @@index([dueDate])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum ReminderFrequency {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
 }
