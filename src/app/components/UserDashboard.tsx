@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
-import { type RouterOutputs } from "~/trpc/react";
-import { UseQueryResult } from '@tanstack/react-query';
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
@@ -188,37 +186,15 @@ const LoadingState = () => (
 export function UserDashboard() {
   const { data: session, status } = useSession();
   
-  // Define types for the query results
-  type NoteSettingsResult = {
-    notePadUrl: string;
-    privateOrPublicUrl: boolean | null;
-    password: string | null;
-  };
-
-  type HealthCheckResult = {
-    isHealthy: boolean;
-  };
-
-  // Use proper typing with useQueries
-  const queries = [
-    api.userSettings.getNoteSettings.useQuery(undefined, {
-      enabled: status === "authenticated"
-    }),
-    api.userUpdate.checkUserHealth.useQuery(undefined, {
-      enabled: status === "authenticated"
-    })
-  ] as const;
-
-  // Properly type the query results
-  const [noteSettingsQuery, healthCheckQuery] = queries as readonly [
-    UseQueryResult<NoteSettingsResult>,
-    UseQueryResult<HealthCheckResult>
-  ];
-  
-  const noteSettings = noteSettingsQuery.data;
-  const healthCheck = healthCheckQuery.data;
-  const isLoading = queries.some(q => q.isLoading);
-  const error = queries.find(q => q.error)?.error;
+  // Use the combined query
+  const { data, isLoading, error } = api.userSettings.getUserSettingsAndHealth.useQuery(
+    undefined,
+    {
+      enabled: status === "authenticated",
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+      gcTime: 10 * 60 * 1000, // Replace cacheTime with gcTime
+    }
+  );
 
   // Show loading state while authentication is being checked
   if (status === "loading" || isLoading) {
@@ -226,7 +202,7 @@ export function UserDashboard() {
   }
 
   const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
-  const isNotepadConfigured = Boolean(noteSettings?.notePadUrl);
+  const isNotepadConfigured = Boolean(data?.settings.notePadUrl);
 
   // Show error in a more user-friendly way
   if (error) {
@@ -280,7 +256,7 @@ export function UserDashboard() {
               title="Bloco de Notas"
               description="Organize suas anotações, pensamentos e ideias em um único lugar seguro e acessível."
               icon={<Notebook className="w-6 h-6" />}
-              href={isNotepadConfigured ? `/notas/${noteSettings?.notePadUrl}` : "/notas"}
+              href={isNotepadConfigured ? `/notas/${data?.settings.notePadUrl}` : "/notas"}
               isActive={true}
               status={isNotepadConfigured ? 'configured' : 'unconfigured'}
             />
@@ -345,71 +321,4 @@ export function UserDashboard() {
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
