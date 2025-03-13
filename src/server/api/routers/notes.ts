@@ -55,13 +55,13 @@ export const notesRouter = createTRPCRouter({
       password: z.string().optional()
     }))
     .query(async ({ ctx, input }) => {
+      // First, get only the necessary fields from userThings
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
         select: {
-          id: true,
+          ownedById: true,
           privateOrPublicUrl: true,
           password: true,
-          ownedById: true,
         },
       });
 
@@ -72,16 +72,9 @@ export const notesRouter = createTRPCRouter({
         });
       }
 
-      // Check password if needed
+      // Password check
       if (userThings.privateOrPublicUrl === true && userThings.password) {
-        if (!input.password) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "This notepad requires a password",
-          });
-        }
-        
-        if (input.password !== userThings.password) {
+        if (!input.password || input.password !== userThings.password) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "Invalid password",
@@ -89,59 +82,58 @@ export const notesRouter = createTRPCRouter({
         }
       }
 
-      // Fetch all notes including the structure note
-      const allNotes = await ctx.db.notepad.findMany({
-        where: {
-          createdById: userThings.ownedById,
-        },
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
+      // Fetch notes and structure in a single query
+      const [notes, structureNote] = await Promise.all([
+        ctx.db.notepad.findMany({
+          where: {
+            createdById: userThings.ownedById,
+            NOT: {
+              content: { startsWith: STRUCTURE_NOTE_NAME }
+            }
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: 'desc' }
+        }),
+        ctx.db.notepad.findFirst({
+          where: {
+            createdById: userThings.ownedById,
+            content: { startsWith: STRUCTURE_NOTE_NAME }
+          },
+          select: {
+            content: true
+          }
+        })
+      ]);
 
-      // Find structure note and parse its content
-      const structureNote = allNotes.find(note => 
-        note.content?.startsWith(STRUCTURE_NOTE_NAME)
-      );
-
-      let structure: { id: number; order: number; parentId: number | null; }[] = [];
-      if (structureNote?.content) {
-        try {
-          const structureContent = structureNote.content
-            .split('\n')
-            .slice(1) // Skip the STRUCTURE_NOTE_NAME line
-            .join('\n');
-          structure = JSON.parse(structureContent) as Array<{
-            id: number;
-            order: number;
-            parentId: number | null;
-          }>;
-        } catch (e) {
-          console.error('Failed to parse structure note:', e);
-        }
+      // Parse structure if exists
+      let structure: Array<{ id: number; order: number; parentId: number | null }> = [];
+if (structureNote?.content) {
+  try {
+    const structureContent = structureNote.content
+      .split('\n')
+      .slice(1)
+      .join('\n');
+    const parsedStructure = JSON.parse(structureContent) as Array<{ id: number; order: number; parentId: number | null }>;
+    structure = parsedStructure;
+  } catch (e) {
+    console.error('Failed to parse structure note:', e);
+    structure = [];
+  }
+}
+      // Sort notes if structure exists
+      if (structure.length > 0) {
+        const noteMap = new Map(notes.map(note => [note.id, note]));
+        return structure
+          .map(s => noteMap.get(s.id))
+          .filter(Boolean) as typeof notes;
       }
 
-      // Filter out structure note
-      const normalNotes = allNotes.filter(note => 
-        !note.content?.startsWith(STRUCTURE_NOTE_NAME)
-      );
-
-      // Sort notes based on structure
-      const sortedNotes = [...normalNotes].sort((a, b) => {
-        const aStructure = structure.find(s => s.id === a.id);
-        const bStructure = structure.find(s => s.id === b.id);
-        
-        // If note isn't in structure, put it at the end
-        if (!aStructure) return 1;
-        if (!bStructure) return -1;
-        
-        return aStructure.order - bStructure.order;
-      });
-
-      return sortedNotes;
+      return notes;
     }),
 
   createNotePublic: publicProcedure

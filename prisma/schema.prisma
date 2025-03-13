@@ -82,6 +82,7 @@ model UserThings {
   ownedBy            User     @relation(fields: [ownedById], references: [id])
 
   @@index([ownedById])
+  @@index([notePadUrl])  // Add this index
 }
 
 model Notepad {
@@ -91,6 +92,9 @@ model Notepad {
   updatedAt   DateTime @updatedAt
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
+
+  @@index([createdById])  // Add this index
+  @@index([createdAt])    // Add this index
 }
 
 model ScheduledNotification {
