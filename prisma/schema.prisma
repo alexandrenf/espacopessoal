@@ -82,6 +82,9 @@ model UserThings {
   ownedBy            User     @relation(fields: [ownedById], references: [id])
 
   @@index([ownedById])
+  // Remove this line as userId field doesn't exist
+  // @@index([userId])
+  @@index([notePadUrl])
 }
 
 model Notepad {

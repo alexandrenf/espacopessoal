@@ -3,26 +3,30 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect, useCallback } from "react";
 import { api } from "~/trpc/react";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "~/components/ui/sheet";
 import debounce from "lodash/debounce"; // Using lodash's debounce since it's already in dependencies
+import { useState } from "react";
 
 export default function Header() {
   const { data: session, status } = useSession();
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // Replace getNoteSettings with getUserSettingsAndHealth
+  // Optimize settings query
   const { data: userSettings, isLoading: isLoadingSettings } = api.userSettings.getUserSettingsAndHealth.useQuery(
     undefined,
     {
       enabled: status === "authenticated",
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 10 * 60 * 1000,
+      // Add suspense to prevent waterfall
+      suspense: true,
     }
   );
-  
+
+
   // Memoize authentication state
   const isAuthenticated = useMemo(() => 
     status === "authenticated" && !!session,
@@ -42,7 +46,7 @@ export default function Header() {
     }, 50, { maxWait: 150 });
     
     return debouncedScroll;
-  }, []); // Empty dependencies since we don't use any external values
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
