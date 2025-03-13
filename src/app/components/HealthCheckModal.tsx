@@ -8,10 +8,10 @@ import { useEffect, useState } from "react";
 
 export function HealthCheckModal() {
   const { data: session } = useSession();
-  const utils = api.useUtils();
+  const utils = api.useContext();
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const { data: healthCheck, isLoading } = api.userSettings.getUserSettingsAndHealth.useQuery(
+  const { data: healthCheck, isLoading } = api.userUpdate.checkUserHealth.useQuery(
     undefined,
     {
       enabled: !!session?.user,
@@ -20,7 +20,7 @@ export function HealthCheckModal() {
         // Skip showing modal if dismissed within last 24 hours
         const dismissedUntil = Number(localStorage.getItem('healthCheckDismissed') ?? '0');
         if (dismissedUntil > Date.now()) {
-          return { ...data, health: { ...data.health, isHealthy: true } };
+          return { ...data, isHealthy: true };
         }
         return data;
       }
@@ -29,7 +29,7 @@ export function HealthCheckModal() {
 
   // Handle scroll lock with improved accessibility
   useEffect(() => {
-    if (session?.user && !isLoading && healthCheck && !healthCheck.health.isHealthy && !isDismissed) {
+    if (session?.user && !isLoading && healthCheck && !healthCheck.isHealthy && !isDismissed) {
       // Save current scroll position and calculate scrollbar width
       const scrollY = window.scrollY;
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
@@ -58,7 +58,7 @@ export function HealthCheckModal() {
     }
   }, [session?.user, isLoading, healthCheck, isDismissed]);
 
-  if (!session?.user || isLoading || !healthCheck || healthCheck.health.isHealthy || isDismissed) {
+  if (!session?.user || isLoading || !healthCheck || healthCheck.isHealthy || isDismissed) {
     return null;
   }
 
@@ -66,8 +66,8 @@ export function HealthCheckModal() {
     // Store in localStorage to prevent showing again for 24 hours
     localStorage.setItem('healthCheckDismissed', String(Date.now() + 86400000));
     setIsDismissed(true);
-    // Update to invalidate the combined query instead
-    void utils.userSettings.getUserSettingsAndHealth.invalidate();
+    // Force refetch to update the UI
+    void utils.userUpdate.checkUserHealth.invalidate();
   };
 
   return (

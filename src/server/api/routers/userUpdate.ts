@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
 
 import {
   createTRPCRouter,
@@ -7,48 +6,38 @@ import {
 } from "~/server/api/trpc";
 
 export const userUpdateRouter = createTRPCRouter({
-  /**
-   * @deprecated Use userSettings.getUserSettingsAndHealth instead
-   */
   checkUserHealth: protectedProcedure
     .query(async ({ ctx }) => {
-      try {
-        const userThings = await ctx.db.userThings.findUnique({
-          where: { ownedById: ctx.session.user.id },
-          select: {
-            notePadUrl: true,
-            ownedBy: {
-              select: {
-                name: true
-              }
+      // Single efficient query with selected fields
+      const userData = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: {
+          name: true,
+          email: true,
+          userThings: {
+            select: {
+              notePadUrl: true
             }
           }
-        });
+        }
+      });
 
-        const hasName = !!userThings?.ownedBy.name;
-        const hasNotepadUrl = !!userThings?.notePadUrl;
-        const isHealthy = hasName && hasNotepadUrl;
-
-        return {
-          isHealthy,
-          status: isHealthy ? "HEALTHY" : "NEEDS_SETUP",
-          details: {
-            hasName,
-            hasNotepadUrl
-          }
-        };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to check user health",
-          cause: error,
-        });
+      if (!userData) {
+        throw new Error("User not found");
       }
+
+      return {
+        isHealthy: !!(
+          userData.name &&
+          userData.email &&
+          userData.userThings?.notePadUrl
+        ),
+      };
     }),
 
   getUserProfile: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = await ctx.db.user.findUnique({
+      const user = await ctx.db.user.findFirst({
         where: { id: ctx.session.user.id },
         select: {
           id: true,
@@ -60,10 +49,7 @@ export const userUpdateRouter = createTRPCRouter({
       });
 
       if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User not found",
-        });
+        throw new Error("User not found");
       }
 
       return user;
@@ -92,6 +78,14 @@ export const userUpdateRouter = createTRPCRouter({
         }),
     }))
     .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findFirst({
+        where: { id: ctx.session.user.id },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
       try {
         return await ctx.db.user.update({
           where: { id: ctx.session.user.id },
@@ -101,12 +95,8 @@ export const userUpdateRouter = createTRPCRouter({
             image: input.image,
           },
         });
-      } catch (err) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update profile",
-          cause: err,
-        });
+      } catch (error) {
+        throw new Error("Failed to update profile. Please try again later.");
       }
     }),
 
@@ -119,17 +109,21 @@ export const userUpdateRouter = createTRPCRouter({
         .regex(/^[a-zA-Z\s-']+$/, "Name contains invalid characters")
     }))
     .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findFirst({
+        where: { id: ctx.session.user.id },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
       try {
         return await ctx.db.user.update({
           where: { id: ctx.session.user.id },
           data: { name: input.name },
         });
-      } catch (err) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update user name",
-          cause: err,
-        });
+      } catch (error) {
+        throw new Error("Failed to update user name. Please try again later.");
       }
     }),
 });
