@@ -12,3 +12,4 @@ TODO list:
 - [ ] Add disciplines page
 - [ X ] Build notification system
 - [ ] Make new lista de afazeres
+- [ ] After updating notepadurl, the Bloco de Notas icon in the main page and header do not refresh.s

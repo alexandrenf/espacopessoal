@@ -14,11 +14,12 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   
   const { data: noteSettings, isLoading: isLoadingNoteSettings } = api.userSettings.getNoteSettings.useQuery(
-    undefined, 
+    undefined, // no input needed
     {
-      enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
+      // Disable caching to always get fresh data
+      staleTime: 0,
+      // Enable refetching when the window regains focus
+      refetchOnWindowFocus: true,
     }
   );
   
