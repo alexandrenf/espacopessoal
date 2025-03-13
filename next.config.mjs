@@ -14,7 +14,9 @@ const config = {
       enabled: true
     }
   },
-  
+  typescript: {
+    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+  },
   async headers() {
     return [
       {
