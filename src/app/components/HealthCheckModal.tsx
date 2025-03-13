@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 
 export function HealthCheckModal() {
   const { data: session } = useSession();
-  const utils = api.useContext();
+  const utils = api.useUtils();
   const [isDismissed, setIsDismissed] = useState(false);
 
   const { data: userSettings, isLoading } = api.userSettings.getUserSettingsAndHealth.useQuery(
