@@ -20,9 +20,10 @@ export default function Header() {
     {
       enabled: status === "authenticated",
       staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000,
-      // Add suspense to prevent waterfall
+      gcTime: 10 * 60 * 1000, // 10 minutes
       suspense: true,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }
   );
 
@@ -149,14 +150,18 @@ export default function Header() {
                     
                     {isAuthenticated && (
                       <>
-                        {notepadUrl && (
+                        {isLoadingSettings ? (
+                          <span className="text-lg text-muted-foreground/50 animate-pulse py-2">
+                            Bloco de Notas
+                          </span>
+                        ) : notepadUrl ? (
                           <Link
                             href={notepadUrl}
                             className="text-lg text-muted-foreground hover:text-primary transition-colors py-2"
                           >
                             Bloco de Notas
                           </Link>
-                        )}
+                        ) : null}
                         <Link
                           href="/profile"
                           className="text-lg text-muted-foreground hover:text-primary transition-colors py-2"

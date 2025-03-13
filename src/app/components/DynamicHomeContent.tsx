@@ -12,14 +12,14 @@ export default function DynamicHomeContent() {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
 
-  // Switch to combined query
-  const { data: userSettings } = api.userSettings.getUserSettingsAndHealth.useQuery(
-    undefined,
-    {
-      enabled: isAuthenticated,
-      suspense: false,
-    }
-  );
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex-grow flex items-center justify-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <UserDashboard />;
