@@ -8,29 +8,28 @@ import {
 export const userUpdateRouter = createTRPCRouter({
   checkUserHealth: protectedProcedure
     .query(async ({ ctx }) => {
-      // Combine queries into a single prisma call
-      const userData = await ctx.db.$transaction(async (tx) => {
-        const [user, userThings] = await Promise.all([
-          tx.user.findUnique({
-            where: { id: ctx.session.user.id },
-            select: { name: true, email: true },
-          }),
-          tx.userThings.findUnique({
-            where: { ownedById: ctx.session.user.id },
-            select: { notePadUrl: true },
-          }),
-        ]);
-        return { user, userThings };
+      // Single efficient query with selected fields
+      const userData = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: {
+          name: true,
+          email: true,
+          userThings: {
+            select: {
+              notePadUrl: true
+            }
+          }
+        }
       });
 
-      if (!userData.user) {
+      if (!userData) {
         throw new Error("User not found");
       }
 
       return {
         isHealthy: !!(
-          userData.user.name &&
-          userData.user.email &&
+          userData.name &&
+          userData.email &&
           userData.userThings?.notePadUrl
         ),
       };

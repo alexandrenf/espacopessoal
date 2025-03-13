@@ -7,6 +7,9 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Switch } from "~/components/ui/switch";
+import { useRouter } from "next/navigation";
+import type { TRPCClientErrorLike } from '@trpc/client';
+import type { AppRouter } from '~/server/api/root';
 
 interface NoteSettings {
   notePadUrl: string | null;
@@ -19,6 +22,8 @@ interface NotepadSettingsFormProps {
 }
 
 export function NotepadSettingsForm({ initialSettings }: NotepadSettingsFormProps) {
+  const router = useRouter();
+  const utils = api.useUtils();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<NoteSettings>({
     notePadUrl: initialSettings.notePadUrl ?? '',
@@ -26,15 +31,19 @@ export function NotepadSettingsForm({ initialSettings }: NotepadSettingsFormProp
     password: initialSettings.password ?? '',
   });
 
-  const utils = api.useUtils();
-  const updateSettings = api.userSettings.updateNoteSettings.useMutation({
+  const updateSettingsMutation = api.userSettings.updateNoteSettings.useMutation({
     onSuccess: () => {
-      toast.success('Notepad settings updated successfully');
-      setIsEditing(false);
-      void utils.userSettings.getNoteSettings.invalidate();
+      toast.success('Configurações salvas', {
+        description: "Suas configurações foram atualizadas com sucesso.",
+      });
+      
+      // Refresh all routes to update the header state
+      router.refresh();
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to update settings');
+    onError: (error: TRPCClientErrorLike<AppRouter>) => {
+      toast.error('Erro ao salvar', {
+        description: error.message,
+      });
     },
   });
 
@@ -47,7 +56,7 @@ export function NotepadSettingsForm({ initialSettings }: NotepadSettingsFormProp
       return;
     }
     
-    void updateSettings.mutate({
+    updateSettingsMutation.mutate({
       notePadUrl: formData.notePadUrl ?? '',
       privateOrPublicUrl: formData.privateOrPublicUrl,
       password: formData.privateOrPublicUrl ? formData.password : null,
@@ -136,9 +145,9 @@ export function NotepadSettingsForm({ initialSettings }: NotepadSettingsFormProp
             </Button>
             <Button
               type="submit"
-              disabled={updateSettings.status === 'pending'}
+              disabled={updateSettingsMutation.isPending}
             >
-              {updateSettings.status === 'pending' ? 'Salvando...' : 'Salvar Configurações'}
+              {updateSettingsMutation.isPending ? 'Salvando...' : 'Salvar Configurações'}
             </Button>
           </>
         ) : (

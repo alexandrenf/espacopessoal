@@ -13,12 +13,13 @@ export default function Header() {
   const { data: session, status } = useSession();
   const [isScrolled, setIsScrolled] = useState(false);
   
-  const { data: noteSettings, isLoading: isLoadingNoteSettings } = api.userSettings.getNoteSettings.useQuery(
-    undefined, 
+  // Replace getNoteSettings with getUserSettingsAndHealth
+  const { data: userSettings, isLoading: isLoadingSettings } = api.userSettings.getUserSettingsAndHealth.useQuery(
+    undefined,
     {
       enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000,
     }
   );
   
@@ -28,10 +29,10 @@ export default function Header() {
     [status, session]
   );
   
-  // Memoize the notepad URL
+  // Update the notepadUrl memo to use the new data structure
   const notepadUrl = useMemo(() => 
-    noteSettings?.notePadUrl ? `/notas/${noteSettings.notePadUrl}` : null,
-    [noteSettings?.notePadUrl]
+    userSettings?.settings?.notePadUrl ? `/notas/${userSettings.settings.notePadUrl}` : null,
+    [userSettings?.settings?.notePadUrl]
   );
 
   // Create a memoized debounced scroll handler
@@ -85,7 +86,7 @@ export default function Header() {
             
             {isAuthenticated && (
               <div className="flex items-center space-x-6">
-                {isLoadingNoteSettings ? (
+                {isLoadingSettings ? (
                   <span className="text-sm font-medium text-muted-foreground/50 animate-pulse">
                     Bloco de Notas
                   </span>
