@@ -123,8 +123,10 @@ export default function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent 
-                side="right" 
                 className="w-full sm:w-[400px] p-0"
+                // Remove the direct side prop since it's handled by the default variant
+                // which is already set to "right" in the sheet component
+                hideCloseButton
               >
                 <div className="flex flex-col h-full p-6">
                   <div className="flex items-center justify-between mb-8">
