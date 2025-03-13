@@ -91,10 +91,15 @@ model Notepad {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String
+  parentId    Int?     // Add this field to create hierarchical structure
+  isFolder    Boolean  @default(false)  // Add this field to distinguish folders
   createdBy   User     @relation(fields: [createdById], references: [id])
+  parentNote  Notepad? @relation("NoteHierarchy", fields: [parentId], references: [id])
+  childNotes  Notepad[] @relation("NoteHierarchy")
 
-  @@index([createdById])  // Add this index
-  @@index([createdAt])    // Add this index
+  @@index([createdById])
+  @@index([parentId])
+  @@index([createdAt])
 }
 
 model ScheduledNotification {
