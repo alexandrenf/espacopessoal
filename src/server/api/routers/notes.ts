@@ -107,7 +107,8 @@ export const notesRouter = createTRPCRouter({
     .input(z.object({
       url: z.string().min(1),
       content: z.string(),
-      password: z.string().optional()
+      password: z.string().optional(),
+      isFolder: z.boolean().optional().default(false)
     }))
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
@@ -148,6 +149,8 @@ export const notesRouter = createTRPCRouter({
         data: {
           content: input.content,
           createdById: userThings.ownedById,
+          isFolder: input.isFolder,
+          order: 0
         },
         select: {
           id: true,
