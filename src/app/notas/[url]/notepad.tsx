@@ -24,7 +24,7 @@ import ResizeHandle from '~/components/ResizeHandle';
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
-const STRUCTURE_NOTE_TITLE = "!FStruct!";
+// const STRUCTURE_NOTE_TITLE = "!FStruct!"; // Removed
 
 interface AppProps {
   password: string | null;
@@ -36,6 +36,9 @@ export interface Note {
   createdAt: Date;
   updatedAt: Date;
   isOptimistic?: boolean; // Mark a note as optimistic if needed
+  parentId: number | null;
+  isFolder: boolean;
+  order: number;
 }
 
 type ErrorWithMessage = { message: string };
@@ -62,13 +65,12 @@ function getErrorMessage(error: unknown): string {
   return toErrorWithMessage(error).message;
 }
 
-const App: React.FC<AppProps> = ({ password }) => {
+const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
 
   // --- Local states
   const [notes, setNotes] = useState<Note[]>([]);
-  const [structureNote, setStructureNote] = useState<Note | null>(null); // <--- Store our special note
   const [currentNoteId, setCurrentNoteId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -113,27 +115,14 @@ const App: React.FC<AppProps> = ({ password }) => {
   // After data is loaded, separate out the structure note from normal notes
   useEffect(() => {
     if (!data) return;
-    // Look for the special note
-    let structNote: Note | null = null;
-    const normalNotes: Note[] = [];
+    
+    setNotes(data);
 
-    for (const note of data) {
-      const firstLine = note.content.split("\n")[0]?.trim();
-      if (firstLine === STRUCTURE_NOTE_TITLE) {
-        structNote = note;
-      } else {
-        normalNotes.push(note);
-      }
-    }
-
-    setStructureNote(structNote);
-    setNotes(normalNotes);
-
-    // If no currentNoteId, pick the first normal note if it exists
-    if (currentNoteId === null && normalNotes.length > 0) {
-      if (normalNotes[0]?.id) {
-        setCurrentNoteId(normalNotes[0].id);
-        latestContentRef.current = normalNotes[0].content;
+    // If no currentNoteId, pick the first note if it exists
+    if (currentNoteId === null && data.length > 0) {
+      if (data[0]?.id) {
+        setCurrentNoteId(data[0].id);
+        latestContentRef.current = data[0].content;
       }
     }
   }, [data, currentNoteId]);
@@ -176,14 +165,7 @@ const App: React.FC<AppProps> = ({ password }) => {
   // 2. Create a new note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (variables) => {
-      // Disallow creating a note with "!FStruct!" as its first line
-      const firstLine = variables.content.split("\n")[0]?.trim() ?? "";
-      if (firstLine === STRUCTURE_NOTE_TITLE) {
-        throw new Error(
-          `"${STRUCTURE_NOTE_TITLE}" is reserved and cannot be used as a note title.`
-        );
-      }
-
+      // Cancel any outgoing refetches
       await utils.notes.fetchNotesPublic.cancel({ url });
 
       // Add an optimistic note
@@ -194,6 +176,9 @@ const App: React.FC<AppProps> = ({ password }) => {
         createdAt: new Date(),
         updatedAt: new Date(),
         isOptimistic: true,
+        parentId: null,
+        isFolder: false,
+        order: 0
       };
 
       // Insert optimistically
@@ -218,11 +203,16 @@ const App: React.FC<AppProps> = ({ password }) => {
     },
     onSuccess: async (actualNote, _, ctx) => {
       if (ctx?.optimisticNote) {
-        // Replace the optimistic note with the actual one
-        setNotes((prev) =>
+        setNotes(prev => 
           prev.map((note) =>
             note.id === ctx.optimisticNote.id
-              ? { ...actualNote, content: latestContentRef.current }
+              ? {
+                  ...actualNote,
+                  content: latestContentRef.current,
+                  parentId: null,
+                  isFolder: false,
+                  order: 0
+                } as Note
               : note
           )
         );
@@ -283,28 +273,8 @@ const App: React.FC<AppProps> = ({ password }) => {
   const updateNoteStructureMutation = api.notes.updateStructure.useMutation({
     onError: (err) => {
       handleError(err);
-    },
-    onSuccess: async () => {
-      // Force a refetch to update the data
-      await utils.notes.fetchNotesPublic.invalidate({ 
-        url, 
-        password: password ?? undefined 
-      });
     }
-  });
-
-  // Add this mutation with your other mutations
-  const createStructureNoteMutation = api.notes.createStructureNote.useMutation({
-    onError: (err) => {
-      handleError(err);
-    },
-    onSuccess: async () => {
-      // Force a refetch to update the data
-      await utils.notes.fetchNotesPublic.invalidate({ 
-        url, 
-        password: password ?? undefined 
-      });
-    }
+    // Remove the onSuccess refetch
   });
 
   // ------------------------------
@@ -443,58 +413,30 @@ const App: React.FC<AppProps> = ({ password }) => {
     void idleDebounce();
   }
 
-  const ensureStructureNote = async () => {
-    if (structureNote) return structureNote;
-
-    // Se não existe nota de estrutura, cria uma com a ordem atual das notas
-    const initialStructure = notes
-      .filter(note => !note.content?.startsWith(STRUCTURE_NOTE_TITLE))
-      .map((note, index) => ({
-        id: note.id,
-        parentId: null,
-        order: index
-      }));
-
-    try {
-      // Use a mutation específica para criar a nota de estrutura
-      const result = await createStructureNoteMutation.mutateAsync({
-        url,
-        password: password ?? undefined,
-        structure: initialStructure
-      });
-
-      // Atualize o estado local
-      setStructureNote(result ? { ...result, content: result.content ?? '' } : null);
-      return result;
-    } catch (err) {
-      console.error("[Debug] Error creating structure note:", err);
-      handleError(err);
-      return null;
-    }
-  };
-
   const handleUpdateStructure = async (newStructure: NoteStructure[]) => {
-    // Optimistically update the notes order in the UI
-    const reorderedNotes = [...notes].sort((a, b) => {
-      const aOrder = newStructure.find(s => s.id === a.id)?.order ?? 0;
-      const bOrder = newStructure.find(s => s.id === b.id)?.order ?? 0;
-      return aOrder - bOrder;
+    // Store the previous state for rollback
+    const previousNotes = [...notes];
+
+    // Optimistically update the local state
+    setNotes(prev => {
+      const updated = [...prev].sort((a, b) => {
+        const aOrder = newStructure.find(s => s.id === a.id)?.order ?? 0;
+        const bOrder = newStructure.find(s => s.id === b.id)?.order ?? 0;
+        return aOrder - bOrder;
+      });
+      return updated;
     });
-    
-    // Update the local state immediately
-    setNotes(reorderedNotes);
 
     try {
-      // Use the mutation to update the structure
       await updateNoteStructureMutation.mutateAsync({
         url,
         password: password ?? undefined,
-        structure: newStructure
+        updates: newStructure
       });
+      // Success - keep the optimistic update
     } catch (error) {
-      // If the API call fails, revert to the original order
-      setNotes(notes);
-      console.error('Failed to update note structure:', error);
+      // Force a page reload on error
+      window.location.reload();
     }
   };
 
@@ -601,9 +543,12 @@ const App: React.FC<AppProps> = ({ password }) => {
                 notes={notes}
                 currentNote={currentNote ?? { 
                   id: 0, 
-                  content: "", 
-                  createdAt: new Date(), 
-                  updatedAt: new Date() 
+                  content: "",
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  order: 0,
+                  parentId: null,
+                  isFolder: false
                 }}
                 setCurrentNoteId={handleSwitchNote}
                 newNote={createNewNote}

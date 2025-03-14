@@ -31,6 +31,7 @@ import {
 import { SortableNoteItem } from "~/components/SortableNoteItem";
 
 export interface Note {
+  order: number;
   id: number;
   content: string;
   createdAt: Date;
@@ -81,7 +82,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const displayNotes = useMemo(() => 
-    notes.filter(note => !note.content.startsWith("!FStruct!")),
+    notes
+      .filter(note => !note.content.startsWith("!FStruct!"))
+      .sort((a, b) => a.order - b.order),
     [notes]
   );
 
@@ -101,11 +104,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       // Insert it at the new position
       reorderedNotes.splice(newIndex, 0, movedItem!);
       
-      // Create new structure based on the reordered array
+      // Update orders sequentially
       const newStructure: NoteStructure[] = reorderedNotes.map((note, index) => ({
         id: note.id,
         parentId: null,
-        order: index,  // This order is only stored in the structure note
+        order: index,
       }));
 
       onUpdateStructure(newStructure);

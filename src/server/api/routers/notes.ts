@@ -82,58 +82,25 @@ export const notesRouter = createTRPCRouter({
         }
       }
 
-      // Fetch notes and structure in a single query
-      const [notes, structureNote] = await Promise.all([
-        ctx.db.notepad.findMany({
-          where: {
-            createdById: userThings.ownedById,
-            NOT: {
-              content: { startsWith: STRUCTURE_NOTE_NAME }
-            }
-          },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-          orderBy: { createdAt: 'desc' }
-        }),
-        ctx.db.notepad.findFirst({
-          where: {
-            createdById: userThings.ownedById,
-            content: { startsWith: STRUCTURE_NOTE_NAME }
-          },
-          select: {
-            content: true
-          }
-        })
-      ]);
-
-      // Parse structure if exists
-      let structure: Array<{ id: number; order: number; parentId: number | null }> = [];
-if (structureNote?.content) {
-  try {
-    const structureContent = structureNote.content
-      .split('\n')
-      .slice(1)
-      .join('\n');
-    const parsedStructure = JSON.parse(structureContent) as Array<{ id: number; order: number; parentId: number | null }>;
-    structure = parsedStructure;
-  } catch (e) {
-    console.error('Failed to parse structure note:', e);
-    structure = [];
-  }
-}
-      // Sort notes if structure exists
-      if (structure.length > 0) {
-        const noteMap = new Map(notes.map(note => [note.id, note]));
-        return structure
-          .map(s => noteMap.get(s.id))
-          .filter(Boolean) as typeof notes;
-      }
-
-      return notes;
+      return await ctx.db.notepad.findMany({
+        where: {
+          createdById: userThings.ownedById,
+        },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          parentId: true,
+          isFolder: true,
+          order: true,
+        },
+        orderBy: [
+          { parentId: 'asc' },
+          { order: 'asc' },
+          { createdAt: 'desc' }
+        ],
+      });
     }),
 
   createNotePublic: publicProcedure
@@ -327,142 +294,11 @@ if (structureNote?.content) {
       });
     }),
 
-  updateStructureNote: publicProcedure
-    .input(z.object({
-      url: z.string().min(1),
-      structure: z.array(z.object({
-        id: z.number(),
-        parentId: z.number().nullable(),
-        order: z.number()
-      })),
-      password: z.string().optional()
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
-        select: {
-          id: true,
-          privateOrPublicUrl: true,
-          password: true,
-          ownedById: true,
-        },
-      });
-
-      if (!userThings) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Notepad not found",
-        });
-      }
-
-      // Verificar senha se necessário
-      if (userThings.privateOrPublicUrl && userThings.password) {
-        if (!input.password || input.password !== userThings.password) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid password",
-          });
-        }
-      }
-
-      // Procurar nota de estrutura existente
-      const structureNote = await ctx.db.notepad.findFirst({
-        where: {
-          createdById: userThings.ownedById,
-          content: { startsWith: STRUCTURE_NOTE_NAME }
-        }
-      });
-
-      const structureContent = `${STRUCTURE_NOTE_NAME}\n${JSON.stringify(input.structure, null, 2)}`;
-
-      if (structureNote) {
-        // Atualizar nota existente
-        return await ctx.db.notepad.update({
-          where: { id: structureNote.id },
-          data: { content: structureContent },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
-      } else {
-        // Criar nova nota de estrutura
-        return await ctx.db.notepad.create({
-          data: {
-            content: structureContent,
-            createdById: userThings.ownedById,
-          },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
-      }
-    }),
-
-  createStructureNote: publicProcedure
-    .input(z.object({
-      url: z.string().min(1),
-      structure: z.array(z.object({
-        id: z.number(),
-        parentId: z.number().nullable(),
-        order: z.number()
-      })),
-      password: z.string().optional()
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
-        select: {
-          id: true,
-          privateOrPublicUrl: true,
-          password: true,
-          ownedById: true,
-        },
-      });
-
-      if (!userThings) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Notepad not found",
-        });
-      }
-
-      // Verificar senha se necessário
-      if (userThings.privateOrPublicUrl && userThings.password) {
-        if (!input.password || input.password !== userThings.password) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid password",
-          });
-        }
-      }
-
-      const structureContent = `${STRUCTURE_NOTE_NAME}\n${JSON.stringify(input.structure, null, 2)}`;
-
-      return await ctx.db.notepad.create({
-        data: {
-          content: structureContent,
-          createdById: userThings.ownedById,
-        },
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-    }),
-
   updateStructure: publicProcedure
     .input(z.object({
       url: z.string(),
       password: z.string().optional(),
-      structure: z.array(z.object({
+      updates: z.array(z.object({
         id: z.number(),
         parentId: z.number().nullable(),
         order: z.number(),
@@ -503,31 +339,18 @@ if (structureNote?.content) {
         }
       }
 
-      // Find the structure note
-      const structureNote = await ctx.db.notepad.findFirst({
-        where: {
-          createdById: userThings.ownedById,
-          content: { startsWith: STRUCTURE_NOTE_NAME }
-        }
-      });
-
-      const structureContent = `${STRUCTURE_NOTE_NAME}\n${JSON.stringify(input.structure, null, 2)}`;
-
-      if (structureNote) {
-        // Update existing structure note
-        await ctx.db.notepad.update({
-          where: { id: structureNote.id },
-          data: { content: structureContent },
-        });
-      } else {
-        // Create new structure note
-        await ctx.db.notepad.create({
-          data: {
-            content: structureContent,
-            createdById: userThings.ownedById,
-          },
-        });
-      }
+      // Update all notes in a transaction
+      await ctx.db.$transaction(
+        input.updates.map(update => 
+          ctx.db.notepad.update({
+            where: { id: update.id },
+            data: {
+              parentId: update.parentId,
+              order: update.order,
+            },
+          })
+        )
+      );
       
       return true;
     }),
