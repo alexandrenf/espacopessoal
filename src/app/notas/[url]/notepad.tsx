@@ -165,11 +165,31 @@ const App = ({ password }: AppProps): JSX.Element => {
   // 2. Create a new note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (variables) => {
-      // Cancel any outgoing refetches
       await utils.notes.fetchNotesPublic.cancel({ url });
 
       // Add an optimistic note
       const tempId = -Math.floor(Math.random() * 100_000);
+
+      // Handle existing notes with order 0
+      const existingZeroOrderNotes = notes.filter(note => note.order === 0);
+      if (existingZeroOrderNotes.length > 0) {
+        // Find all non-zero orders and get the maximum
+        const nonZeroOrders = notes
+          .filter(note => note.order > 0)
+          .map(note => note.order);
+        
+        const highestOrder = nonZeroOrders.length > 0 
+          ? Math.max(...nonZeroOrders) 
+          : 0;
+        
+        // Move all existing zero order notes to a value between 0 and the highest order
+        setNotes(prev => prev.map(note => 
+          note.order === 0
+            ? { ...note, order: highestOrder }
+            : note
+        ));
+      }
+
       const newNote: Note = {
         id: tempId,
         content: variables.content,
@@ -178,7 +198,7 @@ const App = ({ password }: AppProps): JSX.Element => {
         isOptimistic: true,
         parentId: null,
         isFolder: false,
-        order: 0
+        order: 0 // New note stays at 0 to appear first
       };
 
       // Insert optimistically
@@ -417,26 +437,28 @@ const App = ({ password }: AppProps): JSX.Element => {
     // Store the previous state for rollback
     const previousNotes = [...notes];
 
-    // Optimistically update the local state
-    setNotes(prev => {
-      const updated = [...prev].sort((a, b) => {
-        const aOrder = newStructure.find(s => s.id === a.id)?.order ?? 0;
-        const bOrder = newStructure.find(s => s.id === b.id)?.order ?? 0;
-        return aOrder - bOrder;
-      });
-      return updated;
-    });
-
     try {
+      // Optimistically update the local state
+      setNotes(prev => {
+        const updated = prev.map(note => {
+          const structureItem = newStructure.find(s => s.id === note.id);
+          return structureItem ? { ...note, order: structureItem.order } : note;
+        });
+        return updated.sort((a, b) => a.order - b.order);
+      });
+
       await updateNoteStructureMutation.mutateAsync({
         url,
         password: password ?? undefined,
         updates: newStructure
       });
-      // Success - keep the optimistic update
+
+      // Refetch notes to ensure consistency
+      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
     } catch (error) {
-      // Force a page reload on error
-      window.location.reload();
+      // Revert to previous state on error
+      setNotes(previousNotes);
+      handleError(error);
     }
   };
 
