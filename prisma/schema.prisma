@@ -82,6 +82,7 @@ model UserThings {
   ownedBy            User     @relation(fields: [ownedById], references: [id])
 
   @@index([ownedById])
+  @@index([notePadUrl])  // Add this index
 }
 
 model Notepad {
@@ -90,7 +91,17 @@ model Notepad {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdById String
+  parentId    Int?     
+  isFolder    Boolean  @default(false)
+  order       Int      @default(0)
   createdBy   User     @relation(fields: [createdById], references: [id])
+  parentNote  Notepad? @relation("NoteHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  childNotes  Notepad[] @relation("NoteHierarchy")
+
+  @@index([createdById])
+  @@index([parentId])
+  @@index([createdAt])
+  @@index([order])
 }
 
 model ScheduledNotification {
