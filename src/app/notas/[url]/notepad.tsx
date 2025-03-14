@@ -363,9 +363,12 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   function handleNewFolder() {
-    toast({
-      title: "Coming soon!",
-      description: "Folder creation logic is not yet implemented.",
+    if (createNoteMutation.isPending) return;
+    createNoteMutation.mutate({
+      url,
+      content: "Nova Pasta\n\n",
+      password: password ?? undefined,
+      isFolder: true // Add this parameter to indicate it's a folder
     });
   }
 
