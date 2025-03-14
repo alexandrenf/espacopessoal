@@ -31,12 +31,14 @@ import {
 import { SortableNoteItem } from "~/components/SortableNoteItem";
 
 export interface Note {
-  order: number;
   id: number;
   content: string;
   createdAt: Date;
   updatedAt: Date;
   isOptimistic?: boolean;
+  parentId: number | null;
+  isFolder: boolean;
+  order: number;
 }
 
 export interface NoteStructure {
@@ -84,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const displayNotes = useMemo(() => 
     notes
       .filter(note => !note.content.startsWith("!FStruct!"))
-      .sort((a, b) => a.order - b.order),
+      .sort((a, b) => a.order - b.order), // Changed to ascending order
     [notes]
   );
 
@@ -92,11 +94,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (!onUpdateStructure) return;
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (over && active.id !== over.id) {
       const oldIndex = displayNotes.findIndex((note) => note.id === active.id);
-      if (!over) return;
       const newIndex = displayNotes.findIndex((note) => note.id === over.id);
       
+      if (oldIndex === -1 || newIndex === -1) return;
+
       // Create a copy of the notes array
       const reorderedNotes = [...displayNotes];
       // Remove the dragged item
@@ -104,13 +107,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       // Insert it at the new position
       reorderedNotes.splice(newIndex, 0, movedItem!);
       
-      // Update orders sequentially
+      // Create the new structure with consecutive numbers
       const newStructure: NoteStructure[] = reorderedNotes.map((note, index) => ({
         id: note.id,
-        parentId: null,
-        order: index,
+        parentId: note.parentId,
+        order: (index + 1), // Use multiples of 1000 for spacing
       }));
 
+      // Call the update function to handle state update
       onUpdateStructure(newStructure);
     }
   };
@@ -170,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           modifiers={[restrictToVerticalAxis, restrictToParentElement]}
         >
           <SortableContext 
-            items={displayNotes.map(note => note.id)} 
+            items={displayNotes}
             strategy={verticalListSortingStrategy}
           >
             <ul className="h-full overflow-y-auto">
