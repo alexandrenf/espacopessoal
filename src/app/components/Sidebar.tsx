@@ -104,36 +104,38 @@ const Sidebar: React.FC<SidebarProps> = ({
     return [...folders, ...topLevelNotes];
   }, [notes]);
 
+  const handleDropToRoot = (activeId: number) => {
+    const newStructureRoot: NoteStructure[] = notes.map((n) => ({
+      id: n.id,
+      parentId: n.id === activeId ? null : n.parentId,
+      order: n.order
+    }));
+    
+    // Reorder top-level items
+    const topLevel = newStructureRoot
+      .filter(n => n.parentId === null)
+      .sort((a, b) => a.order - b.order);
+      
+    topLevel.forEach((item, i) => {
+      const index = newStructureRoot.findIndex(n => n.id === item.id);
+      if (index !== -1 && newStructureRoot[index]) {
+        newStructureRoot[index].order = (i + 1) * 1000;
+      }
+    });
+    
+    onUpdateStructure?.(newStructureRoot);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     if (!onUpdateStructure) return;
     const { active, over } = event;
     if (!over) return;
 
     const activeId = Number(active.id);
-    // If the user drops over "droppable-root", we move to top-level (parentId = null).
+    
+    // Handle drop to root level
     if (over.id === "droppable-root") {
-      const newStructureRoot: NoteStructure[] = notes.map((n) => {
-        if (n.id === activeId) {
-          return {
-            id: n.id,
-            parentId: null,
-            order: n.order, // We'll rely on sorting below to fix order if needed
-          };
-        }
-        return {
-          id: n.id,
-          parentId: n.parentId,
-          order: n.order,
-        };
-      });
-      // Now reorder top-level if needed
-      const topLevel = newStructureRoot
-        .filter(n => n.parentId === null)
-        .sort((a, b) => a.order - b.order);
-      topLevel.forEach((item, i) => {
-        item.order = (i + 1) * 1000;
-      });
-      onUpdateStructure(newStructureRoot);
+      handleDropToRoot(activeId);
       return;
     }
 
@@ -151,7 +153,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     const isOverDroppableFolder =
       over.id.toString().startsWith("droppable-") && overNote.isFolder;
 
-    // Disallow dropping one folder into another if desired
+    // Prevent folders from being nested inside other folders
+    // This is a deliberate UX decision to:
+    // 1. Keep the navigation hierarchy simple and flat
+    // 2. Avoid potential performance issues with deep nesting
+    // 3. Maintain a cleaner visual structure in the sidebar
     if (activeNote.isFolder && isOverDroppableFolder) {
       return;
     }
