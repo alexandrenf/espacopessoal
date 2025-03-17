@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
@@ -18,7 +20,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import type { Note } from "./Sidebar";
+
+// Reuse from your codebase
+interface Note {
+  id: number;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isOptimistic?: boolean;
+  parentId: number | null;
+  isFolder: boolean;
+  order: number;
+}
 
 interface SortableFolderItemProps {
   folder: Note;
@@ -27,6 +40,8 @@ interface SortableFolderItemProps {
   onDelete: (event: React.MouseEvent<HTMLButtonElement>, id: number) => void;
   children?: React.ReactNode[];
   initiallyExpanded?: boolean;
+  /** If you want to highlight when hovered */
+  hovered?: boolean;
 }
 
 export function SortableFolderItem({
@@ -35,7 +50,8 @@ export function SortableFolderItem({
   onClick,
   onDelete,
   children = [],
-  initiallyExpanded = true, // Default value in destructuring
+  initiallyExpanded = true,
+  hovered = false,
 }: SortableFolderItemProps) {
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
@@ -82,10 +98,18 @@ export function SortableFolderItem({
           "border-l-[3px] border-transparent",
           "transition-colors duration-200 hover:bg-gray-50",
           isActive && "border-l-blue-500 bg-blue-50",
-          isDragging && "opacity-50",
-          isOver && "bg-blue-50/50 ring-1 ring-blue-200",
+          hovered && "bg-blue-50/50", // highlight if hovered
+          isDragging && "opacity-50 pointer-events-none",
+          isOver && "ring-1 ring-blue-200",
         )}
+        onClick={onClick}
       >
+        {/* Optional overlay highlight when hovered */}
+        {hovered && (
+          <div className="pointer-events-none absolute inset-0 bg-blue-50/30" />
+        )}
+
+        {/* Expand/collapse toggle */}
         <Button
           variant="ghost"
           size="sm"
@@ -102,10 +126,8 @@ export function SortableFolderItem({
           )}
         </Button>
 
-        <div
-          className="flex min-w-0 flex-1 items-center gap-2 pl-4"
-          onClick={onClick}
-        >
+        {/* Folder Icon + Title */}
+        <div className="flex min-w-0 flex-1 items-center gap-2 pl-4">
           <Folder className="h-4 w-4 shrink-0 text-blue-500" />
           <span
             className={cn(
@@ -117,6 +139,7 @@ export function SortableFolderItem({
           </span>
         </div>
 
+        {/* Right-side controls */}
         <div className="ml-2 flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -133,7 +156,10 @@ export function SortableFolderItem({
               <DropdownMenuItem asChild>
                 <button
                   className="flex w-full items-center text-red-600"
-                  onClick={(e) => onDelete(e, folder.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(e, folder.id);
+                  }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete folder
@@ -142,6 +168,7 @@ export function SortableFolderItem({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Drag handle */}
           <div
             {...listeners}
             onClick={(e) => e.stopPropagation()}
@@ -152,11 +179,13 @@ export function SortableFolderItem({
         </div>
       </div>
 
+      {/* Nested children if expanded */}
       {isExpanded && children && children.length > 0 && (
         <div
           className={cn(
             "ml-3 border-l border-gray-200",
-            isOver && "border-blue-200",
+            // Subtle highlight if over droppable area
+            isOver && "border-blue-200"
           )}
         >
           <div className="py-1">{children}</div>

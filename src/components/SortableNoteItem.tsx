@@ -1,12 +1,13 @@
 "use client";
 
-import React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import React from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { FaTrash } from "react-icons/fa";
 import { ImSpinner8 } from "react-icons/im";
 import { FileText } from "lucide-react";
 
+/** Data model shared in your app */
 interface Note {
   id: number;
   content: string;
@@ -18,20 +19,27 @@ interface Note {
   order: number;
 }
 
+/** Props for the note item */
 interface SortableNoteItemProps {
   note: Note;
   currentNoteId: number;
   onSelect: () => void;
   onDelete: (e: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
   isDeletingId: number | null;
+  /** If the user wants to highlight the item being hovered */
+  hovered?: boolean;
 }
 
+/**
+ * Single draggable note item
+ */
 export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
   note,
   currentNoteId,
   onSelect,
   onDelete,
   isDeletingId,
+  hovered = false,
 }) => {
   const {
     attributes,
@@ -40,26 +48,26 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ 
+  } = useSortable({
     id: note.id,
     data: {
-      type: 'note',
+      type: "note",
       isFolder: false,
-      parentId: note.parentId
-    }
+      parentId: note.parentId,
+    },
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
-    cursor: isDragging ? 'grabbing' : 'grab',
-    position: 'relative' as const,
-    zIndex: isDragging ? 999 : 'auto',
+    cursor: isDragging ? "grabbing" : "grab",
+    position: "relative" as const,
+    zIndex: isDragging ? 999 : "auto",
   };
 
   const getFirstLine = (content: string) => {
-    return content.split('\n')[0]?.trim() ?? "Untitled";
+    return content.split("\n")[0]?.trim() ?? "Untitled";
   };
 
   return (
@@ -69,24 +77,33 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
       onClick={onSelect}
       className={`
         group relative flex items-center justify-between
-        w-full p-4 hover:bg-gray-50
+        w-full p-4 border-l border-gray-200 hover:bg-gray-50
+        transition-colors duration-200
         ${note.id === currentNoteId ? "bg-blue-50 border-l-4 border-blue-500" : ""}
         ${note.isOptimistic ? "opacity-50" : ""}
-        ${note.parentId ? "border-l border-gray-200" : ""}
-        transition-colors duration-200
+        ${hovered ? "bg-blue-50/50" : ""}
+        ${isDragging ? "pointer-events-none" : ""}
       `}
     >
+      {/* Optional overlay highlight when hovered */}
+      {hovered && (
+        <div className="pointer-events-none absolute inset-0 bg-blue-50/30" />
+      )}
+
       <div className="flex-1 min-w-0 flex items-center gap-2">
         <FileText className="h-4 w-4 text-gray-400 shrink-0" />
-        <span className={`
-          block truncate text-sm
-          ${note.id === currentNoteId ? "text-blue-700 font-medium" : "text-gray-700"}
-          ${note.parentId ? "pl-2" : ""}
-        `}>
+        <span
+          className={`
+            block truncate text-sm
+            ${note.id === currentNoteId ? "text-blue-700 font-medium" : "text-gray-700"}
+            ${note.parentId ? "pl-2" : ""}
+          `}
+        >
           {getFirstLine(note.content)}
         </span>
       </div>
 
+      {/* Right-side actions */}
       <div className="flex items-center gap-2 ml-2">
         {!note.isOptimistic && (
           <button
@@ -105,12 +122,17 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
             )}
           </button>
         )}
-        
+
+        {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className="touch-none p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className={`
+            touch-none p-1
+            opacity-0 group-hover:opacity-100
+            transition-opacity duration-200
+          `}
         >
           <DragHandle />
         </div>
@@ -119,6 +141,9 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
   );
 };
 
+/**
+ * Separate drag-handle icon
+ */
 const DragHandle = () => (
   <svg
     viewBox="0 0 24 24"
