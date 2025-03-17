@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -11,10 +10,12 @@ const STRUCTURE_NOTE_NAME = "!FStruct!";
 
 export const notesRouter = createTRPCRouter({
   verifyNotepadPassword: publicProcedure
-    .input(z.object({ 
-      url: z.string().min(1),
-      password: z.string().min(1)
-    }))
+    .input(
+      z.object({
+        url: z.string().min(1),
+        password: z.string().min(1),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
@@ -50,10 +51,12 @@ export const notesRouter = createTRPCRouter({
     }),
 
   fetchNotesPublic: publicProcedure
-    .input(z.object({ 
-      url: z.string().min(1),
-      password: z.string().optional()
-    }))
+    .input(
+      z.object({
+        url: z.string().min(1),
+        password: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       // First, get only the necessary fields from userThings
       const userThings = await ctx.db.userThings.findFirst({
@@ -95,21 +98,19 @@ export const notesRouter = createTRPCRouter({
           isFolder: true,
           order: true,
         },
-        orderBy: [
-          { parentId: 'asc' },
-          { order: 'asc' },
-          { createdAt: 'desc' }
-        ],
+        orderBy: [{ parentId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
       });
     }),
 
   createNotePublic: publicProcedure
-    .input(z.object({
-      url: z.string().min(1),
-      content: z.string(),
-      password: z.string().optional(),
-      isFolder: z.boolean().optional().default(false)
-    }))
+    .input(
+      z.object({
+        url: z.string().min(1),
+        content: z.string(),
+        password: z.string().optional(),
+        isFolder: z.boolean().optional().default(false),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
@@ -136,7 +137,7 @@ export const notesRouter = createTRPCRouter({
             message: "This notepad requires a password",
           });
         }
-        
+
         if (input.password !== userThings.password) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -150,7 +151,7 @@ export const notesRouter = createTRPCRouter({
           content: input.content,
           createdById: userThings.ownedById,
           isFolder: input.isFolder,
-          order: 0
+          order: 0,
         },
         select: {
           id: true,
@@ -162,12 +163,14 @@ export const notesRouter = createTRPCRouter({
     }),
 
   updateNotePublic: publicProcedure
-    .input(z.object({
-      id: z.number(),
-      content: z.string().min(1),
-      url: z.string().min(1),
-      password: z.string().optional()
-    }))
+    .input(
+      z.object({
+        id: z.number(),
+        content: z.string().min(1),
+        url: z.string().min(1),
+        password: z.string().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
@@ -194,7 +197,7 @@ export const notesRouter = createTRPCRouter({
             message: "This notepad requires a password",
           });
         }
-        
+
         if (input.password !== userThings.password) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -231,11 +234,13 @@ export const notesRouter = createTRPCRouter({
     }),
 
   deleteNotePublic: publicProcedure
-    .input(z.object({
-      id: z.number(),
-      url: z.string().min(1),
-      password: z.string().optional()
-    }))
+    .input(
+      z.object({
+        id: z.number(),
+        url: z.string().min(1),
+        password: z.string().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
@@ -262,7 +267,7 @@ export const notesRouter = createTRPCRouter({
             message: "This notepad requires a password",
           });
         }
-        
+
         if (input.password !== userThings.password) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -298,15 +303,19 @@ export const notesRouter = createTRPCRouter({
     }),
 
   updateStructure: publicProcedure
-    .input(z.object({
-      url: z.string(),
-      password: z.string().optional(),
-      updates: z.array(z.object({
-        id: z.number(),
-        parentId: z.number().nullable(),
-        order: z.number(),
-      }))
-    }))
+    .input(
+      z.object({
+        url: z.string(),
+        password: z.string().optional(),
+        updates: z.array(
+          z.object({
+            id: z.number(),
+            parentId: z.number().nullable(),
+            order: z.number(),
+          }),
+        ),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
         where: { notePadUrl: input.url },
@@ -333,7 +342,7 @@ export const notesRouter = createTRPCRouter({
             message: "This notepad requires a password",
           });
         }
-        
+
         if (input.password !== userThings.password) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -344,17 +353,17 @@ export const notesRouter = createTRPCRouter({
 
       // Update all notes in a transaction
       await ctx.db.$transaction(
-        input.updates.map(update => 
+        input.updates.map((update) =>
           ctx.db.notepad.update({
             where: { id: update.id },
             data: {
               parentId: update.parentId,
               order: update.order,
             },
-          })
-        )
+          }),
+        ),
       );
-      
+
       return true;
     }),
 });

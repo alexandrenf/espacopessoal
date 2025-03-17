@@ -20,7 +20,7 @@ import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
-import ResizeHandle from '~/components/ResizeHandle';
+import ResizeHandle from "~/components/ResizeHandle";
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
@@ -95,27 +95,31 @@ const App = ({ password }: AppProps): JSX.Element => {
   // ------------------------------
   // Fetch notes from the server
   // ------------------------------
-  const { data, error, isLoading, refetch: refetchNotes } =
-    api.notes.fetchNotesPublic.useQuery(
-      { url, password: password ?? undefined },
-      {
-        enabled: Boolean(url),
-        retry: 1,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-        staleTime: 30000,
-        select: (fetchedNotes) =>
-          fetchedNotes.map((note) => ({
-            ...note,
-            content: note.content ?? "",
-          })),
-      }
-    );
+  const {
+    data,
+    error,
+    isLoading,
+    refetch: refetchNotes,
+  } = api.notes.fetchNotesPublic.useQuery(
+    { url, password: password ?? undefined },
+    {
+      enabled: Boolean(url),
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 30000,
+      select: (fetchedNotes) =>
+        fetchedNotes.map((note) => ({
+          ...note,
+          content: note.content ?? "",
+        })),
+    },
+  );
 
   // After data is loaded, separate out the structure note from normal notes
   useEffect(() => {
     if (!data) return;
-    
+
     setNotes(data);
 
     // If no currentNoteId, pick the first note if it exists
@@ -162,6 +166,25 @@ const App = ({ password }: AppProps): JSX.Element => {
     updateNoteRef.current = updateNoteMutation.mutateAsync;
   }, [updateNoteMutation]);
 
+  // Helper function to handle notes with zero order
+  const handleExistingZeroOrderNotes = (currentNotes: Note[]) => {
+    const existingZeroOrderNotes = currentNotes.filter(
+      (note) => note.order === 0,
+    );
+    if (existingZeroOrderNotes.length === 0) return currentNotes;
+
+    const nonZeroOrders = currentNotes
+      .filter((note) => note.order > 0)
+      .map((note) => note.order);
+
+    const highestOrder =
+      nonZeroOrders.length > 0 ? Math.max(...nonZeroOrders) : 0;
+
+    return currentNotes.map((note) =>
+      note.order === 0 ? { ...note, order: highestOrder } : note,
+    );
+  };
+
   // 2. Create a new note
   const createNoteMutation = api.notes.createNotePublic.useMutation({
     onMutate: async (variables) => {
@@ -171,23 +194,9 @@ const App = ({ password }: AppProps): JSX.Element => {
       const tempId = -Math.floor(Math.random() * 100_000);
 
       // Handle existing notes with order 0
-      const existingZeroOrderNotes = notes.filter(note => note.order === 0);
-      if (existingZeroOrderNotes.length > 0) {
-        // Find all non-zero orders and get the maximum
-        const nonZeroOrders = notes
-          .filter(note => note.order > 0)
-          .map(note => note.order);
-        
-        const highestOrder = nonZeroOrders.length > 0 
-          ? Math.max(...nonZeroOrders) 
-          : 0;
-        
-        // Move all existing zero order notes to a value between 0 and the highest order
-        setNotes(prev => prev.map(note => 
-          note.order === 0
-            ? { ...note, order: highestOrder }
-            : note
-        ));
+      const updatedNotes = handleExistingZeroOrderNotes(notes);
+      if (updatedNotes !== notes) {
+        setNotes(updatedNotes);
       }
 
       const newNote: Note = {
@@ -198,7 +207,7 @@ const App = ({ password }: AppProps): JSX.Element => {
         isOptimistic: true,
         parentId: null,
         isFolder: false,
-        order: 0 // New note stays at 0 to appear first
+        order: 0, // New note stays at 0 to appear first
       };
 
       // Insert optimistically
@@ -212,7 +221,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       // If error creating note, revert
       if (ctx?.optimisticNote) {
         setNotes((prev) =>
-          prev.filter((note) => note.id !== ctx.optimisticNote.id)
+          prev.filter((note) => note.id !== ctx.optimisticNote.id),
         );
         if (currentNoteId === ctx.optimisticNote.id) {
           setCurrentNoteId(null);
@@ -223,24 +232,27 @@ const App = ({ password }: AppProps): JSX.Element => {
     },
     onSuccess: async (actualNote, _, ctx) => {
       if (ctx?.optimisticNote) {
-        setNotes(prev => 
+        setNotes((prev) =>
           prev.map((note) =>
             note.id === ctx.optimisticNote.id
-              ? {
+              ? ({
                   ...actualNote,
                   content: latestContentRef.current,
                   parentId: null,
                   isFolder: false,
-                  order: 0
-                } as Note
-              : note
-          )
+                  order: 0,
+                } as Note)
+              : note,
+          ),
         );
         setCurrentNoteId(actualNote.id);
       }
 
       // Force a refetch
-      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
+      await utils.notes.fetchNotesPublic.invalidate({
+        url,
+        password: password ?? undefined,
+      });
     },
     retry: 2,
   });
@@ -283,17 +295,19 @@ const App = ({ password }: AppProps): JSX.Element => {
       }
 
       // Force refetch
-      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
+      await utils.notes.fetchNotesPublic.invalidate({
+        url,
+        password: password ?? undefined,
+      });
     },
     retry: 2,
   });
-
 
   // Add this mutation along with your other mutations
   const updateNoteStructureMutation = api.notes.updateStructure.useMutation({
     onError: (err) => {
       handleError(err);
-    }
+    },
     // Remove the onSuccess refetch
   });
 
@@ -318,7 +332,7 @@ const App = ({ password }: AppProps): JSX.Element => {
           handleError(err);
         }
       }, IDLE_WAIT),
-    [currentNoteId, url, password]
+    [currentNoteId, url, password],
   );
 
   const activeDebounce = useMemo(
@@ -339,7 +353,7 @@ const App = ({ password }: AppProps): JSX.Element => {
         }
         typingStartTimeRef.current = null;
       }, ACTIVE_WAIT),
-    [currentNoteId, url, password]
+    [currentNoteId, url, password],
   );
 
   // ------------------------------
@@ -349,7 +363,10 @@ const App = ({ password }: AppProps): JSX.Element => {
     const msg = getErrorMessage(err);
     if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
     setErrorMessage(msg);
-    errorTimeoutRef.current = setTimeout(() => setErrorMessage(null), ERROR_MESSAGE_TIMEOUT);
+    errorTimeoutRef.current = setTimeout(
+      () => setErrorMessage(null),
+      ERROR_MESSAGE_TIMEOUT,
+    );
     console.error("[Error]", msg);
   }
 
@@ -368,7 +385,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       url,
       content: "Nova Pasta\n\n",
       password: password ?? undefined,
-      isFolder: true // Add this parameter to indicate it's a folder
+      isFolder: true, // Add this parameter to indicate it's a folder
     });
   }
 
@@ -419,8 +436,8 @@ const App = ({ password }: AppProps): JSX.Element => {
     latestContentRef.current = text;
     setNotes((old) =>
       old.map((note) =>
-        note.id === currentNoteId ? { ...note, content: text } : note
-      )
+        note.id === currentNoteId ? { ...note, content: text } : note,
+      ),
     );
 
     if (!typingStartTimeRef.current) {
@@ -442,9 +459,9 @@ const App = ({ password }: AppProps): JSX.Element => {
 
     try {
       // Optimistically update the local state
-      setNotes(prev => {
-        const updated = prev.map(note => {
-          const structureItem = newStructure.find(s => s.id === note.id);
+      setNotes((prev) => {
+        const updated = prev.map((note) => {
+          const structureItem = newStructure.find((s) => s.id === note.id);
           return structureItem ? { ...note, order: structureItem.order } : note;
         });
         return updated.sort((a, b) => a.order - b.order);
@@ -453,15 +470,24 @@ const App = ({ password }: AppProps): JSX.Element => {
       await updateNoteStructureMutation.mutateAsync({
         url,
         password: password ?? undefined,
-        updates: newStructure
+        updates: newStructure,
       });
 
       // Refetch notes to ensure consistency
-      await utils.notes.fetchNotesPublic.invalidate({ url, password: password ?? undefined });
+      await utils.notes.fetchNotesPublic.invalidate({
+        url,
+        password: password ?? undefined,
+      });
     } catch (error) {
       // Revert to previous state on error
       setNotes(previousNotes);
       handleError(error);
+      // Add a user-friendly toast notification
+      toast({
+        title: "Failed to update note structure",
+        description: "Your changes couldn't be saved. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -473,12 +499,12 @@ const App = ({ password }: AppProps): JSX.Element => {
   useEffect(() => {
     const handleResize = (e: globalThis.MouseEvent) => {
       if (!isResizing) return;
-      
+
       const newWidth = e.clientX;
       // Limit the sidebar width between 150px and 50% of the window width
       const minWidth = 150;
       const maxWidth = window.innerWidth * 0.5;
-      
+
       if (newWidth >= minWidth && newWidth <= maxWidth) {
         setSidebarWidth(newWidth);
       }
@@ -489,13 +515,13 @@ const App = ({ password }: AppProps): JSX.Element => {
     };
 
     if (isResizing) {
-      window.addEventListener('mousemove', handleResize);
-      window.addEventListener('mouseup', handleResizeEnd);
+      window.addEventListener("mousemove", handleResize);
+      window.addEventListener("mouseup", handleResizeEnd);
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleResize);
-      window.removeEventListener('mouseup', handleResizeEnd);
+      window.removeEventListener("mousemove", handleResize);
+      window.removeEventListener("mouseup", handleResizeEnd);
     };
   }, [isResizing]);
 
@@ -515,7 +541,6 @@ const App = ({ password }: AppProps): JSX.Element => {
 
   // The currently selected note for the editor
   const currentNote = notes.find((n) => n.id === currentNoteId) ?? null;
-
 
   // ------------------------------
   // Render
@@ -545,36 +570,36 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   return (
-    <main className="h-full flex flex-col flex-grow">
+    <main className="flex h-full flex-grow flex-col">
       {(!isMobile || (isMobile && showSidebar)) && <Header />}
-      <div className="flex-grow flex">
+      <div className="flex flex-grow">
         <Alert error={errorMessage} isSaving={isSaving} />
         {/* Content */}
         {notes.length > 0 ? (
-          <div className="flex w-full h-full flex-col md:flex-row">
+          <div className="flex h-full w-full flex-col md:flex-row">
             {/* Sidebar */}
             <div
-              className={`h-full border-r border-gray-200 transition-all duration-200 relative
-                ${isMobile && !showSidebar ? "hidden" : "block"}
-                ${isMobile ? "w-full" : ""}`}
-              style={{ 
-                width: isMobile ? '100%' : `${sidebarWidth}px`,
-                minWidth: isMobile ? '100%' : '150px',
-                maxWidth: isMobile ? '100%' : '50%',
-                transition: isResizing ? 'none' : undefined 
+              className={`relative h-full border-r border-gray-200 transition-all duration-200 ${isMobile && !showSidebar ? "hidden" : "block"} ${isMobile ? "w-full" : ""}`}
+              style={{
+                width: isMobile ? "100%" : `${sidebarWidth}px`,
+                minWidth: isMobile ? "100%" : "150px",
+                maxWidth: isMobile ? "100%" : "50%",
+                transition: isResizing ? "none" : undefined,
               }}
             >
               <Sidebar
                 notes={notes}
-                currentNote={currentNote ?? { 
-                  id: 0, 
-                  content: "",
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  order: 0,
-                  parentId: null,
-                  isFolder: false
-                }}
+                currentNote={
+                  currentNote ?? {
+                    id: 0,
+                    content: "",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    order: 0,
+                    parentId: null,
+                    isFolder: false,
+                  }
+                }
                 setCurrentNoteId={handleSwitchNote}
                 newNote={createNewNote}
                 newFolder={handleNewFolder}
@@ -582,10 +607,12 @@ const App = ({ password }: AppProps): JSX.Element => {
                 isCreating={createNoteMutation.isPending}
                 isDeletingId={
                   deleteNoteMutation.isPending
-                    ? deleteNoteMutation.variables?.id ?? null
+                    ? (deleteNoteMutation.variables?.id ?? null)
                     : null
                 }
-                onToggleSidebar={isMobile ? () => setShowSidebar(!showSidebar) : undefined}
+                onToggleSidebar={
+                  isMobile ? () => setShowSidebar(!showSidebar) : undefined
+                }
                 showSidebar={showSidebar}
                 onUpdateStructure={handleUpdateStructure}
                 isMobile={isMobile}
@@ -596,22 +623,20 @@ const App = ({ password }: AppProps): JSX.Element => {
 
             {/* Editor */}
             <div
-              className={`h-full transition-all duration-200 relative
-                ${currentNoteId !== null ? "block" : "hidden md:block"}
-                ${isMobile ? "w-full" : ""}`}
-              style={{ 
-                width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)` 
+              className={`relative h-full transition-all duration-200 ${currentNoteId !== null ? "block" : "hidden md:block"} ${isMobile ? "w-full" : ""}`}
+              style={{
+                width: isMobile ? "100%" : `calc(100% - ${sidebarWidth}px)`,
               }}
             >
               {isMobile && !showSidebar && (
-                <div className="absolute top-4 left-4 z-10">
+                <div className="absolute left-4 top-4 z-10">
                   <Button
                     onClick={() => setShowSidebar(true)}
                     variant="outline"
                     size="icon"
                     className="md:hidden"
                   >
-                    <Menu className="w-3 h-3" />
+                    <Menu className="h-3 w-3" />
                   </Button>
                 </div>
               )}
@@ -623,26 +648,26 @@ const App = ({ password }: AppProps): JSX.Element => {
                   isLoading={isNoteLoading}
                 />
               ) : (
-                <div className="h-full flex items-center justify-center text-gray-500">
+                <div className="flex h-full items-center justify-center text-gray-500">
                   Selecione uma nota para começar a editar
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="w-full h-full flex flex-col">
-            <div className="flex-grow flex flex-col items-center justify-center gap-8 px-4">
-              <h1 className="text-lg font-semibold text-center">
+          <div className="flex h-full w-full flex-col">
+            <div className="flex flex-grow flex-col items-center justify-center gap-8 px-4">
+              <h1 className="text-center text-lg font-semibold">
                 Você não tem notas
               </h1>
               <button
-                className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
+                className="mt-4 rounded-lg bg-blue-500 px-6 py-3 text-white shadow-md transition hover:bg-blue-600"
                 onClick={createNewNote}
                 disabled={createNoteMutation.isPending}
               >
                 {createNoteMutation.isPending ? (
                   <span className="flex items-center">
-                    <LoadingSpinner className="w-4 h-4 mr-2" />
+                    <LoadingSpinner className="mr-2 h-4 w-4" />
                     Criando...
                   </span>
                 ) : (
@@ -670,14 +695,3 @@ const App = ({ password }: AppProps): JSX.Element => {
 };
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-

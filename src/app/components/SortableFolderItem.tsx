@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
-import { cn } from '~/lib/utils';
-import { Button } from '~/components/ui/button';
-import { Folder, ChevronRight, ChevronDown, MoreVertical, Trash2, GripVertical } from 'lucide-react';
+import React, { useState } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { cn } from "~/lib/utils";
+import { Button } from "~/components/ui/button";
+import {
+  Folder,
+  ChevronRight,
+  ChevronDown,
+  MoreVertical,
+  Trash2,
+  GripVertical,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu';
-import type { Note } from './Sidebar';
+} from "~/components/ui/dropdown-menu";
+import type { Note } from "./Sidebar";
 
 interface SortableFolderItemProps {
   folder: Note;
@@ -19,6 +26,7 @@ interface SortableFolderItemProps {
   onClick: () => void;
   onDelete: (event: React.MouseEvent<HTMLButtonElement>, id: number) => void;
   children?: React.ReactNode[];
+  initiallyExpanded?: boolean;
 }
 
 export function SortableFolderItem({
@@ -27,14 +35,15 @@ export function SortableFolderItem({
   onClick,
   onDelete,
   children = [],
+  initiallyExpanded = true, // Default value in destructuring
 }: SortableFolderItemProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `droppable-${folder.id}`,
     data: {
-      type: 'folder',
-      accepts: ['note', 'folder'],
+      type: "folder",
+      accepts: ["note", "folder"],
       folderId: folder.id,
     },
   });
@@ -49,10 +58,10 @@ export function SortableFolderItem({
   } = useSortable({
     id: folder.id,
     data: {
-      type: 'folder',
+      type: "folder",
       isFolder: true,
-      parentId: folder.parentId
-    }
+      parentId: folder.parentId,
+    },
   });
 
   const style = {
@@ -60,7 +69,7 @@ export function SortableFolderItem({
     transition,
   };
 
-  const title = folder.content.split('\n')[0] ?? 'Untitled Folder';
+  const title = folder.content.split("\n")[0]?.trim() ?? "Untitled Folder";
 
   return (
     <div className="flex flex-col" ref={setDroppableRef}>
@@ -69,12 +78,12 @@ export function SortableFolderItem({
         style={style}
         {...attributes}
         className={cn(
-          'group relative flex items-center w-full p-4',
-          'border-l-[3px] border-transparent',
-          'hover:bg-gray-50 transition-colors duration-200',
-          isActive && 'bg-blue-50 border-l-blue-500',
-          isDragging && 'opacity-50',
-          isOver && 'bg-blue-50/50 ring-1 ring-blue-200'
+          "group relative flex w-full items-center p-4",
+          "border-l-[3px] border-transparent",
+          "transition-colors duration-200 hover:bg-gray-50",
+          isActive && "border-l-blue-500 bg-blue-50",
+          isDragging && "opacity-50",
+          isOver && "bg-blue-50/50 ring-1 ring-blue-200",
         )}
       >
         <Button
@@ -94,25 +103,27 @@ export function SortableFolderItem({
         </Button>
 
         <div
-          className="flex flex-1 items-center gap-2 pl-4 min-w-0"
+          className="flex min-w-0 flex-1 items-center gap-2 pl-4"
           onClick={onClick}
         >
-          <Folder className="h-4 w-4 text-blue-500 shrink-0" />
-          <span className={cn(
-            "flex-1 truncate text-sm",
-            isActive ? "text-blue-700 font-medium" : "text-gray-700"
-          )}>
+          <Folder className="h-4 w-4 shrink-0 text-blue-500" />
+          <span
+            className={cn(
+              "flex-1 truncate text-sm",
+              isActive ? "font-medium text-blue-700" : "text-gray-700",
+            )}
+          >
             {title}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 ml-2">
+        <div className="ml-2 flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className="h-6 w-6 p-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreVertical className="h-4 w-4 text-gray-500" />
@@ -121,7 +132,7 @@ export function SortableFolderItem({
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
                 <button
-                  className="w-full flex items-center text-red-600"
+                  className="flex w-full items-center text-red-600"
                   onClick={(e) => onDelete(e, folder.id)}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -134,7 +145,7 @@ export function SortableFolderItem({
           <div
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            className="touch-none p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab"
+            className="cursor-grab touch-none p-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           >
             <GripVertical className="h-4 w-4 text-gray-400" />
           </div>
@@ -142,13 +153,13 @@ export function SortableFolderItem({
       </div>
 
       {isExpanded && children && children.length > 0 && (
-        <div className={cn(
-          "ml-3 border-l border-gray-200",
-          isOver && "border-blue-200"
-        )}>
-          <div className="py-1">
-            {children}
-          </div>
+        <div
+          className={cn(
+            "ml-3 border-l border-gray-200",
+            isOver && "border-blue-200",
+          )}
+        >
+          <div className="py-1">{children}</div>
         </div>
       )}
     </div>
