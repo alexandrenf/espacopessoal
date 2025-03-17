@@ -297,6 +297,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     let updatedNotes: Note[] = [];
 
     if (dragPosition === "inside" && isOverFolder) {
+      // Prevent placing a folder inside itself or its descendants
+      if (activeNote.isFolder) {
+        // Check if the over folder is the active folder or one of its descendants
+        const isCircular = (folderId: number, targetId: number): boolean => {
+          if (folderId === targetId) return true;
+          const childFolders = localNotes.filter(n => n.parentId === folderId && n.isFolder);
+          return childFolders.some(folder => isCircular(folder.id, targetId));
+        };
+        
+        if (isCircular(activeIdNum, overId)) {
+          return; // Prevent circular references
+        }
+      }
+
       // Place the dragged note inside the folder
       const children = localNotes
         .filter((n) => n.parentId === overNote.id)
