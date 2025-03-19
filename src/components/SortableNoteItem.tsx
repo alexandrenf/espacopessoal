@@ -54,6 +54,7 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
       type: "note",
       isFolder: false,
       parentId: note.parentId,
+      canBeDroppedInside: true,
     },
   });
 
@@ -75,36 +76,24 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
       ref={setNodeRef}
       style={style}
       onClick={onSelect}
-      className={`
-        group relative flex items-center justify-between
-        w-full p-4 border-l border-gray-200 hover:bg-gray-50
-        transition-colors duration-200
-        ${note.id === currentNoteId ? "bg-blue-50 border-l-4 border-blue-500" : ""}
-        ${note.isOptimistic ? "opacity-50" : ""}
-        ${hovered ? "bg-blue-50/50" : ""}
-        ${isDragging ? "pointer-events-none" : ""}
-      `}
+      className={`group relative flex w-full items-center justify-between border-l border-gray-200 p-4 transition-all duration-200 hover:bg-gray-50 ${note.id === currentNoteId ? "border-l-4 border-blue-500 bg-blue-50" : ""} ${note.isOptimistic ? "opacity-50" : ""} ${hovered ? "bg-blue-50/50" : ""} ${isDragging ? "pointer-events-none" : ""} `}
     >
       {/* Optional overlay highlight when hovered */}
       {hovered && (
-        <div className="pointer-events-none absolute inset-0 bg-blue-50/30" />
+        <div className="pointer-events-none absolute inset-0 bg-blue-50/30 transition-all duration-200" />
       )}
 
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <FileText className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-hover:text-blue-400" />
         <span
-          className={`
-            block truncate text-sm
-            ${note.id === currentNoteId ? "text-blue-700 font-medium" : "text-gray-700"}
-            ${note.parentId ? "pl-2" : ""}
-          `}
+          className={`block truncate text-sm transition-all duration-200 ${note.id === currentNoteId ? "font-medium text-blue-700" : "text-gray-700"} ${note.parentId ? "pl-2" : ""} `}
         >
           {getFirstLine(note.content)}
         </span>
       </div>
 
       {/* Right-side actions */}
-      <div className="flex items-center gap-2 ml-2">
+      <div className="ml-2 flex items-center gap-2">
         {!note.isOptimistic && (
           <button
             onClick={(e) => {
@@ -112,13 +101,13 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
               onDelete(e, note.id);
             }}
             disabled={isDeletingId === note.id}
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded"
+            className="rounded p-1 opacity-0 transition-all duration-200 hover:bg-gray-100 group-hover:opacity-100"
             aria-label="Delete note"
           >
             {isDeletingId === note.id ? (
-              <ImSpinner8 className="w-4 h-4 animate-spin text-red-500" />
+              <ImSpinner8 className="h-4 w-4 animate-spin text-red-500" />
             ) : (
-              <FaTrash className="w-4 h-4 text-red-500" />
+              <FaTrash className="h-4 w-4 text-red-500" />
             )}
           </button>
         )}
@@ -128,11 +117,7 @@ export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
-          className={`
-            touch-none p-1
-            opacity-0 group-hover:opacity-100
-            transition-opacity duration-200
-          `}
+          className={`cursor-grab touch-none p-1 opacity-0 transition-all duration-200 hover:scale-110 group-hover:opacity-100`}
         >
           <DragHandle />
         </div>

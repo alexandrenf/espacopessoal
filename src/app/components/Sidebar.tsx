@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ImSpinner8 } from "react-icons/im";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft, FolderPlus, FilePlus } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus, Folder, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +21,9 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type DragMoveEvent,
   useDroppable,
+  MeasuringStrategy,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -52,12 +54,11 @@ export interface NoteStructure {
   order: number;
 }
 
-// Adjust these if needed
-const NORMALIZE_THRESHOLD = 1000000;
-export const BASE_ORDER_INCREMENT = 1000;
-
+/**
+ * Normalizes the order values of notes to use sequential integers
+ */
 const normalizeOrders = (notes: Note[]): Note[] => {
-  // Sort by order and parentId to ensure consistent hierarchy
+  // Sort by parentId and order to maintain hierarchy
   const sortedNotes = [...notes].sort((a, b) => {
     if (a.parentId !== b.parentId) {
       return (a.parentId ?? 0) - (b.parentId ?? 0);
@@ -65,7 +66,7 @@ const normalizeOrders = (notes: Note[]): Note[] => {
     return a.order - b.order;
   });
 
-  // Group them by parent
+  // Group notes by parent
   const groupedNotes = sortedNotes.reduce((acc, note) => {
     const key = note.parentId?.toString() ?? "root";
     if (!acc[key]) {
@@ -75,23 +76,46 @@ const normalizeOrders = (notes: Note[]): Note[] => {
     return acc;
   }, {} as Record<string, Note[]>);
 
-  // Reset the order field in increments
+  // Normalize each group independently with sequential integers
   return sortedNotes.map((note) => {
     const groupKey = note.parentId?.toString() ?? "root";
     const group = groupedNotes[groupKey] ?? [];
     const indexInGroup = group.findIndex((n) => n.id === note.id);
+    
     return {
       ...note,
-      order: (indexInGroup + 1) * BASE_ORDER_INCREMENT,
+      order: indexInGroup + 1, // Start from 1
     };
   });
 };
 
+/**
+ * Calculates a new order value between two existing orders
+ * Uses sequential integers
+ */
 const calculateNewOrder = (prevOrder: number | null, nextOrder: number | null): number => {
-  if (!prevOrder && nextOrder) return nextOrder - BASE_ORDER_INCREMENT;
-  if (!nextOrder && prevOrder) return prevOrder + BASE_ORDER_INCREMENT;
+  // If we're at the start of the list
+  if (!prevOrder && nextOrder) {
+    return 1;
+  }
   
-  return Math.floor((prevOrder! + nextOrder!) / 2);
+  // If we're at the end of the list
+  if (!nextOrder && prevOrder) {
+    return prevOrder + 1;
+  }
+  
+  // If we have both orders, place between them
+  if (prevOrder && nextOrder) {
+    // If there's space between orders, use the middle
+    if (nextOrder - prevOrder > 1) {
+      return Math.floor((prevOrder + nextOrder) / 2);
+    }
+    // If orders are consecutive, increment the next item's order
+    return prevOrder + 1;
+  }
+  
+  // Fallback case - shouldn't happen in practice
+  return 1;
 };
 
 /* --- Sidebar Component --- */
@@ -172,7 +196,7 @@ const Sidebar: React.FC<SidebarProps> = ({
    * to the bounding box of the item currently under the pointer.
    */
   const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
+    const { over, active } = event;
     if (!over) {
       setHoveredId(null);
       return;
@@ -198,16 +222,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     setHoveredId(overId);
 
-    const activeRect = event.active.rect.current.translated;
     const overRect = over.rect;
-    if (!activeRect || !overRect) return;
+    if (!overRect) return;
 
-    const pointerY = activeRect.top + activeRect.height / 2;
-    const activeHeight = activeRect.height;
+    // Get the current pointer coordinates relative to the viewport
+    const pointerY = (event.activatorEvent as MouseEvent).clientY;
+    const overTop = overRect.top;
+    const overHeight = overRect.height;
 
     if (overNote.isFolder) {
-      const topThreshold = overRect.top + overRect.height * 0.25;
-      const bottomThreshold = overRect.top + overRect.height * 0.75;
+      const topThreshold = overTop + overHeight * 0.25;
+      const bottomThreshold = overTop + overHeight * 0.75;
 
       const dragPosition = pointerY < topThreshold 
         ? "above" 
@@ -215,20 +240,86 @@ const Sidebar: React.FC<SidebarProps> = ({
           ? "below" 
           : "inside";
 
+      console.log('Drop zone debug:', {
+        pointerY,
+        overTop,
+        overHeight,
+        topThreshold,
+        bottomThreshold,
+        dragPosition,
+        currentDropZone: (over.data.current as { dropZone?: "above" | "below" | "inside" })?.dropZone,
+        activeId: active.id,
+        overId: over.id
+      });
+
+      // Update the drop zone in the over data
       over.data.current = {
         ...over.data.current,
         dragPosition,
-      };
+        dropZone: dragPosition,
+      } as { dragPosition: "above" | "below" | "inside"; dropZone: "above" | "below" | "inside" };
     } else {
-      const midLine = overRect.top + overRect.height / 2;
-      const aboveThreshold = midLine - (activeHeight * 0.75);
-      const dragPosition = pointerY < aboveThreshold ? "above" : "below";
+      const midLine = overTop + overHeight / 2;
+      const dragPosition = pointerY < midLine ? "above" : "below";
 
       over.data.current = {
         ...over.data.current,
         dragPosition,
-      };
+      } as { dragPosition: "above" | "below" };
     }
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { over, active } = event;
+    if (!over) return;
+
+    const overIdString = over.id.toString();
+    if (overIdString !== "droppable-root" && !overIdString.startsWith("droppable-")) {
+      return;
+    }
+
+    if (overIdString === "droppable-root") {
+      return;
+    }
+
+    const moveOverId = Number(overIdString.replace("droppable-", ""));
+    const moveOverNote = localNotes.find((n) => n.id === moveOverId);
+    if (!moveOverNote?.isFolder) return;
+
+    const overRect = over.rect;
+    if (!overRect) return;
+
+    // Get the current pointer coordinates relative to the viewport
+    const pointerY = (event.activatorEvent as MouseEvent).clientY;
+    const overTop = overRect.top;
+    const overHeight = overRect.height;
+
+    const topThreshold = overTop + overHeight * 0.25;
+    const bottomThreshold = overTop + overHeight * 0.75;
+
+    const moveDragPosition = pointerY < topThreshold 
+      ? "above" 
+      : pointerY > bottomThreshold 
+        ? "below" 
+        : "inside";
+
+    console.log('Drag move debug:', {
+      pointerY,
+      overTop,
+      overHeight,
+      topThreshold,
+      bottomThreshold,
+      moveDragPosition,
+      currentDropZone: (over.data.current as { dropZone?: "above" | "below" | "inside" })?.dropZone,
+      activeId: active.id,
+      overId: over.id
+    });
+
+    over.data.current = {
+      ...over.data.current,
+      dragPosition: moveDragPosition,
+      dropZone: moveDragPosition,
+    } as { dragPosition: "above" | "below" | "inside"; dropZone: "above" | "below" | "inside" };
   };
 
   /**
@@ -248,129 +339,130 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // Handle root dropping
     if (overIdString === "droppable-root") {
-      const activeId = Number(active.id);
-      const activeNote = localNotes.find((n) => n.id === activeId);
+      const activeNote = localNotes.find((n) => n.id === activeIdNum);
       if (!activeNote) return;
 
       // Place the note/folder at root with the largest order
-      const topLevel = localNotes.filter((n) => n.parentId === null);
+      const rootNotes = localNotes.filter((n) => n.parentId === null);
       const maxOrder =
-        topLevel.length > 0
-          ? Math.max(...topLevel.map((n) => n.order))
+        rootNotes.length > 0
+          ? Math.max(...rootNotes.map((n) => n.order))
           : 0;
 
-      let updatedNotes = localNotes.map((n) =>
-        n.id === activeId
-          ? { ...n, parentId: null, order: maxOrder + BASE_ORDER_INCREMENT }
+      const rootUpdatedNotes = localNotes.map((n) =>
+        n.id === activeIdNum
+          ? { ...n, parentId: null, order: maxOrder + 1 }
           : n
       );
 
-      // Check for possible normalization
-      const maxCurrentOrder = Math.max(...updatedNotes.map((n) => n.order));
-      if (maxCurrentOrder > NORMALIZE_THRESHOLD) {
-        updatedNotes = normalizeOrders(updatedNotes);
-      }
+      // Normalize orders before updating
+      const rootNormalizedNotes = normalizeOrders(rootUpdatedNotes);
+      setLocalNotes(rootNormalizedNotes);
 
-      setLocalNotes(updatedNotes);
-
-      const newStructure = updatedNotes.map((n) => ({
+      const rootNewStructure = rootNormalizedNotes.map((n) => ({
         id: n.id,
         parentId: n.parentId ?? null,
         order: n.order,
       }));
-      onUpdateStructure(newStructure);
+      onUpdateStructure(rootNewStructure);
       return;
     }
 
-    const overId = Number(overIdString.replace("droppable-", ""));
-    if (activeIdNum === overId) return;
+    const dropOverId = Number(overIdString.replace("droppable-", ""));
+    if (activeIdNum === dropOverId) return;
 
     const activeNote = localNotes.find((n) => n.id === activeIdNum);
-    const overNote = localNotes.find((n) => n.id === overId);
-    if (!activeNote || !overNote) return;
+    const dropOverNote = localNotes.find((n) => n.id === dropOverId);
+    if (!activeNote || !dropOverNote) return;
 
-    const isOverFolder = overNote.isFolder;
+    const isOverFolder = dropOverNote.isFolder;
     const dropData = over.data.current as { dragPosition?: "above" | "below" | "inside" };
     const dragPosition = dropData?.dragPosition ?? "below";
 
+    // Initialize with empty array since we'll assign it in both branches
+    const updatedNotes = dragPosition === "inside" && isOverFolder
+      ? (() => {
+          // Prevent placing a folder inside itself or its descendants
+          if (activeNote.isFolder) {
+            const isCircular = (folderId: number, targetId: number): boolean => {
+              if (folderId === targetId) return true;
+              const childFolders = localNotes.filter(n => n.parentId === folderId && n.isFolder);
+              return childFolders.some(folder => isCircular(folder.id, targetId));
+            };
+            
+            if (isCircular(activeIdNum, dropOverId)) {
+              return localNotes; // Return unchanged notes if circular reference
+            }
+          }
 
-    let updatedNotes: Note[] = [];
+          // Get children of the target folder
+          const children = localNotes
+            .filter((n) => n.parentId === dropOverNote.id)
+            .sort((a, b) => a.order - b.order);
 
-    if (dragPosition === "inside" && isOverFolder) {
-      // Prevent placing a folder inside itself or its descendants
-      if (activeNote.isFolder) {
-        // Check if the over folder is the active folder or one of its descendants
-        const isCircular = (folderId: number, targetId: number): boolean => {
-          if (folderId === targetId) return true;
-          const childFolders = localNotes.filter(n => n.parentId === folderId && n.isFolder);
-          return childFolders.some(folder => isCircular(folder.id, targetId));
-        };
-        
-        if (isCircular(activeIdNum, overId)) {
-          return; // Prevent circular references
-        }
-      }
+          // Calculate new order based on children
+          const newOrder = children.length > 0
+            ? Math.max(...children.map(n => n.order)) + 1
+            : 1;
 
-      // Place the dragged note inside the folder
-      const children = localNotes
-        .filter((n) => n.parentId === overNote.id)
-        .sort((a, b) => a.order - b.order);
-      const maxOrder =
-        children.length > 0
-          ? children[children.length - 1]?.order ?? 0
-          : overNote.order ?? 0;
-      const newOrder = maxOrder + BASE_ORDER_INCREMENT;
+          return localNotes.map((n) =>
+            n.id === activeIdNum
+              ? { ...n, parentId: dropOverNote.id, order: newOrder }
+              : n
+          );
+        })()
+      : (() => {
+          const siblings = localNotes
+            .filter(n => n.parentId === dropOverNote.parentId)
+            .sort((a, b) => a.order - b.order);
 
-      updatedNotes = localNotes.map((n) =>
-        n.id === activeIdNum
-          ? { ...n, parentId: overNote.id, order: newOrder }
-          : n
-      );
-    } else {
-      // Modified sibling handling
-      const siblings = localNotes
-        .filter(n => n.parentId === overNote.parentId)
-        .sort((a, b) => a.order - b.order);
+          const oldIndex = siblings.findIndex(n => n.id === activeIdNum);
+          const overIndex = siblings.findIndex(n => n.id === dropOverNote.id);
 
-      // Find current index positions
-      const oldIndex = siblings.findIndex(n => n.id === activeIdNum);
-      const overIndex = siblings.findIndex(n => n.id === overNote.id);
+          let newOrder: number;
+          if (oldIndex > overIndex) {
+            // Dragging upward
+            const targetIndex = overIndex;
+            const prevOrder = targetIndex > 0 ? siblings[targetIndex - 1]?.order ?? 0 : 0;
+            const nextOrder = siblings[targetIndex]?.order ?? 0;
+            
+            // When dragging up, we want to place the item at the target position
+            // and shift other items down by 1
+            newOrder = nextOrder;
+            
+            // Shift all items between old and new position down by 1
+            return localNotes.map((n) => {
+              if (n.id === activeIdNum) {
+                return { ...n, parentId: dropOverNote.parentId, order: newOrder };
+              }
+              // Only shift items that are between the old and new position
+              const noteIndex = siblings.findIndex(s => s.id === n.id);
+              if (noteIndex >= targetIndex && noteIndex < oldIndex) {
+                return { ...n, order: n.order + 1 };
+              }
+              return n;
+            });
+          } else {
+            // Dragging downward
+            const prevOrder = dropOverNote.order;
+            const nextOrder = overIndex < siblings.length - 1 
+              ? siblings[overIndex + 1]?.order ?? 0
+              : prevOrder + 1;
+            newOrder = calculateNewOrder(prevOrder, nextOrder);
 
-      let newOrder: number;
+            return localNotes.map((n) =>
+              n.id === activeIdNum
+                ? { ...n, parentId: dropOverNote.parentId, order: newOrder }
+                : n
+            );
+          }
+        })();
 
-      if (oldIndex > overIndex) { // Dragging upward
-        const targetIndex = overIndex;
-        
-        // Get neighbor orders with guaranteed spacing
-        const prevOrder = targetIndex > 0 ? siblings[targetIndex - 1]?.order ?? 0 : 0;
-        const nextOrder = siblings[targetIndex]?.order ?? 0;
-        
-        newOrder = calculateNewOrder(prevOrder, nextOrder);
-      } else {
-        // Existing downward logic
-        const prevOrder = overNote.order;
-        const nextOrder = overIndex < siblings.length - 1 
-          ? siblings[overIndex + 1]?.order ?? 0
-          : prevOrder + BASE_ORDER_INCREMENT;
-        newOrder = calculateNewOrder(prevOrder, nextOrder);
-      }
+    // Normalize orders before updating
+    const normalizedNotes = normalizeOrders(updatedNotes);
+    setLocalNotes(normalizedNotes);
 
-      updatedNotes = localNotes.map((n) =>
-        n.id === activeIdNum
-          ? { ...n, parentId: overNote.parentId, order: newOrder }
-          : n
-      );
-    }
-
-    // Normalize if needed
-    const maxOrder = Math.max(...updatedNotes.map((n) => n.order));
-    if (maxOrder > NORMALIZE_THRESHOLD) {
-      updatedNotes = normalizeOrders(updatedNotes);
-    }
-
-    setLocalNotes(updatedNotes);
-
-    const newStructure = updatedNotes.map((n) => ({
+    const newStructure = normalizedNotes.map((n) => ({
       id: n.id,
       parentId: n.parentId,
       order: n.order,
@@ -430,19 +522,40 @@ const Sidebar: React.FC<SidebarProps> = ({
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
           modifiers={[restrictToVerticalAxis]}
+          autoScroll={{
+            threshold: {
+              x: 0,
+              y: 0.2,
+            },
+            acceleration: 10,
+            interval: 5,
+          }}
+          measuring={{
+            droppable: {
+              strategy: MeasuringStrategy.Always
+            }
+          }}
         >
           {/* "Root" droppable area */}
           <div
             ref={setRootDroppableRef}
             className={cn(
-              "h-full relative overflow-y-auto transition-colors",
-              isOverRoot && "bg-blue-50"
+              "h-full relative overflow-y-auto transition-colors duration-300",
+              isOverRoot && "bg-blue-50 shadow-inner"
             )}
             style={{ minHeight: "100%" }}
             id="droppable-root"
+            data-type="root"
+            data-accepts="note,folder"
           >
+            {isOverRoot && (
+              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-blue-100 to-transparent 
+                pointer-events-none transition-opacity duration-300" />
+            )}
+            
             <SortableContext
               items={organizedNotes.map((note) => note.id)}
               strategy={verticalListSortingStrategy}
@@ -492,16 +605,26 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* DragOverlay for a clean preview while dragging */}
-          <DragOverlay>
+          <DragOverlay dropAnimation={{
+            duration: 250,
+            easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)', // Bouncy effect for satisfying drop
+          }}>
             {activeId !== null ? (
               // You can choose how to render the dragged item.
-              <div className="p-2 border border-gray-300 bg-white shadow-md rounded-sm">
+              <div className="p-2 border border-gray-300 bg-white shadow-md rounded-sm
+                transition-all duration-300 transform scale-105">
                 {(() => {
                   const note = localNotes.find((n) => n.id === activeId);
                   if (!note) return null;
                   return note.isFolder
-                    ? `Folder: ${note.content}`
-                    : `Note: ${note.content.substring(0, 20)}...`;
+                    ? <div className="flex items-center gap-2">
+                        <Folder className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">{note.content.substring(0, 20)}...</span>
+                      </div>
+                    : <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-gray-500" />
+                        <span>{note.content.substring(0, 20)}...</span>
+                      </div>;
                 })()}
               </div>
             ) : null}
