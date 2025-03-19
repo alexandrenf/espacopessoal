@@ -55,7 +55,7 @@ export function SortableFolderItem({
 }: SortableFolderItemProps) {
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+  const { setNodeRef: setDroppableRef, isOver, over } = useDroppable({
     id: `droppable-${folder.id}`,
     data: {
       type: "folder",
@@ -63,6 +63,9 @@ export function SortableFolderItem({
       folderId: folder.id,
     },
   });
+
+  // Extract the current drop zone from the drag over data
+  const dropZone = over?.data?.current?.dropZone as "above" | "below" | "inside" | undefined;
 
   const {
     attributes,
@@ -88,7 +91,36 @@ export function SortableFolderItem({
   const title = folder.content.split("\n")[0]?.trim() ?? "Untitled Folder";
 
   return (
-    <div className="flex flex-col" ref={setDroppableRef}>
+    <div className="flex flex-col relative" ref={setDroppableRef}>
+      {/* Debug drop zones */}
+      {isOver && (
+        <>
+          {/* Above zone */}
+          <div className={cn(
+            "absolute left-0 right-0 top-0 h-[25%] border-2 border-dashed transition-colors duration-200 z-0",
+            dropZone === "above" ? "border-blue-500 bg-blue-50/50" : "border-transparent"
+          )} />
+          
+          {/* Inside zone */}
+          <div className={cn(
+            "absolute left-0 right-0 top-[25%] h-[50%] border-2 border-dashed transition-colors duration-200 z-0",
+            dropZone === "inside" ? "border-blue-500 bg-blue-100/50" : "border-transparent"
+          )} />
+          
+          {/* Below zone */}
+          <div className={cn(
+            "absolute left-0 right-0 bottom-0 h-[25%] border-2 border-dashed transition-colors duration-200 z-0",
+            dropZone === "below" ? "border-blue-500 bg-blue-50/50" : "border-transparent"
+          )} />
+        </>
+      )}
+
+      {/* Drop indicator for "above" position */}
+      {isOver && dropZone === "above" && (
+        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 transform -translate-y-1/2 z-10 
+        animate-pulse transition-all duration-200 ease-in-out" />
+      )}
+
       <div
         ref={setSortableRef}
         style={style}
@@ -96,24 +128,26 @@ export function SortableFolderItem({
         className={cn(
           "group relative flex w-full items-center p-4",
           "border-l-[3px] border-transparent",
-          "transition-colors duration-200 hover:bg-gray-50",
+          "transition-all duration-200 hover:bg-gray-50",
           isActive && "border-l-blue-500 bg-blue-50",
-          hovered && "bg-blue-50/50", // highlight if hovered
+          hovered && !isOver && "bg-blue-50/50",
           isDragging && "opacity-50 pointer-events-none",
-          isOver && "ring-1 ring-blue-200",
+          isOver && dropZone === "inside" && "bg-blue-100 shadow-inner scale-[1.01]",
+          isOver && "ring-1 ring-blue-300 transition-all duration-300 ease-in-out",
         )}
         onClick={onClick}
       >
-        {/* Optional overlay highlight when hovered */}
-        {hovered && (
-          <div className="pointer-events-none absolute inset-0 bg-blue-50/30" />
+        {/* Animated folder background for "inside" drop targeting */}
+        {isOver && dropZone === "inside" && (
+          <div className="absolute inset-2 bg-blue-50/80 rounded-md border border-blue-200 
+            transition-all duration-300 ease-in-out z-0 animate-pulse" />
         )}
 
         {/* Expand/collapse toggle */}
         <Button
           variant="ghost"
           size="sm"
-          className="absolute left-0 h-5 w-5 p-0 hover:bg-transparent"
+          className="absolute left-0 h-5 w-5 p-0 hover:bg-transparent z-10"
           onClick={(e) => {
             e.stopPropagation();
             setIsExpanded((prev) => !prev);
@@ -127,12 +161,16 @@ export function SortableFolderItem({
         </Button>
 
         {/* Folder Icon + Title */}
-        <div className="flex min-w-0 flex-1 items-center gap-2 pl-4">
-          <Folder className="h-4 w-4 shrink-0 text-blue-500" />
+        <div className="flex min-w-0 flex-1 items-center gap-2 pl-4 z-10">
+          <Folder className={cn(
+            "h-4 w-4 shrink-0 transition-all duration-300",
+            isOver && dropZone === "inside" ? "text-blue-600 scale-110" : "text-blue-500"
+          )} />
           <span
             className={cn(
-              "flex-1 truncate text-sm",
+              "flex-1 truncate text-sm transition-all duration-300",
               isActive ? "font-medium text-blue-700" : "text-gray-700",
+              isOver && dropZone === "inside" && "font-medium text-blue-700",
             )}
           >
             {title}
@@ -140,7 +178,7 @@ export function SortableFolderItem({
         </div>
 
         {/* Right-side controls */}
-        <div className="ml-2 flex items-center gap-2">
+        <div className="ml-2 flex items-center gap-2 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -179,13 +217,18 @@ export function SortableFolderItem({
         </div>
       </div>
 
+      {/* Drop indicator for "below" position */}
+      {isOver && dropZone === "below" && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 transform translate-y-1/2 z-10 
+        animate-pulse transition-all duration-200 ease-in-out" />
+      )}
+
       {/* Nested children if expanded */}
       {isExpanded && children && children.length > 0 && (
         <div
           className={cn(
-            "ml-3 border-l border-gray-200",
-            // Subtle highlight if over droppable area
-            isOver && "border-blue-200"
+            "ml-3 border-l border-gray-200 transition-all duration-300",
+            isOver && dropZone === "inside" && "border-blue-300 bg-blue-50/50 pl-1", // Highlight child area when dropping inside
           )}
         >
           <div className="py-1">{children}</div>

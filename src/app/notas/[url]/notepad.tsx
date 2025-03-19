@@ -8,7 +8,10 @@ import React, {
   useCallback,
   type MouseEvent,
 } from "react";
-import Sidebar, { type NoteStructure } from "../../components/Sidebar";
+import Sidebar, { 
+  type NoteStructure, 
+  type Note,
+} from "../../components/Sidebar";
 import Editor from "../../components/Editor";
 import { Alert } from "../../components/Alert";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
@@ -21,6 +24,7 @@ import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import ResizeHandle from "~/components/ResizeHandle";
+
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
@@ -28,17 +32,6 @@ const ERROR_MESSAGE_TIMEOUT = 5000;
 
 interface AppProps {
   password: string | null;
-}
-
-export interface Note {
-  id: number;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-  isOptimistic?: boolean; // Mark a note as optimistic if needed
-  parentId: number | null;
-  isFolder: boolean;
-  order: number;
 }
 
 type ErrorWithMessage = { message: string };
@@ -147,7 +140,7 @@ const App = ({ password }: AppProps): JSX.Element => {
   // 1. Update a note
   const updateNoteMutation = api.notes.updateNotePublic.useMutation({
     onMutate: async () => {
-      // Cancel any incoming refetch so we don’t overwrite local state
+      // Cancel any incoming refetch so we don't overwrite local state
       await utils.notes.fetchNotesPublic.cancel({ url });
     },
     onSuccess: () => {
@@ -166,23 +159,37 @@ const App = ({ password }: AppProps): JSX.Element => {
     updateNoteRef.current = updateNoteMutation.mutateAsync;
   }, [updateNoteMutation]);
 
-  // Helper function to handle notes with zero order
-  const handleExistingZeroOrderNotes = (currentNotes: Note[]) => {
-    const existingZeroOrderNotes = currentNotes.filter(
-      (note) => note.order === 0,
-    );
-    if (existingZeroOrderNotes.length === 0) return currentNotes;
+  // Helper function to handle notes with problematic orders
+  const handleExistingNotesOrders = (currentNotes: Note[]) => {
+    // Group notes by parent
+    const groupedNotes = currentNotes.reduce((acc, note) => {
+      const key = note.parentId?.toString() ?? "root";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(note);
+      return acc;
+    }, {} as Record<string, Note[]>);
 
-    const nonZeroOrders = currentNotes
-      .filter((note) => note.order > 0)
-      .map((note) => note.order);
+    // Process each group independently
+    const updatedNotes = currentNotes.map(note => {
+      const groupKey = note.parentId?.toString() ?? "root";
+      const group = groupedNotes[groupKey] ?? [];
+      const indexInGroup = group.findIndex(n => n.id === note.id);
+      
+      return {
+        ...note,
+        order: indexInGroup + 1 // Start from 1
+      };
+    });
 
-    const highestOrder =
-      nonZeroOrders.length > 0 ? Math.max(...nonZeroOrders) : 0;
-
-    return currentNotes.map((note) =>
-      note.order === 0 ? { ...note, order: highestOrder } : note,
-    );
+    // Sort by parentId and order to maintain hierarchy
+    return updatedNotes.sort((a, b) => {
+      if (a.parentId !== b.parentId) {
+        return (a.parentId ?? 0) - (b.parentId ?? 0);
+      }
+      return a.order - b.order;
+    });
   };
 
   // 2. Create a new note
@@ -193,12 +200,18 @@ const App = ({ password }: AppProps): JSX.Element => {
       // Add an optimistic note
       const tempId = -Math.floor(Math.random() * 100_000);
 
-      // Handle existing notes with order 0
-      const updatedNotes = handleExistingZeroOrderNotes(notes);
+      // Handle existing notes with problematic orders
+      const updatedNotes = handleExistingNotesOrders(notes);
       if (updatedNotes !== notes) {
         setNotes(updatedNotes);
       }
 
+      // Calculate initial order for the new note
+      const siblings = updatedNotes.filter(n => n.parentId === null);
+      const maxOrder = siblings.length > 0 
+        ? Math.max(...siblings.map(n => n.order))
+        : 0;
+      
       const newNote: Note = {
         id: tempId,
         content: variables.content,
@@ -206,8 +219,8 @@ const App = ({ password }: AppProps): JSX.Element => {
         updatedAt: new Date(),
         isOptimistic: true,
         parentId: null,
-        isFolder: false,
-        order: 0, // New note stays at 0 to appear first
+        isFolder: variables.isFolder ?? false,
+        order: maxOrder + 1,
       };
 
       // Insert optimistically
@@ -230,8 +243,14 @@ const App = ({ password }: AppProps): JSX.Element => {
       }
       handleError(err);
     },
-    onSuccess: async (actualNote, _, ctx) => {
+    onSuccess: async (actualNote, variables, ctx) => {
       if (ctx?.optimisticNote) {
+        // Calculate proper order for the new note
+        const siblings = notes.filter(n => n.parentId === null);
+        const maxOrder = siblings.length > 0 
+          ? Math.max(...siblings.map(n => n.order))
+          : 0;
+        
         setNotes((prev) =>
           prev.map((note) =>
             note.id === ctx.optimisticNote.id
@@ -239,8 +258,8 @@ const App = ({ password }: AppProps): JSX.Element => {
                   ...actualNote,
                   content: latestContentRef.current,
                   parentId: null,
-                  isFolder: false,
-                  order: 0,
+                  isFolder: variables.isFolder ?? false,
+                  order: maxOrder + 1,
                 } as Note)
               : note,
           ),
@@ -462,9 +481,22 @@ const App = ({ password }: AppProps): JSX.Element => {
       setNotes((prev) => {
         const updated = prev.map((note) => {
           const structureItem = newStructure.find((s) => s.id === note.id);
-          return structureItem ? { ...note, order: structureItem.order } : note;
+          if (!structureItem) return note;
+          
+          return {
+            ...note,
+            parentId: structureItem.parentId,
+            order: structureItem.order,
+          };
         });
-        return updated.sort((a, b) => a.order - b.order);
+
+        // Sort by parentId and order to maintain hierarchy
+        return updated.sort((a, b) => {
+          if (a.parentId !== b.parentId) {
+            return (a.parentId ?? 0) - (b.parentId ?? 0);
+          }
+          return a.order - b.order;
+        });
       });
 
       await updateNoteStructureMutation.mutateAsync({
