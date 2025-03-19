@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect } from "react";
-import ReactMde from "react-mde";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
-import "react-mde/lib/styles/css/react-mde-all.css";
+import { motion, AnimatePresence } from "framer-motion";
+import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
 interface Note {
   id: number;
@@ -30,6 +32,7 @@ const Editor: React.FC<EditorProps> = ({
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
+  const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const l18n = {
     write: "Escrever",
@@ -72,146 +75,222 @@ const Editor: React.FC<EditorProps> = ({
     tasklists: true,
   });
 
-  return (
-    <div className="relative w-full h-screen bg-white">
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
-            <span className="text-sm text-gray-600">Carregando nota...</span>
-          </div>
-        </div>
-      )}
+  const insertMarkdown = (prefix: string, suffix = "") => {
+    const textarea = textAreaRef.current;
+    if (!textarea) return;
 
-      <div className={`${isLoading ? 'opacity-50' : ''} transition-opacity duration-200`}>
-        <div className="flex items-center justify-between p-4 border-t border-gray-100 border-b border-gray-200">
-          <div className="flex-1 flex items-center gap-2">
-            <div className="w-10 md:hidden"></div>
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    const beforeText = content.substring(0, start);
+    const afterText = content.substring(end);
+
+    const newContent = `${beforeText}${prefix}${selectedText}${suffix}${afterText}`;
+    handleContentChange(newContent);
+
+    // Reset selection
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + prefix.length,
+        end + prefix.length
+      );
+    }, 0);
+  };
+
+  const renderContent = () => {
+    if (selectedTab === "preview") {
+      const html = converter.makeHtml(content);
+      const purify = DOMPurify as {
+        sanitize: (dirty: string, config?: Config) => string;
+      };
+      const sanitizedHtml = purify.sanitize(html, {
+        ALLOWED_TAGS: [
+          'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+          'ul', 'ol', 'li', 'a', 'strong', 'em',
+          'code', 'pre', 'blockquote', 'input' // Add input to allowed tags
+        ],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'aria-label', 'class', 'type', 'checked'] // Add type and checked attributes
+      });
+      
+      return (
+        <div 
+          className="prose prose-slate max-w-none p-6 bg-white/50 backdrop-blur-sm rounded-lg shadow-sm min-h-[75vh]"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
+      );
+    }
+
+    return (
+      <textarea
+        ref={textAreaRef}
+        value={content}
+        onChange={(e) => handleContentChange(e.target.value)}
+        className="w-full h-[75vh] bg-white/50 backdrop-blur-sm rounded-lg p-6 focus:outline-none font-mono text-[15px] resize-none shadow-sm transition-all duration-200 focus:shadow-md focus:bg-white/80"
+        disabled={isLoading}
+        placeholder="Comece a escrever..."
+      />
+    );
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative w-full h-screen bg-gradient-to-b from-white to-gray-50"
+    >
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center"
+          >
+            <motion.div 
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="flex flex-col items-center gap-3 bg-white/80 p-6 rounded-lg shadow-lg"
+            >
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <span className="text-sm font-medium text-gray-600">Carregando nota...</span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className={`${isLoading ? 'opacity-50' : ''} transition-all duration-300`}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200/50 bg-white/70 backdrop-blur-md sticky top-0 z-20 shadow-sm">
+          <div className="flex-1 flex items-center gap-3">
+            <motion.div
+              whileHover={{ rotate: 15 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <FileText className="h-5 w-5 text-blue-500" />
+            </motion.div>
             <input
               id="note-title"
               type="text"
               value={title}
               onChange={handleTitleChange}
-              className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none"
+              className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/10 rounded-md px-2 py-1 transition-all"
               placeholder={l18n.untitledNote}
               aria-label="Note title"
               disabled={isLoading}
             />
-            {isSaving && !isLoading && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-md">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500" />
-                <span className="text-sm text-gray-500">Salvando...</span>
+          </div>
+          
+          {isSaving && !isLoading && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full shadow-sm"
+            >
+              <Save className="h-4 w-4 text-green-500 animate-pulse" />
+              <span className="text-sm font-medium text-green-600">Salvando...</span>
+            </motion.div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <div className="flex flex-col gap-4">
+            <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as "write" | "preview")}>
+              <div className="flex items-center justify-between">
+                <TabsList className="mb-4 bg-gray-100/50 backdrop-blur-sm">
+                  <TabsTrigger value="write" className="flex items-center gap-2 data-[state=active]:bg-white">
+                    <FileText className="h-4 w-4" />
+                    {l18n.write}
+                  </TabsTrigger>
+                  <TabsTrigger value="preview" className="flex items-center gap-2 data-[state=active]:bg-white">
+                    <Eye className="h-4 w-4" />
+                    {l18n.preview}
+                  </TabsTrigger>
+                </TabsList>
+
+                {selectedTab === "write" && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1 rounded-lg"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('**', '**')}
+                      title="Bold"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <Bold className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('*', '*')}
+                      title="Italic"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <Italic className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('\n- [ ] ')}
+                      title="Task List"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('\n- ')}
+                      title="Unordered List"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('\n1. ')}
+                      title="Ordered List"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <ListOrdered className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('\n> ')}
+                      title="Quote"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <Quote className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertMarkdown('`', '`')}
+                      title="Code"
+                      className="hover:bg-white hover:shadow-sm transition-all"
+                    >
+                      <Code className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                )}
               </div>
-            )}
+
+              <div className="relative">
+                {renderContent()}
+                <div className="absolute bottom-4 right-4 text-xs text-gray-400">
+                  {content.length} characters
+                </div>
+              </div>
+            </Tabs>
           </div>
         </div>
-        <div className="p-4">
-          <ReactMde
-            value={content}
-            onChange={handleContentChange}
-            selectedTab={selectedTab}
-            onTabChange={setSelectedTab}
-            l18n={l18n}
-            generateMarkdownPreview={(markdown: string): Promise<React.ReactNode> => {
-              const html = converter.makeHtml(markdown);
-              const purify = DOMPurify as {
-                sanitize: (dirty: string, config?: Config) => string;
-              };
-              const sanitizedHtml = purify.sanitize(html, {
-                ALLOWED_TAGS: [
-                  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                  'ul', 'ol', 'li',
-                  'a', 'strong', 'em',
-                  'code', 'pre', 'blockquote'
-                ],
-                ALLOWED_ATTR: [
-                  'href', 'target', 'rel', 'title',
-                  'aria-label', 'class'
-                ],
-                ALLOW_DATA_ATTR: false,
-                ADD_ATTR: ['target'],
-                FORBID_TAGS: ['style', 'script', 'iframe'],
-                FORBID_ATTR: ['style', 'onerror', 'onload'],
-                FORCE_BODY: true,
-                SANITIZE_DOM: true,
-                KEEP_CONTENT: true,
-                RETURN_DOM_FRAGMENT: false,
-                RETURN_DOM: false,
-                ALLOW_UNKNOWN_PROTOCOLS: false
-              });
-              return Promise.resolve(
-                <div className="prose max-w-none">
-                  <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
-                </div>
-              );
-            }}
-            minEditorHeight={75}
-            heightUnits="vh"
-            classes={{
-              reactMde: "border-none shadow-none",
-              toolbar: `border-none bg-gray-50 rounded-t-lg ${isLoading ? 'opacity-50' : ''}`,
-              preview: "prose max-w-none p-4 bg-gray-50 rounded-lg",
-              textArea: "bg-gray-50 rounded-lg p-4 focus:outline-none"
-            }}
-            readOnly={isLoading}
-          />
-        </div>
       </div>
-      <style jsx global>{`
-        .mde-header {
-          border: none !important;
-          background: none !important;
-          padding: 0.5rem !important;
-        }
-        .mde-header .mde-tabs button {
-          padding: 0.5rem 1rem !important;
-          margin-right: 0.5rem !important;
-          border-radius: 0.375rem !important;
-          color: #4B5563 !important;
-        }
-        .mde-header .mde-tabs button.selected {
-          background: #EFF6FF !important;
-          color: #1D4ED8 !important;
-          border: 1px solid #BFDBFE !important;
-        }
-        .mde-text {
-          border: none !important;
-        }
-        .mde-preview {
-          border: none !important;
-          margin-top: 1rem !important;
-        }
-        .mde-header .svg-icon {
-          width: 1rem !important;
-          height: 1rem !important;
-          margin: 0 0.25rem !important;
-        }
-        .mde-header .mde-header-group {
-          margin-left: 0.5rem !important;
-        }
-        .mde-header .mde-header-group button {
-          color: #4B5563 !important;
-          padding: 0.25rem 0.5rem !important;
-          border-radius: 0.375rem !important;
-        }
-        .mde-header .mde-header-group button:hover {
-          background: #EFF6FF !important;
-          color: #1D4ED8 !important;
-        }
-        /* Add these new styles for disabled state */
-        .mde-text[disabled] {
-          cursor: not-allowed;
-          opacity: 0.5;
-        }
-        
-        /* Improve loading state visuals */
-        .mde-header.disabled {
-          pointer-events: none;
-          opacity: 0.5;
-        }
-      `}</style>
-    </div>
+    </motion.div>
   );
 };
 
