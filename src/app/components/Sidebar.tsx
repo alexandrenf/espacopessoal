@@ -288,29 +288,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       </div>
 
-      {/* Mobile bottom bar */}
-      {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex items-center justify-around">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1"
-            onClick={() => setSelectedTab("write")}
-          >
-            <FileText className="h-5 w-5" />
-            <span className="text-xs">Write</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1"
-            onClick={() => setSelectedTab("preview")}
-          >
-            <Eye className="h-5 w-5" />
-            <span className="text-xs">Preview</span>
-          </Button>
-        </div>
-      )}
+      
     </section>
   );
 };

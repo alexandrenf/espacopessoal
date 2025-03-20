@@ -305,7 +305,7 @@ const Editor: React.FC<EditorProps> = ({
                         y: isToolbarVisible ? 0 : -20
                       }}
                       transition={{ duration: 0.2 }}
-                      className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-gray-200/50 z-50"
+                      className="md:hidden fixed bottom-4 left-1/4 -translate-x-1/2 flex items-center gap-1 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-gray-200/50 z-50"
                     >
                       <Button
                         variant="ghost"
