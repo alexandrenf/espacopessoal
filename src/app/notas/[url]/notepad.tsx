@@ -673,14 +673,14 @@ const App = ({ password }: AppProps): JSX.Element => {
               }}
             >
               {isMobile && !showSidebar && (
-                <div className="absolute left-4 top-4 z-10">
+                <div className="fixed left-3 top-4 z-[100]">
                   <Button
                     onClick={() => setShowSidebar(true)}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    className="md:hidden"
+                    className="md:hidden h-9 w-9 bg-white/80 backdrop-blur-md hover:bg-white/90 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.15)] border border-gray-100/50 rounded-xl transition-all duration-200"
                   >
-                    <Menu className="h-3 w-3" />
+                    <Menu className="h-4 w-4 text-gray-500" />
                   </Button>
                 </div>
               )}

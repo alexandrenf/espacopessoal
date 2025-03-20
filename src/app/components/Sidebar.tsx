@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft, FolderPlus, FilePlus } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus, FileText, Eye } from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
 import Tree from 'rc-tree';
 import {
@@ -70,9 +70,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar,
   showSidebar = true,
   onUpdateStructure,
+  isMobile = false,
 }) => {
   const [localNotes, setLocalNotes] = useState<Note[]>(notes);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<"write" | "preview">("write");
 
   useEffect(() => {
     setLocalNotes(notes);
@@ -198,20 +201,22 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <section className="w-full h-full md:h-screen flex flex-col bg-white">
-      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-800">Notes</h1>
-        <div className="flex items-center gap-2">
+    <section className={`w-full h-full md:h-screen flex flex-col bg-white ${isMobile ? 'fixed top-16 left-0 right-0 bottom-0 z-50' : ''}`}>
+      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200 bg-white/80 backdrop-blur-md">
+        <div className="flex items-center gap-3">
           {onToggleSidebar && showSidebar && (
             <Button
               onClick={onToggleSidebar}
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden hover:bg-gray-100"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
+          <h1 className="text-xl font-semibold text-gray-800">Notes</h1>
+        </div>
+        <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -227,15 +232,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={newNote}>
-                <FilePlus className="mr-2 h-4 w-4" />
-                New note
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={newNote} className="flex items-center gap-2 py-2">
+                <FilePlus className="h-4 w-4" />
+                <span>New note</span>
               </DropdownMenuItem>
               {newFolder && (
-                <DropdownMenuItem onClick={newFolder}>
-                  <FolderPlus className="mr-2 h-4 w-4" />
-                  New folder
+                <DropdownMenuItem onClick={newFolder} className="flex items-center gap-2 py-2">
+                  <FolderPlus className="h-4 w-4" />
+                  <span>New folder</span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -246,11 +251,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 min-h-0 overflow-auto">
         <Tree
           treeData={treeData}
-          draggable
+          draggable={!isMobile} // Disable drag and drop on mobile
           onDrop={handleDrop}
           onSelect={([selectedKey]) => {
             if (selectedKey) {
               setCurrentNoteId(Number(selectedKey));
+              // Close sidebar on mobile after selection
+              if (isMobile && onToggleSidebar) {
+                onToggleSidebar();
+              }
             }
           }}
           selectedKeys={currentNote ? [currentNote.id.toString()] : []}
@@ -258,10 +267,34 @@ const Sidebar: React.FC<SidebarProps> = ({
           onExpand={(expanded) => setExpandedKeys(expanded as string[])}
           motion={false}
           prefixCls="custom-tree"
-          className="custom-tree-container"
-          dropIndicatorRender={() => null} // Disable default drop indicator
+          className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
+          dropIndicatorRender={() => null}
         />
       </div>
+
+      {/* Mobile bottom bar */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex items-center justify-around">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex flex-col items-center gap-1"
+            onClick={() => setSelectedTab("write")}
+          >
+            <FileText className="h-5 w-5" />
+            <span className="text-xs">Write</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex flex-col items-center gap-1"
+            onClick={() => setSelectedTab("preview")}
+          >
+            <Eye className="h-5 w-5" />
+            <span className="text-xs">Preview</span>
+          </Button>
+        </div>
+      )}
     </section>
   );
 };

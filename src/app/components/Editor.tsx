@@ -5,7 +5,7 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare } from "lucide-react";
+import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Menu } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
@@ -21,6 +21,8 @@ interface EditorProps {
   updateNote: (text: string) => void;
   isSaving?: boolean;
   isLoading?: boolean;
+  onShowSidebar?: () => void;
+  isMobile?: boolean;
 }
 
 const Editor: React.FC<EditorProps> = ({
@@ -28,11 +30,15 @@ const Editor: React.FC<EditorProps> = ({
   updateNote,
   isSaving,
   isLoading,
+  onShowSidebar,
+  isMobile = false,
 }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
+  const [isToolbarVisible, setIsToolbarVisible] = React.useState(false);
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
+  const toolbarRef = React.useRef<HTMLDivElement>(null);
 
   const l18n = {
     write: "Escrever",
@@ -98,6 +104,18 @@ const Editor: React.FC<EditorProps> = ({
     }, 0);
   };
 
+  // Add touch event handlers for mobile
+  const handleTouchStart = useCallback(() => {
+    setIsToolbarVisible(true);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    // Hide toolbar after 2 seconds of inactivity
+    setTimeout(() => {
+      setIsToolbarVisible(false);
+    }, 2000);
+  }, []);
+
   const renderContent = () => {
     if (selectedTab === "preview") {
       const html = converter.makeHtml(content);
@@ -138,6 +156,8 @@ const Editor: React.FC<EditorProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="relative w-full h-screen bg-gradient-to-b from-white to-gray-50"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <AnimatePresence>
         {isLoading && (
@@ -208,75 +228,150 @@ const Editor: React.FC<EditorProps> = ({
                 </TabsList>
 
                 {selectedTab === "write" && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1 rounded-lg"
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('**', '**')}
-                      title="Bold"
-                      className="hover:bg-white hover:shadow-sm transition-all"
+                  <>
+                    {/* Desktop Fixed Toolbar */}
+                    <div className="hidden md:flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1.5 rounded-lg border border-gray-200/50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('**', '**')}
+                        title="Bold"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Bold className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('*', '*')}
+                        title="Italic"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Italic className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n- [ ] ')}
+                        title="Task List"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n- ')}
+                        title="Unordered List"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n1. ')}
+                        title="Ordered List"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <ListOrdered className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n> ')}
+                        title="Quote"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Quote className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('`', '`')}
+                        title="Code"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Code className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Mobile Floating Toolbar */}
+                    <motion.div 
+                      ref={toolbarRef}
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ 
+                        opacity: isToolbarVisible ? 1 : 0,
+                        y: isToolbarVisible ? 0 : -20
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-gray-200/50 z-50"
                     >
-                      <Bold className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('*', '*')}
-                      title="Italic"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <Italic className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('\n- [ ] ')}
-                      title="Task List"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <CheckSquare className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('\n- ')}
-                      title="Unordered List"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('\n1. ')}
-                      title="Ordered List"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <ListOrdered className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('\n> ')}
-                      title="Quote"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <Quote className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => insertMarkdown('`', '`')}
-                      title="Code"
-                      className="hover:bg-white hover:shadow-sm transition-all"
-                    >
-                      <Code className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('**', '**')}
+                        title="Bold"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Bold className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('*', '*')}
+                        title="Italic"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Italic className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n- [ ] ')}
+                        title="Task List"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n- ')}
+                        title="Unordered List"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n1. ')}
+                        title="Ordered List"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <ListOrdered className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('\n> ')}
+                        title="Quote"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Quote className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertMarkdown('`', '`')}
+                        title="Code"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                      >
+                        <Code className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  </>
                 )}
               </div>
 
