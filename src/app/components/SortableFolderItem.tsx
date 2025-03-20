@@ -43,6 +43,8 @@ export default React.memo(function FolderItem({
   eventKey,
 }: FolderItemProps) {
   const title = folder.content.split("\n")[0]?.trim() ?? "Untitled Folder";
+  const colorLine = folder.content.split("\n").find(line => line.startsWith("!color:"));
+  const folderColor = colorLine ? colorLine.replace("!color:", "").trim() : "#FFB3BA";
 
   return (
     <div className="flex flex-col relative">
@@ -87,8 +89,8 @@ export default React.memo(function FolderItem({
         <div className="flex min-w-0 flex-1 items-center gap-3 py-3 px-2 z-10 pointer-events-none">
           <Folder className={cn(
             "h-5 w-5 shrink-0 transition-all duration-300",
-            dragOver ? "text-blue-600 scale-110" : "text-blue-500"
-          )} />
+            dragOver ? "scale-110" : ""
+          )} style={{ color: folderColor }} />
           <span
             className={cn(
               "flex-1 truncate text-sm transition-all duration-300",

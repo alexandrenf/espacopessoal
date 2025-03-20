@@ -22,6 +22,7 @@ import { Button } from "~/components/ui/button";
 import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import ResizeHandle from "~/components/ResizeHandle";
+import FolderEditor from "~/app/components/FolderEditor";
 
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
@@ -82,6 +83,8 @@ const App = ({ password }: AppProps): JSX.Element => {
   const [sidebarWidth, setSidebarWidth] = useState(250); // Default width
   const [isResizing, setIsResizing] = useState(false);
   const [isNoteLoading, setIsNoteLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
   // --- Refs
   const latestContentRef = useRef<string>("");
@@ -230,7 +233,9 @@ const App = ({ password }: AppProps): JSX.Element => {
 
       // Insert optimistically
       setNotes((prev) => [newNote, ...prev]);
-      setCurrentNoteId(tempId);
+      if (!variables.isFolder) {
+        setCurrentNoteId(tempId);
+      }
       latestContentRef.current = newNote.content;
 
       return { optimisticNote: newNote };
@@ -269,7 +274,9 @@ const App = ({ password }: AppProps): JSX.Element => {
               : note,
           ),
         );
-        setCurrentNoteId(actualNote.id);
+        if (!variables.isFolder) {
+          setCurrentNoteId(actualNote.id);
+        }
       }
 
       // Force a refetch
@@ -406,9 +413,9 @@ const App = ({ password }: AppProps): JSX.Element => {
     if (createNoteMutation.isPending) return;
     createNoteMutation.mutate({
       url,
-      content: "Nova Pasta\n\n",
+      content: "Nova Pasta\n!color:#FFB3BA",
       password: password ?? undefined,
-      isFolder: true, // Add this parameter to indicate it's a folder
+      isFolder: true,
     });
   }
 
@@ -464,9 +471,24 @@ const App = ({ password }: AppProps): JSX.Element => {
       ),
     );
 
+    const currentNote = notes.find((n) => n.id === currentNoteId);
+    if (!currentNote) return;
+
     // Update last keystroke timestamp
     const now = Date.now();
     lastKeystrokeRef.current = now;
+    setIsTyping(true);
+
+    // Clear any existing typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set up a new typing timeout
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      void activeDebounce.flush();
+    }, TYPING_TIMEOUT);
 
     // Clear any existing continuous typing timer
     if (continuousTypingTimerRef.current) {
@@ -580,6 +602,9 @@ const App = ({ password }: AppProps): JSX.Element => {
       if (continuousTypingTimerRef.current) {
         clearTimeout(continuousTypingTimerRef.current);
       }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   }, [idleDebounce, activeDebounce]);
 
@@ -617,7 +642,6 @@ const App = ({ password }: AppProps): JSX.Element => {
     <main className="flex h-full flex-grow flex-col">
       {(!isMobile || (isMobile && showSidebar)) && <Header />}
       <div className="flex flex-grow">
-        <Alert error={errorMessage} isSaving={isSaving} />
         {/* Content */}
         {notes.length > 0 ? (
           <div className="flex h-full w-full flex-col md:flex-row">
@@ -685,12 +709,20 @@ const App = ({ password }: AppProps): JSX.Element => {
                 </div>
               )}
               {currentNote ? (
-                <Editor
-                  currentNote={currentNote}
-                  updateNote={handleTextChange}
-                  isSaving={isSaving}
-                  isLoading={isNoteLoading}
-                />
+                currentNote.isFolder ? (
+                  <FolderEditor
+                    folder={currentNote}
+                    onUpdate={handleTextChange}
+                    isSaving={isSaving}
+                  />
+                ) : (
+                  <Editor
+                    currentNote={currentNote}
+                    updateNote={handleTextChange}
+                    isSaving={isSaving}
+                    isLoading={isNoteLoading}
+                  />
+                )
               ) : (
                 <div className="flex h-full items-center justify-center text-gray-500">
                   Selecione uma nota para começar a editar
