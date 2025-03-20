@@ -109,6 +109,7 @@ export const notesRouter = createTRPCRouter({
         content: z.string(),
         password: z.string().optional(),
         isFolder: z.boolean().optional().default(false),
+        parentId: z.number().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -146,18 +147,39 @@ export const notesRouter = createTRPCRouter({
         }
       }
 
+      // Get the highest order in the same level (same parentId)
+      const highestOrder = await ctx.db.notepad.findFirst({
+        where: {
+          createdById: userThings.ownedById,
+          parentId: input.parentId ?? null,
+        },
+        orderBy: {
+          order: 'desc',
+        },
+        select: {
+          order: true,
+        },
+      });
+
+      // Set the new order to be higher than the highest existing order
+      const newOrder = (highestOrder?.order ?? -1) + 1;
+
       return await ctx.db.notepad.create({
         data: {
           content: input.content,
           createdById: userThings.ownedById,
           isFolder: input.isFolder,
-          order: 0,
+          order: newOrder,
+          parentId: input.parentId ?? null,
         },
         select: {
           id: true,
           content: true,
           createdAt: true,
           updatedAt: true,
+          parentId: true,
+          isFolder: true,
+          order: true,
         },
       });
     }),

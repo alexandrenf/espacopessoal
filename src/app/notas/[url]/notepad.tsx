@@ -8,16 +8,14 @@ import React, {
   useCallback,
   type MouseEvent,
 } from "react";
-import Sidebar, { 
-  type NoteStructure, 
-  type Note,
-} from "../../components/Sidebar";
+import Sidebar, { type Note } from "~/app/components/Sidebar";
 import Editor from "../../components/Editor";
 import { Alert } from "../../components/Alert";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { api } from "~/trpc/react";
 import { useParams } from "next/navigation";
 import { default as debounce } from "lodash/debounce";
+import { default as throttle } from "lodash/throttle";
 import { DeleteConfirmationModal } from "../../components/DeleteConfirmationModal";
 import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
@@ -28,6 +26,7 @@ import ResizeHandle from "~/components/ResizeHandle";
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
 const ERROR_MESSAGE_TIMEOUT = 5000;
+const TYPING_TIMEOUT = 1000; // Time without keystrokes to consider typing stopped
 // const STRUCTURE_NOTE_TITLE = "!FStruct!"; // Removed
 
 interface AppProps {
@@ -58,6 +57,12 @@ function getErrorMessage(error: unknown): string {
   return toErrorWithMessage(error).message;
 }
 
+interface UpdateStructureItem {
+  id: number;
+  parentId: number | null;
+  order: number;
+}
+
 const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
@@ -81,7 +86,7 @@ const App = ({ password }: AppProps): JSX.Element => {
   // --- Refs
   const latestContentRef = useRef<string>("");
   const errorTimeoutRef = useRef<NodeJS.Timeout>();
-  const typingStartTimeRef = useRef<number | null>(null);
+  const lastKeystrokeRef = useRef<number | null>(null);
   const continuousTypingTimerRef = useRef<NodeJS.Timeout>();
   const utils = api.useUtils();
 
@@ -356,7 +361,7 @@ const App = ({ password }: AppProps): JSX.Element => {
 
   const activeDebounce = useMemo(
     () =>
-      debounce(async () => {
+      throttle(async () => {
         if (!currentNoteId) return;
         setIsSaving(true);
         try {
@@ -370,8 +375,7 @@ const App = ({ password }: AppProps): JSX.Element => {
         } catch (err) {
           handleError(err);
         }
-        typingStartTimeRef.current = null;
-      }, ACTIVE_WAIT),
+      }, ACTIVE_WAIT, { leading: false, trailing: true }),
     [currentNoteId, url, password],
   );
 
@@ -430,7 +434,7 @@ const App = ({ password }: AppProps): JSX.Element => {
     }
   }
 
-  function handleDeleteNote(e: MouseEvent<HTMLButtonElement>, noteId: number) {
+  function handleDeleteNote(e: MouseEvent<Element>, noteId: number) {
     e.stopPropagation();
     const note = notes.find((n) => n.id === noteId);
     if (!note) return;
@@ -452,6 +456,7 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   function handleTextChange(text: string) {
+    // Update local state
     latestContentRef.current = text;
     setNotes((old) =>
       old.map((note) =>
@@ -459,20 +464,34 @@ const App = ({ password }: AppProps): JSX.Element => {
       ),
     );
 
-    if (!typingStartTimeRef.current) {
-      typingStartTimeRef.current = Date.now();
+    // Update last keystroke timestamp
+    const now = Date.now();
+    lastKeystrokeRef.current = now;
+
+    // Clear any existing continuous typing timer
+    if (continuousTypingTimerRef.current) {
+      clearTimeout(continuousTypingTimerRef.current);
     }
 
-    const elapsed = Date.now() - (typingStartTimeRef.current ?? Date.now());
-    if (elapsed >= ACTIVE_WAIT) {
-      void activeDebounce();
-      typingStartTimeRef.current = null;
-      return;
-    }
+    // Set up a new continuous typing timer
+    continuousTypingTimerRef.current = setTimeout(() => {
+      const currentTime = Date.now();
+      const timeSinceLastKeystroke = lastKeystrokeRef.current 
+        ? currentTime - lastKeystrokeRef.current 
+        : 0;
+      
+      if (timeSinceLastKeystroke >= TYPING_TIMEOUT) {
+        void activeDebounce.flush();
+        lastKeystrokeRef.current = null;
+      }
+    }, TYPING_TIMEOUT);
+
+    // Trigger both timers
     void idleDebounce();
+    void activeDebounce();
   }
 
-  const handleUpdateStructure = async (newStructure: NoteStructure[]) => {
+  const handleUpdateStructure = async (updates: UpdateStructureItem[]) => {
     // Store the previous state for rollback
     const previousNotes = [...notes];
 
@@ -480,7 +499,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       // Optimistically update the local state
       setNotes((prev) => {
         const updated = prev.map((note) => {
-          const structureItem = newStructure.find((s) => s.id === note.id);
+          const structureItem = updates.find((s) => s.id === note.id);
           if (!structureItem) return note;
           
           return {
@@ -499,22 +518,18 @@ const App = ({ password }: AppProps): JSX.Element => {
         });
       });
 
+      // Call the mutation
       await updateNoteStructureMutation.mutateAsync({
         url,
         password: password ?? undefined,
-        updates: newStructure,
+        updates,
       });
 
-      // Refetch notes to ensure consistency
-      await utils.notes.fetchNotesPublic.invalidate({
-        url,
-        password: password ?? undefined,
-      });
+      // No need to refetch immediately since we're using optimistic updates
     } catch (error) {
       // Revert to previous state on error
       setNotes(previousNotes);
       handleError(error);
-      // Add a user-friendly toast notification
       toast({
         title: "Failed to update note structure",
         description: "Your changes couldn't be saved. Please try again.",
@@ -559,14 +574,11 @@ const App = ({ password }: AppProps): JSX.Element => {
 
   // Cleanup
   useEffect(() => {
-    // Store ref value in a variable inside the effect
-    const timerRef = continuousTypingTimerRef.current;
-
     return () => {
       idleDebounce.cancel();
       activeDebounce.cancel();
-      if (timerRef) {
-        clearTimeout(timerRef);
+      if (continuousTypingTimerRef.current) {
+        clearTimeout(continuousTypingTimerRef.current);
       }
     };
   }, [idleDebounce, activeDebounce]);
@@ -639,8 +651,8 @@ const App = ({ password }: AppProps): JSX.Element => {
                 isCreating={createNoteMutation.isPending}
                 isDeletingId={
                   deleteNoteMutation.isPending
-                    ? (deleteNoteMutation.variables?.id ?? null)
-                    : null
+                    ? (deleteNoteMutation.variables?.id ?? undefined)
+                    : undefined
                 }
                 onToggleSidebar={
                   isMobile ? () => setShowSidebar(!showSidebar) : undefined

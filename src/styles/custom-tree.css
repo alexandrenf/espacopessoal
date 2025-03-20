@@ -1,0 +1,308 @@
+.custom-tree {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.custom-tree .custom-tree-treenode {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  position: relative;
+  display: block;
+}
+
+.custom-tree .custom-tree-node {
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+  text-overflow: initial;
+  white-space: normal;
+}
+
+/* Show and style the indent */
+.custom-tree .custom-tree-indent {
+  display: inline-block;
+  height: 0;
+  vertical-align: bottom;
+}
+
+.custom-tree .custom-tree-indent-unit {
+  display: inline-block;
+  width: 24px;
+  height: 0;
+}
+
+/* Style nested items */
+.custom-tree .custom-tree-treenode-switcher-open > .custom-tree-node-content-wrapper,
+.custom-tree .custom-tree-treenode-switcher-close > .custom-tree-node-content-wrapper {
+  padding-left: 0;
+}
+
+/* Hide rc-tree's default switcher */
+.custom-tree .custom-tree-switcher {
+  display: none;
+}
+
+.custom-tree .custom-tree-node-content-wrapper {
+  padding: 0;
+  margin: 0;
+  display: block;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Root level items */
+.custom-tree .custom-tree-treenode:first-child > .custom-tree-node-content-wrapper {
+  background-color: white;
+  border-left: 2px solid transparent;
+}
+
+/* Nested items styling */
+.custom-tree .custom-tree-treenode:not(:first-child) > .custom-tree-node-content-wrapper {
+  background-color: #f8fafc;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 12px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Hover states */
+.custom-tree .custom-tree-treenode:first-child > .custom-tree-node-content-wrapper:hover {
+  background-color: #f1f5f9;
+}
+
+.custom-tree .custom-tree-treenode:not(:first-child) > .custom-tree-node-content-wrapper:hover {
+  background-color: #f1f5f9;
+  border-left-color: #94a3b8;
+}
+
+/* Selected states */
+.custom-tree .custom-tree-treenode:first-child > .custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+  border-left-color: #3b82f6;
+}
+
+.custom-tree .custom-tree-treenode:not(:first-child) > .custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+  border-left-color: #3b82f6;
+}
+
+/* Style drag and drop indicators */
+.custom-tree .custom-tree-node-content-wrapper::before {
+  border-color: #3b82f6 !important;
+}
+
+.custom-tree .custom-tree-node-content-wrapper::after {
+  border-color: #3b82f6 !important;
+}
+
+/* Style drop target indicators */
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper {
+  background-color: #eff6ff !important;
+}
+
+/* Style the drag indicator line for all positions */
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #3b82f6 !important;
+  z-index: 10;
+}
+
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #3b82f6 !important;
+  z-index: 10;
+}
+
+/* Style drop indicators for different positions */
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper.drop-target-top::before {
+  top: 0;
+}
+
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper.drop-target-bottom::after {
+  bottom: 0;
+}
+
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper.drop-target-middle::before {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Style folder drop target */
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper.drop-target-inside {
+  background-color: #eff6ff !important;
+}
+
+/* Ensure drop indicators are visible */
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper::before,
+.custom-tree .custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper::after {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+/* Add visual connection lines for nested items */
+.custom-tree .custom-tree-treenode:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #e2e8f0;
+  opacity: 0.5;
+}
+
+.custom-tree .custom-tree-treenode:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 2px;
+  background-color: #e2e8f0;
+  opacity: 0.5;
+}
+
+/* Last item in a group */
+.custom-tree .custom-tree-treenode:last-child::before {
+  height: 50%;
+}
+
+.custom-tree-container {
+  background: transparent;
+}
+
+.custom-tree-node-content-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  transition: background-color 0.2s;
+}
+
+.custom-tree-node-content-wrapper:hover {
+  background-color: #f3f4f6;
+}
+
+.custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+}
+
+/* Nested items styling */
+.custom-tree-treenode {
+  position: relative;
+}
+
+.custom-tree-treenode-switcher {
+  display: none;
+}
+
+/* Add a vertical line for nested items */
+.custom-tree-treenode:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #e5e7eb;
+  opacity: 0.5;
+}
+
+/* Add a horizontal line connecting to the vertical line */
+.custom-tree-treenode:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background-color: #e5e7eb;
+  opacity: 0.5;
+}
+
+/* Indent nested items */
+.custom-tree-treenode > .custom-tree-node-content-wrapper {
+  padding-left: 24px;
+}
+
+/* Folder styling */
+.custom-tree-treenode-switcher-open,
+.custom-tree-treenode-switcher-close {
+  display: none;
+}
+
+/* Drag and drop indicators */
+.custom-tree-node-content-wrapper.drop-target-top::before,
+.custom-tree-node-content-wrapper.drop-target-bottom::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #3b82f6;
+  z-index: 1;
+}
+
+.custom-tree-node-content-wrapper.drop-target-top::before {
+  top: 0;
+}
+
+.custom-tree-node-content-wrapper.drop-target-bottom::after {
+  bottom: 0;
+}
+
+.custom-tree-node-content-wrapper.drop-target-middle {
+  background-color: #eff6ff;
+}
+
+/* Folder drop target */
+.custom-tree-treenode.drop-target > .custom-tree-node-content-wrapper {
+  background-color: #eff6ff;
+}
+
+/* Selected state */
+.custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+}
+
+/* Hover state for nested items */
+.custom-tree-treenode:not(:first-child) .custom-tree-node-content-wrapper:hover {
+  background-color: #f3f4f6;
+}
+
+/* Active state for nested items */
+.custom-tree-treenode:not(:first-child) .custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+}
+
+/* Ensure the vertical line doesn't show for the last item in a group */
+.custom-tree-treenode:last-child::before {
+  height: 50%;
+}
+
+/* Add a subtle background to nested items */
+.custom-tree-treenode:not(:first-child) .custom-tree-node-content-wrapper {
+  background-color: #fafafa;
+}
+
+/* Hover state for nested items with background */
+.custom-tree-treenode:not(:first-child) .custom-tree-node-content-wrapper:hover {
+  background-color: #f3f4f6;
+}
+
+/* Selected state for nested items with background */
+.custom-tree-treenode:not(:first-child) .custom-tree-node-content-wrapper.custom-tree-node-selected {
+  background-color: #eff6ff;
+}
