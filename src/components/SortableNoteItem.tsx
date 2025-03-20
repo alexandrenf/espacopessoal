@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { FaTrash } from "react-icons/fa";
 import { ImSpinner8 } from "react-icons/im";
 import { FileText } from "lucide-react";
+import type { DataNode } from "rc-tree/lib/interface";
+import { cn } from "~/lib/utils";
 
 /** Data model shared in your app */
 interface Note {
@@ -20,116 +19,119 @@ interface Note {
 }
 
 /** Props for the note item */
-interface SortableNoteItemProps {
+interface NoteItemProps {
   note: Note;
-  currentNoteId: number;
-  onSelect: () => void;
-  onDelete: (e: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
-  isDeletingId: number | null;
-  /** If the user wants to highlight the item being hovered */
-  hovered?: boolean;
+  currentNoteId?: number;
+  onSelect?: () => void;
+  onDelete?: (e: React.MouseEvent<HTMLButtonElement>, noteId: number) => void;
+  isDeletingId?: number | null;
+  /** rc-tree specific props */
+  dragOver?: boolean;
+  dragOverGapTop?: boolean;
+  dragOverGapBottom?: boolean;
+  selected?: boolean;
+  isNested?: boolean; // Add this prop
 }
 
 /**
- * Single draggable note item
+ * Single note item component for rc-tree
  */
-export const SortableNoteItem: React.FC<SortableNoteItemProps> = ({
+export const NoteItem: React.FC<NoteItemProps> = ({
   note,
   currentNoteId,
   onSelect,
   onDelete,
   isDeletingId,
-  hovered = false,
+  dragOver,
+  dragOverGapTop,
+  dragOverGapBottom,
+  selected,
+  isNested = false,
 }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: note.id,
-    data: {
-      type: "note",
-      isFolder: false,
-      parentId: note.parentId,
-      canBeDroppedInside: true,
-    },
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
-    cursor: isDragging ? "grabbing" : "grab",
-    position: "relative" as const,
-    zIndex: isDragging ? 999 : "auto",
-  };
-
   const getFirstLine = (content: string) => {
     return content.split("\n")[0]?.trim() ?? "Untitled";
   };
 
   return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      onClick={onSelect}
-      className={`group relative flex w-full items-center justify-between border-l border-gray-200 p-4 transition-all duration-200 hover:bg-gray-50 ${note.id === currentNoteId ? "border-l-4 border-blue-500 bg-blue-50" : ""} ${note.isOptimistic ? "opacity-50" : ""} ${hovered ? "bg-blue-50/50" : ""} ${isDragging ? "pointer-events-none" : ""} `}
-    >
-      {/* Optional overlay highlight when hovered */}
-      {hovered && (
-        <div className="pointer-events-none absolute inset-0 bg-blue-50/30 transition-all duration-200" />
+    <div className="relative">
+      {/* Top drag indicator */}
+      {dragOverGapTop && (
+        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 transform -translate-y-1/2 z-10 
+          animate-pulse transition-all duration-200 ease-in-out" />
       )}
 
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <FileText className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-hover:text-blue-400" />
-        <span
-          className={`block truncate text-sm transition-all duration-200 ${note.id === currentNoteId ? "font-medium text-blue-700" : "text-gray-700"} ${note.parentId ? "pl-2" : ""} `}
-        >
-          {getFirstLine(note.content)}
-        </span>
-      </div>
+      <div
+        onClick={onSelect}
+        className={cn(
+          isNested && "pl-10",
+          "group relative flex w-full items-center justify-between cursor-pointer",
+          "transition-all duration-200",
+          selected && "text-blue-700",
+          note.isOptimistic && "opacity-50",
+          dragOver && "bg-blue-100 shadow-inner scale-[1.01]",
+          dragOverGapTop && "border-t-2 border-t-blue-500",
+          dragOverGapBottom && "border-b-2 border-b-blue-500",
+          isNested ? "bg-gray-50/80 hover:bg-gray-100/80 border-l-2 border-l-gray-300" : "hover:bg-gray-50"
+        )}
+      >
+        <div className={cn(
+          "flex min-w-0 flex-1 items-center gap-3 py-3 px-2 z-10 pointer-events-none"
+        )}>
+          <FileText 
+            className={cn(
+              "h-5 w-5 shrink-0 transition-all duration-300",
+              dragOver ? "text-blue-600 scale-110" : isNested ? "text-gray-500" : "text-gray-400"
+            )} 
+          />
+          <span
+            className={cn(
+              "block truncate text-sm transition-all duration-200",
+              selected ? "font-medium text-blue-700" : isNested ? "text-gray-600" : "text-gray-700",
+              dragOver && "font-medium text-blue-700"
+            )}
+          >
+            {getFirstLine(note.content)}
+          </span>
+        </div>
 
-      {/* Right-side actions */}
-      <div className="ml-2 flex items-center gap-2">
-        {!note.isOptimistic && (
+        {/* Right-side actions */}
+        {!note.isOptimistic && onDelete && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onDelete(e, note.id);
             }}
             disabled={isDeletingId === note.id}
-            className="rounded p-1 opacity-0 transition-all duration-200 hover:bg-gray-100 group-hover:opacity-100"
+            className={cn(
+              "mr-2 rounded p-1.5 transition-all duration-200",
+              "opacity-0 group-hover:opacity-100",
+              "hover:bg-gray-100 z-10 pointer-events-auto",
+              isNested ? "hover:bg-gray-200" : "hover:bg-gray-100"
+            )}
             aria-label="Delete note"
           >
             {isDeletingId === note.id ? (
               <ImSpinner8 className="h-4 w-4 animate-spin text-red-500" />
             ) : (
-              <FaTrash className="h-4 w-4 text-red-500" />
+              <DeleteIcon />
             )}
           </button>
         )}
-
-        {/* Drag handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-          className={`cursor-grab touch-none p-1 opacity-0 transition-all duration-200 hover:scale-110 group-hover:opacity-100`}
-        >
-          <DragHandle />
-        </div>
       </div>
-    </li>
+
+      {/* Bottom drag indicator */}
+      {dragOverGapBottom && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 transform translate-y-1/2 z-10 
+          animate-pulse transition-all duration-200 ease-in-out" />
+      )}
+    </div>
   );
 };
 
 /**
- * Separate drag-handle icon
+ * Delete icon component
  */
-const DragHandle = () => (
+const DeleteIcon = () => (
   <svg
     viewBox="0 0 24 24"
     width="16"
@@ -139,15 +141,14 @@ const DragHandle = () => (
     fill="none"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className="text-gray-400"
+    className="text-red-500"
   >
-    <circle cx="9" cy="12" r="1" fill="currentColor" />
-    <circle cx="9" cy="5" r="1" fill="currentColor" />
-    <circle cx="9" cy="19" r="1" fill="currentColor" />
-    <circle cx="15" cy="12" r="1" fill="currentColor" />
-    <circle cx="15" cy="5" r="1" fill="currentColor" />
-    <circle cx="15" cy="19" r="1" fill="currentColor" />
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
   </svg>
 );
 
-export default SortableNoteItem;
+export default NoteItem;
