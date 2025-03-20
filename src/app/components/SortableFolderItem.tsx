@@ -29,7 +29,7 @@ interface FolderItemProps {
   eventKey?: string;
 }
 
-export default function FolderItem({
+export default React.memo(function FolderItem({
   folder,
   isActive,
   onDelete,
@@ -152,4 +152,4 @@ export default function FolderItem({
       )}
     </div>
   );
-}
+});

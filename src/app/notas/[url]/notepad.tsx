@@ -397,7 +397,7 @@ const App = ({ password }: AppProps): JSX.Element => {
     if (createNoteMutation.isPending) return;
     createNoteMutation.mutate({
       url,
-      content: "Título da nota\n\n",
+      content: "Título da nota\n",
       password: password ?? undefined,
     });
   }
