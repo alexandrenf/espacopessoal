@@ -77,6 +77,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedTab, setSelectedTab] = useState<"write" | "preview">("write");
 
+  // Add effect to expand parent folder when a note is selected
+  useEffect(() => {
+    if (currentNote?.parentId) {
+      const parentId = currentNote.parentId;
+      setExpandedKeys(prevKeys => {
+        const parentKey = parentId.toString();
+        if (!prevKeys.includes(parentKey)) {
+          return [...prevKeys, parentKey];
+        }
+        return prevKeys;
+      });
+    }
+  }, [currentNote?.parentId]);
+
   useEffect(() => {
     setLocalNotes(notes);
   }, [notes]);
@@ -214,7 +228,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
-          <h1 className="text-xl font-semibold text-gray-800">Notes</h1>
+          <h1 className="text-xl font-semibold text-gray-800">Notas</h1>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -235,12 +249,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={newNote} className="flex items-center gap-2 py-2">
                 <FilePlus className="h-4 w-4" />
-                <span>New note</span>
+                <span>Nota nota</span>
               </DropdownMenuItem>
               {newFolder && (
                 <DropdownMenuItem onClick={newFolder} className="flex items-center gap-2 py-2">
                   <FolderPlus className="h-4 w-4" />
-                  <span>New folder</span>
+                  <span>Nova pasta</span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -269,6 +283,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           prefixCls="custom-tree"
           className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
           dropIndicatorRender={() => null}
+          defaultExpandAll={false}
+          defaultExpandedKeys={[]}
         />
       </div>
 
