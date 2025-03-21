@@ -5,10 +5,8 @@ import { db } from "~/server/db";
 import { z } from "zod";
 
 interface PageProps {
-  params: {
-    url: string;
-  };
-  searchParams: Record<string, string | string[] | undefined>;
+  params: Promise<{ url: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const urlSchema = z.string()
@@ -17,9 +15,10 @@ const urlSchema = z.string()
   .regex(/^[a-zA-Z0-9-_]+$/, "URL can only contain letters, numbers, hyphens and underscores");
 
 export async function generateMetadata(
-  { params }: PageProps,
+  { params }: { params: PageProps['params'] },
 ): Promise<Metadata> {
-  const urlResult = urlSchema.safeParse(params.url);
+  const { url } = await params;
+  const urlResult = urlSchema.safeParse(url);
   
   if (!urlResult.success) {
     return {
@@ -28,9 +27,9 @@ export async function generateMetadata(
     };
   }
 
-  const url = urlResult.data;
+  const urlValue = urlResult.data;
   const note = await db.sharedNote.findUnique({
-    where: { url },
+    where: { url: urlValue },
     include: {
       note: {
         include: {
@@ -71,16 +70,17 @@ export async function generateMetadata(
 
 export default async function SharedNotePage({
   params,
-}: PageProps) {
-  const urlResult = urlSchema.safeParse(params.url);
+}: { params: PageProps['params'] }) {
+  const { url } = await params;
+  const urlResult = urlSchema.safeParse(url);
   
   if (!urlResult.success) {
     notFound();
   }
 
-  const url = urlResult.data;
+  const urlValue = urlResult.data;
   const sharedNote = await db.sharedNote.findUnique({
-    where: { url },
+    where: { url: urlValue },
     include: {
       note: {
         include: {
@@ -100,7 +100,7 @@ export default async function SharedNotePage({
 
   return (
     <SharedNotePageClient 
-      url={url}
+      url={urlValue}
       initialNotes={sharedNote.note ? [sharedNote.note] : undefined}
     />
   );
