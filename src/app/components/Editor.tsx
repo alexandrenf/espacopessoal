@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Menu } from "lucide-react";
+import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Menu, Share2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { ShareModal } from "./ShareModal";
 
 interface Note {
   id: number;
@@ -39,6 +40,7 @@ const Editor: React.FC<EditorProps> = ({
   const [isToolbarVisible, setIsToolbarVisible] = React.useState(false);
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
   const toolbarRef = React.useRef<HTMLDivElement>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const l18n = {
     write: "Escrever",
@@ -159,6 +161,15 @@ const Editor: React.FC<EditorProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Share Modal */}
+      {currentNote.id && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          noteId={currentNote.id}
+        />
+      )}
+
       <AnimatePresence>
         {isLoading && (
           <motion.div 
@@ -200,16 +211,31 @@ const Editor: React.FC<EditorProps> = ({
             />
           </div>
           
-          {isSaving && !isLoading && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full shadow-sm"
-            >
-              <Save className="h-4 w-4 text-green-500 animate-pulse" />
-              <span className="text-sm font-medium text-green-600">Salvando...</span>
-            </motion.div>
-          )}
+          <div className="flex items-center gap-2">
+            {isSaving && !isLoading && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full shadow-sm"
+              >
+                <Save className="h-4 w-4 text-green-500 animate-pulse" />
+                <span className="text-sm font-medium text-green-600">Salvando...</span>
+              </motion.div>
+            )}
+
+            {/* Share Button */}
+            {currentNote.id && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => setIsShareModalOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+                Compartilhar
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="p-4">

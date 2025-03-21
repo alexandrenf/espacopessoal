@@ -388,4 +388,161 @@ export const notesRouter = createTRPCRouter({
 
       return true;
     }),
+
+  createSharedNote: protectedProcedure
+    .input(
+      z.object({
+        noteId: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // First verify note ownership
+      const note = await ctx.db.notepad.findUnique({
+        where: { id: input.noteId },
+        select: {
+          id: true,
+          createdById: true,
+        },
+      });
+
+      if (!note) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Note not found",
+        });
+      }
+
+      if (note.createdById !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to share this note",
+        });
+      }
+
+      // Generate a random 8-digit number as URL
+      const generateUniqueUrl = async () => {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        while (true) {
+          let url = '';
+          for (let i = 0; i < 8; i++) {
+            url += characters.charAt(Math.floor(Math.random() * characters.length));
+          }
+          const existing = await ctx.db.sharedNote.findUnique({ where: { url } });
+          if (!existing) return url;
+        }
+      };
+
+      const uniqueUrl = await generateUniqueUrl();
+
+      // Create shared note
+      return await ctx.db.sharedNote.create({
+        data: {
+          url: uniqueUrl,
+          noteId: input.noteId,
+        },
+        include: {
+          note: true,
+        },
+      });
+    }),
+
+  getSharedNote: publicProcedure
+    .input(
+      z.object({
+        url: z.string().length(8),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const sharedNote = await ctx.db.sharedNote.findUnique({
+        where: { url: input.url },
+        include: {
+          note: {
+            include: {
+              createdBy: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!sharedNote) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Shared note not found",
+        });
+      }
+
+      return sharedNote;
+    }),
+
+  getSharedNoteByNoteId: protectedProcedure
+    .input(
+      z.object({
+        noteId: z.number(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const sharedNote = await ctx.db.sharedNote.findFirst({
+        where: { 
+          noteId: input.noteId,
+          note: {
+            createdById: ctx.session.user.id,
+          },
+        },
+        include: {
+          note: {
+            include: {
+              createdBy: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return sharedNote;
+    }),
+
+  deleteSharedNote: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().length(8),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sharedNote = await ctx.db.sharedNote.findUnique({
+        where: { url: input.url },
+        include: {
+          note: {
+            select: {
+              createdById: true,
+            },
+          },
+        },
+      });
+
+      if (!sharedNote) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Shared note not found",
+        });
+      }
+
+      // Verify ownership
+      if (sharedNote.note.createdById !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to delete this shared note",
+        });
+      }
+
+      return await ctx.db.sharedNote.delete({
+        where: { url: input.url },
+      });
+    }),
 });

@@ -97,11 +97,24 @@ model Notepad {
   createdBy   User     @relation(fields: [createdById], references: [id])
   parentNote  Notepad? @relation("NoteHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   childNotes  Notepad[] @relation("NoteHierarchy")
+  sharedNotes SharedNote[]
 
   @@index([createdById])
   @@index([parentId])
   @@index([createdAt])
   @@index([order])
+}
+
+model SharedNote {
+  id        String   @id @default(cuid())
+  url       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  noteId    Int
+  note      Notepad  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@index([url])
 }
 
 model ScheduledNotification {
