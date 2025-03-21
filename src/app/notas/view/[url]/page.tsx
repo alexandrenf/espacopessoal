@@ -8,6 +8,7 @@ interface PageProps {
   params: {
     url: string;
   };
+  searchParams: Record<string, string | string[] | undefined>;
 }
 
 const urlSchema = z.string()
@@ -15,7 +16,9 @@ const urlSchema = z.string()
   .max(50, "URL must not exceed 50 characters")
   .regex(/^[a-zA-Z0-9-_]+$/, "URL can only contain letters, numbers, hyphens and underscores");
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(
+  { params }: PageProps,
+): Promise<Metadata> {
   const urlResult = urlSchema.safeParse(params.url);
   
   if (!urlResult.success) {
@@ -66,8 +69,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function SharedNotePage({ params }: PageProps) {
-  const { url } = params;
+export default async function SharedNotePage({
+  params,
+}: PageProps) {
+  const urlResult = urlSchema.safeParse(params.url);
+  
+  if (!urlResult.success) {
+    notFound();
+  }
+
+  const url = urlResult.data;
   const sharedNote = await db.sharedNote.findUnique({
     where: { url },
     include: {
@@ -86,8 +97,6 @@ export default async function SharedNotePage({ params }: PageProps) {
   if (!sharedNote) {
     notFound();
   }
-
-  // If the note is private and requires password, we'll handle auth on the client
 
   return (
     <SharedNotePageClient 
