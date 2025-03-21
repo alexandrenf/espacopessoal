@@ -226,6 +226,7 @@ const Editor: React.FC<EditorProps> = ({
                 size="sm"
                 className="flex items-center gap-2"
                 onClick={() => setIsShareModalOpen(true)}
+                aria-label="Compartilhar nota"
               >
                 <Share2 className="h-4 w-4" />
                 Compartilhar
