@@ -11,6 +11,35 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-geist-sans)', ...fontFamily.sans],
       },
+      keyframes: {
+        wiggle: {
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
+        },
+        gradient: {
+          '0%, 100%': {
+            'background-size': '200% 200%',
+            'background-position': 'left center'
+          },
+          '50%': {
+            'background-size': '200% 200%',
+            'background-position': 'right center'
+          },
+        },
+        pulse: {
+          '0%, 100%': {
+            opacity: '0.2',
+          },
+          '50%': {
+            opacity: '0.3',
+          },
+        },
+      },
+      animation: {
+        'wiggle': 'wiggle 0.3s ease-in-out 3',
+        'gradient': 'gradient 6s linear infinite',
+        'pulse': 'pulse 6s ease-in-out infinite',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -58,31 +87,6 @@ const config: Config = {
           "5": "hsl(var(--chart-5))",
         },
       },
-      animation: {
-        'gradient': 'gradient 6s linear infinite',
-        'pulse': 'pulse 6s ease-in-out infinite',
-      },
-      keyframes: {
-        gradient: {
-          '0%, 100%': {
-            'background-size': '200% 200%',
-            'background-position': 'left center'
-          },
-          '50%': {
-            'background-size': '200% 200%',
-            'background-position': 'right center'
-          },
-        },
-        pulse: {
-          '0%, 100%': {
-            opacity: '0.2',
-          },
-          '50%': {
-            opacity: '0.3',
-          },
-        },
-      },
-      // Add custom delay utilities
       transitionDelay: {
         '400': '400ms',
         '600': '600ms',
@@ -92,7 +96,6 @@ const config: Config = {
         '1000': '1000ms',
         '1100': '1100ms',
         '1200': '1200ms',
-
       },
     },
   },

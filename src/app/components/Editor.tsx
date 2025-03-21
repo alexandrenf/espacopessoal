@@ -5,10 +5,13 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Share2 } from "lucide-react";
+import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Share2, Sparkles } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
+import { toast } from "~/hooks/use-toast";
+import { SpellCheckDiffView } from './SpellCheckDiffView';
+import type { SpellCheckDiff, SpellCheckResponse } from '~/types/spellcheck';
 
 interface Note {
   id: number;
@@ -24,6 +27,8 @@ interface EditorProps {
   isLoading?: boolean;
 }
 
+// Remove the local SpellCheckResponse and SpellCheckDiff interfaces since we're importing them
+
 const Editor: React.FC<EditorProps> = ({
   currentNote,
   updateNote,
@@ -37,6 +42,8 @@ const Editor: React.FC<EditorProps> = ({
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>([]);
+  const [isSpellChecking, setIsSpellChecking] = useState(false);
 
   const l18n = {
     write: "Escrever",
@@ -113,6 +120,138 @@ const Editor: React.FC<EditorProps> = ({
       setIsToolbarVisible(false);
     }, 2000);
   }, []);
+
+  const handleSpellCheck = async () => {
+    setIsSpellChecking(true);
+    try {
+      const response = await fetch('/api/spellcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: content })
+      });
+      const results = (await response.json()) as SpellCheckResponse;
+      console.log(results);
+      setSpellCheckResults(results.diffs);
+    } catch (error) {
+      console.error('Spell check failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check spelling",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSpellChecking(false);
+    }
+  };
+
+  const handleAcceptSpellCheck = (diff: SpellCheckDiff) => {
+    // Debug the values before correction
+    const originalSegment = content.substring(diff.start, diff.end + 1);
+    console.log('Before fix:', {
+      original: originalSegment,
+      suggestion: diff.suggestion,
+      start: diff.start,
+      end: diff.end
+    });
+    
+    // Check carefully for spaces before and after
+    const hasSpaceBefore = diff.start > 0 && content[diff.start - 1] === ' ';
+    const hasSpaceAfter = diff.end < content.length - 1 && content[diff.end + 1] === ' ';
+    const endsWithSpace = originalSegment.endsWith(' ');
+    const startsWithSpace = originalSegment.startsWith(' ');
+    
+    // Create a new string with the suggestion replacing the original text
+    const beforeText = content.slice(0, diff.start);
+    const afterText = content.slice(diff.end + 1);
+    
+    // Make sure we preserve spaces correctly
+    let effectiveSuggestion = diff.suggestion;
+    
+    // If the original had a space at the end but suggestion doesn't, add it
+    if (endsWithSpace && !effectiveSuggestion.endsWith(' ')) {
+      effectiveSuggestion += ' ';
+    }
+    
+    // If the original had a space at the start but suggestion doesn't, add it
+    if (startsWithSpace && !effectiveSuggestion.startsWith(' ')) {
+      effectiveSuggestion = ' ' + effectiveSuggestion;
+    }
+    
+    console.log('Replacing:', 
+      JSON.stringify(originalSegment), 
+      'with', 
+      JSON.stringify(effectiveSuggestion)
+    );
+    
+    const newContent = beforeText + effectiveSuggestion + afterText;
+    
+    handleContentChange(newContent);
+    
+    // Calculate the difference in length
+    const lengthDifference = effectiveSuggestion.length - originalSegment.length;
+    
+    // Update the positions of all remaining diffs
+    setSpellCheckResults(prev => 
+      prev.filter(d => d !== diff).map(d => {
+        // Only adjust positions for diffs that come after the current one
+        if (d.start > diff.end) {
+          return {
+            ...d,
+            start: d.start + lengthDifference,
+            end: d.end + lengthDifference
+          };
+        }
+        return d;
+      })
+    );
+  };
+
+  const handleRejectSpellCheck = (diff: SpellCheckDiff) => {
+    setSpellCheckResults(prev => prev.filter(d => d !== diff));
+  };
+
+  const handleAcceptAllSpellCheck = () => {
+    // Apply corrections from end to beginning to avoid position issues
+    const sortedDiffs = [...spellCheckResults].sort((a, b) => b.start - a.start);
+    
+    let newContent = content;
+    
+    for (const diff of sortedDiffs) {
+      const originalSegment = newContent.substring(diff.start, diff.end + 1);
+      
+      // Check for spaces carefully
+      const endsWithSpace = originalSegment.endsWith(' ');
+      const startsWithSpace = originalSegment.startsWith(' ');
+      
+      // Make sure we preserve spaces correctly
+      let effectiveSuggestion = diff.suggestion;
+      
+      // If the original had a space at the end but suggestion doesn't, add it
+      if (endsWithSpace && !effectiveSuggestion.endsWith(' ')) {
+        effectiveSuggestion += ' ';
+      }
+      
+      // If the original had a space at the start but suggestion doesn't, add it
+      if (startsWithSpace && !effectiveSuggestion.startsWith(' ')) {
+        effectiveSuggestion = ' ' + effectiveSuggestion;
+      }
+      
+      const beforeText = newContent.slice(0, diff.start);
+      const afterText = newContent.slice(diff.end + 1);
+      
+      console.log('Accept all - replacing:', 
+        JSON.stringify(originalSegment), 
+        'with', 
+        JSON.stringify(effectiveSuggestion),
+        'at position', diff.start
+      );
+      
+      newContent = beforeText + effectiveSuggestion + afterText;
+    }
+    
+    handleContentChange(newContent);
+    setSpellCheckResults([]);
+  };
 
   const renderContent = () => {
     if (selectedTab === "preview") {
@@ -317,6 +456,20 @@ const Editor: React.FC<EditorProps> = ({
                       >
                         <Code className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSpellCheck}
+                        title="Spell Check"
+                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8 group"
+                        disabled={isSpellChecking}
+                      >
+                        {isSpellChecking ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 group-hover:text-yellow-500 transition-colors" />
+                        )}
+                      </Button>
                     </div>
 
                     {/* Mobile Floating Toolbar */}
@@ -393,6 +546,20 @@ const Editor: React.FC<EditorProps> = ({
                       >
                         <Code className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSpellCheck}
+                        title="Spell Check"
+                        className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8 group"
+                        disabled={isSpellChecking}
+                      >
+                        {isSpellChecking ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 group-hover:text-yellow-500 transition-colors" />
+                        )}
+                      </Button>
                     </motion.div>
                   </>
                 )}
@@ -408,6 +575,14 @@ const Editor: React.FC<EditorProps> = ({
           </div>
         </div>
       </div>
+      {spellCheckResults.length > 0 && (
+        <SpellCheckDiffView
+          diffs={spellCheckResults}
+          onAccept={handleAcceptSpellCheck}
+          onReject={handleRejectSpellCheck}
+          onAcceptAll={handleAcceptAllSpellCheck}
+        />
+      )}
     </motion.div>
   );
 };
