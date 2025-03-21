@@ -5,8 +5,7 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-
-const STRUCTURE_NOTE_NAME = "!FStruct!";
+import { nanoid } from 'nanoid';
 
 export const notesRouter = createTRPCRouter({
   verifyNotepadPassword: publicProcedure
@@ -419,14 +418,9 @@ export const notesRouter = createTRPCRouter({
         });
       }
 
-      // Generate a random 8-digit number as URL
       const generateUniqueUrl = async () => {
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         while (true) {
-          let url = '';
-          for (let i = 0; i < 8; i++) {
-            url += characters.charAt(Math.floor(Math.random() * characters.length));
-          }
+          const url = nanoid(8); // generates an 8-character URL-safe string
           const existing = await ctx.db.sharedNote.findUnique({ where: { url } });
           if (!existing) return url;
         }

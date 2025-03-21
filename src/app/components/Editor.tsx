@@ -5,7 +5,7 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Menu, Share2 } from "lucide-react";
+import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Share2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
@@ -22,8 +22,6 @@ interface EditorProps {
   updateNote: (text: string) => void;
   isSaving?: boolean;
   isLoading?: boolean;
-  onShowSidebar?: () => void;
-  isMobile?: boolean;
 }
 
 const Editor: React.FC<EditorProps> = ({
@@ -31,8 +29,6 @@ const Editor: React.FC<EditorProps> = ({
   updateNote,
   isSaving,
   isLoading,
-  onShowSidebar,
-  isMobile = false,
 }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
   const [title, setTitle] = React.useState("");
