@@ -10,7 +10,6 @@ import React, {
 } from "react";
 import Sidebar, { type Note } from "~/app/components/Sidebar";
 import Editor from "../../components/Editor";
-import { Alert } from "../../components/Alert";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { api } from "~/trpc/react";
 import { useParams } from "next/navigation";

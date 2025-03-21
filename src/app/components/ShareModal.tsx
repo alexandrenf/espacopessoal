@@ -76,12 +76,20 @@ export function ShareModal({ isOpen, onClose, noteId }: ShareModalProps) {
   const handleCopy = async () => {
     if (!existingSharedNote) return;
     const shareUrl = getShareUrl(existingSharedNote);
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    toast({
-      title: "Link copiado!",
-      description: "O link foi copiado para sua área de transferência.",
-    });
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast({
+        title: "Link copiado!",
+        description: "O link foi copiado para sua área de transferência.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o link. Tente selecionar e copiar manualmente.",
+        variant: "destructive",
+      });
+    }
     setTimeout(() => setCopied(false), 2000);
   };
 

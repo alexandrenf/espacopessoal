@@ -7,7 +7,6 @@ import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import Header from "~/app/components/Header";
 import { api } from "~/trpc/react";
-import type { Notepad, User } from "@prisma/client";
 import { useEffect, useState, useMemo } from "react";
 
 // Define the type for the note data returned from the API
@@ -78,7 +77,15 @@ export default function SharedNotePageClient({
   }, [note?.content, converter]);
 
   if (!note) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="p-8 rounded-lg bg-card border border-border text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-2xl font-bold mb-2">Nota não encontrada</h2>
+          <p className="text-muted-foreground">A nota compartilhada não existe ou foi removida.</p>
+        </div>
+      </div>
+    );
   }
 
   const lines = (note.content ?? '').split('\n');
