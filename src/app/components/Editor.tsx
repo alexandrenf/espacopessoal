@@ -13,7 +13,6 @@ import { toast } from "~/hooks/use-toast";
 import { SpellCheckDiffView } from './SpellCheckDiffView';
 import type { SpellCheckDiff, SpellCheckResponse } from '~/types/spellcheck';
 import { cn } from "~/lib/utils";
-import { AnimatedTextReplacement } from './AnimatedTextReplacement';
 
 interface Note {
   id: number;
@@ -84,6 +83,49 @@ function highlightDiffs(content: string, diffs: SpellCheckDiff[]): string {
     }
   });
   return highlighted;
+}
+
+function AnimatedTextReplacement({
+  original,
+  replacement,
+  onComplete
+}: {
+  original: string;
+  replacement: string;
+  onComplete: () => void;
+}) {
+  return (
+    <span className="relative inline-block">
+      <AnimatePresence onExitComplete={onComplete}>
+        {/* Original text that fades out */}
+        <motion.span
+          key="original"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-red-500 line-through absolute left-0"
+        >
+          {original}
+        </motion.span>
+
+        {/* New text that fades in */}
+        <motion.span
+          key="replacement"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.3,
+            delay: 0.1,
+            ease: "easeOut"
+          }}
+          className="text-green-600 relative"
+        >
+          {replacement}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 const Editor: React.FC<EditorProps> = ({
