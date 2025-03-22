@@ -22,6 +22,14 @@ interface EditorProps {
   updateNote: (text: string) => void;
   isSaving?: boolean;
   isLoading?: boolean;
+  session?: {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  } | null;
 }
 
 const Editor: React.FC<EditorProps> = ({
@@ -29,6 +37,7 @@ const Editor: React.FC<EditorProps> = ({
   updateNote,
   isSaving,
   isLoading,
+  session,
 }) => {
   const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
   const [title, setTitle] = React.useState("");
@@ -37,6 +46,7 @@ const Editor: React.FC<EditorProps> = ({
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
 
   const l18n = {
     write: "Escrever",
@@ -163,6 +173,7 @@ const Editor: React.FC<EditorProps> = ({
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           noteId={currentNote.id}
+          session={session}
         />
       )}
 

@@ -22,6 +22,7 @@ import { Menu } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import ResizeHandle from "~/components/ResizeHandle";
 import FolderEditor from "~/app/components/FolderEditor";
+import { useSession } from "next-auth/react";
 
 const IDLE_WAIT = 4000; // Debounce for idle updates
 const ACTIVE_WAIT = 8000; // Debounce if user keeps typing
@@ -66,6 +67,7 @@ interface UpdateStructureItem {
 const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
+  const { data: session } = useSession();
 
   // --- Local states
   const [notes, setNotes] = useState<Note[]>([]);
@@ -720,6 +722,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                     updateNote={handleTextChange}
                     isSaving={isSaving}
                     isLoading={isNoteLoading}
+                    session={session}
                   />
                 )
               ) : (

@@ -1,16 +1,32 @@
+"use client";
+
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Share2, Copy, Loader2, Trash2, Link2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Share2, Copy, Loader2, Trash2, X, Link2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { api } from "~/trpc/react";
 import { toast } from "~/hooks/use-toast";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   noteId: number;
+  session?: {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  } | null;
 }
 
 interface SharedNote {
@@ -22,18 +38,24 @@ interface SharedNote {
   note: {
     createdBy: {
       name: string | null;
+      id: string;
     };
   };
 }
 
-export function ShareModal({ isOpen, onClose, noteId }: ShareModalProps) {
+
+export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const utils = api.useUtils();
 
-  const { data: existingSharedNote } = api.notes.getSharedNoteByNoteId.useQuery(
+  const { data, isLoading } = api.notes.getSharedNoteByNoteId.useQuery(
     { noteId },
     { enabled: isOpen }
   );
+
+  // Use the new response structure
+  const isOwner = data?.isOwner ?? false;
+  const existingSharedNote = data?.sharedNote;
 
   const { mutate: createSharedNote, isPending: isCreating } = api.notes.createSharedNote.useMutation({
     onSuccess: () => {
@@ -110,112 +132,107 @@ export function ShareModal({ isOpen, onClose, noteId }: ShareModalProps) {
             <Share2 className="h-5 w-5 text-blue-500" />
             Compartilhar nota
           </DialogTitle>
-          <DialogDescription>
-            Crie um link de visualização para compartilhar sua nota. 
-            Quem tiver acesso ao link poderá apenas ler o conteúdo.
-            {existingSharedNote && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Compartilhado por {existingSharedNote.note.createdBy.name ?? "você"}
-              </p>
-            )}
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-4">
-          <AnimatePresence mode="wait">
-            {existingSharedNote ? (
-              <motion.div
-                key="share-info"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="flex flex-col gap-4"
+        {isLoading ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center py-8"
+          >
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          </motion.div>
+        ) : existingSharedNote ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Link de visualização da nota.
+              <span className="mt-2 block">
+                Compartilhado por {existingSharedNote.note.createdBy.name ?? "você"}
+              </span>
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={getShareUrl(existingSharedNote)}
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button
+                onClick={handleCopy}
+                variant="outline"
+                size="icon"
+                className="shrink-0"
               >
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={getShareUrl(existingSharedNote)}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    onClick={handleCopy}
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
+                {copied ? (
+                  <motion.span
+                    key="check"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-green-500"
                   >
-                    <AnimatePresence>
-                      {copied ? (
-                        <motion.span
-                          key="check"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          className="text-green-500"
-                        >
-                          ✓
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          key="copy"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </Button>
-                </div>
-
-                <Button
-                  onClick={handleDelete}
-                  variant="destructive"
-                  disabled={isDeleting}
-                  className="w-full"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Removendo link...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Remover link de compartilhamento
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="create-button"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                    ✓
+                  </motion.span>
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {isOwner && (
+              <Button
+                onClick={handleDelete}
+                variant="destructive"
+                disabled={isDeleting}
+                className="w-full"
               >
-                <Button
-                  onClick={handleCreate}
-                  className="w-full"
-                  disabled={isCreating}
-                >
-                  {isCreating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando link...
-                    </>
-                  ) : (
-                    <>
-                      <Link2 className="mr-2 h-4 w-4" />
-                      Criar link de compartilhamento
-                    </>
-                  )}
-                </Button>
-              </motion.div>
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Removendo link...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Remover link de compartilhamento
+                  </>
+                )}
+              </Button>
             )}
-          </AnimatePresence>
-        </div>
+          </div>
+        ) : !session ? (
+          <p className="text-sm text-muted-foreground">
+            Você precisa estar logado para compartilhar notas.
+            <Link href="/api/auth/signin" className="ml-1 text-blue-500 hover:underline">
+              Fazer login
+            </Link>
+          </p>
+        ) : !isOwner ? (
+          <p className="text-sm text-muted-foreground">
+            Apenas o criador da nota pode compartilhá-la.
+          </p>
+        ) : (
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Crie um link de visualização para compartilhar sua nota. Quem tiver acesso ao link poderá apenas ler o conteúdo.
+            </p>
+            <Button
+              onClick={handleCreate}
+              className="mt-4 w-full"
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando link...
+                </>
+              ) : (
+                <>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Criar link de compartilhamento
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
-} 
+}
