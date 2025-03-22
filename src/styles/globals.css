@@ -64,3 +64,45 @@
     @apply bg-background text-foreground;
   }
 }
+@layer components {
+  .animate-in {
+    animation: animate-in 0.2s ease-out;
+  }
+  
+  .fade-in-0 {
+    opacity: 0;
+  }
+  
+  .zoom-in-95 {
+    transform: scale(0.95);
+  }
+  
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .text-replacement-container {
+    display: inline-block;
+    position: relative;
+    min-width: 1ch;
+  }
+
+  .text-replacement-original {
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: pre;
+  }
+
+  .text-replacement-new {
+    position: relative;
+    white-space: pre;
+  }
+}

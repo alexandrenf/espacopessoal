@@ -16,8 +16,6 @@ export async function POST(request: NextRequest) {
           {
             "original": "incorrect text",
             "suggestion": "corrected text",
-            "start": number,
-            "end": number,
             "reason": "explanation"
           }
         ],
@@ -38,14 +36,30 @@ export async function POST(request: NextRequest) {
       diffs: Array<{
         original: string;
         suggestion: string;
-        start: number;
-        end: number;
         reason: string;
+        start?: number;
+        end?: number;
       }>;
       correctedText: string;
     }
 
     const spellCheckResults = JSON.parse(cleanedResponse) as SpellCheckResult;
+
+    // Compute start and end indices for each diff based on the original text.
+    // Using an inclusive end index ensures that spaces are not inadvertently trimmed.
+    let searchStartIndex = 0;
+    spellCheckResults.diffs.forEach(diff => {
+      const index = text.indexOf(diff.original, searchStartIndex);
+      if (index !== -1) {
+        diff.start = index;
+        // Set end as inclusive index: last character of the original text
+        diff.end = index + diff.original.length - 1;
+        searchStartIndex = index + diff.original.length;
+      } else {
+        diff.start = -1;
+        diff.end = -1;
+      }
+    });
 
     return Response.json(spellCheckResults);
   } catch (error) {

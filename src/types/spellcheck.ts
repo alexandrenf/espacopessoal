@@ -1,4 +1,5 @@
 export interface SpellCheckDiff {
+  id: string;
   original: string;
   suggestion: string;
   start: number;
@@ -7,6 +8,6 @@ export interface SpellCheckDiff {
 }
 
 export interface SpellCheckResponse {
-  diffs: SpellCheckDiff[];
+  diffs: Omit<SpellCheckDiff, 'id'>[];  // Backend response won't include IDs
   correctedText: string;
 }
