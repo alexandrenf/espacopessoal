@@ -50,3 +50,4 @@ deno/.env
 deno/dist
 deno/.env.*
 !deno/.env.example
+.vscode/settings.json

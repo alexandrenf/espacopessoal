@@ -435,7 +435,18 @@ export const notesRouter = createTRPCRouter({
           noteId: input.noteId,
         },
         include: {
-          note: true,
+          note: {
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                },
+              },
+            },
+          },
         },
       });
     }),
@@ -472,26 +483,43 @@ export const notesRouter = createTRPCRouter({
       return sharedNote;
     }),
 
-  getSharedNoteByNoteId: protectedProcedure
+  getSharedNoteByNoteId: publicProcedure
     .input(
       z.object({
         noteId: z.number(),
       }),
     )
     .query(async ({ ctx, input }) => {
+      // First get the note to check ownership
+      const note = await ctx.db.notepad.findUnique({
+        where: { id: input.noteId },
+        select: {
+          id: true,
+          createdById: true,
+        },
+      });
+
+      if (!note) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Note not found",
+        });
+      }
+
+      // Get the shared note if it exists
       const sharedNote = await ctx.db.sharedNote.findFirst({
         where: { 
           noteId: input.noteId,
-          note: {
-            createdById: ctx.session.user.id,
-          },
         },
         include: {
           note: {
             include: {
               createdBy: {
                 select: {
+                  id: true,
                   name: true,
+                  email: true,
+                  image: true,
                 },
               },
             },
@@ -499,7 +527,11 @@ export const notesRouter = createTRPCRouter({
         },
       });
 
-      return sharedNote;
+      // Return both the ownership status and the shared note data
+      return {
+        isOwner: note.createdById === ctx.session?.user.id,
+        sharedNote: sharedNote,
+      };
     }),
 
   deleteSharedNote: protectedProcedure
