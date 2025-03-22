@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect, memo, useRef } from "react";
 import { Button } from "~/components/ui/button";
-import { ArrowLeft, FolderPlus, FilePlus, FileText, Eye } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus} from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
 import Tree from 'rc-tree';
 import {

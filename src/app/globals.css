@@ -2,3 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .animate-spell-check-success {
+    animation: spell-check-success 1.5s ease-in-out;
+  }
+}
+
