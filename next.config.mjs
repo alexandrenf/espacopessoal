@@ -11,7 +11,8 @@ import withPWA from 'next-pwa';
 const config = {
   experimental: {
     turbo: {
-      enabled: true
+      enabled: true,
+      reactCompiler: true
     }
   },
   

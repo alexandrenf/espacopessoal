@@ -38,6 +38,7 @@ export const env = createEnv({
     FIREBASE_FCM_VAPID_KEY: z.string(),
     DENO_API_KEY: z.string(),
     DENO_API_URL: z.string().url(),
+    GEMINI_API_KEY: z.string(),
   },
 
 
@@ -73,6 +74,7 @@ export const env = createEnv({
     FIREBASE_FCM_VAPID_KEY: process.env.FIREBASE_FCM_VAPID_KEY,
     DENO_API_KEY: process.env.DENO_API_KEY,
     DENO_API_URL: process.env.DENO_API_URL,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
