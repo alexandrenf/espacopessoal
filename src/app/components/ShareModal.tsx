@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Share2, Copy, Loader2, Trash2, X, Link2 } from "lucide-react";
+import { Share2, Copy, Loader2, Trash2, Link2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "~/trpc/react";
 import { toast } from "~/hooks/use-toast";
@@ -135,13 +135,9 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
         </DialogHeader>
 
         {isLoading ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center py-8"
-          >
+          <div className="flex justify-center items-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-          </motion.div>
+          </div>
         ) : existingSharedNote ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
