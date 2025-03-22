@@ -5,13 +5,27 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, Code, CheckSquare, Share2, Sparkles } from "lucide-react";
+import {
+  Save,
+  Loader2,
+  FileText,
+  Eye,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Quote,
+  Code,
+  CheckSquare,
+  Share2,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
 import { toast } from "~/hooks/use-toast";
-import { SpellCheckDiffView } from './SpellCheckDiffView';
-import type { SpellCheckDiff, SpellCheckResponse } from '~/types/spellcheck';
+import { SpellCheckDiffView } from "./SpellCheckDiffView";
+import type { SpellCheckDiff, SpellCheckResponse } from "~/types/spellcheck";
 import { cn } from "~/lib/utils";
 
 interface Note {
@@ -26,6 +40,14 @@ interface EditorProps {
   updateNote: (text: string) => void;
   isSaving?: boolean;
   isLoading?: boolean;
+  session?: {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  } | null;
 }
 
 // Remove the local SpellCheckResponse and SpellCheckDiff interfaces since we're importing them
@@ -33,7 +55,7 @@ interface EditorProps {
 // Add this utility function before the Editor component
 const applyTextReplacement = (
   text: string,
-  replacement: { start: number; end: number; content: string }
+  replacement: { start: number; end: number; content: string },
 ): { newText: string; offset: number } => {
   const beforeText = text.slice(0, replacement.start);
   // Slice from replacement.end + 1 instead of 0
@@ -41,16 +63,17 @@ const applyTextReplacement = (
   const newText = beforeText + replacement.content + afterText;
   return {
     newText,
-    offset: replacement.content.length - (replacement.end - replacement.start + 1)
+    offset:
+      replacement.content.length - (replacement.end - replacement.start + 1),
   };
 };
 
 const recalcDiffPositions = (
   currentContent: string,
-  diffs: SpellCheckDiff[]
+  diffs: SpellCheckDiff[],
 ): SpellCheckDiff[] => {
   let searchStart = 0;
-  return diffs.map(diff => {
+  return diffs.map((diff) => {
     // Attempt to find the exact occurrence of diff.original starting from searchStart
     let index = currentContent.indexOf(diff.original, searchStart);
     if (index === -1) {
@@ -60,10 +83,10 @@ const recalcDiffPositions = (
     if (index !== -1) {
       // Update searchStart to ensure subsequent diffs are found after this one
       searchStart = index + diff.original.length;
-      return { 
+      return {
         ...diff,
-        start: index, 
-        end: index + diff.original.length - 1 
+        start: index,
+        end: index + diff.original.length - 1,
       };
     }
     return diff; // Preserve the original diff with its ID if not found
@@ -73,7 +96,7 @@ const recalcDiffPositions = (
 function highlightDiffs(content: string, diffs: SpellCheckDiff[]): string {
   const sortedDiffs = [...diffs].sort((a, b) => b.start - a.start);
   let highlighted = content;
-  sortedDiffs.forEach(diff => {
+  sortedDiffs.forEach((diff) => {
     if (diff.start !== -1 && diff.end !== -1) {
       const before = highlighted.slice(0, diff.start);
       const match = highlighted.slice(diff.start, diff.end + 1);
@@ -82,13 +105,13 @@ function highlightDiffs(content: string, diffs: SpellCheckDiff[]): string {
       highlighted = `${before}<span data-diff-id="${diff.original}" style="background-color: #fffa65; cursor: pointer;">${match}</span>${after}`;
     }
   });
-  return highlighted;
+  return highlighted; // This return statement was missing
 }
 
 function AnimatedTextReplacement({
   original,
   replacement,
-  onComplete
+  onComplete,
 }: {
   original: string;
   replacement: string;
@@ -104,7 +127,7 @@ function AnimatedTextReplacement({
           animate={{ opacity: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="text-red-500 line-through absolute left-0"
+          className="absolute left-0 text-red-500 line-through"
         >
           {original}
         </motion.span>
@@ -117,9 +140,9 @@ function AnimatedTextReplacement({
           transition={{
             duration: 0.3,
             delay: 0.1,
-            ease: "easeOut"
+            ease: "easeOut",
           }}
-          className="text-green-600 relative"
+          className="relative text-green-600"
         >
           {replacement}
         </motion.span>
@@ -133,15 +156,20 @@ const Editor: React.FC<EditorProps> = ({
   updateNote,
   isSaving,
   isLoading,
+  session,
 }) => {
-  const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
+  const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">(
+    "write",
+  );
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
   const [isToolbarVisible, setIsToolbarVisible] = React.useState(false);
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>([]);
+  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>(
+    [],
+  );
   const [isSpellChecking, setIsSpellChecking] = useState(false);
   const [useGrammarlyHighlight, setUseGrammarlyHighlight] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -163,16 +191,19 @@ const Editor: React.FC<EditorProps> = ({
     preview: "Visualizar",
     uploadingImage: "Enviando imagem...",
     pasteDropSelect: "Clique para colar uma imagem, ou arraste e solte",
-    untitledNote: "Nota sem título"
+    untitledNote: "Nota sem título",
   };
 
   // Improved content parsing
-  const parseNote = useCallback((fullContent: string) => {
-    const lines = fullContent.split('\n');
-    const noteTitle = lines[0]?.trim() ?? l18n.untitledNote;
-    const noteContent = lines.slice(1).join('\n');
-    return { noteTitle, noteContent };
-  }, [l18n.untitledNote]);
+  const parseNote = useCallback(
+    (fullContent: string) => {
+      const lines = fullContent.split("\n");
+      const noteTitle = lines[0]?.trim() ?? l18n.untitledNote;
+      const noteContent = lines.slice(1).join("\n");
+      return { noteTitle, noteContent };
+    },
+    [l18n.untitledNote],
+  );
 
   // Initialize and update content when note changes
   useEffect(() => {
@@ -181,16 +212,22 @@ const Editor: React.FC<EditorProps> = ({
     setContent(noteContent);
   }, [currentNote.id, currentNote.content, parseNote]);
 
-  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    updateNote(`${newTitle.trim()}\n${content}`);
-  }, [content, updateNote]);
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newTitle = e.target.value;
+      setTitle(newTitle);
+      updateNote(`${newTitle.trim()}\n${content}`);
+    },
+    [content, updateNote],
+  );
 
-  const handleContentChange = useCallback((newContent: string) => {
-    setContent(newContent);
-    updateNote(`${title.trim()}\n${newContent}`);
-  }, [title, updateNote]);
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setContent(newContent);
+      updateNote(`${title.trim()}\n${newContent}`);
+    },
+    [title, updateNote],
+  );
 
   const converter = new Converter({
     tables: true,
@@ -215,10 +252,7 @@ const Editor: React.FC<EditorProps> = ({
     // Reset selection
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(
-        start + prefix.length,
-        end + prefix.length
-      );
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
     }, 0);
   };
 
@@ -237,77 +271,85 @@ const Editor: React.FC<EditorProps> = ({
   const handleSpellCheck = async () => {
     setIsSpellChecking(true);
     try {
-      const response = await fetch('/api/spellcheck', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: content })
+      const response = await fetch("/api/spellcheck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
       });
       const results = (await response.json()) as SpellCheckResponse;
-      
+
       // Ensure each diff has a unique ID
       const diffsWithIds = results.diffs.map((diff, index) => ({
         ...diff,
-        id: `diff-${Date.now()}-${index}`
+        id: `diff-${Date.now()}-${index}`,
       }));
-      
+
       setSpellCheckResults(diffsWithIds);
     } catch (error) {
-      console.error('Spell check failed:', error);
+      console.error("Spell check failed:", error);
       toast({
         title: "Error",
         description: "Failed to check spelling",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSpellChecking(false);
     }
   };
 
-  const handleAcceptSpellCheck = useCallback((diff: SpellCheckDiff) => {
-    // Recalculate the diff in the current content
-    const updatedDiffs = recalcDiffPositions(content, [diff]);
-    const updatedDiff = updatedDiffs[0];
-    
-    if (!updatedDiff || updatedDiff.start === -1) {
-      // If we can't find the diff, remove it from results anyway
-      setSpellCheckResults(prev => prev.filter(d => d.id !== diff.id));
-      return;
-    }
+  const handleAcceptSpellCheck = useCallback(
+    (diff: SpellCheckDiff) => {
+      // Recalculate the diff in the current content
+      const updatedDiffs = recalcDiffPositions(content, [diff]);
+      const updatedDiff = updatedDiffs[0];
 
-    // Apply the replacement immediately
-    const { newText } = applyTextReplacement(content, {
-      start: updatedDiff.start,
-      end: updatedDiff.end,
-      content: updatedDiff.suggestion
-    });
+      if (!updatedDiff || updatedDiff.start === -1) {
+        // If we can't find the diff, remove it from results anyway
+        setSpellCheckResults((prev) => prev.filter((d) => d.id !== diff.id));
+        return;
+      }
 
-    // Update content
-    handleContentChange(newText);
-    
-    // Remove the diff from results
-    setSpellCheckResults(prev => prev.filter(d => d.id !== diff.id));
-  }, [content, handleContentChange]);
+      // Apply the replacement immediately
+      const { newText } = applyTextReplacement(content, {
+        start: updatedDiff.start,
+        end: updatedDiff.end,
+        content: updatedDiff.suggestion,
+      });
+
+      // Update content
+      handleContentChange(newText);
+
+      // Remove the diff from results
+      setSpellCheckResults((prev) => prev.filter((d) => d.id !== diff.id));
+    },
+    [content, handleContentChange],
+  );
 
   const handleReplacementComplete = useCallback(() => {
     if (!activeReplacement) return;
 
     const { start, end, replacement } = activeReplacement;
-    const newText = content.slice(0, start) + replacement + content.slice(end + 1);
-    
+    const newText =
+      content.slice(0, start) + replacement + content.slice(end + 1);
+
     // Update content
     handleContentChange(newText);
-    
+
     // Remove the active replacement
     setActiveReplacement(null);
-    
+
     // Update spell check results
-    setSpellCheckResults(prev => prev.filter(d => d.id !== activeReplacement.id));
+    setSpellCheckResults((prev) =>
+      prev.filter((d) => d.id !== activeReplacement.id),
+    );
   }, [activeReplacement, content, handleContentChange]);
 
   const handleAcceptAllSpellCheck = () => {
     let currentContent = content;
     // Sort diffs by starting index
-    let remainingDiffs = [...spellCheckResults].sort((a, b) => a.start - b.start);
+    let remainingDiffs = [...spellCheckResults].sort(
+      (a, b) => a.start - b.start,
+    );
 
     while (remainingDiffs.length > 0) {
       const currentDiff = remainingDiffs.shift();
@@ -316,7 +358,7 @@ const Editor: React.FC<EditorProps> = ({
       const { newText } = applyTextReplacement(currentContent, {
         start: currentDiff.start,
         end: currentDiff.end,
-        content: currentDiff.suggestion
+        content: currentDiff.suggestion,
       });
       currentContent = newText;
 
@@ -329,25 +371,27 @@ const Editor: React.FC<EditorProps> = ({
   };
 
   const handleRejectSpellCheck = useCallback((diff: SpellCheckDiff) => {
-    setSpellCheckResults(prev => prev.filter(d => d !== diff));
+    setSpellCheckResults((prev) => prev.filter((d) => d !== diff));
   }, []);
 
   // Remove the duplicate handleAcceptAllSpellCheck here
 
-  const grammarlyStyles = useMemo(() => ({
-    container: `
+  const grammarlyStyles = useMemo(
+    () => ({
+      container: `
       w-full h-[75vh] 
       bg-white/50 backdrop-blur-sm rounded-lg p-6 
       font-[16px] leading-relaxed text-gray-800
       shadow-sm focus:outline-none
       selection:bg-blue-100
     `,
-    highlight: (isHovered: boolean): string => cn(
-      "relative inline-block transition-all duration-200",
-      "border-b-2 border-dotted border-red-400/50",
-      isHovered ? "bg-blue-50 rounded px-0.5 -mx-0.5 border-blue-400" : ""
-    ),
-    tooltip: `
+      highlight: (isHovered: boolean): string =>
+        cn(
+          "relative inline-block transition-all duration-200",
+          "border-b-2 border-dotted border-red-400/50",
+          isHovered ? "bg-blue-50 rounded px-0.5 -mx-0.5 border-blue-400" : "",
+        ),
+      tooltip: `
       absolute -top-2 left-0 transform -translate-y-full
       min-w-[280px] max-w-[320px]
       bg-white rounded-lg shadow-xl
@@ -355,17 +399,19 @@ const Editor: React.FC<EditorProps> = ({
       p-4 z-50
       animate-in fade-in-0 zoom-in-95
     `,
-    tooltipArrow: `
+      tooltipArrow: `
       absolute -bottom-2 left-4
       border-8 border-transparent
       border-t-white
-    `
-  }), []);
+    `,
+    }),
+    [],
+  );
 
   const renderGrammarlyContent = useCallback(() => {
     if (!content || !spellCheckResults.length) {
       return (
-        <div 
+        <div
           contentEditable
           suppressContentEditableWarning
           onInput={(e) => handleContentChange(e.currentTarget.innerText)}
@@ -378,7 +424,7 @@ const Editor: React.FC<EditorProps> = ({
 
     let lastIndex = 0;
     const elements: JSX.Element[] = [];
-    
+
     spellCheckResults.forEach((diff, idx) => {
       const startIndex = content.indexOf(diff.original, lastIndex);
       if (startIndex === -1) return;
@@ -388,7 +434,7 @@ const Editor: React.FC<EditorProps> = ({
         elements.push(
           <span key={`text-${idx}`}>
             {content.slice(lastIndex, startIndex)}
-          </span>
+          </span>,
         );
       }
 
@@ -400,7 +446,7 @@ const Editor: React.FC<EditorProps> = ({
             original={diff.original}
             replacement={diff.suggestion}
             onComplete={handleReplacementComplete}
-          />
+          />,
         );
       } else {
         // Regular diff highlight
@@ -414,24 +460,22 @@ const Editor: React.FC<EditorProps> = ({
               const rect = e.currentTarget.getBoundingClientRect();
               setActiveCorrection({
                 diff,
-                position: { x: rect.left, y: rect.top }
+                position: { x: rect.left, y: rect.top },
               });
             }}
           >
             {diff.original}
             {activeCorrection?.diff.id === diff.id && (
-              <div 
+              <div
                 className={grammarlyStyles.tooltip}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-sm text-gray-900">
+                    <p className="text-sm font-medium text-gray-900">
                       Suggested Change
                     </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {diff.reason}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-600">{diff.reason}</p>
                   </div>
                   <button
                     onClick={() => {
@@ -443,13 +487,11 @@ const Editor: React.FC<EditorProps> = ({
                     Accept
                   </button>
                 </div>
-                
+
                 <div className="mt-3 flex items-center gap-2 text-sm">
                   <div className="flex-1">
-                    <p className="text-red-600 line-through">
-                      {diff.original}
-                    </p>
-                    <p className="text-green-600 font-medium">
+                    <p className="text-red-600 line-through">{diff.original}</p>
+                    <p className="font-medium text-green-600">
                       {diff.suggestion}
                     </p>
                   </div>
@@ -466,7 +508,7 @@ const Editor: React.FC<EditorProps> = ({
                 <div className={grammarlyStyles.tooltipArrow} />
               </div>
             )}
-          </span>
+          </span>,
         );
       }
 
@@ -475,15 +517,11 @@ const Editor: React.FC<EditorProps> = ({
 
     // Add remaining text
     if (lastIndex < content.length) {
-      elements.push(
-        <span key="text-end">
-          {content.slice(lastIndex)}
-        </span>
-      );
+      elements.push(<span key="text-end">{content.slice(lastIndex)}</span>);
     }
 
     return (
-      <div 
+      <div
         contentEditable
         suppressContentEditableWarning
         onInput={(e) => handleContentChange(e.currentTarget.innerText)}
@@ -493,7 +531,17 @@ const Editor: React.FC<EditorProps> = ({
         {elements}
       </div>
     );
-  }, [content, spellCheckResults, activeCorrection, handleContentChange, grammarlyStyles, handleAcceptSpellCheck, handleRejectSpellCheck, hoveredDiffId, handleReplacementComplete]);
+  }, [
+    content,
+    spellCheckResults,
+    activeCorrection,
+    handleContentChange,
+    grammarlyStyles,
+    handleAcceptSpellCheck,
+    handleRejectSpellCheck,
+    hoveredDiffId,
+    handleReplacementComplete,
+  ]);
 
   const renderContent = () => {
     if (selectedTab === "preview") {
@@ -505,16 +553,39 @@ const Editor: React.FC<EditorProps> = ({
       };
       const sanitizedHtml = purify.sanitize(html, {
         ALLOWED_TAGS: [
-          'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-          'ul', 'ol', 'li', 'a', 'strong', 'em',
-          'code', 'pre', 'blockquote', 'input' // Add input to allowed tags
+          "p",
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "ul",
+          "ol",
+          "li",
+          "a",
+          "strong",
+          "em",
+          "code",
+          "pre",
+          "blockquote",
+          "input", // Add input to allowed tags
         ],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'aria-label', 'class', 'type', 'checked'] // Add type and checked attributes
+        ALLOWED_ATTR: [
+          "href",
+          "target",
+          "rel",
+          "title",
+          "aria-label",
+          "class",
+          "type",
+          "checked",
+        ], // Add type and checked attributes
       });
-      
+
       return (
-        <div 
-          className="prose prose-slate max-w-none p-6 bg-white/50 backdrop-blur-sm rounded-lg shadow-sm min-h-[75vh]"
+        <div
+          className="prose prose-slate min-h-[75vh] max-w-none rounded-lg bg-white/50 p-6 shadow-sm backdrop-blur-sm"
           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
       );
@@ -528,7 +599,7 @@ const Editor: React.FC<EditorProps> = ({
         ref={textAreaRef}
         value={content}
         onChange={(e) => handleContentChange(e.target.value)}
-        className="w-full h-[75vh] bg-white/50 backdrop-blur-sm rounded-lg p-6 focus:outline-none font-mono text-[15px] resize-none shadow-sm transition-all duration-200 focus:shadow-md focus:bg-white/80"
+        className="h-[75vh] w-full resize-none rounded-lg bg-white/50 p-6 font-mono text-[15px] shadow-sm backdrop-blur-sm transition-all duration-200 focus:bg-white/80 focus:shadow-md focus:outline-none"
         disabled={isLoading}
         placeholder="Comece a escrever..."
       />
@@ -547,53 +618,61 @@ const Editor: React.FC<EditorProps> = ({
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, [activeCorrection]);
 
   return (
-    <motion.div className="flex h-screen w-full relative">
+    <motion.div className="relative flex h-screen w-full">
+      {currentNote.id && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => {
+            console.log("ShareModal onClose called, setting isShareModalOpen to false");
+            setIsShareModalOpen(false);
+          }}
+          noteId={currentNote.id}
+          session={session}
+        />
+      )}
       {/* Main editor container shrinks when sidebar is open */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'mr-80' : ''}`}>
-        <motion.div 
+      <div
+        className={`flex-1 transition-all duration-300 ${sidebarOpen ? "mr-80" : ""}`}
+      >
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="relative w-full h-screen bg-gradient-to-b from-white to-gray-50"
+          className="relative h-screen w-full bg-gradient-to-b from-white to-gray-50"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Share Modal */}
-          {currentNote.id && (
-            <ShareModal
-              isOpen={isShareModalOpen}
-              onClose={() => setIsShareModalOpen(false)}
-              noteId={currentNote.id}
-            />
-          )}
-
           <AnimatePresence>
             {isLoading && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center"
+                className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm"
               >
-                <motion.div 
+                <motion.div
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
-                  className="flex flex-col items-center gap-3 bg-white/80 p-6 rounded-lg shadow-lg"
+                  className="flex flex-col items-center gap-3 rounded-lg bg-white/80 p-6 shadow-lg"
                 >
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                  <span className="text-sm font-medium text-gray-600">Carregando nota...</span>
+                  <span className="text-sm font-medium text-gray-600">
+                    Carregando nota...
+                  </span>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className={`${isLoading ? 'opacity-50' : ''} transition-all duration-300`}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-200/50 bg-white/70 backdrop-blur-md sticky top-0 z-20 shadow-sm">
-              <div className="flex-1 flex items-center gap-3">
+          <div
+            className={`${isLoading ? "opacity-50" : ""} transition-all duration-300`}
+          >
+            <div className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200/50 bg-white/70 p-4 shadow-sm backdrop-blur-md">
+              <div className="flex flex-1 items-center gap-3">
                 <motion.div
                   whileHover={{ rotate: 15 }}
                   transition={{ type: "spring", stiffness: 400 }}
@@ -605,32 +684,38 @@ const Editor: React.FC<EditorProps> = ({
                   type="text"
                   value={title}
                   onChange={handleTitleChange}
-                  className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/10 rounded-md px-2 py-1 transition-all"
+                  className="flex-1 rounded-md bg-transparent px-2 py-1 text-xl font-semibold text-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/10"
                   placeholder={l18n.untitledNote}
                   aria-label="Note title"
                   disabled={isLoading}
                 />
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {isSaving && !isLoading && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full shadow-sm"
+                    className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm"
                   >
-                    <Save className="h-4 w-4 text-green-500 animate-pulse" />
-                    <span className="text-sm font-medium text-green-600">Salvando...</span>
+                    <Save className="h-4 w-4 animate-pulse text-green-500" />
+                    <span className="text-sm font-medium text-green-600">
+                      Salvando...
+                    </span>
                   </motion.div>
                 )}
 
-                {/* Share Button */}
+                {/* Share Button - Fix the logic by using state more explicitly */}
                 {currentNote.id && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex items-center gap-2"
-                    onClick={() => setIsShareModalOpen(true)}
+                    onClick={() => {
+                      console.log("Share button clicked, setting isShareModalOpen to true");
+                      setIsShareModalOpen(true);
+                      console.log("isShareModalOpen after setting:", true); // Log the value we're setting it to
+                    }}
                     aria-label="Compartilhar nota"
                   >
                     <Share2 className="h-4 w-4" />
@@ -642,14 +727,25 @@ const Editor: React.FC<EditorProps> = ({
 
             <div className="p-4">
               <div className="flex flex-col gap-4">
-                <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as "write" | "preview")}>
+                <Tabs
+                  value={selectedTab}
+                  onValueChange={(value) =>
+                    setSelectedTab(value as "write" | "preview")
+                  }
+                >
                   <div className="flex items-center justify-between">
                     <TabsList className="mb-4 bg-gray-100/50 backdrop-blur-sm">
-                      <TabsTrigger value="write" className="flex items-center gap-2 data-[state=active]:bg-white">
+                      <TabsTrigger
+                        value="write"
+                        className="flex items-center gap-2 data-[state=active]:bg-white"
+                      >
                         <FileText className="h-4 w-4" />
                         {l18n.write}
                       </TabsTrigger>
-                      <TabsTrigger value="preview" className="flex items-center gap-2 data-[state=active]:bg-white">
+                      <TabsTrigger
+                        value="preview"
+                        className="flex items-center gap-2 data-[state=active]:bg-white"
+                      >
                         <Eye className="h-4 w-4" />
                         {l18n.preview}
                       </TabsTrigger>
@@ -658,67 +754,67 @@ const Editor: React.FC<EditorProps> = ({
                     {selectedTab === "write" && (
                       <>
                         {/* Desktop Fixed Toolbar */}
-                        <div className="hidden md:flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1.5 rounded-lg border border-gray-200/50">
+                        <div className="hidden items-center gap-1 rounded-lg border border-gray-200/50 bg-gray-100/50 p-1.5 backdrop-blur-sm md:flex">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('**', '**')}
+                            onClick={() => insertMarkdown("**", "**")}
                             title="Bold"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <Bold className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('*', '*')}
+                            onClick={() => insertMarkdown("*", "*")}
                             title="Italic"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <Italic className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n- [ ] ')}
+                            onClick={() => insertMarkdown("\n- [ ] ")}
                             title="Task List"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <CheckSquare className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n- ')}
+                            onClick={() => insertMarkdown("\n- ")}
                             title="Unordered List"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <List className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n1. ')}
+                            onClick={() => insertMarkdown("\n1. ")}
                             title="Ordered List"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <ListOrdered className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n> ')}
+                            onClick={() => insertMarkdown("\n> ")}
                             title="Quote"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <Quote className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('`', '`')}
+                            onClick={() => insertMarkdown("`", "`")}
                             title="Code"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                           >
                             <Code className="h-4 w-4" />
                           </Button>
@@ -727,88 +823,88 @@ const Editor: React.FC<EditorProps> = ({
                             size="sm"
                             onClick={handleSpellCheck}
                             title="Spell Check"
-                            className="hover:bg-white hover:shadow-sm transition-all h-8 w-8 group"
+                            className="group h-8 w-8 transition-all hover:bg-white hover:shadow-sm"
                             disabled={isSpellChecking}
                           >
                             {isSpellChecking ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Sparkles className="h-4 w-4 group-hover:text-yellow-500 transition-colors" />
+                              <Sparkles className="h-4 w-4 transition-colors group-hover:text-yellow-500" />
                             )}
                           </Button>
                         </div>
 
                         {/* Mobile Floating Toolbar */}
-                        <motion.div 
+                        <motion.div
                           ref={toolbarRef}
                           initial={{ opacity: 0, y: -20 }}
-                          animate={{ 
+                          animate={{
                             opacity: isToolbarVisible ? 1 : 0,
-                            y: isToolbarVisible ? 0 : -20
+                            y: isToolbarVisible ? 0 : -20,
                           }}
                           transition={{ duration: 0.2 }}
-                          className="md:hidden fixed bottom-4 left-1/4 -translate-x-1/2 flex items-center gap-1 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-gray-200/50 z-50"
+                          className="fixed bottom-4 left-1/4 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 p-2 shadow-lg backdrop-blur-md md:hidden"
                         >
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('**', '**')}
+                            onClick={() => insertMarkdown("**", "**")}
                             title="Bold"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <Bold className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('*', '*')}
+                            onClick={() => insertMarkdown("*", "*")}
                             title="Italic"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <Italic className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n- [ ] ')}
+                            onClick={() => insertMarkdown("\n- [ ] ")}
                             title="Task List"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <CheckSquare className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n- ')}
+                            onClick={() => insertMarkdown("\n- ")}
                             title="Unordered List"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <List className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n1. ')}
+                            onClick={() => insertMarkdown("\n1. ")}
                             title="Ordered List"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <ListOrdered className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('\n> ')}
+                            onClick={() => insertMarkdown("\n> ")}
                             title="Quote"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <Quote className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => insertMarkdown('`', '`')}
+                            onClick={() => insertMarkdown("`", "`")}
                             title="Code"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8"
+                            className="h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                           >
                             <Code className="h-4 w-4" />
                           </Button>
@@ -817,13 +913,13 @@ const Editor: React.FC<EditorProps> = ({
                             size="sm"
                             onClick={handleSpellCheck}
                             title="Spell Check"
-                            className="hover:bg-gray-100 hover:shadow-sm transition-all h-8 w-8 group"
+                            className="group h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm"
                             disabled={isSpellChecking}
                           >
                             {isSpellChecking ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Sparkles className="h-4 w-4 group-hover:text-yellow-500 transition-colors" />
+                              <Sparkles className="h-4 w-4 transition-colors group-hover:text-yellow-500" />
                             )}
                           </Button>
                         </motion.div>
@@ -841,21 +937,23 @@ const Editor: React.FC<EditorProps> = ({
               </div>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => setUseGrammarlyHighlight(prev => !prev)}
+          <Button
+            variant="outline"
+            onClick={() => setUseGrammarlyHighlight((prev) => !prev)}
           >
-            {useGrammarlyHighlight ? "Disable Grammarly-like" : "Enable Grammarly-like"}
+            {useGrammarlyHighlight
+              ? "Disable Grammarly-like"
+              : "Enable Grammarly-like"}
           </Button>
         </motion.div>
       </div>
 
       {/* Animated sidebar for diffs */}
       <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: sidebarOpen ? 0 : '100%' }}
+        initial={{ x: "100%" }}
+        animate={{ x: sidebarOpen ? 0 : "100%" }}
         transition={{ duration: 0.3 }}
-        className="fixed right-0 top-0 bottom-0 w-80 bg-white shadow-lg border-l z-50"
+        className="fixed bottom-0 right-0 top-0 z-50 w-80 border-l bg-white shadow-lg"
       >
         <SpellCheckDiffView
           diffs={spellCheckResults}
