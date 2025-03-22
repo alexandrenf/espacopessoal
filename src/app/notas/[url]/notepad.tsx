@@ -86,6 +86,7 @@ const App = ({ password }: AppProps): JSX.Element => {
   const [isNoteLoading, setIsNoteLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const [localContent, setLocalContent] = useState<string>("");
 
   // --- Refs
   const latestContentRef = useRef<string>("");
@@ -93,6 +94,15 @@ const App = ({ password }: AppProps): JSX.Element => {
   const lastKeystrokeRef = useRef<number | null>(null);
   const continuousTypingTimerRef = useRef<NodeJS.Timeout>();
   const utils = api.useUtils();
+  const debouncedUpdateNotes = useRef(
+    debounce((text: string) => {
+      setNotes((old) =>
+        old.map((note) =>
+          note.id === currentNoteId ? { ...note, content: text } : note
+        )
+      );
+    }, 1000)
+  );
 
   // ------------------------------
   // Fetch notes from the server
@@ -464,14 +474,12 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   function handleTextChange(text: string) {
-    // Update local state
+    setLocalContent(text);
+    
+    // Update latest content ref immediately
     latestContentRef.current = text;
-    setNotes((old) =>
-      old.map((note) =>
-        note.id === currentNoteId ? { ...note, content: text } : note,
-      ),
-    );
-
+    
+    // Debounce the notes state update
     const currentNote = notes.find((n) => n.id === currentNoteId);
     if (!currentNote) return;
 
@@ -485,11 +493,8 @@ const App = ({ password }: AppProps): JSX.Element => {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Set up a new typing timeout
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      void activeDebounce.flush();
-    }, TYPING_TIMEOUT);
+    // Debounce the notes state update
+    debouncedUpdateNotes.current?.(text);
 
     // Clear any existing continuous typing timer
     if (continuousTypingTimerRef.current) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, memo, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowLeft, FolderPlus, FilePlus, FileText, Eye } from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
@@ -58,7 +58,7 @@ interface TreeDropInfo {
   dropToGap: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
+const Sidebar = memo(({
   notes,
   currentNote,
   setCurrentNoteId,
@@ -71,11 +71,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   showSidebar = true,
   onUpdateStructure,
   isMobile = false,
-}) => {
-  const [localNotes, setLocalNotes] = useState<Note[]>(notes);
+}: SidebarProps) => {
+  // Use refs for values that don't need to trigger re-renders
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+
+  // Local state for UI-specific things
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedTab, setSelectedTab] = useState<"write" | "preview">("write");
+  const [localNotes, setLocalNotes] = useState<Note[]>(notes);
+
+  useEffect(() => {
+    setLocalNotes(notes);
+  }, [notes]);
 
   // Add effect to expand parent folder when a note is selected
   useEffect(() => {
@@ -90,10 +99,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
     }
   }, [currentNote?.parentId]);
-
-  useEffect(() => {
-    setLocalNotes(notes);
-  }, [notes]);
 
   const handleExpand = (e: React.MouseEvent, node: EventDataNode<unknown>) => {
     const key = node.key as string;
@@ -291,6 +296,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       
     </section>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;

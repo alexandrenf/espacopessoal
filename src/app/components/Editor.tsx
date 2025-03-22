@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, memo, useMemo } from "react";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
@@ -9,6 +9,7 @@ import { Save, Loader2, FileText, Eye, Bold, Italic, List, ListOrdered, Quote, C
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
+import { debounce } from 'lodash';
 
 interface Note {
   id: number;
@@ -18,10 +19,10 @@ interface Note {
 }
 
 interface EditorProps {
-  currentNote: Note | { id: number | null; content: string };
-  updateNote: (text: string) => void;
-  isSaving?: boolean;
-  isLoading?: boolean;
+  currentNote: Note;
+  updateNote: (content: string) => void;
+  isSaving: boolean;
+  isLoading: boolean;
   session?: {
     user: {
       id: string;
@@ -32,29 +33,58 @@ interface EditorProps {
   } | null;
 }
 
-const Editor: React.FC<EditorProps> = ({
-  currentNote,
-  updateNote,
-  isSaving,
-  isLoading,
-  session,
-}) => {
-  const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
-  const [title, setTitle] = React.useState("");
-  const [content, setContent] = React.useState("");
-  const [isToolbarVisible, setIsToolbarVisible] = React.useState(false);
+const Editor = memo(({ 
+  currentNote, 
+  updateNote, 
+  isSaving, 
+  isLoading, 
+  session 
+}: EditorProps) => {
+  // Local state for content
+  const [localContent, setLocalContent] = useState(currentNote.content);
+  const [content, setContent] = useState("");
+
+  // Update local content when note changes
+  useEffect(() => {
+    setLocalContent(currentNote.content);
+  }, [currentNote.id, currentNote.content]); // Only update when note changes
+
+  // Move these to useRef if they don't need to trigger re-renders
+  const selectedTabRef = React.useRef<"write" | "preview">("write");
+  const titleRef = React.useRef("");
+  const isToolbarVisibleRef = React.useRef(false);
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Keep selectedTab as state since it affects UI rendering
+  const [selectedTab, setSelectedTab] = React.useState<"write" | "preview">("write");
+
+  // Create setters that update refs without triggering re-renders
+  const setTitle = useCallback((newTitle: string) => {
+    titleRef.current = newTitle;
+  }, []);
+
+  const setIsToolbarVisible = useCallback((visible: boolean) => {
+    isToolbarVisibleRef.current = visible;
+  }, []);
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
+  // Memoize converter instance
+  const converter = useMemo(() => new Converter({
+    tables: true,
+    simplifiedAutoLink: true,
+    strikethrough: true,
+    tasklists: true,
+  }), []);
 
-  const l18n = {
+  // Memoize l18n object
+  const l18n = useMemo(() => ({
     write: "Escrever",
     preview: "Visualizar",
     uploadingImage: "Enviando imagem...",
     pasteDropSelect: "Clique para colar uma imagem, ou arraste e solte",
     untitledNote: "Nota sem título"
-  };
+  }), []);
 
   // Improved content parsing
   const parseNote = useCallback((fullContent: string) => {
@@ -71,23 +101,24 @@ const Editor: React.FC<EditorProps> = ({
     setContent(noteContent);
   }, [currentNote.id, currentNote.content, parseNote]);
 
-  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    updateNote(`${newTitle.trim()}\n${content}`);
-  }, [content, updateNote]);
+  // Debounce the content updates
+  const debouncedUpdateNote = useMemo(
+    () => debounce((title: string, content: string) => {
+      updateNote(`${title.trim()}\n${content}`);
+    }, 100),
+    [updateNote]
+  );
 
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
-    updateNote(`${title.trim()}\n${newContent}`);
-  }, [title, updateNote]);
+    debouncedUpdateNote(titleRef.current || '', newContent);
+  }, [debouncedUpdateNote]);
 
-  const converter = new Converter({
-    tables: true,
-    simplifiedAutoLink: true,
-    strikethrough: true,
-    tasklists: true,
-  });
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    debouncedUpdateNote(newTitle, content);
+  }, [content, debouncedUpdateNote]);
 
   const insertMarkdown = (prefix: string, suffix = "") => {
     const textarea = textAreaRef.current;
@@ -124,7 +155,8 @@ const Editor: React.FC<EditorProps> = ({
     }, 2000);
   }, []);
 
-  const renderContent = () => {
+  // Memoize renderContent
+  const renderContent = useCallback(() => {
     if (selectedTab === "preview") {
       const html = converter.makeHtml(content);
       const purify = DOMPurify as {
@@ -134,9 +166,9 @@ const Editor: React.FC<EditorProps> = ({
         ALLOWED_TAGS: [
           'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
           'ul', 'ol', 'li', 'a', 'strong', 'em',
-          'code', 'pre', 'blockquote', 'input' // Add input to allowed tags
+          'code', 'pre', 'blockquote', 'input'
         ],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'aria-label', 'class', 'type', 'checked'] // Add type and checked attributes
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'aria-label', 'class', 'type', 'checked']
       });
       
       return (
@@ -157,7 +189,118 @@ const Editor: React.FC<EditorProps> = ({
         placeholder="Comece a escrever..."
       />
     );
-  };
+  }, [selectedTab, content, isLoading, converter, handleContentChange]);
+
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedUpdateNote.cancel();
+    };
+  }, [debouncedUpdateNote]);
+
+  // New components
+  const EditorToolbar = memo(({ onInsertMarkdown }: { onInsertMarkdown: (prefix: string, suffix?: string) => void }) => {
+    return (
+      <div className="hidden md:flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1.5 rounded-lg border border-gray-200/50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('**', '**')}
+          title="Bold"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('*', '*')}
+          title="Italic"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('\n- [ ] ')}
+          title="Task List"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <CheckSquare className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('\n- ')}
+          title="Unordered List"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('\n1. ')}
+          title="Ordered List"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('\n> ')}
+          title="Quote"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <Quote className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onInsertMarkdown('`', '`')}
+          title="Code"
+          className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
+        >
+          <Code className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  });
+  EditorToolbar.displayName = 'EditorToolbar';
+
+  const EditorHeader = memo(({ 
+    title, 
+    onTitleChange, 
+    isLoading 
+  }: { 
+    title: string;
+    onTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    isLoading: boolean;
+  }) => {
+    return (
+      <div className="flex-1 flex items-center gap-3">
+        <motion.div
+          whileHover={{ rotate: 15 }}
+          transition={{ type: "spring", stiffness: 400 }}
+        >
+          <FileText className="h-5 w-5 text-blue-500" />
+        </motion.div>
+        <input
+          id="note-title"
+          type="text"
+          value={title}
+          onChange={onTitleChange}
+          className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/10 rounded-md px-2 py-1 transition-all"
+          placeholder={l18n.untitledNote}
+          aria-label="Note title"
+          disabled={isLoading}
+        />
+      </div>
+    );
+  });
+  EditorHeader.displayName = 'EditorHeader';
 
   return (
     <motion.div 
@@ -199,24 +342,11 @@ const Editor: React.FC<EditorProps> = ({
 
       <div className={`${isLoading ? 'opacity-50' : ''} transition-all duration-300`}>
         <div className="flex items-center justify-between p-4 border-b border-gray-200/50 bg-white/70 backdrop-blur-md sticky top-0 z-20 shadow-sm">
-          <div className="flex-1 flex items-center gap-3">
-            <motion.div
-              whileHover={{ rotate: 15 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <FileText className="h-5 w-5 text-blue-500" />
-            </motion.div>
-            <input
-              id="note-title"
-              type="text"
-              value={title}
-              onChange={handleTitleChange}
-              className="flex-1 text-xl font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/10 rounded-md px-2 py-1 transition-all"
-              placeholder={l18n.untitledNote}
-              aria-label="Note title"
-              disabled={isLoading}
-            />
-          </div>
+          <EditorHeader
+            title={titleRef.current || ''}
+            onTitleChange={handleTitleChange}
+            isLoading={isLoading ?? false}
+          />
           
           <div className="flex items-center gap-2">
             {isSaving && !isLoading && (
@@ -264,79 +394,17 @@ const Editor: React.FC<EditorProps> = ({
                 {selectedTab === "write" && (
                   <>
                     {/* Desktop Fixed Toolbar */}
-                    <div className="hidden md:flex items-center gap-1 bg-gray-100/50 backdrop-blur-sm p-1.5 rounded-lg border border-gray-200/50">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('**', '**')}
-                        title="Bold"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <Bold className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('*', '*')}
-                        title="Italic"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <Italic className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('\n- [ ] ')}
-                        title="Task List"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <CheckSquare className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('\n- ')}
-                        title="Unordered List"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <List className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('\n1. ')}
-                        title="Ordered List"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <ListOrdered className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('\n> ')}
-                        title="Quote"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <Quote className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertMarkdown('`', '`')}
-                        title="Code"
-                        className="hover:bg-white hover:shadow-sm transition-all h-8 w-8"
-                      >
-                        <Code className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <EditorToolbar
+                      onInsertMarkdown={insertMarkdown}
+                    />
 
                     {/* Mobile Floating Toolbar */}
                     <motion.div 
                       ref={toolbarRef}
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ 
-                        opacity: isToolbarVisible ? 1 : 0,
-                        y: isToolbarVisible ? 0 : -20
+                        opacity: isToolbarVisibleRef ? 1 : 0,
+                        y: isToolbarVisibleRef ? 0 : -20
                       }}
                       transition={{ duration: 0.2 }}
                       className="md:hidden fixed bottom-4 left-1/4 -translate-x-1/2 flex items-center gap-1 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-gray-200/50 z-50"
@@ -421,6 +489,8 @@ const Editor: React.FC<EditorProps> = ({
       </div>
     </motion.div>
   );
-};
+});
+
+Editor.displayName = 'Editor';
 
 export default Editor;
