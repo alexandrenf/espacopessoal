@@ -22,6 +22,7 @@ import {
   Share2,
   Sparkles,
   Save,
+  ArrowUpRight,
 } from "lucide-react";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -392,6 +393,33 @@ const Editor: React.FC<EditorProps> = ({
     }, 0);
   };
 
+  const convertToUppercase = () => {
+    if (!textAreaRef.current) return;
+    const start = textAreaRef.current.selectionStart;
+    const end = textAreaRef.current.selectionEnd;
+    
+    // If no text is selected, convert entire content
+    if (start === end) {
+      const newContent = content.toUpperCase();
+      handleContentChange(newContent);
+      return;
+    }
+    
+    // If text is selected, convert only selection
+    const beforeText = content.substring(0, start);
+    const selectedText = content.substring(start, end).toUpperCase();
+    const afterText = content.substring(end);
+
+    const newContent = beforeText + selectedText + afterText;
+    handleContentChange(newContent);
+
+    // reposition cursor
+    setTimeout(() => {
+      textAreaRef.current?.focus();
+      textAreaRef.current?.setSelectionRange(start, end);
+    }, 0);
+  };
+
   //
   // --- Touch Behavior for Mobile Toolbar ---
   //
@@ -701,6 +729,14 @@ const Editor: React.FC<EditorProps> = ({
                       >
                         <Code className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={convertToUppercase}
+                        className="h-8 w-8 hover:bg-white hover:shadow-sm"
+                      >
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -789,6 +825,14 @@ const Editor: React.FC<EditorProps> = ({
                   className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Code className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={convertToUppercase}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
                 </Button>
               </div>
             </motion.div>
