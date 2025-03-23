@@ -730,8 +730,8 @@ const Editor: React.FC<EditorProps> = ({
                 max-w-[calc(100vw-2rem)] mx-auto
                 rounded-full border border-gray-200/50 bg-white/90 p-2 
                 shadow-lg backdrop-blur-md md:hidden
-                top-[80vh] transform-gpu
-                ${sidebarOpen && 'top-[35vh]'} // Move up when spell checker is open
+                bottom-4 transform-gpu
+                ${sidebarOpen && 'bottom-[65vh]'} // Move up when spell checker is open
               `}
             >
               <div className="flex items-center gap-1 px-1 flex-wrap justify-center">
