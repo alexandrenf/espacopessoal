@@ -138,7 +138,7 @@ function SpellCheckDiffView({
           Aceitar todas
         </Button>
       </div>
-      <div className="bg-blue-50 p-3 text-sm text-blue-700 border-b">
+      <div className="hidden md:block bg-blue-50 p-3 text-sm text-blue-700 border-b">
         Retorne ao modo de escrita após finalizar as correções
       </div>
       <div className="flex-1 overflow-auto">
@@ -576,7 +576,7 @@ const Editor: React.FC<EditorProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm"
+                    className="fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm z-30"
                   >
                     <Save className="h-4 w-4 animate-pulse text-green-500" />
                     <span className="text-sm font-medium text-green-600 hidden md:inline">
@@ -730,8 +730,7 @@ const Editor: React.FC<EditorProps> = ({
                 max-w-[calc(100vw-2rem)] mx-auto
                 rounded-full border border-gray-200/50 bg-white/90 p-2 
                 shadow-lg backdrop-blur-md md:hidden
-                bottom-4 transform-gpu
-                ${sidebarOpen && 'bottom-[65vh]'} // Move up when spell checker is open
+                ${sidebarOpen && 'bottom-[45vh]'} // Move up when spell checker is open
               `}
             >
               <div className="flex items-center gap-1 px-1 flex-wrap justify-center">
@@ -825,7 +824,7 @@ const Editor: React.FC<EditorProps> = ({
           y: sidebarOpen ? "0%" : "100%"
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed left-0 right-0 bottom-0 h-[60vh] bg-white shadow-lg z-20 rounded-t-xl border-t md:hidden"
+        className="fixed left-0 right-0 bottom-0 h-[40vh] bg-white shadow-lg z-20 rounded-t-xl border-t md:hidden"
       >
         {spellCheckResults.length > 0 && (
           <>
