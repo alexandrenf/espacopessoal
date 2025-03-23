@@ -58,6 +58,47 @@ interface TreeDropInfo {
   dropToGap: boolean;
 }
 
+// Add the DropIndicatorProps type
+interface DropIndicatorProps {
+  dropPosition: number;
+  dropLevelOffset: number;
+  indent: number;
+}
+
+// Custom styles for the drop indicator
+const dropIndicatorStyles: React.CSSProperties = {
+  position: 'absolute',
+  backgroundColor: '#2563eb', // blue-600
+  height: '2px',
+  pointerEvents: 'none',
+  transition: 'all 0.15s ease',
+  zIndex: 10,
+  width: 'calc(100% - 24px)', // Leave space for the indent
+  left: 0,
+};
+
+const folderDropStyles: React.CSSProperties = {
+  position: 'absolute',
+  backgroundColor: '#dbeafe', // blue-100
+  border: '2px dashed #60a5fa', // blue-400
+  borderRadius: '4px',
+  pointerEvents: 'none',
+  transition: 'all 0.15s ease',
+  zIndex: 10,
+  width: 'calc(100% - 24px)', // Leave space for the indent
+  left: 0,
+  height: '100%',
+  top: 0,
+};
+
+interface ExtendedDropIndicatorProps extends DropIndicatorProps {
+  dropTargetKey?: Key;
+  dropTargetPos?: string;
+  dropTargetNode?: EventDataNode<CustomDataNode>;
+  dragNode?: EventDataNode<CustomDataNode>;
+  dropToGap?: boolean;
+}
+
 const Sidebar = memo(({
   notes,
   currentNote,
@@ -166,57 +207,126 @@ const Sidebar = memo(({
 
     if (!dragNote || !dropNote || !onUpdateStructure) return;
 
-    const updatedNotes = [...localNotes];
+    const updatedNotes = localNotes.map(note => ({ ...note })); // Create deep copy
     let newParentId: number | null = null;
-    let newOrder: number;
 
+    // Handle dropping into a folder
     if (dropPosition === 0 && dropNote.isFolder) {
       newParentId = dropNote.id;
-      const notesInFolder = localNotes.filter(n => n.parentId === newParentId);
-      newOrder = notesInFolder.length > 0 
-        ? Math.max(...notesInFolder.map(n => n.order)) + 1 
-        : 0;
-    } else {
-      newParentId = dropNote.parentId;
-      const notesInLevel = localNotes
-        .filter(n => n.parentId === newParentId)
+      
+      // Get existing notes in the target folder
+      const notesInFolder = updatedNotes
+        .filter(n => n.parentId === newParentId && n.id !== dragNote.id)
         .sort((a, b) => a.order - b.order);
-      
-      const dropIndex = notesInLevel.findIndex(n => n.id === dropNote.id);
-      
-      // Calculate new order based on drop position
-      if (dropPosition < 0) {
-        // Dropping above
-        newOrder = dropNote.order;
-      } else {
-        // Dropping below
-        newOrder = dropNote.order + 1;
-      }
+
+      // Update the dragged note
+      const dragNoteIndex = updatedNotes.findIndex(n => n.id === dragNote.id);
+      updatedNotes[dragNoteIndex] = {
+        ...dragNote,
+        parentId: newParentId,
+        order: notesInFolder.length // Place at the end
+      };
 
       // Update orders for all affected notes
-      notesInLevel.forEach(note => {
-        if (note.order >= newOrder) {
+      updatedNotes.forEach(note => {
+        if (note.parentId === dragNote.parentId && note.order > dragNote.order) {
+          note.order -= 1; // Shift up notes in the source folder
+        }
+      });
+    } else {
+      // Handle dropping between notes
+      newParentId = dropNote.parentId;
+      
+      // Get all notes at the target level (excluding the dragged note)
+      const notesInLevel = updatedNotes
+        .filter(n => n.parentId === newParentId && n.id !== dragNote.id)
+        .sort((a, b) => a.order - b.order);
+
+      const dropIndex = notesInLevel.findIndex(n => n.id === dropNote.id);
+      const targetIndex = dropPosition < 0 ? dropIndex : dropIndex + 1;
+
+      // Remove note from its current position
+      const dragNoteIndex = updatedNotes.findIndex(n => n.id === dragNote.id);
+      const oldParentId = dragNote.parentId;
+      const oldOrder = dragNote.order;
+
+      // Update orders in the source folder
+      updatedNotes.forEach(note => {
+        if (note.parentId === oldParentId && note.order > oldOrder) {
+          note.order -= 1;
+        }
+      });
+
+      // Insert at new position
+      updatedNotes[dragNoteIndex] = {
+        ...dragNote,
+        parentId: newParentId,
+        order: targetIndex
+      };
+
+      // Update orders in the target folder
+      updatedNotes.forEach(note => {
+        if (note.parentId === newParentId && note.id !== dragNote.id && note.order >= targetIndex) {
           note.order += 1;
         }
       });
     }
 
-    const updatedNote = {
-      ...dragNote,
-      parentId: newParentId,
-      order: newOrder
+    // Normalize orders to ensure they are sequential
+    const normalizeOrders = (parentId: number | null) => {
+      const notesInLevel = updatedNotes
+        .filter(n => n.parentId === parentId)
+        .sort((a, b) => a.order - b.order);
+      
+      notesInLevel.forEach((note, index) => {
+        const noteIndex = updatedNotes.findIndex(n => n.id === note.id);
+        updatedNotes[noteIndex]!.order = index;
+      });
     };
 
-    const finalNotes = updatedNotes.map(n => 
-      n.id === dragNote.id ? updatedNote : n
-    );
+    // Normalize orders for both source and target folders
+    if (typeof dragNote?.parentId !== 'undefined') {
+      normalizeOrders(dragNote.parentId);
+      if (dragNote.parentId !== newParentId) {
+        normalizeOrders(newParentId);
+      }
+    }
 
-    setLocalNotes(finalNotes);
-    onUpdateStructure(finalNotes.map(n => ({
+    setLocalNotes(updatedNotes);
+    onUpdateStructure(updatedNotes.map(n => ({
       id: n.id,
       parentId: n.parentId,
       order: n.order
     })));
+  };
+
+  const renderDropIndicator = (props: ExtendedDropIndicatorProps) => {
+    const { dropPosition, dropLevelOffset, indent, dropTargetNode, dropToGap } = props;
+    
+    const style: React.CSSProperties = {
+      ...dropIndicatorStyles,
+      transform: `translateX(${dropLevelOffset}px)`,
+    };
+
+    // If dropToGap is false, we're dropping into a folder
+    const isIntoFolder = dropPosition === 0 && dropToGap === false;
+
+    if (isIntoFolder) {
+      // When dropping into a folder
+      style.backgroundColor = '#60a5fa'; // lighter blue for folder drop
+      style.height = '4px';
+      style.borderRadius = '2px';
+      style.boxShadow = '0 0 0 1px rgba(96, 165, 250, 0.3)';
+      style.transform += ' translateY(-2px)';
+    } else if (dropPosition === 1) {
+      // When dropping after a node
+      style.transform += ' translateY(100%)';
+    } else if (dropPosition === -1) {
+      // When dropping before a node
+      style.transform += ' translateY(-50%)';
+    }
+
+    return <div style={style} />;
   };
 
   return (
@@ -270,12 +380,11 @@ const Sidebar = memo(({
       <div className="flex-1 min-h-0 overflow-auto">
         <Tree
           treeData={treeData}
-          draggable={!isMobile} // Disable drag and drop on mobile
+          draggable={!isMobile}
           onDrop={handleDrop}
           onSelect={([selectedKey]) => {
             if (selectedKey) {
               setCurrentNoteId(Number(selectedKey));
-              // Close sidebar on mobile after selection
               if (isMobile && onToggleSidebar) {
                 onToggleSidebar();
               }
@@ -287,7 +396,7 @@ const Sidebar = memo(({
           motion={false}
           prefixCls="custom-tree"
           className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
-          dropIndicatorRender={() => null}
+          dropIndicatorRender={renderDropIndicator}
           defaultExpandAll={false}
           defaultExpandedKeys={[]}
         />
@@ -301,3 +410,4 @@ const Sidebar = memo(({
 Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;
+
