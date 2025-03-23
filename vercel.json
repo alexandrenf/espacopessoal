@@ -4,5 +4,10 @@
     "deploymentEnabled": {
       "deno/**/*": false
     }
+  },
+  "functions": {
+    "app/api/gemini/route.ts": {
+      "maxDuration": 20
+    }
   }
 }

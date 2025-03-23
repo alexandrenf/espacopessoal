@@ -22,8 +22,11 @@ export async function POST(request: NextRequest) {
         "correctedText": "full corrected text"
       }
 
-      The response must be valid JSON with no markdown formatting, code blocks, or additional text.
-      If there are no issues, return an empty diffs array.
+      Important rules:
+      1. The response must be valid JSON with no markdown formatting, code blocks, or additional text.
+      2. If there are no issues, return an empty diffs array.
+      3. Never include diffs where the original and suggestion are identical.
+      4. Each suggestion must be different from its original text.
     `;
 
     const result = await model.generateContent([prompt, text]);
@@ -44,6 +47,11 @@ export async function POST(request: NextRequest) {
     }
 
     const spellCheckResults = JSON.parse(cleanedResponse) as SpellCheckResult;
+
+    // Filter out diffs where original and suggestion are identical
+    spellCheckResults.diffs = spellCheckResults.diffs.filter(
+      diff => diff.original !== diff.suggestion
+    );
 
     // Compute start and end indices for each diff based on the original text.
     // Using an inclusive end index ensures that spaces are not inadvertently trimmed.
