@@ -22,6 +22,7 @@ import {
   Share2,
   Sparkles,
   Save,
+  ArrowUpRight,
 } from "lucide-react";
 import { Converter } from "showdown";
 import DOMPurify from "dompurify";
@@ -47,6 +48,7 @@ interface SpellCheckDiff {
   suggestion: string;
   start: number;
   end: number;
+  reason: string;
 }
 
 interface SpellCheckResponse {
@@ -161,8 +163,11 @@ function SpellCheckDiffView({
               <div className="text-sm text-gray-500">
                 Sugestão:{" "}
                 <span className="font-semibold text-green-600">
-                  “{diff.suggestion}”
+                  &ldquo;{diff.suggestion}&rdquo;
                 </span>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                {diff.reason}
               </div>
               <div className="mt-3 flex gap-2">
                 <Button size="sm" onClick={() => onAccept(diff)}>
@@ -389,6 +394,33 @@ const Editor: React.FC<EditorProps> = ({
         start + prefix.length,
         end + prefix.length,
       );
+    }, 0);
+  };
+
+  const convertToUppercase = () => {
+    if (!textAreaRef.current) return;
+    const start = textAreaRef.current.selectionStart;
+    const end = textAreaRef.current.selectionEnd;
+    
+    // If no text is selected, convert entire content
+    if (start === end) {
+      const newContent = content.toUpperCase();
+      handleContentChange(newContent);
+      return;
+    }
+    
+    // If text is selected, convert only selection
+    const beforeText = content.substring(0, start);
+    const selectedText = content.substring(start, end).toUpperCase();
+    const afterText = content.substring(end);
+
+    const newContent = beforeText + selectedText + afterText;
+    handleContentChange(newContent);
+
+    // reposition cursor
+    setTimeout(() => {
+      textAreaRef.current?.focus();
+      textAreaRef.current?.setSelectionRange(start, end);
     }, 0);
   };
 
@@ -701,6 +733,14 @@ const Editor: React.FC<EditorProps> = ({
                       >
                         <Code className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={convertToUppercase}
+                        className="h-8 w-8 hover:bg-white hover:shadow-sm"
+                      >
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -789,6 +829,14 @@ const Editor: React.FC<EditorProps> = ({
                   className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Code className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={convertToUppercase}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
                 </Button>
               </div>
             </motion.div>

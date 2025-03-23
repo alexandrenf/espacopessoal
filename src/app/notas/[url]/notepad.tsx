@@ -479,10 +479,15 @@ const App = ({ password }: AppProps): JSX.Element => {
     // Update latest content ref immediately
     latestContentRef.current = text;
     
-    // Debounce the notes state update
+    // Find current note
     const currentNote = notes.find((n) => n.id === currentNoteId);
     if (!currentNote) return;
 
+    // Immediately update the note in the notes array for UI purposes
+    setNotes(prevNotes => prevNotes.map(note => 
+      note.id === currentNoteId ? { ...note, content: text } : note
+    ));
+    
     // Update last keystroke timestamp
     const now = Date.now();
     lastKeystrokeRef.current = now;
