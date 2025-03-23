@@ -48,6 +48,7 @@ interface SpellCheckDiff {
   suggestion: string;
   start: number;
   end: number;
+  reason: string;
 }
 
 interface SpellCheckResponse {
@@ -162,8 +163,11 @@ function SpellCheckDiffView({
               <div className="text-sm text-gray-500">
                 Sugestão:{" "}
                 <span className="font-semibold text-green-600">
-                  “{diff.suggestion}”
+                  &ldquo;{diff.suggestion}&rdquo;
                 </span>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                {diff.reason}
               </div>
               <div className="mt-3 flex gap-2">
                 <Button size="sm" onClick={() => onAccept(diff)}>

@@ -9,35 +9,33 @@ export async function POST(request: NextRequest) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const prompt = `
-      Act as a professional proofreader. Carefully review the following text for **spelling**, **grammar**, **punctuation**, **capitalization**, **clarity**, **conciseness**, and **style consistency**. Pay attention to common writing issues, such as:
-- Repeated or redundant words
-- Passive voice (when unnecessary)
-- Awkward or unclear phrasing
-- Tone inconsistencies
+      Act as a professional proofreader. Analyze the following text for spelling, grammar, and style issues.
+      Respond ONLY with a JSON object in this exact format, with no other text or markdown:
+      {
+        "diffs": [
+          {
+            "original": "incorrect text",
+            "suggestion": "corrected text",
+            "reason": "explanation"
+          }
+        ]
+      }
 
-Only correct **genuine issues**. Do **not** suggest changes to:
-- Text that is **entirely in ALL CAPS** unless it contains typos or incorrect punctuation
-- Words or phrases that are already correct, even if subjective improvements are possible
-- Formatting or sentence structure if it is already clear and grammatically correct
-
-Respond **only** with a JSON object in this exact format:
-
-{
-  "diffs": [
-    {
-      "original": "incorrect text",
-      "suggestion": "corrected text",
-      "reason": "short explanation of the correction"
-    }
-  ],
-  "correctedText": "the full corrected text, with all suggested edits applied"
-}
-
-Strict rules:
-1. Your response must be valid JSON, with no markdown formatting, code blocks, or explanatory text outside the object.
-2. If there are no errors or suggested changes, return an empty diffs array.
-3. Do **not** include any diffs where the original and suggestion values are **identical**.
-4. Ensure all suggestions differ from the original, and each correction must have a clear and justified reason.
+      Important rules:
+      1. The response must be valid JSON with no markdown formatting, code blocks, or additional text.
+      2. If there are no issues, return an empty diffs array.
+      3. Never include diffs where the original and suggestion are identical.
+      4. Each suggestion must be different from its original text.
+      5. Break down corrections into the smallest meaningful units:
+         - Correct individual words separately
+         - For phrases that need to be corrected together, split them into individual words or small groups of words (up to three words)
+         - Do not include entire sentences in a single diff unless absolutely necessary
+      6. Focus on one issue per diff:
+         - Spelling errors
+         - Grammar mistakes
+         - Word choice improvements
+         - Punctuation fixes
+      7. Provide clear, concise reasons for each correction in the language of the text.
     `;
 
     const result = await model.generateContent([prompt, text]);
@@ -57,15 +55,23 @@ Strict rules:
         start?: number;
         end?: number;
       }>;
-      correctedText: string;
     }
 
     const spellCheckResults = JSON.parse(cleanedResponse) as SpellCheckResult;
 
     // Filter out diffs where original and suggestion are identical
-    spellCheckResults.diffs = spellCheckResults.diffs.filter(
-      (diff) => diff.original !== diff.suggestion,
-    );
+    // or where the only change is case (either full or partial)
+    spellCheckResults.diffs = spellCheckResults.diffs.filter((diff) => {
+      // Skip if original and suggestion are identical
+      if (diff.original === diff.suggestion) return false;
+      
+      // Skip if the only difference is case (full or partial)
+      const normalizedOriginal = diff.original.toLowerCase();
+      const normalizedSuggestion = diff.suggestion.toLowerCase();
+      if (normalizedOriginal === normalizedSuggestion) return false;
+      
+      return true;
+    });
 
     // Compute start and end indices for each diff based on the original text.
     // Using an inclusive end index ensures that spaces are not inadvertently trimmed.
@@ -87,7 +93,7 @@ Strict rules:
   } catch (error) {
     console.error("Spell check API error:", error);
     return Response.json(
-      { error: "Spell check failed", diffs: [], correctedText: "" },
+      { error: "Spell check failed", diffs: [] },
       { status: 500 },
     );
   }
