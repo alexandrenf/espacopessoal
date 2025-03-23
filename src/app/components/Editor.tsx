@@ -307,7 +307,11 @@ const Editor: React.FC<EditorProps> = ({
       // First, update the current diff position
       const [updatedDiff] = recalcDiffPositions(content, [diff]);
       if (!updatedDiff || updatedDiff.start === -1) {
-        setSpellCheckResults((prev) => prev.filter((d) => d.id !== diff.id));
+        setSpellCheckResults((prev) => {
+          const newResults = prev.filter((d) => d.id !== diff.id);
+          if (newResults.length === 0) setSelectedTab("write");
+          return newResults;
+        });
         return;
       }
 
@@ -324,7 +328,9 @@ const Editor: React.FC<EditorProps> = ({
       // Then recalculate positions for all remaining diffs
       setSpellCheckResults((prev) => {
         const remainingDiffs = prev.filter((d) => d.id !== diff.id);
-        return recalcDiffPositions(newText, remainingDiffs);
+        const recalculatedDiffs = recalcDiffPositions(newText, remainingDiffs);
+        if (recalculatedDiffs.length === 0) setSelectedTab("write");
+        return recalculatedDiffs;
       });
     },
     [content, handleContentChange],
@@ -332,7 +338,11 @@ const Editor: React.FC<EditorProps> = ({
 
   // 3) reject a single diff
   const handleRejectDiff = useCallback((diff: SpellCheckDiff) => {
-    setSpellCheckResults((prev) => prev.filter((d) => d.id !== diff.id));
+    setSpellCheckResults((prev) => {
+      const newResults = prev.filter((d) => d.id !== diff.id);
+      if (newResults.length === 0) setSelectedTab("write");
+      return newResults;
+    });
   }, []);
 
   // 4) accept all
@@ -500,9 +510,10 @@ const Editor: React.FC<EditorProps> = ({
 
       {/* Editor Column */}
       <motion.div 
-        className="flex-1"
+        className="flex-1 md:flex-1 md:[&[style*='margin-bottom']]:mb-0"
         animate={{
-          marginRight: sidebarOpen ? "320px" : "0px"
+          marginRight: sidebarOpen ? "320px" : "0px",
+          marginBottom: sidebarOpen ? "60vh" : "0px",
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
@@ -568,7 +579,7 @@ const Editor: React.FC<EditorProps> = ({
                     className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm"
                   >
                     <Save className="h-4 w-4 animate-pulse text-green-500" />
-                    <span className="text-sm font-medium text-green-600">
+                    <span className="text-sm font-medium text-green-600 hidden md:inline">
                       Salvando...
                     </span>
                   </motion.div>
@@ -587,7 +598,7 @@ const Editor: React.FC<EditorProps> = ({
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  Ortografia
+                  <span className="hidden md:inline">Ortografia</span>
                 </Button>
 
                 {/* Share Button */}
@@ -599,7 +610,7 @@ const Editor: React.FC<EditorProps> = ({
                     onClick={() => setIsShareModalOpen(true)}
                   >
                     <Share2 className="h-4 w-4" />
-                    Compartilhar
+                    <span className="hidden md:inline">Compartilhar</span>
                   </Button>
                 )}
               </div>
@@ -620,14 +631,14 @@ const Editor: React.FC<EditorProps> = ({
                       className="flex items-center gap-2 data-[state=active]:bg-white"
                     >
                       <FileText className="h-4 w-4" />
-                      Escrever
+                      <span className="hidden md:inline">Escrever</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="preview"
                       className="flex items-center gap-2 data-[state=active]:bg-white"
                     >
                       <Eye className="h-4 w-4" />
-                      Visualizar
+                      <span className="hidden md:inline">Visualizar</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -714,97 +725,86 @@ const Editor: React.FC<EditorProps> = ({
                 y: isToolbarVisible ? 0 : -20,
               }}
               transition={{ duration: 0.2 }}
-              className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 p-2 shadow-lg backdrop-blur-md md:hidden"
+              className={`
+                fixed left-1/2 z-30 -translate-x-1/2 
+                max-w-[calc(100vw-2rem)] mx-auto
+                rounded-full border border-gray-200/50 bg-white/90 p-2 
+                shadow-lg backdrop-blur-md md:hidden
+                top-[80vh] transform-gpu
+                ${sidebarOpen && 'top-[35vh]'} // Move up when spell checker is open
+              `}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("**", "**")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <Bold className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("*", "*")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("\n- [ ] ")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <CheckSquare className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("\n- ")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("\n1. ")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("\n> ")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <Quote className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => insertMarkdown("`", "`")}
-                className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
-              >
-                <Code className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSpellCheck}
-                disabled={isSpellChecking || !session?.user}
-                data-spellcheck-button
-                className={`
-                  group h-8 w-8 transition-all hover:bg-gray-100 hover:shadow-sm
-                  [&.animate-success]:bg-green-100 [&.animate-success]:text-green-600
-                  [&.animate-success]:scale-110 [&.animate-success]:rotate-[360deg]
-                  [&.animate-success]:duration-500
-                `}
-                title={!session?.user ? "Faça login para usar o corretor ortográfico" : "Corretor ortográfico"}
-              >
-                {isSpellChecking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 transition-colors group-hover:text-yellow-500" />
-                )}
-              </Button>
+              <div className="flex items-center gap-1 px-1 flex-wrap justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("**", "**")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("*", "*")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("\n- [ ] ")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("\n- ")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("\n1. ")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <ListOrdered className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("\n> ")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <Quote className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => insertMarkdown("`", "`")}
+                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
+                >
+                  <Code className="h-4 w-4" />
+                </Button>
+              </div>
             </motion.div>
           )}
         </motion.div>
       </motion.div>
 
-      {/* Spell Check Sidebar */}
+      {/* Spell Check Sidebar - Desktop */}
       <motion.div
         initial={{ x: "100%" }}
         animate={{ 
           x: sidebarOpen ? "0%" : "100%"
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed right-0 top-[64px] bottom-0 w-[320px] border-l bg-white shadow-lg z-20"
+        className="fixed right-0 top-[64px] bottom-0 w-[320px] border-l bg-white shadow-lg z-20 hidden md:block"
       >
         {spellCheckResults.length > 0 && (
           <SpellCheckDiffView
@@ -815,6 +815,33 @@ const Editor: React.FC<EditorProps> = ({
             onReject={handleRejectDiff}
             onAcceptAll={handleAcceptAllDiffs}
           />
+        )}
+      </motion.div>
+
+      {/* Spell Check Bottom Sheet - Mobile */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ 
+          y: sidebarOpen ? "0%" : "100%"
+        }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="fixed left-0 right-0 bottom-0 h-[60vh] bg-white shadow-lg z-20 rounded-t-xl border-t md:hidden"
+      >
+        {spellCheckResults.length > 0 && (
+          <>
+            {/* Mobile drag handle */}
+            <div className="flex justify-center p-2 border-b">
+              <div className="w-12 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <SpellCheckDiffView
+              diffs={spellCheckResults}
+              hoveredDiffId={hoveredDiffId}
+              onHoverDiff={setHoveredDiffId}
+              onAccept={handleAcceptDiff}
+              onReject={handleRejectDiff}
+              onAcceptAll={handleAcceptAllDiffs}
+            />
+          </>
         )}
       </motion.div>
     </motion.div>
