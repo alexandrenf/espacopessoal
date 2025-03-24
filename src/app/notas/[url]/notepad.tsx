@@ -67,6 +67,8 @@ interface UpdateStructureItem {
 const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
+  // Add a normalized URL variable
+  const normalizedUrl = useMemo(() => url.toLowerCase().trim(), [url]);
   const { data: session } = useSession({
     required: false,
   });
@@ -118,7 +120,7 @@ const App = ({ password }: AppProps): JSX.Element => {
     isLoading,
     refetch: refetchNotes,
   } = api.notes.fetchNotesPublic.useQuery(
-    { url, password: password ?? undefined },
+    { url: normalizedUrl, password: password ?? undefined },
     {
       enabled: Boolean(url),
       retry: 1,
