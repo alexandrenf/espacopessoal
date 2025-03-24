@@ -49,6 +49,7 @@ export const notesRouter = createTRPCRouter({
       return { success: true };
     }),
 
+  // In fetchNotesPublic and other procedures that use URL
   fetchNotesPublic: publicProcedure
     .input(
       z.object({
@@ -59,7 +60,12 @@ export const notesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       // First, get only the necessary fields from userThings
       const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
+        where: { 
+          notePadUrl: {
+            equals: input.url,
+            mode: 'insensitive', // This makes the comparison case-insensitive
+          }
+        },
         select: {
           ownedById: true,
           privateOrPublicUrl: true,
@@ -84,6 +90,7 @@ export const notesRouter = createTRPCRouter({
         }
       }
 
+      // Use a single query with proper indexing and ordering
       return await ctx.db.notepad.findMany({
         where: {
           createdById: userThings.ownedById,
@@ -97,7 +104,11 @@ export const notesRouter = createTRPCRouter({
           isFolder: true,
           order: true,
         },
-        orderBy: [{ parentId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
+        orderBy: [
+          { parentId: "asc" },
+          { order: "asc" },
+          { createdAt: "desc" }
+        ],
       });
     }),
 

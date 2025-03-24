@@ -45,14 +45,17 @@ export const userSettingsRouter = createTRPCRouter({
       ctx: Context; 
       input: UpdateSettingsInput;
     }) => {
-      // Check if URL is already taken by another user
+      // Check if URL is already taken by another user (case-insensitive)
       const existingUrl = await ctx.db.userThings.findFirst({
         where: {
-          notePadUrl: input.notePadUrl,
+          notePadUrl: {
+            equals: input.notePadUrl,
+            mode: 'insensitive', // Case-insensitive comparison
+          },
           ownedById: { not: ctx.session!.user.id },
         },
       });
-
+  
       if (existingUrl) {
         throw new TRPCError({
           code: "CONFLICT",

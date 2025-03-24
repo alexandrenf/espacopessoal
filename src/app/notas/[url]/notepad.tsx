@@ -67,7 +67,14 @@ interface UpdateStructureItem {
 const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
-  const { data: session } = useSession();
+  // Add a normalized URL variable
+  const normalizedUrl = useMemo(() => url.toLowerCase().trim(), [url]);
+  const { data: session } = useSession({
+    required: false,
+  });
+
+  // Memoize session-dependent values
+  const isAuthenticated = useMemo(() => !!session?.user, [session?.user]);
 
   // --- Local states
   const [notes, setNotes] = useState<Note[]>([]);
@@ -113,18 +120,18 @@ const App = ({ password }: AppProps): JSX.Element => {
     isLoading,
     refetch: refetchNotes,
   } = api.notes.fetchNotesPublic.useQuery(
-    { url, password: password ?? undefined },
+    { url: normalizedUrl, password: password ?? undefined },
     {
       enabled: Boolean(url),
       retry: 1,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
-      staleTime: 30000,
+      staleTime: 30000, // Keep data fresh for 30 seconds
       select: (fetchedNotes) =>
         fetchedNotes.map((note) => ({
           ...note,
           content: note.content ?? "",
-        })),
+        })) as Note[],
     },
   );
 
@@ -158,15 +165,36 @@ const App = ({ password }: AppProps): JSX.Element => {
   // ------------------------------
   // 1. Update a note
   const updateNoteMutation = api.notes.updateNotePublic.useMutation({
-    onMutate: async () => {
+    onMutate: async (newNote) => {
       // Cancel any incoming refetch so we don't overwrite local state
       await utils.notes.fetchNotesPublic.cancel({ url });
+
+      // Snapshot the previous value
+      const previousNotes = utils.notes.fetchNotesPublic.getData({ url });
+
+      // Optimistically update to the new value
+      utils.notes.fetchNotesPublic.setData({ url }, (old) => {
+        if (!old) return old;
+        return old.map((note) =>
+          note.id === newNote.id
+            ? { ...note, content: newNote.content }
+            : note
+        );
+      });
+
+      return { previousNotes };
     },
-    onSuccess: () => {
+    onError: (err, newNote, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousNotes) {
+        utils.notes.fetchNotesPublic.setData({ url }, context.previousNotes);
+      }
+      handleError(err);
       setIsSaving(false);
     },
-    onError: (err) => {
-      handleError(err);
+    onSettled: () => {
+      // Always refetch after error or success to ensure we have the latest data
+      void utils.notes.fetchNotesPublic.invalidate({ url });
       setIsSaving(false);
     },
     retry: 2,
@@ -242,6 +270,12 @@ const App = ({ password }: AppProps): JSX.Element => {
         order: maxOrder + 1,
       };
 
+      // Optimistically update the cache
+      utils.notes.fetchNotesPublic.setData({ url }, (old) => {
+        if (!old) return [newNote];
+        return [newNote, ...old];
+      });
+
       // Insert optimistically
       setNotes((prev) => [newNote, ...prev]);
       if (!variables.isFolder) {
@@ -254,6 +288,10 @@ const App = ({ password }: AppProps): JSX.Element => {
     onError: (err, _, ctx) => {
       // If error creating note, revert
       if (ctx?.optimisticNote) {
+        utils.notes.fetchNotesPublic.setData({ url }, (old) => {
+          if (!old) return old;
+          return old.filter((note) => note.id !== ctx.optimisticNote.id);
+        });
         setNotes((prev) =>
           prev.filter((note) => note.id !== ctx.optimisticNote.id),
         );
@@ -272,6 +310,22 @@ const App = ({ password }: AppProps): JSX.Element => {
           ? Math.max(...siblings.map(n => n.order))
           : 0;
         
+        // Update the cache with the actual note
+        utils.notes.fetchNotesPublic.setData({ url }, (old) => {
+          if (!old) return old;
+          return old.map((note) =>
+            note.id === ctx.optimisticNote.id
+              ? ({
+                  ...actualNote,
+                  content: latestContentRef.current,
+                  parentId: null,
+                  isFolder: variables.isFolder ?? false,
+                  order: maxOrder + 1,
+                } as Note)
+              : note
+          );
+        });
+
         setNotes((prev) =>
           prev.map((note) =>
             note.id === ctx.optimisticNote.id
@@ -282,19 +336,13 @@ const App = ({ password }: AppProps): JSX.Element => {
                   isFolder: variables.isFolder ?? false,
                   order: maxOrder + 1,
                 } as Note)
-              : note,
+              : note
           ),
         );
         if (!variables.isFolder) {
           setCurrentNoteId(actualNote.id);
         }
       }
-
-      // Force a refetch
-      await utils.notes.fetchNotesPublic.invalidate({
-        url,
-        password: password ?? undefined,
-      });
     },
     retry: 2,
   });

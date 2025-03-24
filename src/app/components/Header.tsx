@@ -10,23 +10,27 @@ import { Sheet, SheetTrigger, SheetContent, SheetClose } from "~/components/ui/s
 import debounce from "lodash/debounce"; // Using lodash's debounce since it's already in dependencies
 
 export default function Header() {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession({
+    required: false,
+  });
   const [isScrolled, setIsScrolled] = useState(false);
-  
-  // Replace getNoteSettings with getUserSettingsAndHealth
-  const { data: userSettings, isLoading: isLoadingSettings } = api.userSettings.getUserSettingsAndHealth.useQuery(
-    undefined,
-    {
-      enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000,
-    }
-  );
   
   // Memoize authentication state
   const isAuthenticated = useMemo(() => 
     status === "authenticated" && !!session,
     [status, session]
+  );
+  
+  // Replace getNoteSettings with getUserSettingsAndHealth
+  const { data: userSettings, isLoading: isLoadingSettings } = api.userSettings.getUserSettingsAndHealth.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
   );
   
   // Update the notepadUrl memo to use the new data structure
