@@ -50,3 +50,6 @@ deno/.env
 deno/dist
 deno/.env.*
 !deno/.env.example
+
+.env
+.env.local
