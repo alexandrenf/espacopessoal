@@ -124,9 +124,11 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
               </Button>
             </>
           ) : (
+            // In your ProfileDashboard.tsx file, find the "Editar Perfil" button and add the class
             <Button
               type="button"
               onClick={() => setIsEditing(true)}
+              className="edit-profile-btn"
             >
               Editar Perfil
             </Button>

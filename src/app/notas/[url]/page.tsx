@@ -35,23 +35,27 @@ export default function NotepadPage() {
   const { url } = useParams();
   const [password, setPassword] = useState<string | null>(null);
   
+  // Normalize URL for consistent storage
+  const normalizedUrl = typeof url === 'string' ? url : '';
+  
   // Load stored password on mount
   useEffect(() => {
     const passwords = getStoredPasswords();
-    const storedPassword = passwords[url as string];
+    // Try both original case and lowercase for backward compatibility
+    const storedPassword = passwords[normalizedUrl] ?? passwords[normalizedUrl.toLowerCase()];
     if (storedPassword) {
       setPassword(storedPassword);
     }
-  }, [url]);
+  }, [normalizedUrl]);
 
   // Try to fetch notes
   const { isLoading, error } = api.notes.fetchNotesPublic.useQuery(
     { 
-      url: url as string,
+      url: normalizedUrl,
       password: password ?? undefined
     },
     {
-      enabled: !!url,
+      enabled: !!normalizedUrl,
       retry: false
     }
   );
@@ -60,11 +64,11 @@ export default function NotepadPage() {
   useEffect(() => {
     if (error?.data?.code === "UNAUTHORIZED") {
       const passwords = getStoredPasswords();
-      delete passwords[url as string];
+      delete passwords[normalizedUrl];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
       setPassword(null);
     }
-  }, [error, url]);
+  }, [error, normalizedUrl]);
 
   if (isLoading) {
     return (
