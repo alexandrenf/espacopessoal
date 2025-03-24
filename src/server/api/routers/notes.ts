@@ -84,6 +84,7 @@ export const notesRouter = createTRPCRouter({
         }
       }
 
+      // Use a single query with proper indexing and ordering
       return await ctx.db.notepad.findMany({
         where: {
           createdById: userThings.ownedById,
@@ -97,7 +98,11 @@ export const notesRouter = createTRPCRouter({
           isFolder: true,
           order: true,
         },
-        orderBy: [{ parentId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
+        orderBy: [
+          { parentId: "asc" },
+          { order: "asc" },
+          { createdAt: "desc" }
+        ],
       });
     }),
 
