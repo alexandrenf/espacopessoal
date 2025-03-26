@@ -144,8 +144,8 @@ const App = ({ password }: AppProps): JSX.Element => {
         // If this is the note being edited and the client is typing,
         // keep the current local content.
         if (note.id === currentNoteId && isTyping) {
-          const localNote = prevNotes.find(n => n.id === currentNoteId);
-          return localNote ? localNote : note;
+          const localNote = prevNotes.find(n => n.id === currentNoteId) ?? null;
+          return localNote ?? note;
         }
         return note;
       });
