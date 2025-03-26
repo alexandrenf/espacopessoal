@@ -139,16 +139,25 @@ const App = ({ password }: AppProps): JSX.Element => {
   useEffect(() => {
     if (!data) return;
 
-    setNotes(data);
+    setNotes((prevNotes) => {
+      return data.map((note) => {
+        // If this is the note being edited and the client is typing,
+        // keep the current local content.
+        if (note.id === currentNoteId && isTyping) {
+          const localNote = prevNotes.find(n => n.id === currentNoteId) ?? null;
+          return localNote ?? note;
+        }
+        return note;
+      });
+    });
 
-    // If no currentNoteId, pick the first note if it exists
     if (currentNoteId === null && data.length > 0) {
       if (data[0]?.id) {
         setCurrentNoteId(data[0].id);
         latestContentRef.current = data[0].content;
       }
     }
-  }, [data, currentNoteId]);
+  }, [data, currentNoteId, isTyping]);
 
   // Check if user is on mobile
   useEffect(() => {
