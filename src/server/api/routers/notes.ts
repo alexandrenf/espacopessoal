@@ -17,7 +17,12 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
+        where: { 
+          notePadUrl: {
+            equals: input.url,
+            mode: 'insensitive'
+          }
+        },
         select: {
           id: true,
           privateOrPublicUrl: true,
@@ -124,7 +129,12 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
+        where: { 
+          notePadUrl: {
+            equals: input.url,
+            mode: 'insensitive'
+          }
+        },
         select: {
           id: true,
           privateOrPublicUrl: true,
@@ -205,7 +215,12 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
+        where: { 
+          notePadUrl: {
+            equals: input.url,
+            mode: 'insensitive'
+          }
+        },
         select: {
           id: true,
           privateOrPublicUrl: true,
@@ -275,7 +290,12 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { notePadUrl: input.url },
+        where: { 
+          notePadUrl: {
+            equals: input.url,
+            mode: 'insensitive'
+          }
+        },
         select: {
           id: true,
           privateOrPublicUrl: true,
