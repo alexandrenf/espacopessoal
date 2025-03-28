@@ -535,39 +535,32 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   function handleTextChange(text: string) {
+    // Preserve the exact text including trailing spaces
     setLocalContent(text);
-    
-    // Update latest content ref immediately
     latestContentRef.current = text;
     
-    // Find current note
     const currentNote = notes.find((n) => n.id === currentNoteId);
     if (!currentNote) return;
 
-    // Immediately update the note in the notes array for UI purposes
+    // Update notes array preserving exact text
     setNotes(prevNotes => prevNotes.map(note => 
       note.id === currentNoteId ? { ...note, content: text } : note
     ));
     
-    // Update last keystroke timestamp
     const now = Date.now();
     lastKeystrokeRef.current = now;
     setIsTyping(true);
 
-    // Clear any existing typing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Debounce the notes state update
     debouncedUpdateNotes.current?.(text);
 
-    // Clear any existing continuous typing timer
     if (continuousTypingTimerRef.current) {
       clearTimeout(continuousTypingTimerRef.current);
     }
 
-    // Set up a new continuous typing timer
     continuousTypingTimerRef.current = setTimeout(() => {
       const currentTime = Date.now();
       const timeSinceLastKeystroke = lastKeystrokeRef.current 
@@ -580,7 +573,6 @@ const App = ({ password }: AppProps): JSX.Element => {
       }
     }, TYPING_TIMEOUT);
 
-    // Trigger both timers
     void idleDebounce();
     void activeDebounce();
   }

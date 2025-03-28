@@ -286,6 +286,8 @@ const Editor: React.FC<EditorProps> = ({
     end: number;
     position: { top: number; left: number };
   } | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
   
   const suggestionTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -373,16 +375,16 @@ const Editor: React.FC<EditorProps> = ({
   const acceptReplacement = useCallback(() => {
     if (!replacementSuggestion) return;
     
-    // Find all replacements in the content
-    const allReplacements = findReplacements(content);
-    
-    // Apply all replacements
-    const newContent = applyReplacements(content, allReplacements);
+    // Apply only the specific replacement we accepted
+    const { start, end, replacement } = replacementSuggestion;
+    const newContent = content.slice(0, start) + 
+                      replacement + 
+                      content.slice(end + 1);
     
     // Update content without triggering save
     setContent(newContent);
     setReplacementSuggestion(null);
-  }, [content, replacementSuggestion, findReplacements, applyReplacements]);
+  }, [content, replacementSuggestion]);
 
   // Then define handleTextReplace which uses acceptReplacement
   const handleTextReplace = useCallback(() => {
@@ -392,27 +394,31 @@ const Editor: React.FC<EditorProps> = ({
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.slice(0, cursorPosition);
     
-    // Find all possible replacements in the text before cursor
-    const replacements = findReplacements(textBeforeCursor);
+    // Get only the last word before cursor
+    const regex = /\S+$/;
+    const lastWordMatch = regex.exec(textBeforeCursor);
+    if (!lastWordMatch) return;
     
-    if (replacements.length > 0) {
+    const lastWord = lastWordMatch[0];
+    const lastWordStart = textBeforeCursor.lastIndexOf(lastWord);
+    
+    // Find if the last word matches any dictionary entry
+    const match = dictionaryData?.find(entry => 
+      entry.from === lastWord || 
+      (lastWord.startsWith('@') && entry.from === lastWord.slice(1))
+    );
+
+    if (match && lastWord !== recentlyRejected) {
       // Clear any existing timeout
       if (suggestionTimeoutRef.current) {
         clearTimeout(suggestionTimeoutRef.current);
       }
 
-      // Get the replacement closest to the cursor
-      const closestReplacement = replacements.reduce((closest, current) => {
-        const closestDistance = Math.abs(closest.start - cursorPosition);
-        const currentDistance = Math.abs(current.start - cursorPosition);
-        return currentDistance < closestDistance ? current : closest;
-      });
-
       setReplacementSuggestion({
-        word: closestReplacement.from,
-        replacement: closestReplacement.to,
-        start: closestReplacement.start,
-        end: closestReplacement.end,
+        word: lastWord,
+        replacement: match.to,
+        start: lastWordStart,
+        end: lastWordStart + lastWord.length - 1,
         position: { top: 0, left: 0 }
       });
 
@@ -421,7 +427,7 @@ const Editor: React.FC<EditorProps> = ({
         acceptReplacement();
       }, 2000);
     }
-  }, [content, findReplacements, acceptReplacement]);
+  }, [content, dictionaryData, recentlyRejected]);
 
   const handleContentChange = useCallback(
     (newContent: string, skipUpdate = false) => {
@@ -431,10 +437,10 @@ const Editor: React.FC<EditorProps> = ({
         updateNote(`${title.trim()}\n${newContent}`);
       }
       
-      // Clear any existing suggestion if user types, but not if it's a space
-      if (replacementSuggestion && !newContent.endsWith(' ')) {
-        acceptReplacement();
-      }
+      // Remove this block as it's causing the issue
+      // if (replacementSuggestion && !newContent.endsWith(' ')) {
+      //   acceptReplacement();
+      // }
       
       // Check for new replacements
       handleTextReplace();
@@ -447,9 +453,16 @@ const Editor: React.FC<EditorProps> = ({
     if (!textarea || !content || !dictionaryData) return;
 
     // If there's a replacement suggestion and space is pressed, accept it
-    if (replacementSuggestion && e.key === ' ') {
+    // Only if it wasn't recently rejected
+    if (replacementSuggestion && e.key === ' ' && 
+        replacementSuggestion.word !== recentlyRejected) {
       acceptReplacement();
       return;
+    }
+
+    // Reset rejected state when a new word starts
+    if (e.key === ' ') {
+      setRecentlyRejected(null);
     }
 
     const cursorPosition = textarea.selectionStart;
@@ -492,7 +505,7 @@ const Editor: React.FC<EditorProps> = ({
         acceptReplacement();
       }, 2000);
     }
-  }, [content, dictionaryData, acceptReplacement, replacementSuggestion]);
+  }, [content, dictionaryData, acceptReplacement, replacementSuggestion, recentlyRejected]);
 
   //
   // --- Spell Check Logic ---
@@ -779,8 +792,11 @@ const Editor: React.FC<EditorProps> = ({
 
   // Add this new function to handle rejection
   const rejectReplacement = useCallback(() => {
+    if (replacementSuggestion) {
+      setRecentlyRejected(replacementSuggestion.word);
+    }
     setReplacementSuggestion(null);
-  }, []);
+  }, [replacementSuggestion]);
 
   //
   // --- Main Return ---
@@ -873,15 +889,23 @@ const Editor: React.FC<EditorProps> = ({
               {/* Right side actions */}
               <div className="flex items-center gap-2">
                 {/* Saving indicator */}
-                {isSaving && !isLoading && (
+                {(isSaving || saveError) && !isLoading && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm z-30"
+                    className={`fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full px-4 py-2 shadow-sm z-30 ${
+                      saveError ? 'bg-red-50' : 'bg-green-50'
+                    }`}
                   >
-                    <Save className="h-4 w-4 animate-pulse text-green-500" />
-                    <span className="text-sm font-medium text-green-600 hidden md:inline">
-                      Salvando...
+                    {saveError ? (
+                      <X className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Save className="h-4 w-4 animate-pulse text-green-500" />
+                    )}
+                    <span className={`text-sm font-medium hidden md:inline ${
+                      saveError ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {saveError ? 'Erro ao salvar' : 'Salvando...'}
                     </span>
                   </motion.div>
                 )}
