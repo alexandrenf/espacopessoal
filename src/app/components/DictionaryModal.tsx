@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface DictionaryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  publicOrPrivate: boolean;
+  isPrivate: boolean;
   session?: {
     user: {
       id: string;
@@ -34,7 +34,7 @@ interface DictionaryModalProps {
 export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   isOpen,
   onClose,
-  publicOrPrivate,
+  isPrivate,
   session,
 }) => {
   const [newFrom, setNewFrom] = useState("");
@@ -44,7 +44,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
 
   const utils = api.useUtils();
 
-  const { data: dictionary = [] } = publicOrPrivate 
+  const { data: dictionary = [] } = !isPrivate 
     ? api.dictionary.getPublicDictionary.useQuery({ userId: session?.user?.id ?? "" })
     : api.dictionary.getDictionary.useQuery(undefined, {
         enabled: !!session?.user
@@ -87,8 +87,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   });
 
   const handleCreate = () => {
-    if (!newFrom || !newTo) return;
-    createEntry({ from: newFrom, to: newTo });
+    const trimmedFrom = newFrom.trim();
+    const trimmedTo = newTo.trim();
+    if (!trimmedFrom || !trimmedTo) return;
+    createEntry({ from: trimmedFrom, to: trimmedTo });
   };
 
   const handleUpdate = (id: string) => {

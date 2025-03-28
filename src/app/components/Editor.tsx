@@ -28,14 +28,11 @@ import {
   X,
 } from "lucide-react";
 import { Converter } from "showdown";
-import DOMPurify from "dompurify";
-import type { Config } from "dompurify";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
 import { DictionaryModal } from "./DictionaryModal";
 import { api } from "~/trpc/react";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 
 //
 // ---------- Types ----------
@@ -81,12 +78,6 @@ interface DictionaryEntry {
   id: string;
   from: string;
   to: string;
-}
-
-interface SuggestionPopup {
-  word: string;
-  replacement: string;
-  position: { top: number; left: number };
 }
 
 //

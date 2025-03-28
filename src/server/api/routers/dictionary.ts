@@ -35,6 +35,18 @@ export const dictionaryRouter = createTRPCRouter({
     delete: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
+      const entry = await ctx.db.replaceDictionary.findUnique({
+        where: { id: input },
+        select: { ownedById: true },
+      });
+      
+      if (!entry || entry.ownedById !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to delete this entry",
+        });
+      }
+      
       return await ctx.db.replaceDictionary.delete({
         where: { id: input },
       });
@@ -46,6 +58,18 @@ export const dictionaryRouter = createTRPCRouter({
       to: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const entry = await ctx.db.replaceDictionary.findUnique({
+        where: { id: input.id },
+        select: { ownedById: true },
+      });
+      
+      if (!entry || entry.ownedById !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to update this entry",
+        });
+      }
+      
       return await ctx.db.replaceDictionary.update({
         where: { id: input.id },
         data: {
@@ -59,7 +83,6 @@ export const dictionaryRouter = createTRPCRouter({
         userId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      // First check if the user's notepad is public
       const userThings = await ctx.db.userThings.findFirst({
         where: { ownedById: input.userId },
         select: {
@@ -74,7 +97,6 @@ export const dictionaryRouter = createTRPCRouter({
         });
       }
 
-      // If public, return the dictionary
       return await ctx.db.replaceDictionary.findMany({
         where: { ownedById: input.userId },
         select: {
