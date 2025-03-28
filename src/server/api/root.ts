@@ -6,6 +6,7 @@ import { userSettingsRouter } from "~/server/api/routers/userSettings";
 import { notificationsRouter } from "./routers/notifications";
 import { boardRouter } from "./routers/board";
 import { taskRouter } from "./routers/task";
+import { dictionaryRouter } from "./routers/dictionary";
 
 /**
  * This is the primary router for your server.
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   notifications: notificationsRouter,
   board: boardRouter,
   task: taskRouter,
+  dictionary: dictionaryRouter,
 });
 
 // export type definition of API

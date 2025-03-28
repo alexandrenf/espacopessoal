@@ -23,13 +23,16 @@ import {
   Sparkles,
   Save,
   ArrowUpRight,
+  Replace,
+  Check,
+  X,
 } from "lucide-react";
 import { Converter } from "showdown";
-import DOMPurify from "dompurify";
-import type { Config } from "dompurify";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
+import { DictionaryModal } from "./DictionaryModal";
+import { api } from "~/trpc/react";
 
 //
 // ---------- Types ----------
@@ -57,9 +60,10 @@ interface SpellCheckResponse {
 
 interface EditorProps {
   currentNote: Note;
-  updateNote: (content: string) => void;
+  updateNote: (text: string) => void;
   isSaving: boolean;
   isLoading: boolean;
+  publicOrPrivate: boolean; // Private if true
   session?: {
     user: {
       id: string;
@@ -68,6 +72,12 @@ interface EditorProps {
       image?: string | null;
     };
   } | null;
+}
+
+interface DictionaryEntry {
+  id: string;
+  from: string;
+  to: string;
 }
 
 //
@@ -186,6 +196,55 @@ function SpellCheckDiffView({
 }
 
 //
+// ---------- Replacement Popup Component ----------
+//
+
+function ReplacementPopup({
+  word,
+  replacement,
+  onAccept,
+  onReject,
+}: {
+  word: string;
+  replacement: string;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="fixed left-1/2 top-[120px] z-30 -translate-x-1/2 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 shadow-lg border border-gray-200/50 backdrop-blur-md"
+    >
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-red-500">{word}</span>
+        <span>→</span>
+        <span className="text-green-500">{replacement}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAccept}
+          className="h-6 w-6 p-0 hover:bg-green-50"
+        >
+          <Check className="h-3 w-3 text-green-500" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onReject}
+          className="h-6 w-6 p-0 hover:bg-red-50"
+        >
+          <X className="h-3 w-3 text-red-500" />
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+//
 // ---------- The Editor Component Proper ----------
 //
 
@@ -194,6 +253,7 @@ const Editor: React.FC<EditorProps> = ({
   updateNote,
   isSaving,
   isLoading,
+  publicOrPrivate,
   session,
 }) => {
   //
@@ -202,18 +262,25 @@ const Editor: React.FC<EditorProps> = ({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const currentNoteIdRef = useRef<number | null>(null);
   const [selectedTab, setSelectedTab] = useState<"write" | "preview">("write");
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-
-  // Spell-check diffs
-  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>(
-    [],
-  );
+  const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
+  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>([]);
   const [isSpellChecking, setIsSpellChecking] = useState(false);
-
-  // For highlight sync
   const [hoveredDiffId, setHoveredDiffId] = useState<string | null>(null);
+  const [replacementSuggestion, setReplacementSuggestion] = useState<{
+    word: string;
+    replacement: string;
+    start: number;
+    end: number;
+    position: { top: number; left: number };
+  } | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
+  
+  const suggestionTimeoutRef = useRef<NodeJS.Timeout>();
 
   const converter = useMemo(
     () =>
@@ -229,16 +296,25 @@ const Editor: React.FC<EditorProps> = ({
   // Show sidebar if we have any diffs
   const sidebarOpen = spellCheckResults.length > 0;
 
-  //
-  // --- Note Title & Body Setup ---
-  //
+  // Get dictionary data
+  const { data: dictionaryData = [] } = publicOrPrivate 
+    ? api.dictionary.getPublicDictionary.useQuery({ userId: session?.user?.id ?? "" })
+    : api.dictionary.getDictionary.useQuery(undefined, {
+        enabled: !!session?.user
+      });
+
+  // Update content when currentNote changes
   useEffect(() => {
-    const lines = currentNote.content.split("\n");
-    const noteTitle = lines[0]?.trim() ?? "Nota sem título";
-    const noteBody = lines.slice(1).join("\n");
-    setTitle(noteTitle);
-    setContent(noteBody);
-  }, [currentNote.id, currentNote.content]);
+    if (currentNote) {
+      // Only update if we're switching to a different note
+      if (currentNoteIdRef.current !== currentNote.id) {
+        const lines = currentNote.content.split('\n');
+        setTitle(lines[0] ?? '');
+        setContent(lines.slice(1).join('\n'));
+        currentNoteIdRef.current = currentNote.id;
+      }
+    }
+  }, [currentNote]);
 
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,13 +325,174 @@ const Editor: React.FC<EditorProps> = ({
     [content, updateNote],
   );
 
+  // New function to find all possible replacements in text
+  const findReplacements = useCallback((text: string) => {
+    if (!dictionaryData) return [];
+    
+    const result = [];
+    for (const entry of dictionaryData) {
+      const regex = new RegExp(entry.from, 'g');
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        result.push({
+          from: entry.from,
+          to: entry.to,
+          start: match.index,
+          end: match.index + entry.from.length
+        });
+      }
+    }
+    return result;
+  }, [dictionaryData]);
+
+  // New function to apply all replacements to text
+  const applyReplacements = useCallback((text: string, replacements: Array<{ from: string; to: string; start: number; end: number }>) => {
+    let result = text;
+    // Apply replacements from end to start to avoid index issues
+    for (let i = replacements.length - 1; i >= 0; i--) {
+      const replacement = replacements[i];
+      if (!replacement || typeof replacement.from !== 'string' || typeof replacement.to !== 'string' || 
+          typeof replacement.start !== 'number' || typeof replacement.end !== 'number') {
+        continue;
+      }
+      
+      const { from, to, start, end } = replacement;
+      result = result.slice(0, start) + to + result.slice(end);
+    }
+    return result;
+  }, []);
+
+  // Define rejectReplacement first since it's used by other functions
+  const rejectReplacement = useCallback(() => {
+    if (replacementSuggestion) {
+      setRecentlyRejected(replacementSuggestion.word);
+    }
+    setReplacementSuggestion(null);
+  }, [replacementSuggestion]);
+
+  // Then define acceptReplacement which uses rejectReplacement
+  const acceptReplacement = useCallback(() => {
+    if (!replacementSuggestion) return;
+    
+    // Apply only the specific replacement we accepted
+    const { start, end, replacement } = replacementSuggestion;
+    const newContent = content.slice(0, start) + 
+                      replacement + 
+                      content.slice(end + 1);
+    
+    // Update content without triggering save
+    setContent(newContent);
+    setReplacementSuggestion(null);
+  }, [content, replacementSuggestion]);
+
+  // Then define handleTextReplace which uses acceptReplacement
+  const handleTextReplace = useCallback(() => {
+    const textarea = textAreaRef.current;
+    if (!textarea || !content) return;
+
+    const cursorPosition = textarea.selectionStart;
+    const textBeforeCursor = content.slice(0, cursorPosition);
+    
+    const regex = /\S+$/;
+    const lastWordMatch = regex.exec(textBeforeCursor);
+    if (!lastWordMatch) return;
+    
+    const lastWord = lastWordMatch[0];
+    const lastWordStart = textBeforeCursor.lastIndexOf(lastWord);
+    
+    const match = dictionaryData?.find(entry => 
+      entry.from === lastWord || 
+      (lastWord.startsWith('@') && entry.from === lastWord.slice(1))
+    );
+
+    if (match && lastWord !== recentlyRejected) {
+      setReplacementSuggestion({
+        word: lastWord,
+        replacement: match.to,
+        start: lastWordStart,
+        end: lastWordStart + lastWord.length - 1,
+        position: { top: 0, left: 0 }
+      });
+    }
+  }, [content, dictionaryData, recentlyRejected]);
+
   const handleContentChange = useCallback(
-    (newContent: string) => {
+    (newContent: string, skipUpdate = false) => {
       setContent(newContent);
-      updateNote(`${title.trim()}\n${newContent}`);
+      // Only update if it's not a replacement operation and not explicitly skipped
+      if (!replacementSuggestion && !skipUpdate) {
+        updateNote(`${title.trim()}\n${newContent}`);
+      }
+      
+      // Remove this block as it's causing the issue
+      // if (replacementSuggestion && !newContent.endsWith(' ')) {
+      //   acceptReplacement();
+      // }
+      
+      // Check for new replacements
+      handleTextReplace();
     },
-    [title, updateNote],
+    [title, updateNote, replacementSuggestion, acceptReplacement, handleTextReplace],
   );
+
+  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
+    const textarea = textAreaRef.current;
+    if (!textarea || !content || !dictionaryData) return;
+
+    // If there's a replacement suggestion and space is pressed, accept it
+    // Only if it wasn't recently rejected
+    if (replacementSuggestion && e.key === ' ' && 
+        replacementSuggestion.word !== recentlyRejected) {
+      acceptReplacement();
+      return;
+    }
+
+    // Reset rejected state when a new word starts
+    if (e.key === ' ') {
+      setRecentlyRejected(null);
+    }
+
+    const cursorPosition = textarea.selectionStart;
+    const textBeforeCursor = content.slice(0, cursorPosition);
+    
+    // Get the last word before the cursor
+    const words = textBeforeCursor.split(/\s+/);
+    const lastWord = words[words.length - 1]?.trim();
+    
+    if (!lastWord) return;
+
+    // Find matching dictionary entry - try exact match first, then with @ prefix
+    let match = dictionaryData.find((entry: DictionaryEntry) => entry.from === lastWord);
+    
+    // If no exact match found, try matching with @ prefix
+    if (!match && lastWord.startsWith('@')) {
+      const wordWithoutPrefix = lastWord.slice(1); // Remove @ prefix
+      match = dictionaryData.find((entry: DictionaryEntry) => entry.from === wordWithoutPrefix);
+    }
+    
+    if (match) {
+      // Calculate word position
+      const wordStart = textBeforeCursor.lastIndexOf(lastWord);
+      const wordEnd = wordStart + lastWord.length;
+
+      // Set the replacement suggestion without position
+      setReplacementSuggestion({
+        word: lastWord,
+        replacement: match.to,
+        start: wordStart,
+        end: wordEnd,
+        position: { top: 0, left: 0 }
+      });
+
+      // Auto-accept after 2 seconds
+      if (suggestionTimeoutRef.current) {
+        clearTimeout(suggestionTimeoutRef.current);
+      }
+      suggestionTimeoutRef.current = setTimeout(() => {
+        acceptReplacement();
+      }, 2000);
+    }
+  }, [content, dictionaryData, acceptReplacement, replacementSuggestion, recentlyRejected]);
 
   //
   // --- Spell Check Logic ---
@@ -328,7 +565,7 @@ const Editor: React.FC<EditorProps> = ({
       });
 
       // Update content first
-      handleContentChange(newText);
+      handleContentChange(newText, true);
 
       // Then recalculate positions for all remaining diffs
       setSpellCheckResults((prev) => {
@@ -508,16 +745,35 @@ const Editor: React.FC<EditorProps> = ({
       );
     }
 
-    // "Write" tab remains a textarea
     return (
-      <textarea
-        ref={textAreaRef}
-        value={content}
-        onChange={(e) => handleContentChange(e.target.value)}
-        className="h-[75vh] w-full resize-none rounded-lg bg-white/50 p-6 font-mono text-[15px] shadow-sm backdrop-blur-sm transition-all duration-200 focus:bg-white/80 focus:shadow-md focus:outline-none"
-        disabled={isLoading}
-        placeholder="Comece a escrever..."
-      />
+      <>
+        <div className="relative">
+          <textarea
+            ref={textAreaRef}
+            value={content}
+            onChange={(e) => handleContentChange(e.target.value)}
+            onKeyUp={handleKeyUp}
+            className="h-[75vh] w-full resize-none rounded-lg bg-white/50 p-6 font-mono text-[15px] shadow-sm backdrop-blur-sm transition-all duration-200 focus:bg-white/80 focus:shadow-md focus:outline-none"
+            disabled={isLoading}
+            placeholder="Comece a escrever..."
+          />
+          <div className="absolute bottom-4 right-4 text-xs text-gray-400">
+            {content.length} characters
+          </div>
+        </div>
+        
+        {/* Replacement Popup - moved outside the textarea container */}
+        <AnimatePresence>
+          {replacementSuggestion && (
+            <ReplacementPopup
+              word={replacementSuggestion.word}
+              replacement={replacementSuggestion.replacement}
+              onAccept={acceptReplacement}
+              onReject={rejectReplacement}
+            />
+          )}
+        </AnimatePresence>
+      </>
     );
   };
 
@@ -539,6 +795,14 @@ const Editor: React.FC<EditorProps> = ({
           session={session}
         />
       )}
+
+      {/* DICTIONARY MODAL */}
+      <DictionaryModal
+        isOpen={isDictionaryModalOpen}
+        onClose={() => setIsDictionaryModalOpen(false)}
+        isPrivate={publicOrPrivate}
+        session={session}
+      />
 
       {/* Editor Column */}
       <motion.div 
@@ -604,15 +868,23 @@ const Editor: React.FC<EditorProps> = ({
               {/* Right side actions */}
               <div className="flex items-center gap-2">
                 {/* Saving indicator */}
-                {isSaving && !isLoading && (
+                {(isSaving || saveError) && !isLoading && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm z-30"
+                    className={`fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full px-4 py-2 shadow-sm z-30 ${
+                      saveError ? 'bg-red-50' : 'bg-green-50'
+                    }`}
                   >
-                    <Save className="h-4 w-4 animate-pulse text-green-500" />
-                    <span className="text-sm font-medium text-green-600 hidden md:inline">
-                      Salvando...
+                    {saveError ? (
+                      <X className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Save className="h-4 w-4 animate-pulse text-green-500" />
+                    )}
+                    <span className={`text-sm font-medium hidden md:inline ${
+                      saveError ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {saveError ? 'Erro ao salvar' : 'Salvando...'}
                     </span>
                   </motion.div>
                 )}
@@ -631,6 +903,17 @@ const Editor: React.FC<EditorProps> = ({
                     <Sparkles className="h-4 w-4" />
                   )}
                   <span className="hidden md:inline">Ortografia</span>
+                </Button>
+
+                {/* Dictionary Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDictionaryModalOpen(true)}
+                  className="flex items-center gap-1"
+                >
+                  <Replace className="h-4 w-4" />
+                  <span className="hidden md:inline">Substituir</span>
                 </Button>
 
                 {/* Share Button */}
@@ -748,9 +1031,6 @@ const Editor: React.FC<EditorProps> = ({
                 {/* Main editor content */}
                 <div className="relative">
                   {renderContent()}
-                  <div className="absolute bottom-4 right-4 text-xs text-gray-400">
-                    {content.length} characters
-                  </div>
                 </div>
               </Tabs>
             </div>

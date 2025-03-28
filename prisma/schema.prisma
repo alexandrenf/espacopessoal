@@ -61,6 +61,7 @@ model User {
   userThings             UserThings?
   boards                 Board[]
   tasks                  Task[]
+  replaceDictionary      ReplaceDictionary[]
 
   @@index([id])
 }
@@ -76,13 +77,27 @@ model VerificationToken {
 model UserThings {
   id                 String   @id @default(cuid())
   notePadUrl         String
-  privateOrPublicUrl Boolean?
+  privateOrPublicUrl Boolean? // Private if true
   password           String?
   ownedById          String   @unique
   ownedBy            User     @relation(fields: [ownedById], references: [id])
 
   @@index([ownedById])
   @@index([notePadUrl])  // Add this index
+}
+
+model ReplaceDictionary {
+  id        String   @id @default(cuid())
+  from      String
+  to        String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ownedById String
+  ownedBy   User     @relation(fields: [ownedById], references: [id])
+
+  @@index([ownedById])
+  @@index([from])
+  @@index([to])
 }
 
 model Notepad {
