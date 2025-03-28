@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -242,20 +242,20 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         size="sm"
                         onClick={() => handleEdit(entry)}
                         disabled={isDeleting}
-                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                         title="Editar"
                       >
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteEntry(entry.id)}
                         disabled={isDeleting}
-                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600"
+                        className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600"
                         title="Excluir"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </motion.div>
