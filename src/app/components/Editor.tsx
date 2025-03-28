@@ -424,10 +424,10 @@ const Editor: React.FC<EditorProps> = ({
   }, [content, findReplacements, acceptReplacement]);
 
   const handleContentChange = useCallback(
-    (newContent: string) => {
+    (newContent: string, skipUpdate = false) => {
       setContent(newContent);
-      // Only update if it's not a replacement operation
-      if (!replacementSuggestion) {
+      // Only update if it's not a replacement operation and not explicitly skipped
+      if (!replacementSuggestion && !skipUpdate) {
         updateNote(`${title.trim()}\n${newContent}`);
       }
       
@@ -565,7 +565,7 @@ const Editor: React.FC<EditorProps> = ({
       });
 
       // Update content first
-      handleContentChange(newText);
+      handleContentChange(newText, true);
 
       // Then recalculate positions for all remaining diffs
       setSpellCheckResults((prev) => {

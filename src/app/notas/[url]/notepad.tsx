@@ -202,8 +202,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       setIsSaving(false);
     },
     onSettled: () => {
-      // Always refetch after error or success to ensure we have the latest data
-      void utils.notes.fetchNotesPublic.invalidate({ url });
+      // Remove unnecessary refetch
       setIsSaving(false);
     },
     retry: 2,
@@ -418,6 +417,8 @@ const App = ({ password }: AppProps): JSX.Element => {
     () =>
       debounce(async () => {
         if (!currentNoteId) return;
+        const currentNote = notes.find(n => n.id === currentNoteId);
+        if (currentNote && currentNote.content === latestContentRef.current) return; // No diff, skip update
         setIsSaving(true);
         try {
           await updateNoteRef.current({
@@ -431,13 +432,15 @@ const App = ({ password }: AppProps): JSX.Element => {
           handleError(err);
         }
       }, IDLE_WAIT),
-    [currentNoteId, url, password],
+    [currentNoteId, url, password] // removed notes dependency
   );
 
   const activeDebounce = useMemo(
     () =>
       throttle(async () => {
         if (!currentNoteId) return;
+        const currentNote = notes.find(n => n.id === currentNoteId);
+        if (currentNote && currentNote.content === latestContentRef.current) return; // No diff, skip update
         setIsSaving(true);
         try {
           await updateNoteRef.current({
@@ -451,7 +454,7 @@ const App = ({ password }: AppProps): JSX.Element => {
           handleError(err);
         }
       }, ACTIVE_WAIT, { leading: false, trailing: true }),
-    [currentNoteId, url, password],
+    [currentNoteId, url, password] // removed notes dependency
   );
 
   // ------------------------------
@@ -492,6 +495,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       setIsNoteLoading(true);
       try {
         await Promise.all([idleDebounce.flush(), activeDebounce.flush()]);
+        // Refetch notes only when switching
         await refetchNotes();
       } catch (err) {
         handleError(err);
