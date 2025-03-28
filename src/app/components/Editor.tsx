@@ -393,7 +393,6 @@ const Editor: React.FC<EditorProps> = ({
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.slice(0, cursorPosition);
     
-    // Get only the last word before cursor
     const regex = /\S+$/;
     const lastWordMatch = regex.exec(textBeforeCursor);
     if (!lastWordMatch) return;
@@ -401,18 +400,12 @@ const Editor: React.FC<EditorProps> = ({
     const lastWord = lastWordMatch[0];
     const lastWordStart = textBeforeCursor.lastIndexOf(lastWord);
     
-    // Find if the last word matches any dictionary entry
     const match = dictionaryData?.find(entry => 
       entry.from === lastWord || 
       (lastWord.startsWith('@') && entry.from === lastWord.slice(1))
     );
 
     if (match && lastWord !== recentlyRejected) {
-      // Clear any existing timeout
-      if (suggestionTimeoutRef.current) {
-        clearTimeout(suggestionTimeoutRef.current);
-      }
-
       setReplacementSuggestion({
         word: lastWord,
         replacement: match.to,
@@ -420,11 +413,6 @@ const Editor: React.FC<EditorProps> = ({
         end: lastWordStart + lastWord.length - 1,
         position: { top: 0, left: 0 }
       });
-
-      // Auto-accept after 2 seconds
-      suggestionTimeoutRef.current = setTimeout(() => {
-        acceptReplacement();
-      }, 2000);
     }
   }, [content, dictionaryData, recentlyRejected]);
 
@@ -812,7 +800,7 @@ const Editor: React.FC<EditorProps> = ({
       <DictionaryModal
         isOpen={isDictionaryModalOpen}
         onClose={() => setIsDictionaryModalOpen(false)}
-        publicOrPrivate={publicOrPrivate}
+        isPrivate={publicOrPrivate}
         session={session}
       />
 
