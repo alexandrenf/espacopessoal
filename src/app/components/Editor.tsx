@@ -371,7 +371,15 @@ const Editor: React.FC<EditorProps> = ({
     return result;
   }, []);
 
-  // Define acceptReplacement first since it's used by other functions
+  // Define rejectReplacement first since it's used by other functions
+  const rejectReplacement = useCallback(() => {
+    if (replacementSuggestion) {
+      setRecentlyRejected(replacementSuggestion.word);
+    }
+    setReplacementSuggestion(null);
+  }, [replacementSuggestion]);
+
+  // Then define acceptReplacement which uses rejectReplacement
   const acceptReplacement = useCallback(() => {
     if (!replacementSuggestion) return;
     
@@ -789,14 +797,6 @@ const Editor: React.FC<EditorProps> = ({
       </>
     );
   };
-
-  // Add this new function to handle rejection
-  const rejectReplacement = useCallback(() => {
-    if (replacementSuggestion) {
-      setRecentlyRejected(replacementSuggestion.word);
-    }
-    setReplacementSuggestion(null);
-  }, [replacementSuggestion]);
 
   //
   // --- Main Return ---
