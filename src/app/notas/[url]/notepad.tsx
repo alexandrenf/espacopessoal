@@ -789,6 +789,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                     updateNote={handleTextChange}
                     isSaving={isSaving}
                     isLoading={isNoteLoading}
+                    publicOrPrivate={!data || !password}
                     session={session}
                   />
                 )
