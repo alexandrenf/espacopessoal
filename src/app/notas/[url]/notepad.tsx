@@ -269,11 +269,17 @@ const App = ({ password }: AppProps): JSX.Element => {
 
       // Optimistically update the cache
       utils.notes.fetchNotesPublic.setData({ url }, (old) => {
-        if (!old) return old;
+        if (!old) return [
+          {
+            ...newNote,
+            createdById: '', // Add required createdById field
+            content: newNote.content ?? null, // Ensure content can be null
+          }
+        ];
         return [
           {
             ...newNote,
-            createdById: old[0]?.createdById ?? '', // Add the required createdById field
+            createdById: old[0]?.createdById ?? '', // Add required createdById field
             content: newNote.content ?? null, // Ensure content can be null
           },
           ...old
