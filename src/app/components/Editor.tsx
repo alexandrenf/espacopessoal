@@ -39,6 +39,7 @@ import { api } from "~/trpc/react";
 //
 
 interface Note {
+  createdById: string;
   id: number;
   content: string;
   createdAt: Date;
@@ -298,7 +299,7 @@ const Editor: React.FC<EditorProps> = ({
 
   // Get dictionary data
   const { data: dictionaryData = [] } = publicOrPrivate 
-    ? api.dictionary.getPublicDictionary.useQuery({ userId: session?.user?.id ?? "" })
+    ? api.dictionary.getPublicDictionary.useQuery({ userId: session?.user?.id ?? "", createdById: currentNote.createdById })
     : api.dictionary.getDictionary.useQuery(undefined, {
         enabled: !!session?.user
       });
@@ -802,6 +803,7 @@ const Editor: React.FC<EditorProps> = ({
         onClose={() => setIsDictionaryModalOpen(false)}
         isPrivate={publicOrPrivate}
         session={session}
+        createdById={currentNote.createdById}
       />
 
       {/* Editor Column */}

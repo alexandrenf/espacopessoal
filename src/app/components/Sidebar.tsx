@@ -33,6 +33,7 @@ export interface Note {
   parentId: number | null;
   isFolder: boolean;
   order: number;
+  createdById: string;
 }
 
 interface SidebarProps {

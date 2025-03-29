@@ -18,6 +18,7 @@ type NoteWithUser = {
   parentId: number | null;
   isFolder: boolean;
   order: number;
+  createdById: string;
   createdBy: {
     name: string | null;
   } | null;

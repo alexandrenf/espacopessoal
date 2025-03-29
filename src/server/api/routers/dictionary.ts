@@ -81,10 +81,11 @@ export const dictionaryRouter = createTRPCRouter({
     getPublicDictionary: publicProcedure
     .input(z.object({
         userId: z.string(),
+        createdById: z.string(),
     }))
     .query(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { ownedById: input.userId },
+        where: { ownedById: input.createdById },
         select: {
           privateOrPublicUrl: true,
         },
@@ -98,7 +99,7 @@ export const dictionaryRouter = createTRPCRouter({
       }
 
       return await ctx.db.replaceDictionary.findMany({
-        where: { ownedById: input.userId },
+        where: { ownedById: input.createdById },
         select: {
           id: true,
           from: true,
