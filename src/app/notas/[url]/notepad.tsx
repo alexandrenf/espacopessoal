@@ -67,8 +67,6 @@ interface UpdateStructureItem {
 const App = ({ password }: AppProps): JSX.Element => {
   const params = useParams();
   const url = (params.url as string) || "";
-  // Add a normalized URL variable
-  const normalizedUrl = useMemo(() => url.toLowerCase().trim(), [url]);
   const { data: session } = useSession({
     required: false,
   });
@@ -120,7 +118,7 @@ const App = ({ password }: AppProps): JSX.Element => {
     isLoading,
     refetch: refetchNotes,
   } = api.notes.fetchNotesPublic.useQuery(
-    { url: normalizedUrl, password: password ?? undefined },
+    { url, password: password ?? undefined },
     {
       enabled: Boolean(url),
       retry: 1,
@@ -139,25 +137,16 @@ const App = ({ password }: AppProps): JSX.Element => {
   useEffect(() => {
     if (!data) return;
 
-    setNotes((prevNotes) => {
-      return data.map((note) => {
-        // If this is the note being edited and the client is typing,
-        // keep the current local content.
-        if (note.id === currentNoteId && isTyping) {
-          const localNote = prevNotes.find(n => n.id === currentNoteId) ?? null;
-          return localNote ?? note;
-        }
-        return note;
-      });
-    });
+    setNotes(data);
 
+    // If no currentNoteId, pick the first note if it exists
     if (currentNoteId === null && data.length > 0) {
       if (data[0]?.id) {
         setCurrentNoteId(data[0].id);
         latestContentRef.current = data[0].content;
       }
     }
-  }, [data, currentNoteId, isTyping]);
+  }, [data, currentNoteId]);
 
   // Check if user is on mobile
   useEffect(() => {
@@ -202,7 +191,8 @@ const App = ({ password }: AppProps): JSX.Element => {
       setIsSaving(false);
     },
     onSettled: () => {
-      // Remove unnecessary refetch
+      // Always refetch after error or success to ensure we have the latest data
+      void utils.notes.fetchNotesPublic.invalidate({ url });
       setIsSaving(false);
     },
     retry: 2,
@@ -219,9 +209,7 @@ const App = ({ password }: AppProps): JSX.Element => {
     // Group notes by parent
     const groupedNotes = currentNotes.reduce((acc, note) => {
       const key = note.parentId?.toString() ?? "root";
-      if (!acc[key]) {
-        acc[key] = [];
-      }
+      acc[key] ??= [];
       acc[key].push(note);
       return acc;
     }, {} as Record<string, Note[]>);
@@ -276,12 +264,20 @@ const App = ({ password }: AppProps): JSX.Element => {
         parentId: null,
         isFolder: variables.isFolder ?? false,
         order: maxOrder + 1,
+        createdById: '',
       };
 
       // Optimistically update the cache
       utils.notes.fetchNotesPublic.setData({ url }, (old) => {
-        if (!old) return [newNote];
-        return [newNote, ...old];
+        if (!old) return old;
+        return [
+          {
+            ...newNote,
+            createdById: old[0]?.createdById ?? '', // Add the required createdById field
+            content: newNote.content ?? null, // Ensure content can be null
+          },
+          ...old
+        ];
       });
 
       // Insert optimistically
@@ -323,13 +319,14 @@ const App = ({ password }: AppProps): JSX.Element => {
           if (!old) return old;
           return old.map((note) =>
             note.id === ctx.optimisticNote.id
-              ? ({
+              ? {
                   ...actualNote,
                   content: latestContentRef.current,
                   parentId: null,
                   isFolder: variables.isFolder ?? false,
                   order: maxOrder + 1,
-                } as Note)
+                  createdById: old[0]?.createdById ?? '', // Add the missing createdById field
+                }
               : note
           );
         });
@@ -417,8 +414,6 @@ const App = ({ password }: AppProps): JSX.Element => {
     () =>
       debounce(async () => {
         if (!currentNoteId) return;
-        const currentNote = notes.find(n => n.id === currentNoteId);
-        if (currentNote && currentNote.content === latestContentRef.current) return; // No diff, skip update
         setIsSaving(true);
         try {
           await updateNoteRef.current({
@@ -432,15 +427,13 @@ const App = ({ password }: AppProps): JSX.Element => {
           handleError(err);
         }
       }, IDLE_WAIT),
-    [currentNoteId, url, password] // removed notes dependency
+    [currentNoteId, url, password],
   );
 
   const activeDebounce = useMemo(
     () =>
       throttle(async () => {
         if (!currentNoteId) return;
-        const currentNote = notes.find(n => n.id === currentNoteId);
-        if (currentNote && currentNote.content === latestContentRef.current) return; // No diff, skip update
         setIsSaving(true);
         try {
           await updateNoteRef.current({
@@ -454,7 +447,7 @@ const App = ({ password }: AppProps): JSX.Element => {
           handleError(err);
         }
       }, ACTIVE_WAIT, { leading: false, trailing: true }),
-    [currentNoteId, url, password] // removed notes dependency
+    [currentNoteId, url, password],
   );
 
   // ------------------------------
@@ -495,7 +488,6 @@ const App = ({ password }: AppProps): JSX.Element => {
       setIsNoteLoading(true);
       try {
         await Promise.all([idleDebounce.flush(), activeDebounce.flush()]);
-        // Refetch notes only when switching
         await refetchNotes();
       } catch (err) {
         handleError(err);
@@ -535,32 +527,39 @@ const App = ({ password }: AppProps): JSX.Element => {
   }
 
   function handleTextChange(text: string) {
-    // Preserve the exact text including trailing spaces
     setLocalContent(text);
+    
+    // Update latest content ref immediately
     latestContentRef.current = text;
     
+    // Find current note
     const currentNote = notes.find((n) => n.id === currentNoteId);
     if (!currentNote) return;
 
-    // Update notes array preserving exact text
+    // Immediately update the note in the notes array for UI purposes
     setNotes(prevNotes => prevNotes.map(note => 
       note.id === currentNoteId ? { ...note, content: text } : note
     ));
     
+    // Update last keystroke timestamp
     const now = Date.now();
     lastKeystrokeRef.current = now;
     setIsTyping(true);
 
+    // Clear any existing typing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
+    // Debounce the notes state update
     debouncedUpdateNotes.current?.(text);
 
+    // Clear any existing continuous typing timer
     if (continuousTypingTimerRef.current) {
       clearTimeout(continuousTypingTimerRef.current);
     }
 
+    // Set up a new continuous typing timer
     continuousTypingTimerRef.current = setTimeout(() => {
       const currentTime = Date.now();
       const timeSinceLastKeystroke = lastKeystrokeRef.current 
@@ -573,6 +572,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       }
     }, TYPING_TIMEOUT);
 
+    // Trigger both timers
     void idleDebounce();
     void activeDebounce();
   }
@@ -730,6 +730,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                     order: 0,
                     parentId: null,
                     isFolder: false,
+                    createdById: '',
                   }
                 }
                 setCurrentNoteId={handleSwitchNote}
@@ -785,8 +786,8 @@ const App = ({ password }: AppProps): JSX.Element => {
                     updateNote={handleTextChange}
                     isSaving={isSaving}
                     isLoading={isNoteLoading}
-                    publicOrPrivate={!data || !password}
                     session={session}
+                    publicOrPrivate={!!password}
                   />
                 )
               ) : (

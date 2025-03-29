@@ -108,6 +108,7 @@ export const notesRouter = createTRPCRouter({
           parentId: true,
           isFolder: true,
           order: true,
+          createdById: true,
         },
         orderBy: [
           { parentId: "asc" },
