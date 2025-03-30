@@ -501,11 +501,6 @@ const Editor: React.FC<EditorProps> = ({
 
   // 1) fetch diffs from /api/spellcheck
   const handleSpellCheck = async () => {
-    if (!session?.user) {
-      alert("Faça login para usar o corretor ortográfico");
-      return;
-    }
-
     try {
       setIsSpellChecking(true);
       const resp = await fetch("/api/spellcheck", {
