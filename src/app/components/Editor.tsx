@@ -270,6 +270,7 @@ const Editor: React.FC<EditorProps> = ({
   const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
   const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>([]);
   const [isSpellChecking, setIsSpellChecking] = useState(false);
+  const [isSpellCheckEnabled, setIsSpellCheckEnabled] = useState(true);
   const [hoveredDiffId, setHoveredDiffId] = useState<string | null>(null);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
     word: string;
@@ -501,8 +502,8 @@ const Editor: React.FC<EditorProps> = ({
 
   // 1) fetch diffs from /api/spellcheck
   const handleSpellCheck = async () => {
-    if (!session?.user) {
-      alert("Faça login para usar o corretor ortográfico");
+    if (!isSpellCheckEnabled) {
+      setIsSpellCheckEnabled(true);
       return;
     }
 
@@ -897,14 +898,17 @@ const Editor: React.FC<EditorProps> = ({
                   size="sm"
                   onClick={handleSpellCheck}
                   disabled={isSpellChecking}
-                  className="flex items-center gap-1"
+                  className={`flex items-center gap-1 ${isSpellCheckEnabled ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' : ''}`}
+                  data-spellcheck-button
                 >
                   {isSpellChecking ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  <span className="hidden md:inline">Ortografia</span>
+                  <span className="hidden md:inline">
+                    {isSpellCheckEnabled ? 'Desativar Ortografia' : 'Ativar Ortografia'}
+                  </span>
                 </Button>
 
                 {/* Dictionary Button */}

@@ -1,12 +1,18 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { OpenAI } from "openai";
 import { type NextRequest } from "next/server";
+import { env } from "~/env";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "X-Title": "Espaço Pessoal",
+  },
+});
 
 export async function POST(request: NextRequest) {
   try {
     const { text } = (await request.json()) as { text: string };
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const prompt = `
       Act as a professional proofreader. Analyze the following text for spelling, grammar, and style issues.
@@ -38,12 +44,27 @@ export async function POST(request: NextRequest) {
       7. Provide clear, concise reasons for each correction in the language of the text.
     `;
 
-    const result = await model.generateContent([prompt, text]);
-    const response = result.response;
+    const completion = await openai.chat.completions.create({
+      model: "deepseek/deepseek-chat-v3-0324:free",
+      messages: [
+        {
+          role: "system",
+          content: prompt,
+        },
+        {
+          role: "user",
+          content: text,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 1000,
+    });
 
-    // Clean the response text to ensure it's valid JSON
-    const cleanedResponse = response
-      .text()
+    if (!completion.choices[0]?.message?.content) {
+      throw new Error("No response from OpenRouter API");
+    }
+
+    const cleanedResponse = completion.choices[0].message.content
       .replace(/```json\n?|\n?```/g, "")
       .trim();
 
