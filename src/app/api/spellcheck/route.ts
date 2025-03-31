@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
         },
       ],
       temperature: 0.1,
-      max_tokens: 1000, // Be mindful of potential response size limits on Edge
     });
 
     if (!completion.choices[0]?.message?.content) {
