@@ -505,7 +505,13 @@ const Editor: React.FC<EditorProps> = ({
       setIsSpellChecking(true);
       
       // Use the Deno Deploy API instead of the Vercel Edge Function
-      const denoApiUrl = process.env.NEXT_PUBLIC_DENO_API_URL ?? "https://api.espacopessoal.com";
+      // In production, use the production API URL, in development use the local API URL
+      const denoApiUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://api.espacopessoal.com' 
+        : process.env.NEXT_PUBLIC_DENO_API_URL ?? 'http://localhost:8000';
+        
+      console.log(`Using API URL: ${denoApiUrl}`);
+      
       const resp = await fetch(`${denoApiUrl}/api/spellcheck`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -28,11 +28,10 @@ export async function handler(req: Request): Promise<Response> {
 
   // Set CORS headers
   const headers = new Headers({
-    "Access-Control-Allow-Origin": Deno.env.get("NODE_ENV") === "production" 
-      ? "https://dev.espacopessoal.com" 
-      : "http://localhost:3000",
+    "Access-Control-Allow-Origin": "*", // Allow requests from any origin
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400", // Cache preflight requests for 24 hours
     "Content-Type": "application/json",
     "X-Request-ID": requestId
   });
@@ -40,7 +39,10 @@ export async function handler(req: Request): Promise<Response> {
   // Handle OPTIONS requests for CORS
   if (req.method === "OPTIONS") {
     console.log(`[${new Date().toISOString()}] ${requestId} - Handling OPTIONS request`);
-    return new Response(null, { headers });
+    return new Response(null, { 
+      status: 204, // No content
+      headers 
+    });
   }
 
   // Only allow POST requests

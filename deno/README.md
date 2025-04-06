@@ -22,6 +22,16 @@ deno task dev
 
 This will start the server on port 8000.
 
+### Frontend Configuration
+
+For the frontend to connect to the Deno Deploy API:
+
+1. In production, the frontend will automatically use `https://api.espacopessoal.com`
+2. For local development, update your `.env.local` file to point to the Deno Deploy API:
+   ```
+   NEXT_PUBLIC_DENO_API_URL=https://api.espacopessoal.com
+   ```
+
 ## Deployment
 
 To deploy to Deno Deploy:
@@ -80,4 +90,5 @@ If you encounter issues with the spellcheck API:
 
 1. Check the Deno Deploy logs for errors.
 2. Verify that the OpenRouter API key is correctly set in the environment variables.
-3. Make sure the CORS settings are correctly configured for your frontend domain. 
+3. Make sure the CORS settings are correctly configured for your frontend domain.
+4. Check the browser console for any errors related to the API call. 
