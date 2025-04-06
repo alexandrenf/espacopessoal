@@ -18,6 +18,7 @@ export const API_KEY = Deno.env.get("API_KEY") ?? "";
 export const FIREBASE_ADMIN_PROJECT_ID = Deno.env.get("FIREBASE_ADMIN_PROJECT_ID") ?? "";
 export const FIREBASE_ADMIN_CLIENT_EMAIL = Deno.env.get("FIREBASE_ADMIN_CLIENT_EMAIL") ?? "";
 export const FIREBASE_ADMIN_PRIVATE_KEY = Deno.env.get("FIREBASE_ADMIN_PRIVATE_KEY") ?? "";
+export const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") ?? "";
 
 // Initialize Firebase Admin only if all required credentials are present
 if (FIREBASE_ADMIN_PROJECT_ID && 

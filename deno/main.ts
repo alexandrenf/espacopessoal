@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { processScheduledNotifications, cleanupOldNotifications } from "./services/notifications.ts";
 import { API_KEY } from "./config/env.ts";
+import { handler as spellcheckHandler } from "./routes/api/spellcheck/index.ts";
 
 // Process notifications every 5 minutes and cleanup old ones using Deno.cron
 Deno.cron("process-notifications", "*/5 * * * *", async () => {
@@ -48,6 +49,12 @@ serve(async (req) => {
   if (url.pathname === "/health") {
     console.log(`[${new Date().toISOString()}] ${requestId} - Health check request`);
     return new Response("OK", { status: 200, headers });
+  }
+
+  // Handle spellcheck requests
+  if (url.pathname === "/api/spellcheck") {
+    console.log(`[${new Date().toISOString()}] ${requestId} - Forwarding to spellcheck handler`);
+    return spellcheckHandler(req);
   }
 
   const authHeader = req.headers.get("Authorization");
