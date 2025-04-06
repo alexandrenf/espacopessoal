@@ -503,11 +503,19 @@ const Editor: React.FC<EditorProps> = ({
   const handleSpellCheck = async () => {
     try {
       setIsSpellChecking(true);
-      const resp = await fetch("/api/spellcheck", {
+      
+      // Use the Deno Deploy API instead of the Vercel Edge Function
+      // In production, use the production API URL, in development use the local API URL
+      const denoApiUrl = process.env.NEXT_PUBLIC_DENO_API_URL ?? 'http://localhost:8000';
+        
+      console.log(`Using API URL: ${denoApiUrl}`);
+      
+      const resp = await fetch(`${denoApiUrl}/api/spellcheck`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: content }),
       });
+      
       const data = (await resp.json()) as SpellCheckResponse;
 
       // Add IDs so we can map them more easily

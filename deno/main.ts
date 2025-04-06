@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { processScheduledNotifications, cleanupOldNotifications } from "./services/notifications.ts";
 import { API_KEY } from "./config/env.ts";
+import { handler as spellcheckHandler } from "./routes/api/spellcheck/index.ts";
 
 // Process notifications every 5 minutes and cleanup old ones using Deno.cron
 Deno.cron("process-notifications", "*/5 * * * *", async () => {
@@ -8,7 +9,6 @@ Deno.cron("process-notifications", "*/5 * * * *", async () => {
   try {
     const result = await processScheduledNotifications();
     console.log(`[${new Date().toISOString()}] Cron notification processing completed:`, {
-      success: result.success,
       total: result.total,
       successful: result.successful,
       failed: result.failed
@@ -31,23 +31,31 @@ serve(async (req) => {
   console.log(`[${new Date().toISOString()}] ${requestId} - Incoming ${req.method} request to ${url.pathname}`);
 
   const headers = new Headers({
-    "Access-Control-Allow-Origin": Deno.env.get("NODE_ENV") === "production" 
-      ? "https://dev.espacopessoal.com" 
-      : "http://localhost:3000",
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "86400", // Cache preflight requests for 24 hours
     "Content-Type": "application/json",
     "X-Request-ID": requestId
   });
 
   if (req.method === "OPTIONS") {
     console.log(`[${new Date().toISOString()}] ${requestId} - Handling OPTIONS request`);
-    return new Response(null, { headers });
+    return new Response(null, { 
+      status: 204, // No content
+      headers 
+    });
   }
 
   if (url.pathname === "/health") {
     console.log(`[${new Date().toISOString()}] ${requestId} - Health check request`);
     return new Response("OK", { status: 200, headers });
+  }
+
+  // Handle spellcheck requests
+  if (url.pathname === "/api/spellcheck") {
+    console.log(`[${new Date().toISOString()}] ${requestId} - Forwarding to spellcheck handler`);
+    return spellcheckHandler(req);
   }
 
   const authHeader = req.headers.get("Authorization");
@@ -62,7 +70,6 @@ serve(async (req) => {
   
   console.log(`[${new Date().toISOString()}] ${requestId} - Manual notification processing completed:`, {
     duration: `${duration}ms`,
-    success: result.success,
     total: result.total,
     successful: result.successful,
     failed: result.failed
