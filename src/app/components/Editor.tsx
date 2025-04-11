@@ -290,6 +290,7 @@ const Editor: React.FC<EditorProps> = ({
         simplifiedAutoLink: true,
         strikethrough: true,
         tasklists: true,
+        simpleLineBreaks: true,
       }),
     [],
   );
@@ -682,20 +683,42 @@ const Editor: React.FC<EditorProps> = ({
     text: string,
     diffs: SpellCheckDiff[],
     hoveredId: string | null,
-  ): React.ReactNode[] {
-    // Sort diffs by ascending 'start'
-    const sortedDiffs = [...diffs].sort((a, b) => a.start - b.start);
+    converter: Converter,
+  ): React.ReactNode {
+    // If no diffs, just convert the markdown and return
+    if (diffs.length === 0) {
+      const htmlContent = converter.makeHtml(text);
+      return <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+    }
+
+    // For spell check, we need to display the original text with highlighted errors
+    // Update the diffs to ensure they have correct positions
+    const updatedDiffs = recalcDiffPositions(text, diffs);
+    
+    // Sort diffs by ascending start position
+    const sortedDiffs = [...updatedDiffs].sort((a, b) => a.start - b.start);
+    
+    // Create elements array to build our output
     const elements: React.ReactNode[] = [];
     let lastIndex = 0;
 
+    // Process each diff
     for (const diff of sortedDiffs) {
-      // If the diff is out of bounds or not found, skip
-      if (diff.start < 0 || diff.start >= text.length) continue;
-      // Add text before the diff
+      // Skip invalid diffs
+      if (diff.start < 0 || diff.start >= text.length || !diff.id) continue;
+      
+      // Add text before the diff as a plain text node
       if (diff.start > lastIndex) {
-        elements.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, diff.start)}</span>);
+        const beforeText = text.slice(lastIndex, diff.start);
+        // Only add if there's text
+        if (beforeText) {
+          elements.push(
+            <span key={`text-${lastIndex}`}>{beforeText}</span>
+          );
+        }
       }
-      // Mark the portion
+      
+      // Add the highlighted diff text (not converted to HTML)
       const diffText = text.slice(diff.start, diff.end + 1);
       const isHovered = diff.id === hoveredId;
 
@@ -705,24 +728,32 @@ const Editor: React.FC<EditorProps> = ({
           onMouseEnter={() => setHoveredDiffId(diff.id ?? null)}
           onMouseLeave={() => setHoveredDiffId(null)}
           className={`
-            relative cursor-pointer transition-all duration-200
+            inline cursor-pointer transition-all duration-200
             ${isHovered 
               ? "bg-blue-100 text-blue-900 rounded px-0.5" 
               : "bg-yellow-50 border-b-2 border-yellow-300"}
           `}
+          onClick={() => handleAcceptDiff(diff)}
         >
           {diffText}
         </span>
       );
+      
       lastIndex = diff.end + 1;
     }
 
-    // Remainder of text
+    // Add remaining text as a plain text node
     if (lastIndex < text.length) {
-      elements.push(<span key={`text-end`}>{text.slice(lastIndex)}</span>);
+      const afterText = text.slice(lastIndex);
+      if (afterText) {
+        elements.push(
+          <span key={`text-end`}>{afterText}</span>
+        );
+      }
     }
 
-    return elements;
+    // Wrap the elements. Revert to prose styling.
+    return <div className="prose prose-slate max-w-none whitespace-pre-wrap">{elements}</div>;
   }
 
   //
@@ -730,21 +761,16 @@ const Editor: React.FC<EditorProps> = ({
   //
   const renderContent = () => {
     if (selectedTab === "preview") {
-      // Build highlight spans
-      const previewElements = buildPreviewElements(
-        content,
-        spellCheckResults,
-        hoveredDiffId,
-      );
-
-      // We'll sanitize only if you do raw HTML. Here, we build React elements,
-      // so no dangerouslySetInnerHTML is needed. We'll do minimal styling here.
       return (
         <div
-          className="min-h-[75vh] w-full rounded-lg bg-white/50 p-6 shadow-sm backdrop-blur-sm prose prose-slate"
-          style={{ whiteSpace: "pre-wrap" }}
+          className="h-[calc(100vh-10rem)] w-full rounded-lg bg-white/50 p-6 shadow-sm backdrop-blur-sm overflow-y-auto"
         >
-          {previewElements}
+          {buildPreviewElements(
+            content,
+            spellCheckResults,
+            hoveredDiffId,
+            converter
+          )}
         </div>
       );
     }
@@ -757,7 +783,7 @@ const Editor: React.FC<EditorProps> = ({
             value={content}
             onChange={(e) => handleContentChange(e.target.value)}
             onKeyUp={handleKeyUp}
-            className="h-[75vh] w-full resize-none rounded-lg bg-white/50 p-6 font-mono text-[15px] shadow-sm backdrop-blur-sm transition-all duration-200 focus:bg-white/80 focus:shadow-md focus:outline-none"
+            className="h-[75vh] w-full resize-none rounded-lg bg-white/50 p-6 font-mono text-[15px] shadow-sm backdrop-blur-sm focus:bg-white/80 focus:shadow-md focus:outline-none"
             disabled={isLoading}
             placeholder="Comece a escrever..."
           />
@@ -811,10 +837,10 @@ const Editor: React.FC<EditorProps> = ({
 
       {/* Editor Column */}
       <motion.div 
+        layout
         className="flex-1 md:flex-1 md:[&[style*='margin-bottom']]:mb-0"
         animate={{
           marginRight: sidebarOpen ? "320px" : "0px",
-          marginBottom: sidebarOpen ? "60vh" : "0px",
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
@@ -1058,12 +1084,11 @@ const Editor: React.FC<EditorProps> = ({
                 ${sidebarOpen && 'bottom-[45vh]'} // Move up when spell checker is open
               `}
             >
-              <div className="flex items-center gap-1 px-1 flex-wrap justify-center">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("**", "**")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Bold className="h-4 w-4" />
                 </Button>
@@ -1071,7 +1096,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("*", "*")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Italic className="h-4 w-4" />
                 </Button>
@@ -1079,7 +1103,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("\n- [ ] ")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <CheckSquare className="h-4 w-4" />
                 </Button>
@@ -1087,7 +1110,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("\n- ")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -1095,7 +1117,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("\n1. ")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <ListOrdered className="h-4 w-4" />
                 </Button>
@@ -1103,7 +1124,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("\n> ")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Quote className="h-4 w-4" />
                 </Button>
@@ -1111,7 +1131,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => insertMarkdown("`", "`")}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <Code className="h-4 w-4" />
                 </Button>
@@ -1119,7 +1138,6 @@ const Editor: React.FC<EditorProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={convertToUppercase}
-                  className="h-8 w-8 hover:bg-gray-100 hover:shadow-sm"
                 >
                   <ArrowUpRight className="h-4 w-4" />
                 </Button>
@@ -1129,42 +1147,17 @@ const Editor: React.FC<EditorProps> = ({
         </motion.div>
       </motion.div>
 
-      {/* Spell Check Sidebar - Desktop */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ 
-          x: sidebarOpen ? "0%" : "100%"
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed right-0 top-[64px] bottom-0 w-[320px] border-l bg-white shadow-lg z-20 hidden md:block"
-      >
-        {spellCheckResults.length > 0 && (
-          <SpellCheckDiffView
-            diffs={spellCheckResults}
-            hoveredDiffId={hoveredDiffId}
-            onHoverDiff={setHoveredDiffId}
-            onAccept={handleAcceptDiff}
-            onReject={handleRejectDiff}
-            onAcceptAll={handleAcceptAllDiffs}
-          />
-        )}
-      </motion.div>
-
-      {/* Spell Check Bottom Sheet - Mobile */}
-      <motion.div
-        initial={{ y: "100%" }}
-        animate={{ 
-          y: sidebarOpen ? "0%" : "100%"
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed left-0 right-0 bottom-0 h-[40vh] bg-white shadow-lg z-20 rounded-t-xl border-t md:hidden"
-      >
-        {spellCheckResults.length > 0 && (
-          <>
-            {/* Mobile drag handle */}
-            <div className="flex justify-center p-2 border-b">
-              <div className="w-12 h-1 bg-gray-300 rounded-full" />
-            </div>
+      {/* ---------- Spell Check Sidebar ---------- */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            // Fixed position, below navbar (top-16 = 4rem), adjusted height
+            className="fixed right-0 top-16 z-20 h-[calc(100vh-4rem)] w-[320px] border-l border-gray-200/80 bg-white shadow-lg"
+          >
             <SpellCheckDiffView
               diffs={spellCheckResults}
               hoveredDiffId={hoveredDiffId}
@@ -1173,9 +1166,9 @@ const Editor: React.FC<EditorProps> = ({
               onReject={handleRejectDiff}
               onAcceptAll={handleAcceptAllDiffs}
             />
-          </>
+          </motion.div>
         )}
-      </motion.div>
+      </AnimatePresence>
     </motion.div>
   );
 };
