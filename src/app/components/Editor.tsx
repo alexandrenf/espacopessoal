@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { Converter } from "showdown";
+import DOMPurify from "dompurify";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ShareModal } from "./ShareModal";
@@ -688,7 +689,8 @@ const Editor: React.FC<EditorProps> = ({
     // If no diffs, just convert the markdown and return
     if (diffs.length === 0) {
       const htmlContent = converter.makeHtml(text);
-      return <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+      const sanitizedHtml = DOMPurify.sanitize(htmlContent);
+      return <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
     }
 
     // For spell check, we need to display the original text with highlighted errors
