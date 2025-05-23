@@ -678,7 +678,17 @@ const Editor: React.FC<EditorProps> = ({
 
   //
   // --- Highlight in Preview ---
-  //
+  /**
+   * Renders a markdown preview of the given text, highlighting spell check diffs inline.
+   *
+   * If no diffs are present, returns the rendered markdown as sanitized HTML. When diffs exist, segments of the text corresponding to spelling errors are wrapped in interactive spans with highlight styles and hover/click handlers, while the rest of the text is rendered as plain spans. The output preserves whitespace and applies prose styling.
+   *
+   * @param text - The full text content to render.
+   * @param diffs - Spell check diffs to highlight within the text.
+   * @param hoveredId - The ID of the currently hovered diff, if any.
+   * @param converter - The markdown converter instance to use for rendering.
+   * @returns A React node containing the rendered preview with highlighted diffs.
+   */
   function buildPreviewElements(
     text: string,
     diffs: SpellCheckDiff[],
