@@ -1,70 +1,87 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Edit3, Shield, Palette } from "lucide-react";
+
 export default function FeaturesSection() {
   return (
-    <section id="recursos" className="py-24 bg-white">
-      <div className="container mx-auto px-4">
+    <section 
+      id="recursos" 
+      className="py-24 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%)',
+      }}
+    >
+      {/* Subtle animated background elements */}
+      <div className="absolute inset-0">
+        <div 
+          className="absolute top-20 left-10 w-72 h-72 rounded-full opacity-10 bg-gradient-to-br from-blue-400 to-purple-500 blur-3xl animate-pulse"
+        />
+        <div 
+          className="absolute bottom-20 right-10 w-96 h-96 rounded-full opacity-80 bg-gradient-to-br from-indigo-400 to-pink-500 blur-3xl animate-pulse [animation-delay:2s]"
+        />
+      </div>
+
+      <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4 text-gray-900">Recursos Principais</h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Tudo o que você precisa para organizar suas ideias e aumentar sua produtividade
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="mb-4"
+          >
+            <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 rounded-full text-sm font-medium border border-blue-200/50">
+              Recursos
+            </span>
+          </motion.div>
+          
+          <motion.h2 
+            className="text-4xl md:text-5xl font-bold mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            viewport={{ once: true }}
+          >
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text">
+              Tudo que você precisa
+            </span>
+          </motion.h2>
+          
+          <motion.p 
+            className="text-xl text-slate-600 max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            viewport={{ once: true }}
+          >
+            Ferramentas simples e poderosas para organizar sua vida digital
+          </motion.p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <FeatureCard 
+            icon={<Edit3 className="h-6 w-6" aria-hidden="true" />}
+            title="Notas Inteligentes"
+            description="Crie e organize suas notas com editor rico, tags e busca avançada. Acesse de qualquer dispositivo."
+            index={0}
             color="blue"
-            icon={
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-8 w-8 text-white" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-                role="img"
-                aria-label="Bloco de Notas Pessoal"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            }
-            title="Bloco de Notas Pessoal"
-            description="Crie e organize suas notas em um espaço privado e seguro, acessível de qualquer dispositivo."
           />
           
           <FeatureCard 
+            icon={<Shield className="h-6 w-6" aria-hidden="true" />}
+            title="Privacidade Total"
+            description="Seus dados são seus. Controle total sobre privacidade com opções de notas públicas ou privadas."
+            index={1}
             color="indigo"
-            icon={
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-8 w-8 text-white" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-                role="img"
-                aria-label="Privacidade Garantida"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            }
-            title="Privacidade Garantida"
-            description="Escolha entre notas públicas ou privadas com proteção por senha para seus conteúdos mais sensíveis."
           />
           
           <FeatureCard 
+            icon={<Palette className="h-6 w-6" aria-hidden="true" />}
+            title="Personalização"
+            description="Adapte o espaço ao seu estilo. Temas, organização e configurações que fazem sentido para você."
+            index={2}
             color="purple"
-            icon={
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-8 w-8 text-white" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-                role="img"
-                aria-label="Personalização Total"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            }
-            title="Personalização Total"
-            description="Configure seu espaço pessoal de acordo com suas preferências e necessidades específicas."
           />
         </div>
       </div>
@@ -73,45 +90,64 @@ export default function FeaturesSection() {
 }
 
 interface FeatureCardProps {
-  color: "blue" | "indigo" | "purple";
   icon: React.ReactNode;
   title: string;
   description: string;
+  index: number;
+  color: "blue" | "indigo" | "purple";
 }
 
-function FeatureCard({ color, icon, title, description }: FeatureCardProps) {
+function FeatureCard({ icon, title, description, index, color }: FeatureCardProps) {
   const colorClasses = {
     blue: {
-      bg: "bg-blue-50",
-      border: "border-blue-100",
-      iconBg: "bg-blue-600",
-      iconHover: "group-hover:bg-blue-700"
+      gradient: "from-blue-500 to-blue-600",
+      hoverGradient: "from-blue-600 to-blue-700",
+      bg: "bg-blue-100",
+      hoverBg: "group-hover:bg-blue-600",
+      text: "text-blue-600",
+      hoverText: "group-hover:text-white",
     },
     indigo: {
-      bg: "bg-indigo-50",
-      border: "border-indigo-100",
-      iconBg: "bg-indigo-600",
-      iconHover: "group-hover:bg-indigo-700"
+      gradient: "from-indigo-500 to-indigo-600", 
+      hoverGradient: "from-indigo-600 to-indigo-700",
+      bg: "bg-indigo-100",
+      hoverBg: "group-hover:bg-indigo-600",
+      text: "text-indigo-600",
+      hoverText: "group-hover:text-white",
     },
     purple: {
-      bg: "bg-purple-50",
-      border: "border-purple-100",
-      iconBg: "bg-purple-600",
-      iconHover: "group-hover:bg-purple-700"
+      gradient: "from-purple-500 to-purple-600",
+      hoverGradient: "from-purple-600 to-purple-700",
+      bg: "bg-purple-100",
+      hoverBg: "group-hover:bg-purple-600",
+      text: "text-purple-600",
+      hoverText: "group-hover:text-white",
     }
   };
 
   const classes = colorClasses[color];
 
   return (
-    <div className={`${classes.bg} p-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow border ${classes.border} group`}>
-      <div className={`w-16 h-16 ${classes.iconBg} rounded-2xl flex items-center justify-center mb-6 ${classes.iconHover} transition-colors`}>
+    <motion.div 
+      className="group p-8 rounded-2xl bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-xl transition-all duration-300 border border-white/50"
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: index * 0.1 }}
+      viewport={{ once: true }}
+      whileHover={{ y: -5 }}
+      aria-label={title}
+    >
+      <div className={`w-12 h-12 ${classes.bg} ${classes.hoverBg} ${classes.text} ${classes.hoverText} rounded-xl flex items-center justify-center mb-6 transition-all duration-300`}>
         {icon}
       </div>
-      <h3 className="text-2xl font-bold mb-3 text-gray-900">{title}</h3>
-      <p className="text-gray-600 leading-relaxed">
+      
+      <h3 className="text-xl font-semibold mb-4 text-slate-800">
+        {title}
+      </h3>
+      
+      <p className="text-slate-600 leading-relaxed">
         {description}
       </p>
-    </div>
+    </motion.div>
   );
 }
