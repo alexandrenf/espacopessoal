@@ -225,6 +225,11 @@ const LoadingState = () => (
   </main>
 );
 
+/**
+ * Renders the animated user dashboard with personalized greeting, feature cards, and quick actions.
+ *
+ * Displays a visually rich dashboard that adapts its content and interactivity based on the user's authentication status and configuration. Shows loading and error states as appropriate, and provides animated backgrounds, feature cards, and quick action buttons for navigation and configuration.
+ */
 export function UserDashboard() {
   const { data: session, status } = useSession();
   

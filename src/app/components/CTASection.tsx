@@ -4,6 +4,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 
+/**
+ * Renders a visually engaging call-to-action section with animated backgrounds, headline, description, interactive buttons, and trust indicators.
+ *
+ * The section features animated floating orbs, a subtle radial gradient background, and sequentially animated content elements using Framer Motion. Includes a primary button to start the sign-in process, a secondary link to learn about features, and a set of trust signals to encourage user engagement.
+ */
 export default function CTASection() {
   return (
     <section className="py-24 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white relative overflow-hidden">

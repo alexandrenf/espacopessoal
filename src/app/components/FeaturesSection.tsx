@@ -3,6 +3,11 @@
 import { motion } from "framer-motion";
 import { Edit3, Shield, Palette } from "lucide-react";
 
+/**
+ * Renders a visually rich features section with animated headings and a grid of feature cards.
+ *
+ * The section includes decorative animated backgrounds, a gradient heading, and three feature cards highlighting key product features. Animations are triggered as elements enter the viewport.
+ */
 export default function FeaturesSection() {
   return (
     <section 
@@ -98,6 +103,17 @@ interface FeatureCardProps {
   color: "blue" | "indigo" | "purple";
 }
 
+/**
+ * Renders an animated feature card with an icon, title, and description, styled according to the specified color theme.
+ *
+ * @param icon - The icon to display in the card.
+ * @param title - The title of the feature.
+ * @param description - The description of the feature.
+ * @param index - The card's position in the list, used to stagger animation delays.
+ * @param color - The color theme for the card ("blue", "indigo", or "purple").
+ *
+ * @returns A styled and animated feature card component.
+ */
 function FeatureCard({ icon, title, description, index, color }: FeatureCardProps) {
   const colorClasses = {
     blue: {
