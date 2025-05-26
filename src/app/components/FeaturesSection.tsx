@@ -18,8 +18,7 @@ export default function FeaturesSection() {
           className="absolute top-20 left-10 w-72 h-72 rounded-full opacity-10 bg-gradient-to-br from-blue-400 to-purple-500 blur-3xl animate-pulse"
         />
         <div 
-          className="absolute bottom-20 right-10 w-96 h-96 rounded-full opacity-80 bg-gradient-to-br from-indigo-400 to-pink-500 blur-3xl animate-pulse"
-          style={{ animationDelay: '2s' }}
+          className="absolute bottom-20 right-10 w-96 h-96 rounded-full opacity-80 bg-gradient-to-br from-indigo-400 to-pink-500 blur-3xl animate-pulse [animation-delay:2s]"
         />
       </div>
 
@@ -62,7 +61,7 @@ export default function FeaturesSection() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <FeatureCard 
-            icon={<Edit3 className="h-6 w-6" />}
+            icon={<Edit3 className="h-6 w-6" aria-hidden="true" />}
             title="Notas Inteligentes"
             description="Crie e organize suas notas com editor rico, tags e busca avançada. Acesse de qualquer dispositivo."
             index={0}
@@ -70,7 +69,7 @@ export default function FeaturesSection() {
           />
           
           <FeatureCard 
-            icon={<Shield className="h-6 w-6" />}
+            icon={<Shield className="h-6 w-6" aria-hidden="true" />}
             title="Privacidade Total"
             description="Seus dados são seus. Controle total sobre privacidade com opções de notas públicas ou privadas."
             index={1}
@@ -78,7 +77,7 @@ export default function FeaturesSection() {
           />
           
           <FeatureCard 
-            icon={<Palette className="h-6 w-6" />}
+            icon={<Palette className="h-6 w-6" aria-hidden="true" />}
             title="Personalização"
             description="Adapte o espaço ao seu estilo. Temas, organização e configurações que fazem sentido para você."
             index={2}
@@ -136,6 +135,7 @@ function FeatureCard({ icon, title, description, index, color }: FeatureCardProp
       transition={{ duration: 0.6, delay: index * 0.1 }}
       viewport={{ once: true }}
       whileHover={{ y: -5 }}
+      aria-label={title}
     >
       <div className={`w-12 h-12 ${classes.bg} ${classes.hoverBg} ${classes.text} ${classes.hoverText} rounded-xl flex items-center justify-center mb-6 transition-all duration-300`}>
         {icon}
