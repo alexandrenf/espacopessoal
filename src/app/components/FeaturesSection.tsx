@@ -18,7 +18,7 @@ export default function FeaturesSection() {
           className="absolute top-20 left-10 w-72 h-72 rounded-full opacity-10 bg-gradient-to-br from-blue-400 to-purple-500 blur-3xl animate-pulse"
         />
         <div 
-          className="absolute bottom-20 right-10 w-96 h-96 rounded-full opacity-8 bg-gradient-to-br from-indigo-400 to-pink-500 blur-3xl animate-pulse"
+          className="absolute bottom-20 right-10 w-96 h-96 rounded-full opacity-80 bg-gradient-to-br from-indigo-400 to-pink-500 blur-3xl animate-pulse"
           style={{ animationDelay: '2s' }}
         />
       </div>

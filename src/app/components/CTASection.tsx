@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { Button } from "~/components/ui/button";
 
 export default function CTASection() {
   return (
@@ -66,10 +67,10 @@ export default function CTASection() {
               href="/api/auth/signin" 
               className="group"
             >
-              <button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105 flex items-center gap-2">
+              <Button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105 flex items-center gap-2">
                 Começar Agora
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </Button>
             </Link>
 
             <Link 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -227,6 +227,17 @@ const LoadingState = () => (
 
 export function UserDashboard() {
   const { data: session, status } = useSession();
+  // Detect prefers-reduced-motion
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      setReduceMotion(mq.matches);
+      const handler = () => setReduceMotion(mq.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, []);
   
   // Use the combined query
   const { data, isLoading, error } = api.userSettings.getUserSettingsAndHealth.useQuery(
@@ -270,64 +281,71 @@ export function UserDashboard() {
     >
       {/* Enhanced animated background elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <motion.div 
-          className="absolute top-20 right-20 w-96 h-96 rounded-full opacity-10"
-          style={{
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-            filter: 'blur(60px)',
-          }}
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-        <motion.div 
-          className="absolute bottom-20 left-20 w-80 h-80 rounded-full opacity-8"
-          style={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
-            filter: 'blur(50px)',
-          }}
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-        <motion.div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-5"
-          style={{
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-            filter: 'blur(80px)',
-          }}
-          animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, 360],
-          }}
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
+        {!reduceMotion && (
+          <>
+            <motion.div 
+              className="absolute top-20 right-20 w-96 h-96 rounded-full opacity-10"
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                filter: 'blur(60px)',
+                willChange: 'transform, opacity',
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 180, 360],
+              }}
+              transition={{
+                duration: 25,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+            <motion.div 
+              className="absolute bottom-20 left-20 w-80 h-80 rounded-full opacity-8"
+              style={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
+                filter: 'blur(50px)',
+                willChange: 'transform, opacity',
+              }}
+              animate={{
+                scale: [1.2, 1, 1.2],
+                rotate: [360, 180, 0],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+            <motion.div 
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-5"
+              style={{
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
+                filter: 'blur(80px)',
+                willChange: 'transform, opacity',
+              }}
+              animate={{
+                scale: [1, 1.1, 1],
+                rotate: [0, 360],
+              }}
+              transition={{
+                duration: 30,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          </>
+        )}
       </div>
 
       {/* Floating particles */}
-      {Array.from({ length: 12 }, (_, i) => (
+      {!reduceMotion && Array.from({ length: 12 }, (_, i) => (
         <motion.div
           key={i}
           className="absolute w-2 h-2 bg-blue-400/20 rounded-full pointer-events-none"
           animate={{
-            x: [0, 50, 0],
-            y: [0, -50, 0],
+            translateX: [0, 50, 0],
+            translateY: [0, -50, 0],
             opacity: [0.2, 0.6, 0.2],
           }}
           transition={{
@@ -336,9 +354,10 @@ export function UserDashboard() {
             ease: "easeInOut",
             delay: i * 0.5,
           }}
+          initial={false}
           style={{
-            left: `${10 + i * 8}%`,
-            top: `${20 + (i % 3) * 30}%`,
+            willChange: 'transform, opacity',
+            transform: `translateX(${10 + i * 8}vw) translateY(${20 + (i % 3) * 30}vh)`
           }}
         />
       ))}
