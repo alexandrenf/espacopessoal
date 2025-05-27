@@ -3,6 +3,11 @@
 import { motion } from "framer-motion";
 import { UserPlus, Settings, Rocket } from "lucide-react";
 
+/**
+ * Renders a visually engaging "How It Works" section with animated backgrounds and a three-step process.
+ *
+ * Displays a gradient background with animated blurred circles, a heading area with animated text, and a responsive grid of three animated step cards describing the onboarding process.
+ */
 export default function HowItWorksSection() {
   return (
     <section className="py-24 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 relative overflow-hidden">
@@ -96,6 +101,18 @@ interface StepCardProps {
   color: "blue" | "indigo" | "purple";
 }
 
+/**
+ * Renders an animated step card displaying a step number, icon, title, and description with color theming and connector line.
+ *
+ * @param number - The step number to display.
+ * @param icon - The icon representing the step.
+ * @param title - The title of the step.
+ * @param description - The description of the step.
+ * @param index - The zero-based index of the step, used for animation delay and connector rendering.
+ * @param color - The color theme for the card ("blue", "indigo", or "purple").
+ *
+ * @returns A styled and animated card representing a single step in a multi-step process.
+ */
 function StepCard({ number, icon, title, description, index, color }: StepCardProps) {
   const colorClasses = {
     blue: {

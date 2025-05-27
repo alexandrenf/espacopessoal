@@ -7,6 +7,13 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 
+/**
+ * Renders the animated landing hero section with authentication-aware call-to-action and trust indicators.
+ *
+ * Displays a visually engaging hero area with animated backgrounds, a personalized badge, headline, description, and two call-to-action buttons. The primary button adapts its label and destination based on authentication status, while an animated error notification appears if authentication fails. Trust indicators are shown below the main actions.
+ *
+ * @returns The hero section React element for the landing page.
+ */
 export default function HeroSection() {
   const { data: session, status } = useSession();
   const [authError, setAuthError] = useState<boolean>(false);
