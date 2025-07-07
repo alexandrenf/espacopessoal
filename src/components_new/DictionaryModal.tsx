@@ -77,11 +77,20 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }
   };
   const handleUpdate = async (id: string) => {
-    if (!newFrom || !newTo) return;
+    const trimmedFrom = newFrom.trim();
+    const trimmedTo = newTo.trim();
+    if (!trimmedFrom || !trimmedTo || !session?.user?.id) return;
     setIsUpdating(true);
     try {
-      await updateEntryMutation({ id, from: newFrom, to: newTo, userId: session?.user?.id });
+      await updateEntryMutation({
+        id,
+        from: trimmedFrom,
+        to: trimmedTo,
+        userId: session.user.id
+      });
       setEditingId(null);
+      setNewFrom("");
+      setNewTo("");
       toast.success("Entrada atualizada");
     } catch (error) {
       toast.error("Erro ao atualizar entrada");
