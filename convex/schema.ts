@@ -2,10 +2,35 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  // Users table for authentication
+  users: defineTable({
+    name: v.optional(v.string()),
+    email: v.string(),
+    image: v.optional(v.string()),
+    emailVerified: v.optional(v.number()),
+    // External provider IDs
+    externalId: v.optional(v.string()), // For OAuth providers
+    provider: v.optional(v.string()), // google, discord, email, etc.
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_external_id", ["externalId", "provider"]),
+
+  // Session management for NextAuth integration
+  sessions: defineTable({
+    userId: v.id("users"),
+    sessionToken: v.string(),
+    expires: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_session_token", ["sessionToken"])
+    .index("by_user_id", ["userId"]),
+
   documents: defineTable({
     title: v.string(),
     initialContent: v.optional(v.string()),
-    ownerId: v.string(), // Will be a simple string identifier for now
+    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
     organizationId: v.optional(v.string()),
     roomId: v.optional(v.string()), // For HocusPocus room association
     createdAt: v.number(),
@@ -26,10 +51,23 @@ export default defineSchema({
     
   documentPermissions: defineTable({
     documentId: v.id("documents"),
-    userId: v.string(),
+    userId: v.string(), // TODO: Change to v.id("users") after auth migration
     role: v.union(v.literal("viewer"), v.literal("editor")),
   })
     .index("by_document_id", ["documentId"])
     .index("by_user_id", ["userId"])
     .index("by_document_and_user", ["documentId", "userId"]),
+
+  // Dictionary for spell check and text replacement
+  dictionary: defineTable({
+    from: v.string(),
+    to: v.string(),
+    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    isPublic: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner_id", ["ownerId"])
+    .index("by_from", ["from"])
+    .index("by_public", ["isPublic"]),
 }); 

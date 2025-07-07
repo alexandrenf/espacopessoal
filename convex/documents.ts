@@ -4,14 +4,14 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { type Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 
-// Simple user ID for demo purposes (since no auth yet)
+// For backward compatibility during migration
 const DEFAULT_USER_ID = "demo-user";
 
 export const create = mutation({
   args: {
     title: v.optional(v.string()),
     initialContent: v.optional(v.string()),
-    userId: v.optional(v.string()),
+    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
     parentId: v.optional(v.id("documents")), // Parent folder
     isFolder: v.optional(v.boolean()), // Whether this is a folder
   },

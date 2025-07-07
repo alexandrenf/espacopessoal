@@ -36,7 +36,8 @@ import {
   Text,
   RemoveFormatting,
   Menu,
-  PanelLeft
+  PanelLeft,
+  Sparkles
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -76,6 +77,7 @@ import { Ruler } from "./Ruler";
 import { Threads } from "./Threads";
 import { Toolbar } from "./Toolbar";
 import DocumentSidebar from "./DocumentSidebar";
+import { SpellCheckSidebar } from "./SpellCheckSidebar";
 import { useEditorStore } from "../store/use-editor-store";
 import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../constants/margins";
 
@@ -115,6 +117,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   // Sidebar state
   const [showSidebar, setShowSidebar] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [showSpellCheck, setShowSpellCheck] = useState(false);
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -180,9 +183,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   };
 
   // Initialize Y.js document
-  if (!ydocRef.current) {
-    ydocRef.current = new Y.Doc();
-  }
+  ydocRef.current ??= new Y.Doc();
   
   // Save logic is now handled by the Hocus Pocus server
 
@@ -329,7 +330,11 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     // Enhanced status tracking
     newProvider.on('status', (event: { status: string }) => {
       console.log('📡 Provider status:', event.status);
-      setStatus(event.status as any);
+      const validStatuses = ['connecting', 'connected', 'disconnected', 'error'] as const;
+      const statusValue = (validStatuses as readonly string[]).includes(event.status) 
+        ? (event.status as typeof validStatuses[number])
+        : 'disconnected';
+      setStatus(statusValue);
       
       if (event.status === 'connected') {
         toast.success("Connected to real-time collaboration");
@@ -353,17 +358,17 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       setStatus('disconnected');
     });
 
-    newProvider.on('error', (error: any) => {
+    newProvider.on('error', (error: Error) => {
       console.error('💥 WebSocket error occurred:', error);
       setStatus('error');
       toast.error("Connection error occurred");
     });
 
     // Load initial content if available and Y.js is empty
-    if ((doc.initialContent || initialContent) && editor) {
+    if ((doc.initialContent ?? initialContent) && editor) {
       setTimeout(() => {
         if (editor.isEmpty) {
-          editor.commands.setContent(doc.initialContent || initialContent || '');
+          editor.commands.setContent(doc.initialContent ?? initialContent ?? '');
         }
       }, 100);
     }
@@ -401,7 +406,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
 
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleTitleSubmit();
+      void handleTitleSubmit();
     } else if (e.key === 'Escape') {
       setDocumentTitle(doc.title);
       setIsEditingTitle(false);
@@ -706,6 +711,19 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                       </MenubarItem>
                     </MenubarContent>
                   </MenubarMenu>
+                  <MenubarMenu>
+                    <MenubarTrigger className="text-sm font-normal py-0.5 px-[7px] rounded-sm hover:bg-muted h-auto">
+                      Ferramentas
+                    </MenubarTrigger>
+                    <MenubarContent>
+                      <MenubarItem
+                        onClick={() => setShowSpellCheck(true)}
+                      >
+                        <Sparkles className="size-4 mr-2" />
+                        Verificação Ortográfica
+                      </MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
                 </>
               )}
             </Menubar>
@@ -744,6 +762,13 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
         </div>
       </div>
       </div>
+
+      {/* Spell Check Sidebar */}
+      <SpellCheckSidebar 
+        editor={editor}
+        isOpen={showSpellCheck}
+        onClose={() => setShowSpellCheck(false)}
+      />
     </div>
   );
 } 

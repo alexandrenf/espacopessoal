@@ -22,7 +22,9 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
+    "@hocuspocus/extension-database": "^3.1.9",
     "@hocuspocus/provider": "^3.1.9",
+    "@hocuspocus/server": "^3.1.9",
     "@prisma/client": "^6.8.2",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
@@ -56,6 +58,7 @@
     "@types/lodash": "^4.17.16",
     "@types/rc-tree": "^3.0.0",
     "@types/showdown": "^2.0.6",
+    "@types/ws": "^8.18.1",
     "@vercel/analytics": "^1.5.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-e552027-20250112",
     "class-variance-authority": "^0.7.1",
@@ -89,6 +92,7 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "tiptap-extension-resize-image": "^1.2.2",
+    "ws": "^8.18.3",
     "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.27",
     "zod": "^3.24.2"
