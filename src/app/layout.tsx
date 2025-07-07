@@ -8,6 +8,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from 'sonner';
 import { SessionProvider } from "~/components/SessionProvider";
 import { PWAProvider } from "~/components/PWAProvider";
+import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { Suspense } from 'react';
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 
@@ -57,15 +58,17 @@ export default function RootLayout({
       <body>
         <TRPCReactProvider>
           <SessionProvider>
-            <PWAProvider>
-              <Suspense fallback={
-                <div className="min-h-screen flex items-center justify-center">
-                  <LoadingSpinner className="h-8 w-8" />
-                </div>
-              }>
-                {children}
-              </Suspense>
-            </PWAProvider>
+            <ConvexClientProvider>
+              <PWAProvider>
+                <Suspense fallback={
+                  <div className="min-h-screen flex items-center justify-center">
+                    <LoadingSpinner className="h-8 w-8" />
+                  </div>
+                }>
+                  {children}
+                </Suspense>
+              </PWAProvider>
+            </ConvexClientProvider>
           </SessionProvider>
         </TRPCReactProvider>
         <Toaster />
