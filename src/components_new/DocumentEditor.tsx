@@ -4,7 +4,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import * as Y from 'yjs';
@@ -37,7 +37,8 @@ import {
   RemoveFormatting,
   Menu,
   PanelLeft,
-  Sparkles
+  Sparkles,
+  Replace
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -78,6 +79,8 @@ import { Threads } from "./Threads";
 import { Toolbar } from "./Toolbar";
 import DocumentSidebar from "./DocumentSidebar";
 import { SpellCheckSidebar } from "./SpellCheckSidebar";
+import { DictionaryModal } from "./DictionaryModal";
+import { ReplacementPopup } from "./ReplacementPopup";
 import { useEditorStore } from "../store/use-editor-store";
 import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../constants/margins";
 
@@ -118,6 +121,18 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const [showSidebar, setShowSidebar] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [showSpellCheck, setShowSpellCheck] = useState(false);
+  const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
+  const [replacementSuggestion, setReplacementSuggestion] = useState<{
+    word: string;
+    replacement: string;
+    start: number;
+    end: number;
+  } | null>(null);
+  const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
+  const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const dictionary =
+    useQuery(api.dictionary.getDictionary, { userId: 'demo-user' }) || [];
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -181,6 +196,48 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const insertTable = ({ rows, cols }: { rows: number; cols: number }) => {
     editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
   };
+
+  const rejectReplacement = () => {
+    if (replacementSuggestion) {
+      setRecentlyRejected(replacementSuggestion.word);
+    }
+    setReplacementSuggestion(null);
+  };
+
+  const acceptReplacement = () => {
+    if (!editor || !replacementSuggestion) return;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt({ from: replacementSuggestion.start, to: replacementSuggestion.end }, replacementSuggestion.replacement)
+      .run();
+    setReplacementSuggestion(null);
+  };
+
+  const handleTextReplace = () => {
+    if (!editor) return;
+    const pos = editor.state.selection.from;
+    const textBefore = editor.state.doc.textBetween(0, pos, ' ');
+    const match = /\S+$/.exec(textBefore);
+    if (!match) return;
+    const lastWord = match[0];
+    const entry = dictionary.find(
+      (e: any) => e.from === lastWord || (lastWord.startsWith('@') && e.from === lastWord.slice(1))
+    );
+    if (entry && lastWord !== recentlyRejected) {
+      setReplacementSuggestion({
+        word: lastWord,
+        replacement: entry.to,
+        start: pos - lastWord.length,
+        end: pos,
+      });
+      if (suggestionTimeoutRef.current) clearTimeout(suggestionTimeoutRef.current);
+      suggestionTimeoutRef.current = setTimeout(() => {
+        acceptReplacement();
+      }, 2000);
+    }
+  };
+
 
   // Initialize Y.js document
   ydocRef.current ??= new Y.Doc();
@@ -386,6 +443,34 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       }
     };
   }, [doc._id, doc.initialContent, initialContent, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleUpdate = () => {
+      handleTextReplace();
+    };
+    const dom = editor.view.dom;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === ' ' &&
+        replacementSuggestion &&
+        replacementSuggestion.word !== recentlyRejected
+      ) {
+        e.preventDefault();
+        acceptReplacement();
+        return;
+      }
+      if (e.key === ' ') {
+        setRecentlyRejected(null);
+      }
+    };
+    editor.on('update', handleUpdate);
+    dom.addEventListener('keydown', handleKeyDown);
+    return () => {
+      editor.off('update', handleUpdate);
+      dom.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editor, dictionary, replacementSuggestion, recentlyRejected]);
 
   // Enhanced title handling
   const handleTitleSubmit = async () => {
@@ -722,6 +807,10 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                         <Sparkles className="size-4 mr-2" />
                         Verificação Ortográfica
                       </MenubarItem>
+                      <MenubarItem onClick={() => setIsDictionaryModalOpen(true)}>
+                        <Replace className="size-4 mr-2" />
+                        Dicionário
+                      </MenubarItem>
                     </MenubarContent>
                   </MenubarMenu>
                 </>
@@ -763,8 +852,25 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       </div>
       </div>
 
+      <DictionaryModal
+        isOpen={isDictionaryModalOpen}
+        onClose={() => setIsDictionaryModalOpen(false)}
+        isPrivate={true}
+        session={null}
+        createdById="demo-user"
+      />
+
+      {replacementSuggestion && (
+        <ReplacementPopup
+          word={replacementSuggestion.word}
+          replacement={replacementSuggestion.replacement}
+          onAccept={acceptReplacement}
+          onReject={rejectReplacement}
+        />
+      )}
+
       {/* Spell Check Sidebar */}
-      <SpellCheckSidebar 
+      <SpellCheckSidebar
         editor={editor}
         isOpen={showSpellCheck}
         onClose={() => setShowSpellCheck(false)}
