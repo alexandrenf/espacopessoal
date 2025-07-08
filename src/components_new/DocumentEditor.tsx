@@ -54,7 +54,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "../components_new/ui/menubar";
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 
 // TipTap Extensions
 import { FontSizeExtension } from "../extensions/font-size";
@@ -110,8 +110,8 @@ interface EditorProps {
 }
 
 export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
-  const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
   const mutation = useMutation(api.documents.updateById);
   const updateDocument = useMutation(api.documents.updateById);
   const create = useMutation(api.documents.create);

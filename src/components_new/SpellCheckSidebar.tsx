@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { Editor } from '@tiptap/react';
 import { 
@@ -45,6 +45,7 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
   const [isChecking, setIsChecking] = useState(false);
   const [hoveredDiffId, setHoveredDiffId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Runtime validation for API response
   const validateSpellCheckResponse = (data: unknown): { isValid: boolean; response?: SpellCheckResponse; error?: string } => {
@@ -85,6 +86,15 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
   const handleSpellCheck = useCallback(async () => {
     if (!editor) return;
     
+    // Cancel any ongoing spell check request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     setIsChecking(true);
     setError(null);
     
@@ -100,6 +110,7 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: content }),
+        signal: abortController.signal, // Pass the abort signal
       });
       
       if (!response.ok) {
@@ -107,29 +118,44 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
       }
       
       const data: unknown = await response.json();
+      
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       const validation = validateSpellCheckResponse(data);
       
-             if (!validation.isValid) {
-         throw new Error(validation.error ?? 'Invalid response from spell check API');
-       }
+      if (!validation.isValid) {
+        throw new Error(validation.error ?? 'Invalid response from spell check API');
+      }
       
-             const diffsWithIds = (validation.response?.diffs ?? []).map((diff: ApiDiff, idx: number) => ({
-         ...diff,
-         id: `diff-${Date.now()}-${idx}`,
-       }));
-       
-       setDiffs(diffsWithIds);
-       
-       if (diffsWithIds.length === 0) {
-         setError('No spelling issues found!');
-       }
-     } catch (error) {
-       console.error('Spell check failed:', error);
-       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-       setError(`Spell check failed: ${errorMessage}`);
+      const diffsWithIds = (validation.response?.diffs ?? []).map((diff: ApiDiff, idx: number) => ({
+        ...diff,
+        id: `diff-${Date.now()}-${idx}`,
+      }));
+      
+      setDiffs(diffsWithIds);
+      
+      if (diffsWithIds.length === 0) {
+        setError('No spelling issues found!');
+      }
+    } catch (error) {
+      // Don't show error if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
+      
+      console.error('Spell check failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Spell check failed: ${errorMessage}`);
       setDiffs([]);
     } finally {
-      setIsChecking(false);
+      // Only update loading state if this is still the current request
+      if (abortControllerRef.current === abortController) {
+        setIsChecking(false);
+        abortControllerRef.current = null;
+      }
     }
   }, [editor]);
 
@@ -198,9 +224,18 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
       content: updatedDiff.suggestion,
     });
 
-    // Update editor content
-    editor.commands.setContent(newText);
-
+    // Update editor content while preserving cursor position
+    const cursorPos = editor.state.selection.from;
+    const tr = editor.state.tr.replaceWith(0, editor.state.doc.content.size, editor.schema.text(newText));
+    editor.view.dispatch(tr);
+    
+    // Restore cursor position if it's still valid
+    const newDocSize = editor.state.doc.content.size;
+    const safeCursorPos = Math.min(cursorPos, newDocSize);
+    if (safeCursorPos >= 0) {
+      editor.commands.setTextSelection(safeCursorPos);
+    }
+    
     // Remove this diff and recalculate positions for remaining diffs
     const remainingDiffs = diffs.filter(d => d.id !== diff.id);
     const recalculatedDiffs = recalculateAllDiffPositions(newText, remainingDiffs);
@@ -241,7 +276,18 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
       }
     }
 
-    editor.commands.setContent(content);
+    // Update editor content while preserving cursor position
+    const cursorPos = editor.state.selection.from;
+    const tr = editor.state.tr.replaceWith(0, editor.state.doc.content.size, editor.schema.text(content));
+    editor.view.dispatch(tr);
+    
+    // Restore cursor position if it's still valid
+    const newDocSize = editor.state.doc.content.size;
+    const safeCursorPos = Math.min(cursorPos, newDocSize);
+    if (safeCursorPos >= 0) {
+      editor.commands.setTextSelection(safeCursorPos);
+    }
+    
     setDiffs([]);
     onClose();
   }, [editor, diffs, recalculateDiffPosition, applyTextReplacement, onClose]);
@@ -251,10 +297,12 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
+        {...({
+          initial: { x: "100%" },
+          animate: { x: 0 },
+          exit: { x: "100%" },
+          transition: { duration: 0.3, ease: "easeInOut" }
+        } as any)}
         className="fixed right-0 top-16 z-20 h-[calc(100vh-4rem)] w-[320px] border-l border-gray-200/80 bg-white shadow-lg"
       >
         <div className="flex h-full flex-col">

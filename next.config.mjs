@@ -9,11 +9,11 @@ import withPWA from "next-pwa";
 
 /** @type {import("next").NextConfig} */
 const config = {
+  turbopack: {
+    // Turbopack is now stable, so we use the turbopack property instead of experimental.turbo
+  },
   experimental: {
-    turbo: {
-      enabled: true,
-      reactCompiler: true,
-    },
+    // Remove the deprecated turbo configuration
   },
 
   async headers() {
@@ -49,23 +49,7 @@ const config = {
   skipTrailingSlashRedirect: true,
 };
 
-export default withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
-  publicExcludes: ["!firebase-messaging-sw.js"],
-  runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/fonts\./,
-      handler: "CacheFirst",
-      options: {
-        cacheName: "google-fonts",
-        expiration: {
-          maxEntries: 10,
-          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-        },
-      },
-    },
-  ],
-})(config);
+// PWA disabled
+const nextConfig = config;
+
+export default nextConfig;
