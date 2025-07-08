@@ -43,6 +43,7 @@ export default function SharedDocumentPage() {
   const hasError = sharedDocument === null;
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         history: false,

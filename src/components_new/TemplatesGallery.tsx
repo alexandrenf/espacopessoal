@@ -16,7 +16,7 @@ export function TemplatesGallery() {
   
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId ? String(convexUserId) : null;
+  const userIdString = convexUserId;
 
   const onTemplateClick = (title: string, initialContent: string) => {
     if (isUserLoading) {

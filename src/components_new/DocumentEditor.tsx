@@ -152,8 +152,9 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   useEffect(() => {
     if (!ydocRef.current) {
       ydocRef.current = new Y.Doc();
-      setIsYdocReady(true);
+      console.log('📄 Y.js document initialized');
     }
+    setIsYdocReady(true);
   }, []);
 
   // Check if mobile on mount and resize
@@ -218,147 +219,152 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
   };
 
-  // Enhanced WebSocket and Y.js integration - only create editor when Y.js document is ready
-  const editor = useEditor(
-    isYdocReady ? {
-      autofocus: !isReadOnly,
-      immediatelyRender: false,
-      editable: !isReadOnly,
-      onCreate({ editor }) {
-        setEditor(editor);
+  // Create base extensions that don't require Y.js
+  const baseExtensions = [
+    StarterKit.configure({
+      history: false,
+      heading: false,
+    }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Table.configure({
+      resizable: true,
+      handleWidth: 5,
+      cellMinWidth: 50,
+    }),
+    TableCell.configure({
+      HTMLAttributes: {
+        class: 'border border-gray-300 p-2',
       },
-      onDestroy() {
-        setEditor(null);
+    }),
+    TableHeader.configure({
+      HTMLAttributes: {
+        class: 'border border-gray-300 p-2 bg-gray-100 font-bold',
       },
-      onUpdate({ editor, transaction }) {
-        setEditor(editor);
-        if (transaction.docChanged) {
-          console.log('Document changed - server will handle saving');
-        }
+    }),
+    TableRow.configure({
+      HTMLAttributes: {
+        class: 'border-b border-gray-300',
       },
-      onSelectionUpdate({ editor }) {
-        setEditor(editor);
+    }),
+    ImageResize,
+    Underline,
+    FontFamily,
+    TextStyle,
+    Heading.configure({
+      levels: [1, 2, 3, 4, 5, 6],
+      HTMLAttributes: {
+        class: 'heading',
       },
-      onTransaction({ editor }) {
-        setEditor(editor);
+    }),
+    Highlight.configure({ 
+      multicolor: true,
+      HTMLAttributes: {
+        class: 'highlight',
       },
-      onFocus({ editor }) {
-        setEditor(editor);
-      },
-      onBlur({ editor }) {
-        setEditor(editor);
-      },
-      onContentError({ editor }) {
-        setEditor(editor);
-      },
-      editorProps: {
-        attributes: {
-          style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px;`,
-          class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10 cursor-text`,
-        },
-      },
-      extensions: [
-        StarterKit.configure({
-          history: false,
-          heading: false,
-        }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Table.configure({
-          resizable: true,
-          handleWidth: 5,
-          cellMinWidth: 50,
-        }),
-        TableCell.configure({
-          HTMLAttributes: {
-            class: 'border border-gray-300 p-2',
-          },
-        }),
-        TableHeader.configure({
-          HTMLAttributes: {
-            class: 'border border-gray-300 p-2 bg-gray-100 font-bold',
-          },
-        }),
-        TableRow.configure({
-          HTMLAttributes: {
-            class: 'border-b border-gray-300',
-          },
-        }),
-        ImageResize,
-        Underline,
-        FontFamily,
-        TextStyle,
-        Heading.configure({
-          levels: [1, 2, 3, 4, 5, 6],
-          HTMLAttributes: {
-            class: 'heading',
-          },
-        }),
-        Highlight.configure({ 
-          multicolor: true,
-          HTMLAttributes: {
-            class: 'highlight',
-          },
-        }),
-        Color.configure({
-          types: ['textStyle'],
-        }),
-        LinkExtension.extend({
-          renderHTML({ HTMLAttributes }) {
-            const href = HTMLAttributes.href as string;
-            const safeHref = createSafeHref(href);
-            
-            return [
-              'a',
-              {
-                ...HTMLAttributes,
-                href: safeHref,
-              },
-              0,
-            ];
-        },
+    }),
+    Color.configure({
+      types: ['textStyle'],
+    }),
+    LinkExtension.extend({
+      renderHTML({ HTMLAttributes }) {
+        const href = HTMLAttributes.href as string;
+        const safeHref = createSafeHref(href);
         
-        addCommands() {
-          return {
-            ...this.parent?.(),
-            setLink: (attributes) => ({ commands }) => {
-              if (attributes.href && !validateLinkUrl(attributes.href)) {
-                console.warn('Blocked attempt to set unsafe URL:', attributes.href);
-                return false;
-              }
-              
-              const sanitizedAttributes = {
-                ...attributes,
-                href: attributes.href ? createSafeHref(attributes.href) : attributes.href,
-              };
-              
-              return commands.setMark(this.name, sanitizedAttributes);
-            },
-          };
-        },
-      }).configure({
-        openOnClick: false,
-        autolink: true,
-        defaultProtocol: "https",
-        validate: (url: string) => Boolean(validateLinkUrl(url)),
-        HTMLAttributes: {
-          class: 'text-blue-600 underline cursor-pointer',
-          rel: 'noopener noreferrer',
-          target: '_blank',
-        },
-      }),
-        TextAlign.configure({
-          types: ["heading", "paragraph"],
-        }),
-        FontSizeExtension,
-        LineHeightExtension,
+        return [
+          'a',
+          {
+            ...HTMLAttributes,
+            href: safeHref,
+          },
+          0,
+        ];
+      },
+      
+      addCommands() {
+        return {
+          ...this.parent?.(),
+          setLink: (attributes) => ({ commands }) => {
+            if (attributes.href && !validateLinkUrl(attributes.href)) {
+              console.warn('Blocked attempt to set unsafe URL:', attributes.href);
+              return false;
+            }
+            
+            const sanitizedAttributes = {
+              ...attributes,
+              href: attributes.href ? createSafeHref(attributes.href) : attributes.href,
+            };
+            
+            return commands.setMark(this.name, sanitizedAttributes);
+          },
+        };
+      },
+    }).configure({
+      openOnClick: false,
+      autolink: true,
+      defaultProtocol: "https",
+      validate: (url: string) => Boolean(validateLinkUrl(url)),
+      HTMLAttributes: {
+        class: 'text-blue-600 underline cursor-pointer',
+        rel: 'noopener noreferrer',
+        target: '_blank',
+      },
+    }),
+    TextAlign.configure({
+      types: ["heading", "paragraph"],
+    }),
+    FontSizeExtension,
+    LineHeightExtension,
+  ];
+
+  // Enhanced WebSocket and Y.js integration - always create editor with basic extensions
+  const editor = useEditor({
+    autofocus: !isReadOnly,
+    immediatelyRender: false,
+    editable: !isReadOnly,
+    onCreate({ editor }) {
+      setEditor(editor);
+    },
+    onDestroy() {
+      setEditor(null);
+    },
+    onUpdate({ editor, transaction }) {
+      setEditor(editor);
+      if (transaction.docChanged) {
+        console.log('Document changed - server will handle saving');
+      }
+    },
+    onSelectionUpdate({ editor }) {
+      setEditor(editor);
+    },
+    onTransaction({ editor }) {
+      setEditor(editor);
+    },
+    onFocus({ editor }) {
+      setEditor(editor);
+    },
+    onBlur({ editor }) {
+      setEditor(editor);
+    },
+    onContentError({ editor }) {
+      setEditor(editor);
+    },
+    editorProps: {
+      attributes: {
+        style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px;`,
+        class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10 cursor-text`,
+      },
+    },
+    extensions: [
+      ...baseExtensions,
+      // Only add Collaboration when Y.js document is ready
+      ...(isYdocReady && ydocRef.current ? [
         Collaboration.configure({
           document: ydocRef.current,
         }),
-      ],
-    } : undefined,
-    [isYdocReady, leftMargin, rightMargin, isReadOnly]
-  );
+      ] : []),
+    ],
+  }, [isYdocReady, leftMargin, rightMargin, isReadOnly]);
 
   // Functions that use editor - must be defined after editor is declared
   const rejectReplacement = useCallback(() => {
@@ -496,37 +502,6 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       toast.error("Connection error occurred");
     });
 
-    // Set initial content when editor is ready and content is available
-    if ((doc.initialContent ?? initialContent) && editor) {
-      // Use editor state to determine when it's truly ready
-      const checkEditorReady = () => {
-        if (editor.isEmpty && editor.isEditable) {
-          editor.commands.setContent(doc.initialContent ?? initialContent ?? '');
-          return true;
-        }
-        return false;
-      };
-      
-      // Try immediately, then use requestAnimationFrame with retry limit if needed
-      if (!checkEditorReady()) {
-        let retryCount = 0;
-        const maxRetries = 50; // Limit to prevent infinite loops
-        
-        const trySetContent = () => {
-          if (retryCount >= maxRetries) {
-            console.warn('Editor content setting failed after maximum retries');
-            return;
-          }
-          
-          retryCount++;
-          if (!checkEditorReady()) {
-            requestAnimationFrame(trySetContent);
-          }
-        };
-        requestAnimationFrame(trySetContent);
-      }
-    }
-
     return () => {
       console.log('🧹 Cleaning up editor and connections');
       
@@ -538,7 +513,43 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
         ydoc.destroy();
       }
     };
-  }, [doc._id, doc.initialContent, initialContent, editor]);
+  }, [doc._id, doc.initialContent, initialContent]);
+
+  // Separate useEffect to handle initial content setting when editor becomes ready
+  useEffect(() => {
+    if (!editor || !isYdocReady) return;
+    
+    const contentToSet = doc.initialContent ?? initialContent;
+    if (!contentToSet) return;
+
+    // Use editor state to determine when it's truly ready
+    const checkEditorReady = () => {
+      if (editor.isEmpty && editor.isEditable) {
+        editor.commands.setContent(contentToSet);
+        return true;
+      }
+      return false;
+    };
+    
+    // Try immediately, then use requestAnimationFrame with retry limit if needed
+    if (!checkEditorReady()) {
+      let retryCount = 0;
+      const maxRetries = 50; // Limit to prevent infinite loops
+      
+      const trySetContent = () => {
+        if (retryCount >= maxRetries) {
+          console.warn('Editor content setting failed after maximum retries');
+          return;
+        }
+        
+        retryCount++;
+        if (!checkEditorReady()) {
+          requestAnimationFrame(trySetContent);
+        }
+      };
+      requestAnimationFrame(trySetContent);
+    }
+  }, [editor, isYdocReady, doc.initialContent, initialContent]);
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {

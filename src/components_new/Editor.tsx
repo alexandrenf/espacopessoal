@@ -1,7 +1,7 @@
 'use client'
 
 import { EditorContent, Editor as TiptapEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { StarterKit } from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
 import { useEffect, useState, useRef } from 'react'
 import MenuBar from './MenuBar'

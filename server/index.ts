@@ -399,10 +399,10 @@ const server = new Server({
     const { documentName, document } = data;
     
     // Track document instance globally for shutdown handling
-documentInstances.set(documentName, document);
+    documentInstances.set(documentName, document);
 
-// Initialize document state atomically to prevent race conditions
-initializeDocumentStateIfNeeded(documentName);
+    // Initialize document state atomically to prevent race conditions
+    initializeDocumentStateIfNeeded(documentName);
     
     // Schedule save after 2 seconds of inactivity (now consistent with comment)
     scheduleDocumentSave(documentName, document);

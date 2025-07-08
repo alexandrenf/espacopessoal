@@ -384,10 +384,21 @@ export const updateContentInternal = internalMutation({
           throw new ConvexError(`Document ${args.id} not found and demo-user is not authorized to create new documents`);
         }
         
-        // For now, allow any non-demo userId (NextAuth session IDs, etc.) to create documents
-        // TODO: Implement proper user validation with a users table mapping
+        // Implement proper user validation - verify user exists in database
         if (typeof args.userId !== 'string' || args.userId.trim().length === 0) {
           throw new ConvexError(`Document ${args.id} not found and invalid user ID provided`);
+        }
+        
+        // Validate that the user exists in the users table by checking NextAuth external ID
+        const validUser = await ctx.db
+          .query("users")
+          .withIndex("by_external_id", (q) => 
+            q.eq("externalId", args.userId).eq("provider", "nextauth")
+          )
+          .first();
+        
+        if (!validUser) {
+          throw new ConvexError(`Document ${args.id} not found and user ${args.userId} is not authorized or does not exist`);
         }
         
         // Create a basic document record only for authorized users
