@@ -45,12 +45,23 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: dictionary = [], isLoading: isLoadingDictionary } = !isPrivate
-    ? useQuery(api.dictionary.getPublicDictionary, {
-        userId: session?.user?.id ?? "",
-        createdById,
-      }) || []
-    : useQuery(api.dictionary.getDictionary, { userId: session?.user?.id }) || [];
+  // Always call both hooks unconditionally, use skip to control execution
+  const publicDictionary = useQuery(
+    api.dictionary.getPublicDictionary,
+    !isPrivate && session?.user?.id ? {
+      userId: session.user.id,
+      createdById,
+    } : "skip"
+  );
+
+  const privateDictionary = useQuery(
+    api.dictionary.getDictionary,
+    isPrivate && session?.user?.id ? { userId: session.user.id } : "skip"
+  );
+
+  // Use the appropriate dictionary based on isPrivate
+  const dictionary = isPrivate ? (privateDictionary ?? []) : (publicDictionary ?? []);
+  const isLoadingDictionary = (isPrivate ? privateDictionary : publicDictionary) === undefined;
 
   const createEntry = useMutation(api.dictionary.create);
   const updateEntryMutation = useMutation(api.dictionary.update);
@@ -111,8 +122,8 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }
   };
 
-  const handleEdit = (entry: { id: string; from: string; to: string }) => {
-    setEditingId(entry.id);
+  const handleEdit = (entry: { _id: string; from: string; to: string }) => {
+    setEditingId(entry._id);
     setNewFrom(entry.from);
     setNewTo(entry.to);
   };
@@ -265,7 +276,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                   {filteredDictionary.length > 0 ? (
                     filteredDictionary.map((entry) => (
                       <motion.div
-                        key={entry.id}
+                        key={entry._id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
@@ -294,7 +305,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => deleteEntry(entry.id)}
+                              onClick={() => deleteEntry(entry._id)}
                               disabled={isDeleting}
                               className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600"
                               title="Excluir"
