@@ -64,9 +64,10 @@ export function sanitizeUrl(url: string): string | null {
 
     // Additional security checks for data URLs
     if (parsedUrl.protocol.toLowerCase() === 'data:') {
-      // Only allow image data URLs and basic text
+      // Only allow safe image data URLs and basic text
+      // Note: SVG data URLs are excluded due to XSS risks (can contain executable JavaScript)
       const dataType = parsedUrl.pathname.split(';')[0];
-      const allowedDataTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/svg+xml', 'text/plain'];
+      const allowedDataTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'text/plain'];
       
       if (!dataType || !allowedDataTypes.some(type => dataType.startsWith(type))) {
         console.warn(`Blocked data URL with disallowed type: ${dataType ?? 'unknown'}`);

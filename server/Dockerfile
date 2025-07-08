@@ -27,9 +27,9 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check (using wget which is available in Alpine)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:3000 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
 
 # Start the server
 CMD ["bun", "run", "index.ts"] 

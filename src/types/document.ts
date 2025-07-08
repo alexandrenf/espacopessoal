@@ -9,4 +9,11 @@ export type Document = {
   organizationId?: string;
   initialContent?: string;
   roomId?: string;
+};
+
+// UI-specific extension for tree components that need additional fields
+export type DocumentWithTreeProps = Document & {
+  parentId?: Id<"documents">;
+  order: number;
+  isFolder: boolean;
 }; 

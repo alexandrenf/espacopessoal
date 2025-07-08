@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -14,10 +14,28 @@ export default function HomePage() {
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [hasError, setHasError] = useState(false);
   
   const getOrCreateHomeDocument = useMutation(api.documents.getOrCreateHomeDocument);
-  
-  const userIdString = convexUserId ? String(convexUserId) : "demo-user";
+
+  // Memoize the createAndRedirect function to prevent unnecessary re-renders
+  const createAndRedirect = useCallback(async () => {
+    if (isRedirecting || !convexUserId) return; // Prevent multiple calls and ensure user ID exists
+    
+    setIsRedirecting(true);
+    setHasError(false);
+    
+    try {
+      const userIdString = String(convexUserId);
+      const documentId = await getOrCreateHomeDocument({ userId: userIdString });
+      router.push(`/documents/${documentId}`);
+    } catch (error) {
+      console.error("Failed to create home document:", error);
+      toast.error("Failed to load your notebook. Please try again.");
+      setIsRedirecting(false);
+      setHasError(true);
+    }
+  }, [convexUserId, getOrCreateHomeDocument, router, isRedirecting]);
 
   useEffect(() => {
     // If not authenticated, redirect to sign in
@@ -29,25 +47,43 @@ export default function HomePage() {
     }
 
     // If authenticated but user data still loading, wait
-    if (isUserLoading || !convexUserId) return;
+    if (isUserLoading) return;
+
+    // Check if convexUserId is null/undefined and handle error state
+    if (!convexUserId) {
+      setHasError(true);
+      toast.error("Unable to load user data. Please try refreshing the page.");
+      return;
+    }
 
     // Create or get home document and redirect
-    const createAndRedirect = async () => {
-      if (isRedirecting) return; // Prevent multiple calls
-      
-      setIsRedirecting(true);
-      try {
-        const documentId = await getOrCreateHomeDocument({ userId: userIdString });
-        router.push(`/documents/${documentId}`);
-      } catch (error) {
-        console.error("Failed to create home document:", error);
-        toast.error("Failed to load your notebook. Please try again.");
-        setIsRedirecting(false);
-      }
-    };
-
     void createAndRedirect();
-  }, [status, isUserLoading, convexUserId, userIdString, getOrCreateHomeDocument, router, isRedirecting]);
+  }, [status, isUserLoading, convexUserId, createAndRedirect, router]);
+
+  // Show error state if user data couldn't be loaded
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FBFD]">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="h-8 w-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Workspace</h2>
+          <p className="text-muted-foreground mb-4">
+            We couldn't load your user data. Please try refreshing the page.
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F9FBFD]">

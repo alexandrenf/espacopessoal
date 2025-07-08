@@ -19,21 +19,7 @@ import FolderItem from "./FolderItem";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
 import { useConvexUser } from "../hooks/use-convex-user";
-
-// Document interface
-export interface Document {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-  parentId?: Id<"documents">;
-  order: number;
-  isFolder: boolean;
-}
+import { DocumentWithTreeProps } from "../types/document";
 
 // Extend DataNode to include level
 interface CustomDataNode {
@@ -45,7 +31,7 @@ interface CustomDataNode {
 }
 
 interface DocumentSidebarProps {
-  currentDocument?: Document;
+  currentDocument?: DocumentWithTreeProps;
   setCurrentDocumentId: (id: Id<"documents">) => void;
   onToggleSidebar?: () => void;
   showSidebar?: boolean;
@@ -140,7 +126,7 @@ const DocumentSidebar = memo(({
 
   // Convert documents to rc-tree format
   const treeData = useMemo(() => {
-    const makeTreeNode = (document: Document, level = 0): CustomDataNode => ({
+    const makeTreeNode = (document: DocumentWithTreeProps, level = 0): CustomDataNode => ({
       key: document._id.toString(),
       title: document.isFolder ? (
         <FolderItem
@@ -165,18 +151,18 @@ const DocumentSidebar = memo(({
       ),
       children: document.isFolder
         ? documents
-            .filter((d: Document) => d.parentId === document._id)
-            .sort((a: Document, b: Document) => a.order - b.order)
-            .map((d: Document) => makeTreeNode(d, level + 1))
+            .filter((d: DocumentWithTreeProps) => d.parentId === document._id)
+            .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order)
+            .map((d: DocumentWithTreeProps) => makeTreeNode(d, level + 1))
         : undefined,
       isLeaf: !document.isFolder,
       level,
     });
 
     return documents
-      .filter((document: Document) => document.parentId === undefined)
-      .sort((a: Document, b: Document) => a.order - b.order)
-      .map((document: Document) => makeTreeNode(document, 0));
+      .filter((document: DocumentWithTreeProps) => document.parentId === undefined)
+      .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order)
+      .map((document: DocumentWithTreeProps) => makeTreeNode(document, 0));
   }, [documents, currentDocument?._id, isDeletingId, expandedKeys]);
 
   const handleNewDocument = async () => {
@@ -220,12 +206,12 @@ const DocumentSidebar = memo(({
     const dropPos = info.node.pos.split('-');
     const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
 
-    const dragDocument = documents.find((d: Document) => d._id.toString() === dragKey);
-    const dropDocument = documents.find((d: Document) => d._id.toString() === dropKey);
+    const dragDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dragKey);
+    const dropDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dropKey);
 
     if (!dragDocument || !dropDocument) return;
 
-    const updatedDocuments = documents.map((doc: Document) => ({ ...doc }));
+    const updatedDocuments = documents.map((doc: DocumentWithTreeProps) => ({ ...doc }));
     let newParentId: Id<"documents"> | undefined = undefined;
 
     // Handle dropping into a folder
@@ -234,11 +220,11 @@ const DocumentSidebar = memo(({
       
       // Get existing documents in the target folder
       const documentsInFolder = updatedDocuments
-        .filter((d: Document) => d.parentId === newParentId && d._id !== dragDocument._id)
-        .sort((a: Document, b: Document) => a.order - b.order);
+        .filter((d: DocumentWithTreeProps) => d.parentId === newParentId && d._id !== dragDocument._id)
+        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
 
       // Update the dragged document
-      const dragDocumentIndex = updatedDocuments.findIndex((d: Document) => d._id === dragDocument._id);
+      const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
       updatedDocuments[dragDocumentIndex] = {
         ...dragDocument,
         parentId: newParentId,
@@ -246,7 +232,7 @@ const DocumentSidebar = memo(({
       };
 
       // Update orders for all affected documents
-      updatedDocuments.forEach((doc: Document) => {
+      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
         if (doc.parentId === dragDocument.parentId && doc.order > dragDocument.order) {
           doc.order -= 1;
         }
@@ -257,19 +243,19 @@ const DocumentSidebar = memo(({
       
       // Get all documents at the target level (excluding the dragged document)
       const documentsInLevel = updatedDocuments
-        .filter((d: Document) => d.parentId === newParentId && d._id !== dragDocument._id)
-        .sort((a: Document, b: Document) => a.order - b.order);
+        .filter((d: DocumentWithTreeProps) => d.parentId === newParentId && d._id !== dragDocument._id)
+        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
 
-      const dropIndex = documentsInLevel.findIndex((d: Document) => d._id === dropDocument._id);
+      const dropIndex = documentsInLevel.findIndex((d: DocumentWithTreeProps) => d._id === dropDocument._id);
       const targetIndex = dropPosition < 0 ? dropIndex : dropIndex + 1;
 
       // Remove document from its current position
-      const dragDocumentIndex = updatedDocuments.findIndex((d: Document) => d._id === dragDocument._id);
+      const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
       const oldParentId = dragDocument.parentId;
       const oldOrder = dragDocument.order;
 
       // Update orders in the source folder
-      updatedDocuments.forEach((doc: Document) => {
+      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
         if (doc.parentId === oldParentId && doc.order > oldOrder) {
           doc.order -= 1;
         }
@@ -283,7 +269,7 @@ const DocumentSidebar = memo(({
       };
 
       // Update orders in the target folder
-      updatedDocuments.forEach((doc: Document) => {
+      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
         if (doc.parentId === newParentId && doc._id !== dragDocument._id && doc.order >= targetIndex) {
           doc.order += 1;
         }
@@ -293,11 +279,11 @@ const DocumentSidebar = memo(({
     // Normalize orders to ensure they are sequential
     const normalizeOrders = (parentId: Id<"documents"> | undefined) => {
       const documentsInLevel = updatedDocuments
-        .filter((d: Document) => d.parentId === parentId)
-        .sort((a: Document, b: Document) => a.order - b.order);
+        .filter((d: DocumentWithTreeProps) => d.parentId === parentId)
+        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
       
-      documentsInLevel.forEach((doc: Document, index: number) => {
-        const docIndex = updatedDocuments.findIndex((d: Document) => d._id === doc._id);
+      documentsInLevel.forEach((doc: DocumentWithTreeProps, index: number) => {
+        const docIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === doc._id);
         updatedDocuments[docIndex]!.order = index;
       });
     };
@@ -310,7 +296,7 @@ const DocumentSidebar = memo(({
     
     // Update the structure in the database immediately
     updateStructure({
-      updates: updatedDocuments.map((d: Document) => ({
+      updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
         id: d._id,
         parentId: d.parentId,
         order: d.order

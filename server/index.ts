@@ -3,17 +3,27 @@ import { Server } from '@hocuspocus/server';
 import type { onConnectPayload, onDisconnectPayload, onListenPayload, onRequestPayload, onLoadDocumentPayload, onStoreDocumentPayload, onDestroyPayload, onChangePayload } from '@hocuspocus/server';
 import * as Y from 'yjs';
 
+// Helper function to safely parse integers with defaults
+const safeParseInt = (value: string | undefined, defaultValue: number): number => {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+};
+
 // Load environment variables
-const PORT = process.env.PORT || 6001;
-const HOST = process.env.HOST || '0.0.0.0';
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const SERVER_NAME = process.env.SERVER_NAME || 'EspacoPessoal Docs Server';
-const MAX_CONNECTIONS = parseInt(process.env.MAX_CONNECTIONS || '100');
-const TIMEOUT = parseInt(process.env.TIMEOUT || '30000');
+const PORT = process.env.PORT ?? 6001;
+const HOST = process.env.HOST ?? '0.0.0.0';
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
+const SERVER_NAME = process.env.SERVER_NAME ?? 'EspacoPessoal Docs Server';
+const MAX_CONNECTIONS = safeParseInt(process.env.MAX_CONNECTIONS, 100);
+const TIMEOUT = safeParseInt(process.env.TIMEOUT, 30000);
 
 // Convex configuration
-const CONVEX_URL = process.env.CONVEX_URL || 'https://famous-chicken-620.convex.cloud';
-const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || 'https://famous-chicken-620.convex.site';
+const CONVEX_URL = process.env.CONVEX_URL ?? 'https://famous-chicken-620.convex.cloud';
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://famous-chicken-620.convex.site';
+
+// Server user ID configuration
+const SERVER_USER_ID = process.env.SERVER_USER_ID ?? 'hocus-pocus-server';
 
 // Document tracking
 interface DocumentState {
@@ -26,13 +36,16 @@ interface DocumentState {
 
 const documentStates = new Map<string, DocumentState>();
 
+// Global document instances tracking for proper shutdown handling
+const documentInstances = new Map<string, Y.Doc>();
+
 // Utility functions for Convex API calls
 const saveDocumentToConvex = async (documentName: string, content: string): Promise<boolean> => {
   const url = `${CONVEX_SITE_URL}/updateDocumentContent`;
   const payload = {
     documentId: documentName,
     content: content,
-    userId: 'hocus-pocus-server',
+    userId: SERVER_USER_ID,
   };
   
   console.log(`[${new Date().toISOString()}] 🔗 Attempting to save to: ${url}`);
@@ -121,10 +134,10 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
     return;
   }
 
-  // Schedule save after 2 seconds of inactivity
-  state.saveTimeout = setTimeout(async () => {
-    await performDocumentSave(documentName, document);
-  }, 5000);
+  // Schedule save after 2 seconds of inactivity (fixed to match comment)
+  state.saveTimeout = setTimeout(() => {
+    void performDocumentSave(documentName, document);
+  }, 2000);
 
   state.lastActivity = Date.now();
 };
@@ -152,23 +165,18 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
 
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
-    // Get the main text content from Y.js
-    const yText = ydoc.getXmlFragment('default');
-    
-    // Simple text extraction - you might need to adjust this based on your Y.js structure
-    if (yText && yText.length > 0) {
-      return yText.toString();
+    // Extract 'content' string exclusively from 'prosemirror' map to align with onLoadDocument storage format
+    const prosemirrorMap = ydoc.getMap('prosemirror');
+    if (prosemirrorMap?.has('content')) {
+      const content = prosemirrorMap.get('content');
+      if (typeof content === 'string' && content.length > 0) {
+        return content;
+      }
     }
     
-    // Fallback: try to get text content directly
-    const textMap = ydoc.getMap('text');
-    if (textMap && textMap.size > 0) {
-      return JSON.stringify(textMap.toJSON());
-    }
+    // Return empty paragraph for empty documents (no fallback attempts to maintain consistency)
+    return '<p></p>';
     
-    // Another fallback: get any content from the document state
-    const update = Y.encodeStateAsUpdate(ydoc);
-    return update.length > 0 ? `<p>Document updated (${update.length} bytes)</p>` : '<p></p>';
   } catch (error) {
     console.error('Error extracting document content:', error);
     return '<p>Error extracting content</p>';
@@ -228,7 +236,7 @@ const server = new Server({
   // Enhanced CORS configuration
   async onRequest(data: onRequestPayload) {
     const { request, response } = data;
-    const origin = request.headers.origin as string;
+    const origin = request.headers.origin!;
     
     // Set CORS headers
     if (isOriginAllowed(origin)) {
@@ -254,7 +262,7 @@ const server = new Server({
   // Enhanced connection handling with origin validation
   async onConnect(data: onConnectPayload) {
     const { request, socketId, documentName } = data;
-    const origin = request.headers.origin as string;
+    const origin = request.headers.origin!;
     
     // Validate origin for WebSocket connections
     if (!isOriginAllowed(origin)) {
@@ -325,15 +333,33 @@ const server = new Server({
     console.log(`[${new Date().toISOString()}] ${SERVER_NAME} destroyed`);
     
     // Save all pending documents before shutdown
+    const savePromises: Promise<void>[] = [];
+    
     for (const [documentName, state] of documentStates.entries()) {
       if (state.saveTimeout) {
         clearTimeout(state.saveTimeout);
       }
-      // Note: We don't have access to the document here, so we'll skip this save
-      console.log(`[${new Date().toISOString()}] Cleanup: Skipping save for ${documentName} during shutdown`);
+      
+      // Access document instance from global tracking
+      const document = documentInstances.get(documentName);
+      if (document) {
+        console.log(`[${new Date().toISOString()}] Saving document ${documentName} before shutdown`);
+        savePromises.push(performDocumentSave(documentName, document));
+      } else {
+        console.log(`[${new Date().toISOString()}] No document instance found for ${documentName}, skipping save`);
+      }
+    }
+    
+    // Wait for all saves to complete
+    try {
+      await Promise.all(savePromises);
+      console.log(`[${new Date().toISOString()}] All document saves completed before shutdown`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error saving documents during shutdown:`, error);
     }
     
     documentStates.clear();
+    documentInstances.clear();
   },
   
   async onLoadDocument(data: onLoadDocumentPayload) {
@@ -366,6 +392,9 @@ const server = new Server({
   async onChange(data: onChangePayload) {
     const { documentName, document } = data;
     
+    // Track document instance globally for shutdown handling
+    documentInstances.set(documentName, document);
+    
     // Initialize document state if not exists
     if (!documentStates.has(documentName)) {
       documentStates.set(documentName, {
@@ -376,7 +405,7 @@ const server = new Server({
       });
     }
     
-    // Schedule save after 2 seconds of inactivity
+    // Schedule save after 2 seconds of inactivity (now consistent with comment)
     scheduleDocumentSave(documentName, document);
   },
   
@@ -386,4 +415,4 @@ const server = new Server({
   },
 });
 
-server.listen();
+void server.listen();

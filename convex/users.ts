@@ -204,6 +204,16 @@ export const createSession = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
+    // Check if session with this token already exists
+    const existingSession = await ctx.db
+      .query("sessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+    
+    if (existingSession) {
+      throw new ConvexError(`Session with token already exists`);
+    }
+    
     return await ctx.db.insert("sessions", {
       userId: args.userId,
       sessionToken: args.sessionToken,

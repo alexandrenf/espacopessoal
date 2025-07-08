@@ -52,7 +52,8 @@ export const create = mutation({
         .query("documents")
         .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
         .collect();
-      order = siblings.length;
+      const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+      order = maxOrder + 1;
     } else {
       // Get the highest order in the root level
       const siblings = await ctx.db
@@ -60,7 +61,8 @@ export const create = mutation({
         .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
         .filter((q) => q.eq(q.field("ownerId"), userId))
         .collect();
-      order = siblings.length;
+      const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+      order = maxOrder + 1;
     }
     
     return await ctx.db.insert("documents", {
@@ -320,7 +322,7 @@ export const updateContent = mutation({
   args: {
     id: v.id("documents"),
     content: v.string(),
-    userId: v.optional(v.string()),
+    userId: v.string(),
   },
   handler: async (ctx, args) => {
     const document = await ctx.db.get(args.id);
@@ -329,8 +331,11 @@ export const updateContent = mutation({
     }
     
     // Verify ownership - only document owner can update content
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    if (document.ownerId !== userId) {
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to update document content");
+    }
+    
+    if (document.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to update this document");
     }
     
@@ -533,18 +538,15 @@ export const getSharedDocument = query({
       throw new ConvexError("Document not found");
     }
     
-    // Get document owner info
-    const owner = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("externalId"), document.ownerId))
-      .first();
+    // Get document owner info using direct primary key lookup
+    const owner = await ctx.db.get(document.ownerId as Id<"users">);
     
     return {
       ...sharedDoc,
       document: {
         ...document,
         owner: owner ? {
-          name: owner.name,
+          name: owner.name ?? undefined,
           email: owner.email,
         } : null,
       },

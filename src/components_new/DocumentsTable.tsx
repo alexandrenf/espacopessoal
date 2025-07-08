@@ -16,19 +16,7 @@ import {
 import { Loader } from "lucide-react";
 import { DocumentActionsMenu } from "./DocumentActionsMenu";
 import { RenameDialog } from "./RenameDialog";
-import { Id } from "../../convex/_generated/dataModel";
-
-// Define the document type without importing from convex since no auth
-type Document = {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-};
+import { Document } from "../types/document";
 
 interface DocumentsTableProps {
   documents: Document[] | undefined;

@@ -323,11 +323,11 @@ function ImageButton() {
         setCurrentObjectUrl(imageUrl);
         onChange(imageUrl);
         
-        // Schedule URL revocation after a delay to allow image loading
-        setTimeout(() => {
-          URL.revokeObjectURL(imageUrl);
-          setCurrentObjectUrl(null);
-        }, 5000);
+        // Don't schedule automatic revocation - let it persist until:
+        // 1. A new image is uploaded (handled above)
+        // 2. Component unmounts (handled in useEffect cleanup)
+        // 3. User manually replaces the image
+        // This prevents images from breaking while the user is still viewing/editing
       }
     };
     input.click();
@@ -344,6 +344,12 @@ function ImageButton() {
 
   const handleImageUrlSubmit = () => {
     if (imageUrl) {
+      // If user is switching from uploaded image to URL, clean up the object URL
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+        setCurrentObjectUrl(null);
+      }
+      
       onChange(imageUrl);
       setImageUrl("");
       setIsDialogOpen(false);

@@ -11,23 +11,10 @@ import {
 } from "../components_new/ui/dropdown-menu";
 import type { EventDataNode } from "rc-tree/lib/interface";
 import { Id } from "../../convex/_generated/dataModel";
-
-export interface Document {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-  parentId?: Id<"documents">;
-  order: number;
-  isFolder: boolean;
-}
+import { DocumentWithTreeProps } from "../types/document";
 
 interface FolderItemProps {
-  folder: Document;
+  folder: DocumentWithTreeProps;
   isActive: boolean;
   onDelete: (e: React.MouseEvent<Element>, id: Id<"documents">) => void;
   onClick: () => void;
