@@ -106,7 +106,7 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
         throw new Error(`Spell check API returned error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data: unknown = await response.json();
       const validation = validateSpellCheckResponse(data);
       
              if (!validation.isValid) {
@@ -316,7 +316,7 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
             ) : diffs.length === 0 && !error ? (
               <div className="text-center py-8">
                 <Sparkles className="h-8 w-8 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Clique em "Verificar" para iniciar a análise ortográfica</p>
+                <p className="text-gray-600">Clique em &quot;Verificar&quot; para iniciar a análise ortográfica</p>
               </div>
             ) : (
               <div className="space-y-3">
