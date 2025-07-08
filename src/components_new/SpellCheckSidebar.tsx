@@ -297,12 +297,10 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
   return (
     <AnimatePresence>
       <motion.div
-        {...({
-          initial: { x: "100%" },
-          animate: { x: 0 },
-          exit: { x: "100%" },
-          transition: { duration: 0.3, ease: "easeInOut" }
-        } as any)}
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
         className="fixed right-0 top-16 z-20 h-[calc(100vh-4rem)] w-[320px] border-l border-gray-200/80 bg-white shadow-lg"
       >
         <div className="flex h-full flex-col">
