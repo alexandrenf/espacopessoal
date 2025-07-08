@@ -248,6 +248,7 @@ const getAllowedOrigins = () => {
     'https://docs.espacopessoal.com',
     'https://espacopessoal-v2.vercel.app',
     'https://www.espacopessoal.com',
+    'https://dev.espacopessoal.com',
   ];
   
   if (NODE_ENV === 'development') {
