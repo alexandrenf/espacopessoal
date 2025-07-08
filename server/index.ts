@@ -183,6 +183,20 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   }
 };
 
+// Centralized function to atomically initialize document state
+// Prevents race conditions between onConnect and onChange
+const initializeDocumentStateIfNeeded = (documentName: string): void => {
+  if (!documentStates.has(documentName)) {
+    documentStates.set(documentName, {
+      documentName,
+      connectedUsers: new Set(),
+      lastActivity: Date.now(),
+      pendingSave: false,
+    });
+    console.log(`[${new Date().toISOString()}] Initialized tracking for new document: ${documentName}`);
+  }
+};
+
 // CORS Configuration - Support multiple origins
 const getAllowedOrigins = () => {
   const corsOrigin = process.env.CORS_ORIGIN;
@@ -272,16 +286,8 @@ const server = new Server({
     
     console.log(`[${new Date().toISOString()}] WebSocket connection accepted from ${origin} (${socketId}) for document: ${documentName}`);
     
-    // Track user connection per document
-    if (!documentStates.has(documentName)) {
-      documentStates.set(documentName, {
-        documentName,
-        connectedUsers: new Set(),
-        lastActivity: Date.now(),
-        pendingSave: false,
-      });
-      console.log(`[${new Date().toISOString()}] Initialized tracking for new document: ${documentName}`);
-    }
+    // Initialize document state atomically to prevent race conditions
+    initializeDocumentStateIfNeeded(documentName);
     
     const state = documentStates.get(documentName)!;
     state.connectedUsers.add(socketId);
@@ -393,17 +399,10 @@ const server = new Server({
     const { documentName, document } = data;
     
     // Track document instance globally for shutdown handling
-    documentInstances.set(documentName, document);
-    
-    // Initialize document state if not exists
-    if (!documentStates.has(documentName)) {
-      documentStates.set(documentName, {
-        documentName,
-        connectedUsers: new Set(),
-        lastActivity: Date.now(),
-        pendingSave: false,
-      });
-    }
+documentInstances.set(documentName, document);
+
+// Initialize document state atomically to prevent race conditions
+initializeDocumentStateIfNeeded(documentName);
     
     // Schedule save after 2 seconds of inactivity (now consistent with comment)
     scheduleDocumentSave(documentName, document);

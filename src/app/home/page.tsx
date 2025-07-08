@@ -72,7 +72,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Workspace</h2>
           <p className="text-muted-foreground mb-4">
-            We couldn't load your user data. Please try refreshing the page.
+            We couldn&apos;t load your user data. Please try refreshing the page.
           </p>
           <button 
             onClick={() => window.location.reload()} 

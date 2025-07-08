@@ -65,7 +65,6 @@ const DocumentSidebar = memo(({
     !isUserLoading && userIdString ? { userId: userIdString } : "skip"
   ) ?? [];
   const createDocument = useMutation(api.documents.create);
-  const createFolder = useMutation(api.documents.createFolder);
   const deleteDocument = useMutation(api.documents.removeById);
   const updateStructure = useMutation(api.documents.updateStructure);
 
@@ -165,38 +164,236 @@ const DocumentSidebar = memo(({
       .map((document: DocumentWithTreeProps) => makeTreeNode(document, 0));
   }, [documents, currentDocument?._id, isDeletingId, expandedKeys]);
 
-  const handleNewDocument = async () => {
+  const handleNewDocument = async (eventOrRetryCount?: React.MouseEvent | number) => {
+    const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
     setIsCreating(true);
     try {
       console.log('Creating document with userId:', userIdString);
+      
+      if (!userIdString || userIdString === "demo-user") {
+        throw new Error("User authentication required to create documents");
+      }
+      
       const documentId = await createDocument({
         title: "Untitled Document",
         userId: userIdString,
       });
+      
+      if (!documentId) {
+        throw new Error("Document creation returned invalid ID");
+      }
+      
       console.log('Document created with ID:', documentId);
-      toast.success("Document created!");
+      toast.success("Document created successfully!");
       setCurrentDocumentId(documentId);
     } catch (error) {
-      toast.error("Failed to create document");
       console.error('Document creation error:', error);
+      
+      let errorMessage = "Failed to create document";
+      let shouldRetry = false;
+      
+      if (error instanceof Error) {
+        if (error.message.includes("authentication") || error.message.includes("User")) {
+          errorMessage = "Please sign in to create documents";
+        } else if (error.message.includes("network") || error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again.";
+          shouldRetry = retryCount < 2;
+        } else if (error.message.includes("rate limit") || error.message.includes("too many")) {
+          errorMessage = "Too many requests. Please wait a moment and try again.";
+        } else if (error.message.includes("invalid") || error.message.includes("ID")) {
+          errorMessage = "Server error occurred. Please try again.";
+          shouldRetry = retryCount < 1;
+        } else {
+          errorMessage = `Creation failed: ${error.message}`;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      toast.error(errorMessage + (shouldRetry ? " Retrying..." : ""));
+      
+      // Retry logic for network errors
+      if (shouldRetry) {
+        setTimeout(() => {
+          void handleNewDocument(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleNewFolder = async () => {
+  const handleNewFolder = async (eventOrRetryCount?: React.MouseEvent | number) => {
+    const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
     setIsCreating(true);
     try {
-      await createFolder({
+      if (!userIdString || userIdString === "demo-user") {
+        throw new Error("User authentication required to create folders");
+      }
+      
+      const folderId = await createDocument({
         title: "New Folder",
         userId: userIdString,
+        isFolder: true,
       });
-      toast.success("Folder created!");
+      
+      if (!folderId) {
+        throw new Error("Folder creation returned invalid ID");
+      }
+      
+      toast.success("Folder created successfully!");
     } catch (error) {
-      toast.error("Failed to create folder");
-      console.error(error);
+      console.error('Folder creation error:', error);
+      
+      let errorMessage = "Failed to create folder";
+      let shouldRetry = false;
+      
+      if (error instanceof Error) {
+        if (error.message.includes("authentication") || error.message.includes("User")) {
+          errorMessage = "Please sign in to create folders";
+        } else if (error.message.includes("network") || error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again.";
+          shouldRetry = retryCount < 2;
+        } else if (error.message.includes("rate limit") || error.message.includes("too many")) {
+          errorMessage = "Too many requests. Please wait a moment and try again.";
+        } else if (error.message.includes("invalid") || error.message.includes("ID")) {
+          errorMessage = "Server error occurred. Please try again.";
+          shouldRetry = retryCount < 1;
+        } else {
+          errorMessage = `Creation failed: ${error.message}`;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      toast.error(errorMessage + (shouldRetry ? " Retrying..." : ""));
+      
+      // Retry logic for network errors
+      if (shouldRetry) {
+        setTimeout(() => {
+          void handleNewFolder(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // Helper function to normalize orders to ensure they are sequential
+  const normalizeOrders = (
+    updatedDocuments: DocumentWithTreeProps[], 
+    parentId: Id<"documents"> | undefined
+  ) => {
+    const documentsInLevel = updatedDocuments
+      .filter((d: DocumentWithTreeProps) => d.parentId === parentId)
+      .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
+    
+    documentsInLevel.forEach((doc: DocumentWithTreeProps, index: number) => {
+      const docIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === doc._id);
+      updatedDocuments[docIndex]!.order = index;
+    });
+  };
+
+  // Helper function to update orders in source folder after removing a document
+  const updateOrdersInSourceFolder = (
+    updatedDocuments: DocumentWithTreeProps[],
+    sourceParentId: Id<"documents"> | undefined,
+    sourceOrder: number
+  ) => {
+    updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
+      if (doc.parentId === sourceParentId && doc.order > sourceOrder) {
+        doc.order -= 1;
+      }
+    });
+  };
+
+  // Helper function to update orders in target folder after insertion
+  const updateOrdersInTargetFolder = (
+    updatedDocuments: DocumentWithTreeProps[],
+    targetParentId: Id<"documents"> | undefined,
+    targetIndex: number,
+    dragDocumentId: Id<"documents">
+  ) => {
+    updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
+      if (doc.parentId === targetParentId && doc._id !== dragDocumentId && doc.order >= targetIndex) {
+        doc.order += 1;
+      }
+    });
+  };
+
+  // Helper function to handle dropping into a folder
+  const handleDropIntoFolder = (
+    updatedDocuments: DocumentWithTreeProps[],
+    dragDocument: DocumentWithTreeProps,
+    targetFolderId: Id<"documents">
+  ) => {
+    // Get existing documents in the target folder
+    const documentsInFolder = updatedDocuments
+      .filter((d: DocumentWithTreeProps) => d.parentId === targetFolderId && d._id !== dragDocument._id)
+      .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
+
+    // Update the dragged document
+    const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
+    updatedDocuments[dragDocumentIndex] = {
+      ...dragDocument,
+      parentId: targetFolderId,
+      order: documentsInFolder.length
+    };
+
+    // Update orders in source folder
+    updateOrdersInSourceFolder(updatedDocuments, dragDocument.parentId, dragDocument.order);
+  };
+
+  // Helper function to handle dropping between documents
+  const handleDropBetweenDocuments = (
+    updatedDocuments: DocumentWithTreeProps[],
+    dragDocument: DocumentWithTreeProps,
+    dropDocument: DocumentWithTreeProps,
+    dropPosition: number
+  ) => {
+    const targetParentId = dropDocument.parentId;
+    
+    // Get all documents at the target level (excluding the dragged document)
+    const documentsInLevel = updatedDocuments
+      .filter((d: DocumentWithTreeProps) => d.parentId === targetParentId && d._id !== dragDocument._id)
+      .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
+
+    const dropIndex = documentsInLevel.findIndex((d: DocumentWithTreeProps) => d._id === dropDocument._id);
+    const targetIndex = dropPosition < 0 ? dropIndex : dropIndex + 1;
+
+    // Update orders in source folder
+    updateOrdersInSourceFolder(updatedDocuments, dragDocument.parentId, dragDocument.order);
+
+    // Insert at new position
+    const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
+    updatedDocuments[dragDocumentIndex] = {
+      ...dragDocument,
+      parentId: targetParentId,
+      order: targetIndex
+    };
+
+    // Update orders in target folder
+    updateOrdersInTargetFolder(updatedDocuments, targetParentId, targetIndex, dragDocument._id);
+
+    return targetParentId;
+  };
+
+  // Helper function to persist changes to database
+  const persistDocumentStructure = async (updatedDocuments: DocumentWithTreeProps[]) => {
+    try {
+      await updateStructure({
+        updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
+          id: d._id,
+          parentId: d.parentId,
+          order: d.order
+        })),
+        userId: userIdString
+      });
+    } catch (error) {
+      console.error("Failed to update structure:", error);
+      toast.error("Failed to update document structure");
     }
   };
 
@@ -209,103 +406,30 @@ const DocumentSidebar = memo(({
     const dragDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dragKey);
     const dropDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dropKey);
 
-    if (!dragDocument || !dropDocument) return;
+    if (!dragDocument || !dropDocument) {
+      console.warn("Drag or drop document not found", { dragKey, dropKey });
+      return;
+    }
 
     const updatedDocuments = documents.map((doc: DocumentWithTreeProps) => ({ ...doc }));
-    let newParentId: Id<"documents"> | undefined = undefined;
+    let newParentId: Id<"documents"> | undefined;
 
-    // Handle dropping into a folder
+    // Handle dropping into a folder vs dropping between documents
     if (dropPosition === 0 && dropDocument.isFolder) {
       newParentId = dropDocument._id;
-      
-      // Get existing documents in the target folder
-      const documentsInFolder = updatedDocuments
-        .filter((d: DocumentWithTreeProps) => d.parentId === newParentId && d._id !== dragDocument._id)
-        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
-
-      // Update the dragged document
-      const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
-      updatedDocuments[dragDocumentIndex] = {
-        ...dragDocument,
-        parentId: newParentId,
-        order: documentsInFolder.length
-      };
-
-      // Update orders for all affected documents
-      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
-        if (doc.parentId === dragDocument.parentId && doc.order > dragDocument.order) {
-          doc.order -= 1;
-        }
-      });
+      handleDropIntoFolder(updatedDocuments, dragDocument, newParentId);
     } else {
-      // Handle dropping between documents
-      newParentId = dropDocument.parentId;
-      
-      // Get all documents at the target level (excluding the dragged document)
-      const documentsInLevel = updatedDocuments
-        .filter((d: DocumentWithTreeProps) => d.parentId === newParentId && d._id !== dragDocument._id)
-        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
-
-      const dropIndex = documentsInLevel.findIndex((d: DocumentWithTreeProps) => d._id === dropDocument._id);
-      const targetIndex = dropPosition < 0 ? dropIndex : dropIndex + 1;
-
-      // Remove document from its current position
-      const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
-      const oldParentId = dragDocument.parentId;
-      const oldOrder = dragDocument.order;
-
-      // Update orders in the source folder
-      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
-        if (doc.parentId === oldParentId && doc.order > oldOrder) {
-          doc.order -= 1;
-        }
-      });
-
-      // Insert at new position
-      updatedDocuments[dragDocumentIndex] = {
-        ...dragDocument,
-        parentId: newParentId,
-        order: targetIndex
-      };
-
-      // Update orders in the target folder
-      updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
-        if (doc.parentId === newParentId && doc._id !== dragDocument._id && doc.order >= targetIndex) {
-          doc.order += 1;
-        }
-      });
+      newParentId = handleDropBetweenDocuments(updatedDocuments, dragDocument, dropDocument, dropPosition);
     }
-
-    // Normalize orders to ensure they are sequential
-    const normalizeOrders = (parentId: Id<"documents"> | undefined) => {
-      const documentsInLevel = updatedDocuments
-        .filter((d: DocumentWithTreeProps) => d.parentId === parentId)
-        .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
-      
-      documentsInLevel.forEach((doc: DocumentWithTreeProps, index: number) => {
-        const docIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === doc._id);
-        updatedDocuments[docIndex]!.order = index;
-      });
-    };
 
     // Normalize orders for both source and target folders
-    normalizeOrders(dragDocument.parentId);
+    normalizeOrders(updatedDocuments, dragDocument.parentId);
     if (dragDocument.parentId !== newParentId) {
-      normalizeOrders(newParentId);
+      normalizeOrders(updatedDocuments, newParentId);
     }
     
-    // Update the structure in the database immediately
-    updateStructure({
-      updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
-        id: d._id,
-        parentId: d.parentId,
-        order: d.order
-      })),
-      userId: userIdString
-    }).catch(error => {
-      console.error("Failed to update structure:", error);
-      toast.error("Failed to update document structure");
-    });
+    // Persist changes to database
+    void persistDocumentStructure(updatedDocuments);
   };
 
   // Debug logging

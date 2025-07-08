@@ -4,20 +4,28 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import { type Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 
-// Environment-based logging utility
+// Production-ready logging utility
 const isDevelopment = process.env.NODE_ENV === 'development';
 const logger = {
   log: (message: string, ...args: unknown[]) => {
+    // Only log in development, remove for production
     if (isDevelopment) {
       console.log(`[documents] ${message}`, ...args);
     }
   },
   error: (message: string, ...args: unknown[]) => {
+    // Always log errors, but only in structured way for production monitoring
     console.error(`[documents] ${message}`, ...args);
   },
   warn: (message: string, ...args: unknown[]) => {
     if (isDevelopment) {
       console.warn(`[documents] ${message}`, ...args);
+    }
+  },
+  // Remove debug logging in production
+  debug: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`[documents:debug] ${message}`, ...args);
     }
   }
 };
@@ -79,54 +87,7 @@ export const create = mutation({
   },
 });
 
-export const createFolder = mutation({
-  args: {
-    title: v.optional(v.string()),
-    userId: v.optional(v.string()),
-    parentId: v.optional(v.id("documents")),
-  },
-  handler: async (ctx, args): Promise<Id<"documents">> => {
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    const now = Date.now();
-    
-    // Get the next order number for the parent
-    let order = 0;
-    if (args.parentId) {
-      // Verify parent exists and is a folder
-      const parent = await ctx.db.get(args.parentId);
-      if (!parent?.isFolder) {
-        throw new ConvexError("Parent must be a folder");
-      }
-      
-      // Get the highest order in the parent folder
-      const siblings = await ctx.db
-        .query("documents")
-        .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
-        .collect();
-      order = siblings.length;
-    } else {
-      // Get the highest order in the root level
-      const siblings = await ctx.db
-        .query("documents")
-        .withIndex("by_owner_id", (q) => q.eq("ownerId", userId))
-        .filter((q) => q.eq(q.field("parentId"), undefined))
-        .collect();
-      order = siblings.length;
-    }
-    
-    return await ctx.db.insert("documents", {
-      title: args.title ?? "New Folder",
-      ownerId: userId,
-      initialContent: undefined,
-      roomId: undefined,
-      createdAt: now,
-      updatedAt: now,
-      parentId: args.parentId,
-      order,
-      isFolder: true,
-    });
-  },
-});
+
 
 export const get = query({
   args: {
@@ -190,15 +151,23 @@ export const getAllForTree = query({
 export const getById = query({
   args: { 
     id: v.id("documents"),
-    userId: v.optional(v.string()),
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, { id, userId }) => {
+    if (!userId) {
+      throw new ConvexError("User ID is required to access documents");
+    }
+    
     const document = await ctx.db.get(id);
     if (!document) {
       throw new ConvexError("Document not found!");
     }
     
-    // For now, allow access to all documents since no auth
+    // Verify ownership - only document owner can access
+    if (document.ownerId !== userId) {
+      throw new ConvexError("You don't have permission to access this document");
+    }
+    
     return document;
   },
 });
@@ -207,17 +176,20 @@ export const updateById = mutation({
   args: {
     id: v.id("documents"),
     title: v.string(),
-    userId: v.optional(v.string()),
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, args) => {
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to update documents");
+    }
+    
     const document = await ctx.db.get(args.id);
     if (!document) {
       throw new ConvexError("Document not found!");
     }
     
     // Verify ownership - only document owner can update
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    if (document.ownerId !== userId) {
+    if (document.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to update this document");
     }
     
@@ -236,22 +208,24 @@ export const updateStructure = mutation({
       parentId: v.optional(v.id("documents")),
       order: v.number(),
     })),
-    userId: v.optional(v.string()),
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, { updates, userId }) => {
     // Verify all documents exist and belong to the user
-    const userId_ = userId ?? DEFAULT_USER_ID;
+    if (!userId) {
+      throw new ConvexError("User ID is required for document structure updates");
+    }
     
     for (const update of updates) {
       const document = await ctx.db.get(update.id);
-      if (!document || document.ownerId !== userId_) {
+      if (!document || document.ownerId !== userId) {
         throw new ConvexError(`Document ${update.id} not found or access denied`);
       }
       
-      // If parentId is specified, verify it's a folder
+      // If parentId is specified, verify it's a folder and user owns it
       if (update.parentId) {
         const parent = await ctx.db.get(update.parentId);
-        if (!parent || !parent.isFolder || parent.ownerId !== userId_) {
+        if (!parent || !parent.isFolder || parent.ownerId !== userId) {
           throw new ConvexError(`Parent folder ${update.parentId} not found or not a folder`);
         }
       }
@@ -268,17 +242,20 @@ export const updateStructure = mutation({
 export const removeById = mutation({
   args: {
     id: v.id("documents"),
-    userId: v.optional(v.string()),
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, args) => {
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to delete documents");
+    }
+    
     const document = await ctx.db.get(args.id);
     if (!document) {
       throw new ConvexError("Document not found!");
     }
     
     // Verify ownership - only document owner can delete
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    if (document.ownerId !== userId) {
+    if (document.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to delete this document");
     }
     
@@ -301,14 +278,20 @@ export const removeById = mutation({
 export const getByIds = query({
   args: { 
     ids: v.array(v.id("documents")),
-    userId: v.optional(v.string()),
+    userId: v.string(), // Made required for security
   },
-  handler: async (ctx, { ids }) => {
+  handler: async (ctx, { ids, userId }) => {
     const documents = [];
     for (const id of ids) {
       const document = await ctx.db.get(id);
       if (document) {
-        documents.push({ id: document._id, name: document.title });
+        // Security check: only return documents owned by the requesting user
+        if (document.ownerId === userId) {
+          documents.push({ id: document._id, name: document.title });
+        } else {
+          // User doesn't own this document, return "not found" to prevent information leakage
+          documents.push({ id, name: "Document not found" });
+        }
       } else {
         documents.push({ id, name: "Document not found" });
       }
@@ -354,7 +337,7 @@ export const updateContentInternal = internalMutation({
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    logger.log(`Attempting to update document with ID: ${args.id}`);
+    logger.debug(`Attempting to update document with ID: ${args.id}`);
     
     // Validate that the ID looks like a Convex ID
     if (!args.id || typeof args.id !== 'string' || args.id.length < 20) {
@@ -367,29 +350,41 @@ export const updateContentInternal = internalMutation({
       const document = await ctx.db.get(documentId);
       
       if (!document) {
-        logger.log(`Document not found with ID: ${args.id} - checking by roomId`);
+        logger.debug(`Document not found with ID: ${args.id} - checking by roomId`);
         
         // Check if there's a document with this ID in roomId field instead
         const docByRoomId = await ctx.db.query("documents").filter(q => q.eq(q.field("roomId"), args.id)).first();
         if (docByRoomId) {
-          logger.log(`Found document by roomId: ${docByRoomId.title} (${docByRoomId._id}), updating it`);
+          // Verify ownership before updating existing document
+          if (!args.userId || docByRoomId.ownerId !== args.userId) {
+            throw new ConvexError("You don't have permission to update this document");
+          }
+          
+          logger.debug(`Found document by roomId: ${docByRoomId.title} (${docByRoomId._id}), updating it`);
           const result = await ctx.db.patch(docByRoomId._id, { 
             initialContent: args.content,
             updatedAt: Date.now(),
           });
-          logger.log(`Successfully updated document via roomId ${args.id}`);
           return result;
         }
         
-        logger.log(`Document not found by ID or roomId: ${args.id} - this document may not have been created through the proper UI flow`);
+        // Strengthen auto-creation validation - require explicit authorization
+        if (!args.userId) {
+          throw new ConvexError(`Document ${args.id} not found and no user ID provided for authorization`);
+        }
         
-        // For now, we'll create a basic document record to allow saving
-        // In a production system, you might want to handle this differently
+        // Require valid user authorization (remove demo-user bypass for security)
+        const user = await ctx.db.get(args.userId as Id<"users">);
+        if (!user) {
+          throw new ConvexError(`Document ${args.id} not found and user ${args.userId} is not authorized to create new documents`);
+        }
+        
+        // Create a basic document record only for authorized users
         try {
           const now = Date.now();
           const newDocumentId = await ctx.db.insert("documents", {
             title: "Untitled Document (Auto-created)",
-            ownerId: args.userId ?? "demo-user",
+            ownerId: args.userId,
             initialContent: args.content,
             roomId: args.id,
             createdAt: now,
@@ -399,8 +394,7 @@ export const updateContentInternal = internalMutation({
             isFolder: false,
           });
           
-          logger.log(`Successfully created new document with ID: ${newDocumentId}`);
-          logger.log(`Note: Original ID ${args.id} was not found, created new document instead`);
+          logger.debug(`Created new document with ID: ${newDocumentId} for authorized user: ${args.userId}`);
           return newDocumentId;
         } catch (createError) {
           logger.error(`Failed to create new document:`, createError);
@@ -408,14 +402,18 @@ export const updateContentInternal = internalMutation({
         }
       }
       
-      logger.log(`Successfully found document: ${document.title}`);
+      // Verify ownership before updating existing document
+      if (!args.userId || document.ownerId !== args.userId) {
+        throw new ConvexError("You don't have permission to update this document");
+      }
+      
+      logger.debug(`Successfully found document: ${document.title}`);
       
       const result = await ctx.db.patch(documentId, { 
         initialContent: args.content,
         updatedAt: Date.now(),
       });
       
-      logger.log(`Successfully updated document ${args.id}`);
       return result;
     } catch (error) {
       logger.error("Error in updateContentInternal:", error);
@@ -432,14 +430,7 @@ export const getByIdInternal = internalQuery({
     id: v.string(), // Accept string ID from HTTP action
   },
   handler: async (ctx, args) => {
-    logger.log(`Attempting to get document with ID: ${args.id}`);
-    
-    // First, let's see what documents actually exist
-    const allDocs = await ctx.db.query("documents").collect();
-    logger.log(`Total documents in database: ${allDocs.length}`);
-    if (allDocs.length > 0) {
-      logger.log(`Sample document IDs:`, allDocs.slice(0, 3).map(d => `${d._id} (${d.title})`));
-    }
+    logger.debug(`Attempting to get document with ID: ${args.id}`);
     
     // Validate that the ID looks like a Convex ID
     if (!args.id || typeof args.id !== 'string' || args.id.length < 20) {
@@ -449,22 +440,21 @@ export const getByIdInternal = internalQuery({
     try {
       // Convert string ID to Convex ID
       const documentId = args.id as Id<"documents">;
-      logger.log(`Converted to Convex ID type: ${documentId}`);
       
       const document = await ctx.db.get(documentId);
       
       if (!document) {
-        logger.log(`Document not found with ID: ${args.id} - returning null to indicate document should be created`);
+        logger.debug(`Document not found with ID: ${args.id} - checking by roomId`);
         // Check if there's a document with this ID in roomId field instead
         const docByRoomId = await ctx.db.query("documents").filter(q => q.eq(q.field("roomId"), args.id)).first();
         if (docByRoomId) {
-          logger.log(`Found document by roomId: ${docByRoomId.title} (${docByRoomId._id})`);
+          logger.debug(`Found document by roomId: ${docByRoomId.title} (${docByRoomId._id})`);
           return docByRoomId;
         }
         return null;
       }
       
-      logger.log(`Successfully found document: ${document.title}`);
+      logger.debug(`Successfully found document: ${document.title}`);
       return document;
     } catch (error) {
       logger.error("Error in getByIdInternal:", error);
