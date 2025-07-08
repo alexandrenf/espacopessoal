@@ -111,6 +111,7 @@ interface EditorProps {
 
 export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const mutation = useMutation(api.documents.updateById);
   const updateDocument = useMutation(api.documents.updateById);
   const create = useMutation(api.documents.create);
@@ -151,6 +152,11 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     api.dictionary.getDictionary, 
     userIdString ? { userId: userIdString } : "skip"
   ) ?? [];
+
+  // Set mounted state to handle router mounting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Initialize Y.js document first
   useEffect(() => {
@@ -639,12 +645,32 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     setShowSidebar(!showSidebar);
   };
 
+  // Safe router navigation functions
+  const safeNavigate = (path: string) => {
+    if (isMounted && router) {
+      try {
+        void router.push(path);
+      } catch (error) {
+        console.error('Router navigation failed:', error);
+        // Fallback to window.location if router fails
+        if (typeof window !== 'undefined') {
+          window.location.href = path;
+        }
+      }
+    } else {
+      // Fallback for unmounted router
+      if (typeof window !== 'undefined') {
+        window.location.href = path;
+      }
+    }
+  };
+
   const handleNavigateToHome = () => {
-    void router.push('/');
+    safeNavigate('/');
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
-    void router.push(`/documents/${documentId}`);
+    safeNavigate(`/documents/${documentId}`);
   };
 
   const getStatusIcon = () => {

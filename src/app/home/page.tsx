@@ -11,12 +11,38 @@ import { useSession } from "next-auth/react";
 
 export default function HomePage() {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [hasError, setHasError] = useState(false);
   
   const getOrCreateHomeDocument = useMutation(api.documents.getOrCreateHomeDocument);
+
+  // Set mounted state to handle router mounting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Safe router navigation function
+  const safeNavigate = (path: string) => {
+    if (isMounted && router) {
+      try {
+        router.push(path);
+      } catch (error) {
+        console.error('Router navigation failed:', error);
+        // Fallback to window.location if router fails
+        if (typeof window !== 'undefined') {
+          window.location.href = path;
+        }
+      }
+    } else {
+      // Fallback for unmounted router
+      if (typeof window !== 'undefined') {
+        window.location.href = path;
+      }
+    }
+  };
 
   // Memoize the createAndRedirect function to prevent unnecessary re-renders
   const createAndRedirect = useCallback(async () => {
@@ -28,21 +54,21 @@ export default function HomePage() {
     try {
       const userIdString = String(convexUserId);
       const documentId = await getOrCreateHomeDocument({ userId: userIdString });
-      router.push(`/documents/${documentId}`);
+      safeNavigate(`/documents/${documentId}`);
     } catch (error) {
       console.error("Failed to create home document:", error);
       toast.error("Failed to load your notebook. Please try again.");
       setIsRedirecting(false);
       setHasError(true);
     }
-  }, [convexUserId, getOrCreateHomeDocument, router, isRedirecting]);
+  }, [convexUserId, getOrCreateHomeDocument, safeNavigate, isRedirecting]);
 
   useEffect(() => {
     // If not authenticated, redirect to sign in
     if (status === "loading") return; // Wait for session to load
     
     if (status === "unauthenticated") {
-      router.push("/api/auth/signin");
+      safeNavigate("/api/auth/signin");
       return;
     }
 
@@ -58,7 +84,7 @@ export default function HomePage() {
 
     // Create or get home document and redirect
     void createAndRedirect();
-  }, [status, isUserLoading, convexUserId, createAndRedirect, router]);
+  }, [status, isUserLoading, convexUserId, createAndRedirect]);
 
   // Show error state if user data couldn't be loaded
   if (hasError) {

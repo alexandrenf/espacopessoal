@@ -7,7 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { DocumentEditor } from "../../../components_new/DocumentEditor";
 import { Button } from "../../../components_new/ui/button";
 import { Loader } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useConvexUser } from "../../../hooks/use-convex-user";
 
 // Helper function to validate if a string is a valid Convex ID format
@@ -22,6 +22,7 @@ function isValidConvexId(id: string | string[] | undefined): id is string {
 export default function DocumentPage() {
   const { documentId } = useParams();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -35,6 +36,11 @@ export default function DocumentPage() {
     !isUserLoading && validatedDocumentId && userIdString ? { id: validatedDocumentId, userId: userIdString } : "skip"
   );
   
+  // Set mounted state to handle router mounting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
   // Handle invalid documentId
   useEffect(() => {
     if (!validatedDocumentId) {
@@ -44,6 +50,26 @@ export default function DocumentPage() {
     }
   }, [validatedDocumentId, documentId]);
 
+  // Safe router navigation function
+  const safeNavigateHome = () => {
+    if (isMounted && router) {
+      try {
+        router.push('/');
+      } catch (error) {
+        console.error('Router navigation failed:', error);
+        // Fallback to window.location if router fails
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }
+    } else {
+      // Fallback for unmounted router
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
+  };
+
   // Handle invalid document ID
   if (!validatedDocumentId) {
     return (
@@ -52,7 +78,7 @@ export default function DocumentPage() {
           <h1 className="text-2xl font-bold text-red-600 mb-2">Invalid Document ID</h1>
           <p className="text-muted-foreground">The document ID format is invalid.</p>
           <Button 
-            onClick={() => router.push('/')} 
+            onClick={safeNavigateHome} 
             className="mt-4"
           >
             Go Home
@@ -79,7 +105,7 @@ export default function DocumentPage() {
           <h1 className="text-2xl font-bold text-red-600 mb-2">Authentication Required</h1>
           <p className="text-muted-foreground">You must be signed in to view this document.</p>
           <Button 
-            onClick={() => router.push('/')} 
+            onClick={safeNavigateHome} 
             className="mt-4"
           >
             Go Home
@@ -104,7 +130,7 @@ export default function DocumentPage() {
           <h1 className="text-2xl font-bold text-red-600 mb-2">Document Not Found</h1>
           <p className="text-muted-foreground">The document you&apos;re looking for doesn&apos;t exist.</p>
           <Button 
-            onClick={() => router.push('/')} 
+            onClick={safeNavigateHome} 
             className="mt-4"
           >
             Go Home
