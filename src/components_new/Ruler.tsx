@@ -34,12 +34,37 @@ export function Ruler({
     setIsDraggingRight(true);
   };
 
+  const handleLeftTouchStart = () => {
+    setIsDraggingLeft(true);
+  };
+
+  const handleRightTouchStart = () => {
+    setIsDraggingRight(true);
+  };
+
+  const getClientX = (e: React.MouseEvent | React.TouchEvent): number => {
+    if ('touches' in e) {
+      return e.touches[0]?.clientX ?? 0;
+    }
+    return e.clientX;
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    handleMove(e);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent scrolling while dragging
+    handleMove(e);
+  };
+
+  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
     if ((isDraggingLeft || isDraggingRight) && rulerRef.current) {
       const container = rulerRef.current.querySelector("#ruler-container");
       if (container) {
         const containerRect = container.getBoundingClientRect();
-        const relativeX = e.clientX - containerRect.left;
+        const clientX = getClientX(e);
+        const relativeX = clientX - containerRect.left;
         const rawPosition = Math.max(0, Math.min(PAGE_WIDTH, relativeX));
 
         if (isDraggingLeft) {
@@ -64,6 +89,11 @@ export function Ruler({
     setIsDraggingRight(false);
   };
 
+  const handleTouchEnd = () => {
+    setIsDraggingLeft(false);
+    setIsDraggingRight(false);
+  };
+
   const handleLeftDoubleClick = () => {
     onLeftMarginChange(LEFT_MARGIN_DEFAULT);
   };
@@ -78,6 +108,8 @@ export function Ruler({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className="w-[816px] mx-auto h-6 border-b border-gray-300 flex items-end relative select-none print:hidden"
     >
       <div id="ruler-container" className="w-full h-full relative">
@@ -86,6 +118,7 @@ export function Ruler({
           isLeft={true}
           isDragging={isDraggingLeft}
           onMouseDown={handleLeftMouseDown}
+          onTouchStart={handleLeftTouchStart}
           onDoubleClick={handleLeftDoubleClick}
         />
         <Marker
@@ -93,6 +126,7 @@ export function Ruler({
           isLeft={false}
           isDragging={isDraggingRight}
           onMouseDown={handleRightMouseDown}
+          onTouchStart={handleRightTouchStart}
           onDoubleClick={handleRightDoubleClick}
         />
         <div className="absolute inset-x-0 bottom-0 h-full">
@@ -134,6 +168,7 @@ interface MarkerProps {
   isLeft: boolean;
   isDragging: boolean;
   onMouseDown: () => void;
+  onTouchStart: () => void;
   onDoubleClick: () => void;
 }
 
@@ -142,6 +177,7 @@ const Marker = ({
   isLeft,
   isDragging,
   onMouseDown,
+  onTouchStart,
   onDoubleClick,
 }: MarkerProps) => {
   return (
@@ -149,6 +185,7 @@ const Marker = ({
       className="absolute top-0 w-4 h-full cursor-ew-resize z-[5] group -ml-2"
       style={{ [isLeft ? "left" : "right"]: `${position}px` }}
       onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
       onDoubleClick={onDoubleClick}
     >
       <FaCaretDown className="absolute left-1/2 top-0 h-full fill-blue-500 transform -translate-x-1/2" />

@@ -288,80 +288,100 @@ const DocumentSidebar = memo(({
 
   // Helper function to normalize orders to ensure they are sequential
   const normalizeOrders = (
-    updatedDocuments: DocumentWithTreeProps[], 
+    documents: DocumentWithTreeProps[], 
     parentId: Id<"documents"> | undefined
-  ) => {
-    const documentsInLevel = updatedDocuments
+  ): DocumentWithTreeProps[] => {
+    const documentsInLevel = documents
       .filter((d: DocumentWithTreeProps) => d.parentId === parentId)
       .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
     
-    documentsInLevel.forEach((doc: DocumentWithTreeProps, index: number) => {
-      const docIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === doc._id);
-      updatedDocuments[docIndex]!.order = index;
+    const normalizedDocumentIds = new Set(documentsInLevel.map(doc => doc._id));
+    
+    return documents.map((doc: DocumentWithTreeProps) => {
+      if (normalizedDocumentIds.has(doc._id)) {
+        const normalizedIndex = documentsInLevel.findIndex((d: DocumentWithTreeProps) => d._id === doc._id);
+        return {
+          ...doc,
+          order: normalizedIndex
+        };
+      }
+      return doc;
     });
   };
 
   // Helper function to update orders in source folder after removing a document
   const updateOrdersInSourceFolder = (
-    updatedDocuments: DocumentWithTreeProps[],
+    documents: DocumentWithTreeProps[],
     sourceParentId: Id<"documents"> | undefined,
     sourceOrder: number
-  ) => {
-    updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
+  ): DocumentWithTreeProps[] => {
+    return documents.map((doc: DocumentWithTreeProps) => {
       if (doc.parentId === sourceParentId && doc.order > sourceOrder) {
-        doc.order -= 1;
+        return {
+          ...doc,
+          order: doc.order - 1
+        };
       }
+      return doc;
     });
   };
 
   // Helper function to update orders in target folder after insertion
   const updateOrdersInTargetFolder = (
-    updatedDocuments: DocumentWithTreeProps[],
+    documents: DocumentWithTreeProps[],
     targetParentId: Id<"documents"> | undefined,
     targetIndex: number,
     dragDocumentId: Id<"documents">
-  ) => {
-    updatedDocuments.forEach((doc: DocumentWithTreeProps) => {
+  ): DocumentWithTreeProps[] => {
+    return documents.map((doc: DocumentWithTreeProps) => {
       if (doc.parentId === targetParentId && doc._id !== dragDocumentId && doc.order >= targetIndex) {
-        doc.order += 1;
+        return {
+          ...doc,
+          order: doc.order + 1
+        };
       }
+      return doc;
     });
   };
 
   // Helper function to handle dropping into a folder
   const handleDropIntoFolder = (
-    updatedDocuments: DocumentWithTreeProps[],
+    documents: DocumentWithTreeProps[],
     dragDocument: DocumentWithTreeProps,
     targetFolderId: Id<"documents">
-  ) => {
+  ): DocumentWithTreeProps[] => {
     // Get existing documents in the target folder
-    const documentsInFolder = updatedDocuments
+    const documentsInFolder = documents
       .filter((d: DocumentWithTreeProps) => d.parentId === targetFolderId && d._id !== dragDocument._id)
       .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
 
     // Update the dragged document
-    const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
-    updatedDocuments[dragDocumentIndex] = {
-      ...dragDocument,
-      parentId: targetFolderId,
-      order: documentsInFolder.length
-    };
+    const updatedDocuments = documents.map((doc: DocumentWithTreeProps) => {
+      if (doc._id === dragDocument._id) {
+        return {
+          ...dragDocument,
+          parentId: targetFolderId,
+          order: documentsInFolder.length
+        };
+      }
+      return doc;
+    });
 
     // Update orders in source folder
-    updateOrdersInSourceFolder(updatedDocuments, dragDocument.parentId, dragDocument.order);
+    return updateOrdersInSourceFolder(updatedDocuments, dragDocument.parentId, dragDocument.order);
   };
 
   // Helper function to handle dropping between documents
   const handleDropBetweenDocuments = (
-    updatedDocuments: DocumentWithTreeProps[],
+    documents: DocumentWithTreeProps[],
     dragDocument: DocumentWithTreeProps,
     dropDocument: DocumentWithTreeProps,
     dropPosition: number
-  ) => {
+  ): { updatedDocuments: DocumentWithTreeProps[], targetParentId: Id<"documents"> | undefined } => {
     const targetParentId = dropDocument.parentId;
     
     // Get all documents at the target level (excluding the dragged document)
-    const documentsInLevel = updatedDocuments
+    const documentsInLevel = documents
       .filter((d: DocumentWithTreeProps) => d.parentId === targetParentId && d._id !== dragDocument._id)
       .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order);
 
@@ -369,20 +389,24 @@ const DocumentSidebar = memo(({
     const targetIndex = dropPosition < 0 ? dropIndex : dropIndex + 1;
 
     // Update orders in source folder
-    updateOrdersInSourceFolder(updatedDocuments, dragDocument.parentId, dragDocument.order);
+    let updatedDocuments = updateOrdersInSourceFolder(documents, dragDocument.parentId, dragDocument.order);
 
     // Insert at new position
-    const dragDocumentIndex = updatedDocuments.findIndex((d: DocumentWithTreeProps) => d._id === dragDocument._id);
-    updatedDocuments[dragDocumentIndex] = {
-      ...dragDocument,
-      parentId: targetParentId,
-      order: targetIndex
-    };
+    updatedDocuments = updatedDocuments.map((doc: DocumentWithTreeProps) => {
+      if (doc._id === dragDocument._id) {
+        return {
+          ...dragDocument,
+          parentId: targetParentId,
+          order: targetIndex
+        };
+      }
+      return doc;
+    });
 
     // Update orders in target folder
-    updateOrdersInTargetFolder(updatedDocuments, targetParentId, targetIndex, dragDocument._id);
+    updatedDocuments = updateOrdersInTargetFolder(updatedDocuments, targetParentId, targetIndex, dragDocument._id);
 
-    return targetParentId;
+    return { updatedDocuments, targetParentId };
   };
 
   // Helper function to persist changes to database
@@ -421,21 +445,24 @@ const DocumentSidebar = memo(({
       return;
     }
 
-    const updatedDocuments = documents.map((doc: DocumentWithTreeProps) => ({ ...doc }));
+    const initialDocuments = documents.map((doc: DocumentWithTreeProps) => ({ ...doc }));
+    let updatedDocuments: DocumentWithTreeProps[];
     let newParentId: Id<"documents"> | undefined;
 
     // Handle dropping into a folder vs dropping between documents
     if (dropPosition === 0 && dropDocument.isFolder) {
       newParentId = dropDocument._id;
-      handleDropIntoFolder(updatedDocuments, dragDocument, newParentId);
+      updatedDocuments = handleDropIntoFolder(initialDocuments, dragDocument, newParentId);
     } else {
-      newParentId = handleDropBetweenDocuments(updatedDocuments, dragDocument, dropDocument, dropPosition);
+      const result = handleDropBetweenDocuments(initialDocuments, dragDocument, dropDocument, dropPosition);
+      updatedDocuments = result.updatedDocuments;
+      newParentId = result.targetParentId;
     }
 
     // Normalize orders for both source and target folders
-    normalizeOrders(updatedDocuments, dragDocument.parentId);
+    updatedDocuments = normalizeOrders(updatedDocuments, dragDocument.parentId);
     if (dragDocument.parentId !== newParentId) {
-      normalizeOrders(updatedDocuments, newParentId);
+      updatedDocuments = normalizeOrders(updatedDocuments, newParentId);
     }
     
     // Persist changes to database

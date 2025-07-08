@@ -122,7 +122,7 @@ export default function SharedDocumentPage() {
       LineHeightExtension,
     ],
     editable: false, // Make editor read-only for shared documents
-         content: sharedDocument?.document?.initialContent ?? '<p>Loading document...</p>',
+    content: sharedDocument?.document?.initialContent ?? '<p>Loading document...</p>',
     editorProps: {
       attributes: {
         class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
@@ -186,9 +186,9 @@ export default function SharedDocumentPage() {
                   <h1 className="text-lg font-semibold text-gray-900">
                     {sharedDocument.document.title}
                   </h1>
-                                     <p className="text-sm text-gray-500">
-                     Shared by {sharedDocument.document.owner?.name ?? 'Someone'}
-                   </p>
+                  <p className="text-sm text-gray-500">
+                    Shared by {sharedDocument.document.owner?.name ?? 'Unknown owner'}
+                  </p>
                 </div>
               </div>
             </div>

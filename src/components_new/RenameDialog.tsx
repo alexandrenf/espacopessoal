@@ -71,17 +71,14 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
       toast.success("Document renamed successfully!");
       onOpenChange(false);
     } catch (error) {
+      console.error("Failed to rename document:", error);
       toast.error("Failed to rename document");
     } finally {
       setIsRenaming(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onOpenChange(false);
-    }
-  };
+
 
   if (!document) return null;
 
@@ -99,7 +96,6 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
               placeholder="Document name"
               autoFocus
               disabled={isRenaming || isUserLoading}

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PaginationStatus } from "convex/react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { formatDate } from "../lib/utils";
 import { Button } from "../components_new/ui/button";
 import {
@@ -18,16 +20,43 @@ import { DocumentActionsMenu } from "./DocumentActionsMenu";
 import { RenameDialog } from "./RenameDialog";
 import { Document } from "../types/document";
 
+// Configurable pagination size
+const DEFAULT_PAGE_SIZE = 5;
+
 interface DocumentsTableProps {
   documents: Document[] | undefined;
   loadMore: (numItems: number) => void;
   status: PaginationStatus;
+  pageSize?: number;
+}
+
+// Component to fetch and display owner name
+function OwnerCell({ ownerId }: { ownerId: string }) {
+  const owner = useQuery(
+    api.users.getByNextAuthId,
+    ownerId && ownerId !== "demo-user" ? { nextAuthId: ownerId } : "skip"
+  );
+
+  if (ownerId === "demo-user") {
+    return <span className="text-muted-foreground text-xs">Demo User</span>;
+  }
+
+  if (owner === undefined) {
+    return <Loader className="h-3 w-3 animate-spin text-muted-foreground" />;
+  }
+
+  return (
+    <span className="text-muted-foreground text-xs">
+      {owner?.name ?? "Unknown owner"}
+    </span>
+  );
 }
 
 export function DocumentsTable({
   documents,
   loadMore,
   status,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: DocumentsTableProps) {
   const [renameDocument, setRenameDocument] = useState<Document | null>(null);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
@@ -90,8 +119,8 @@ export function DocumentsTable({
                         onRename={handleRename}
                       />
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
-                      {doc.ownerId}
+                    <TableCell className="hidden md:table-cell">
+                      <OwnerCell ownerId={doc.ownerId} />
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
                       {formatDate(doc.createdAt)}
@@ -106,7 +135,7 @@ export function DocumentsTable({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => loadMore(5)}
+            onClick={() => loadMore(pageSize)}
             disabled={status !== "CanLoadMore"}
           >
             {status === "CanLoadMore" ? "Load more" : "No more documents."}

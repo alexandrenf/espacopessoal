@@ -8,11 +8,7 @@ export const getById = query({
     id: v.id("users"),
   },
   handler: async (ctx, { id }) => {
-    const user = await ctx.db.get(id);
-    if (!user) {
-      throw new ConvexError("User not found!");
-    }
-    return user;
+    return await ctx.db.get(id);
   },
 });
 

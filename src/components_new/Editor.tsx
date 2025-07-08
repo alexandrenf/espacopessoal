@@ -15,21 +15,27 @@ const Editor = () => {
   const [editorReady, setEditorReady] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const reconnectAttemptsRef = useRef(0)
   const maxReconnectAttempts = 5
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    reconnectAttemptsRef.current = reconnectAttempts
+  }, [reconnectAttempts])
 
   useEffect(() => {
     const newYdoc = new Y.Doc()
     const documentName = process.env.NEXT_PUBLIC_DOCUMENT_NAME ?? 'example-document'
     
     // Get WebSocket URL from environment or create secure fallback
-    const wsPort = process.env.NEXT_PUBLIC_WS_PORT ?? '3000'
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT ?? '6001'
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 
       `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${wsPort}`
     
     console.log('🔗 WebSocket URL:', wsUrl)
     console.log('📡 Environment WS URL:', process.env.NEXT_PUBLIC_WS_URL)
     
-    new IndexeddbPersistence(documentName, newYdoc)
+    const persistence = new IndexeddbPersistence(documentName, newYdoc)
 
     const newProvider = new HocuspocusProvider({
       url: wsUrl,
@@ -38,11 +44,11 @@ const Editor = () => {
     })
 
     const handleReconnect = () => {
-      if (reconnectAttempts < maxReconnectAttempts) {
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         setTimeout(() => {
           setReconnectAttempts(prev => prev + 1)
           void newProvider.connect()
-        }, Math.pow(2, reconnectAttempts) * 1000) // Exponential backoff
+        }, Math.pow(2, reconnectAttemptsRef.current) * 1000) // Exponential backoff
       } else {
         setConnectionError('Unable to establish connection after multiple attempts')
       }
@@ -54,6 +60,7 @@ const Editor = () => {
       if (event.status === 'connected') {
         setConnectionError(null)
         setReconnectAttempts(0)
+        reconnectAttemptsRef.current = 0
       }
     })
 
@@ -61,18 +68,19 @@ const Editor = () => {
       console.log('WebSocket connected successfully!')
       setConnectionError(null)
       setReconnectAttempts(0)
+      reconnectAttemptsRef.current = 0
     })
 
     newProvider.on('disconnect', (event: unknown) => {
       console.log('WebSocket disconnected:', event)
-      if (reconnectAttempts < maxReconnectAttempts) {
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()
       }
     })
 
     newProvider.on('close', (event: unknown) => {
       console.log('WebSocket closed:', event)
-      if (reconnectAttempts < maxReconnectAttempts) {
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()
       }
     })
@@ -80,7 +88,7 @@ const Editor = () => {
     newProvider.on('error', (event: unknown) => {
       console.error('WebSocket error occurred:', event)
       setConnectionError('Connection error occurred. Attempting to reconnect...')
-      if (reconnectAttempts < maxReconnectAttempts) {
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()
       }
     })
@@ -105,6 +113,7 @@ const Editor = () => {
     setEditorReady(true)
 
     return () => {
+      void persistence.destroy()
       newProvider.destroy()
       newYdoc.destroy()
       if (editorRef.current) {

@@ -2,13 +2,13 @@
 
 import React from "react";
 import { FileText, MoreHorizontal, Trash } from "lucide-react";
-import { Button } from "../components_new/ui/button";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components_new/ui/dropdown-menu";
+} from "./ui/dropdown-menu";
 import { Id } from "../../convex/_generated/dataModel";
 import { Document } from "../types/document";
 

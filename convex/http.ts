@@ -4,6 +4,77 @@ import { internal } from "./_generated/api";
 import { ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
+// Helper function to validate Convex ID format
+function isValidConvexId(id: string): boolean {
+  // Convex IDs should be non-empty strings with alphanumeric characters, underscores, and dashes
+  if (!id || typeof id !== "string") return false;
+  
+  // Check for whitespace
+  if (id.includes(" ") || id.trim() !== id) return false;
+  
+  // Check for valid characters (alphanumeric, underscores, dashes)
+  const validIdPattern = /^[a-zA-Z0-9_-]+$/;
+  return validIdPattern.test(id);
+}
+
+// Helper function to validate request body structure
+function validateRequestBody(body: unknown): { isValid: boolean; error?: string } {
+  if (!body || typeof body !== "object") {
+    return { isValid: false, error: "Request body must be a non-null object" };
+  }
+  
+  return { isValid: true };
+}
+
+// Helper function to validate document update request data
+function validateUpdateRequest(data: unknown): { 
+  isValid: boolean; 
+  error?: string; 
+  documentId?: string; 
+  content?: string; 
+  userId?: string; 
+} {
+  const bodyValidation = validateRequestBody(data);
+  if (!bodyValidation.isValid) {
+    return { isValid: false, error: bodyValidation.error };
+  }
+
+  const { documentId, content, userId } = data as { documentId: unknown; content: unknown; userId?: unknown };
+
+  // Validate documentId
+  if (!documentId || typeof documentId !== "string") {
+    return { isValid: false, error: "documentId must be a non-empty string" };
+  }
+  
+  if (!isValidConvexId(documentId)) {
+    return { isValid: false, error: "documentId has invalid format" };
+  }
+
+  // Validate content
+  if (typeof content !== "string") {
+    return { isValid: false, error: "content must be a string" };
+  }
+
+  // Validate userId if provided
+  if (userId !== undefined) {
+    if (typeof userId !== "string" || !isValidConvexId(userId)) {
+      return { isValid: false, error: "userId must be a valid Convex ID format" };
+    }
+  }
+
+  return { 
+    isValid: true, 
+    documentId, 
+    content, 
+    userId: userId,
+  };
+}
+
+// Helper function to validate that userId is required and valid for update operations
+function validateRequiredUserId(userId: string | undefined): userId is string {
+  return userId !== undefined && typeof userId === "string" && isValidConvexId(userId);
+}
+
 const updateDocumentContent = httpAction(async (ctx, request) => {
   // Verify the request method
   if (request.method !== "POST") {
@@ -25,19 +96,21 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
   }
 
   try {
-    const { documentId, content, userId } = body as { documentId: string; content: string; userId?: string };
-
-    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}`);
-
-    if (!documentId || typeof content !== "string") {
+    // Validate request body and extract data
+    const validation = validateUpdateRequest(body);
+    if (!validation.isValid) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: documentId and content" }),
+        JSON.stringify({ error: validation.error }),
         { 
           status: 400,
           headers: { "Content-Type": "application/json" }
         }
       );
     }
+
+    const { documentId, content, userId } = validation;
+
+    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}`);
 
     // Require authentication for document updates
     if (!userId) {
@@ -50,14 +123,14 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
       );
     }
 
-    // Call the internal mutation to update the document
+    // Call the internal mutation to update the document with properly typed IDs
     console.log(`Calling updateContentInternal for document: ${documentId}`);
     const result = await ctx.runMutation(internal.documents.updateContentInternal, {
-      id: documentId,
-      content,
-      userId,
+      id: documentId as Id<"documents">,
+      content: content ?? "",
+      userId: userId as Id<"users">,
     });
-    
+
     console.log(`updateContentInternal completed successfully for ${documentId}`);
 
     return new Response(
@@ -112,10 +185,21 @@ const getDocumentContent = httpAction(async (ctx, request) => {
       );
     }
 
-    // Call the internal query to get the document
+    // Validate documentId format before passing to query
+    if (!isValidConvexId(documentId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid documentId format" }),
+        { 
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    // Call the internal query to get the document with properly typed ID
     console.log(`Calling getByIdInternal for document: ${documentId}`);
     const document = await ctx.runQuery(internal.documents.getByIdInternal, {
-      id: documentId,
+      id: documentId as Id<"documents">,
     });
     
     console.log(`getByIdInternal result for ${documentId}:`, document ? `Found document "${document.title}"` : 'Document not found');

@@ -59,6 +59,7 @@ export function TemplatesGallery() {
                 onClick={() =>
                   onTemplateClick(template.label, template.initialContent)
                 }
+                aria-label={`Create new document using ${template.label} template`}
                 style={{
                   backgroundImage: `url(${template.imageUrl})`,
                   backgroundSize: "cover",

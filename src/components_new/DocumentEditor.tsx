@@ -54,6 +54,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "../components_new/ui/menubar";
+import { useRouter } from 'next/router';
 
 // TipTap Extensions
 import { FontSizeExtension } from "../extensions/font-size";
@@ -109,38 +110,41 @@ interface EditorProps {
 }
 
 export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
-  const providerRef = useRef<HocuspocusProvider | null>(null);
-  const ydocRef = useRef<Y.Doc | null>(null);
-  const undoManagerRef = useRef<UndoManager | null>(null);
+  const router = useRouter();
+  const mutation = useMutation(api.documents.updateById);
+  const updateDocument = useMutation(api.documents.updateDocument);
+  const create = useMutation(api.documents.create);
   const [documentTitle, setDocumentTitle] = useState(doc.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [isYdocReady, setIsYdocReady] = useState(false);
-  
-  // Margin state
   const [leftMargin, setLeftMargin] = useState(LEFT_MARGIN_DEFAULT);
   const [rightMargin, setRightMargin] = useState(RIGHT_MARGIN_DEFAULT);
-
-  // Sidebar state
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [showSidebar, setShowSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [showSpellCheck, setShowSpellCheck] = useState(false);
-  const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSpellCheckOpen, setIsSpellCheckOpen] = useState(false);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
     word: string;
-    replacement: string;
-    start: number;
-    end: number;
+    suggestion: string;
+    position: { from: number; to: number };
   } | null>(null);
   const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
+  const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
+  const [undoManager, setUndoManager] = useState<UndoManager | null>(null);
+  
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const editorStore = useEditorStore();
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const providerRef = useRef<HocuspocusProvider | null>(null);
+  const undoManagerRef = useRef<UndoManager | null>(null);
+  const [isYdocReady, setIsYdocReady] = useState(false);
 
-  // Get authenticated user from NextAuth + Convex bridge
+  // Get authenticated user with proper error handling
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId;
   
   // Convert Convex user ID to string for current API compatibility
-  const userIdString = convexUserId ? String(convexUserId) : undefined;
+  // const userIdString = convexUserId ? String(convexUserId) : undefined;
   
   // Use Convex API for dictionary functionality with real user authentication
   const dictionary = useQuery(
@@ -387,8 +391,8 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       .chain()
       .focus()
       .insertContentAt(
-        { from: replacementSuggestion.start, to: replacementSuggestion.end }, 
-        replacementSuggestion.replacement
+        { from: replacementSuggestion.position.from, to: replacementSuggestion.position.to }, 
+        replacementSuggestion.suggestion
       )
       .run();
     
@@ -417,9 +421,8 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     if (entry && lastWord !== recentlyRejected) {
       setReplacementSuggestion({
         word: lastWord,
-        replacement: entry.to,
-        start: pos - lastWord.length,
-        end: pos,
+        suggestion: entry.to,
+        position: { from: pos - lastWord.length, to: pos },
       });
       
       // Clear any existing timeout
@@ -441,7 +444,14 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     const ydoc = ydocRef.current;
     const documentName = doc._id;
     
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? `ws://127.0.0.1:6001`;
+    // Ensure WebSocket URL is properly configured - no fallback for production safety
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    
+    if (!wsUrl) {
+      console.error('WebSocket URL not configured. Please set NEXT_PUBLIC_WS_URL environment variable.');
+      toast.error('WebSocket configuration missing. Real-time collaboration unavailable.');
+      return;
+    }
     
     console.log('🔗 Connecting to WebSocket:', wsUrl);
     console.log('📄 Document ID:', documentName);
@@ -631,11 +641,11 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   };
 
   const handleNavigateToHome = () => {
-    window.location.href = '/';
+    router.push('/');
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
-    window.location.href = `/documents/${documentId}`;
+    router.push(`/documents/${documentId}`);
   };
 
   const getStatusIcon = () => {

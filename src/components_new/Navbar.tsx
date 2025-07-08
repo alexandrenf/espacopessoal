@@ -15,7 +15,7 @@ export function Navbar({ search, setSearch }: NavbarProps) {
       <div className="flex gap-3 items-center shrink-0">
         <Link href="/">
           <div className="relative size-8">
-            <Image src="/next.svg" alt="Logo" fill />
+            <Image src="/icons/icon-96x96.png" alt="Espaco Pessoal Logo" fill />
           </div>
         </Link>
         <h3 className="text-xl">Docs</h3>

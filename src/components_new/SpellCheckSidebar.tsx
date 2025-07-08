@@ -44,14 +44,57 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
   const [diffs, setDiffs] = useState<SpellCheckDiff[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [hoveredDiffId, setHoveredDiffId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Runtime validation for API response
+  const validateSpellCheckResponse = (data: unknown): { isValid: boolean; response?: SpellCheckResponse; error?: string } => {
+    if (!data || typeof data !== 'object') {
+      return { isValid: false, error: 'Invalid response format' };
+    }
+
+    const response = data as Record<string, unknown>;
+    
+    // Check if diffs property exists and is an array
+    if (response.diffs !== undefined && !Array.isArray(response.diffs)) {
+      return { isValid: false, error: 'Invalid diffs format' };
+    }
+
+    // Validate each diff object
+    if (response.diffs) {
+      for (const diff of response.diffs) {
+        if (!diff || typeof diff !== 'object') {
+          return { isValid: false, error: 'Invalid diff object' };
+        }
+        
+        const diffObj = diff as Record<string, unknown>;
+        if (
+          typeof diffObj.original !== 'string' ||
+          typeof diffObj.suggestion !== 'string' ||
+          typeof diffObj.start !== 'number' ||
+          typeof diffObj.end !== 'number' ||
+          typeof diffObj.reason !== 'string'
+        ) {
+          return { isValid: false, error: 'Invalid diff properties' };
+        }
+      }
+    }
+
+    return { isValid: true, response: response as SpellCheckResponse };
+  };
 
   const handleSpellCheck = useCallback(async () => {
     if (!editor) return;
     
     setIsChecking(true);
+    setError(null);
+    
     try {
       const content = editor.getText();
-      const apiUrl = process.env.NEXT_PUBLIC_DENO_API_URL ?? 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_DENO_API_URL;
+      
+      if (!apiUrl) {
+        throw new Error('Spell check API URL is not configured. Please set NEXT_PUBLIC_DENO_API_URL environment variable.');
+      }
       
       const response = await fetch(`${apiUrl}/api/spellcheck`, {
         method: 'POST',
@@ -59,15 +102,31 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
         body: JSON.stringify({ text: content }),
       });
       
-      const data = await response.json() as SpellCheckResponse;
-      const diffsWithIds = (data.diffs ?? []).map((diff, idx: number) => ({
-        ...diff,
-        id: `diff-${Date.now()}-${idx}`,
-      }));
+      if (!response.ok) {
+        throw new Error(`Spell check API returned error: ${response.status} ${response.statusText}`);
+      }
       
-      setDiffs(diffsWithIds);
-    } catch (error) {
-      console.error('Spell check failed:', error);
+      const data = await response.json();
+      const validation = validateSpellCheckResponse(data);
+      
+             if (!validation.isValid) {
+         throw new Error(validation.error ?? 'Invalid response from spell check API');
+       }
+      
+             const diffsWithIds = (validation.response?.diffs ?? []).map((diff: ApiDiff, idx: number) => ({
+         ...diff,
+         id: `diff-${Date.now()}-${idx}`,
+       }));
+       
+       setDiffs(diffsWithIds);
+       
+       if (diffsWithIds.length === 0) {
+         setError('No spelling issues found!');
+       }
+     } catch (error) {
+       console.error('Spell check failed:', error);
+       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+       setError(`Spell check failed: ${errorMessage}`);
       setDiffs([]);
     } finally {
       setIsChecking(false);
@@ -240,73 +299,71 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
-            {isChecking ? (
-              <div className="flex flex-col items-center justify-center h-32">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
-                <p className="text-sm text-gray-600">Analisando texto...</p>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
               </div>
-            ) : diffs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32">
-                <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-600 text-center">
-                  Nenhum erro encontrado ou clique em &quot;Verificar&quot; para começar
-                </p>
+            )}
+            
+            {isChecking ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+                <p className="text-gray-600">Analisando o texto...</p>
+              </div>
+            ) : diffs.length === 0 && !error ? (
+              <div className="text-center py-8">
+                <Sparkles className="h-8 w-8 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Clique em "Verificar" para iniciar a análise ortográfica</p>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 mb-4">
-                  {diffs.length} {diffs.length === 1 ? 'sugestão encontrada' : 'sugestões encontradas'}
-                </p>
-                
                 {diffs.map((diff) => (
-                  <motion.div
+                  <div
                     key={diff.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                      hoveredDiffId === diff.id
-                        ? 'border-blue-300 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    className={`p-3 border rounded-lg transition-all duration-200 hover:shadow-sm ${
+                      hoveredDiffId === diff.id ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
                     }`}
                     onMouseEnter={() => setHoveredDiffId(diff.id)}
                     onMouseLeave={() => setHoveredDiffId(null)}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-start gap-2">
-                        <span className="text-sm text-red-600 line-through">
-                          &quot;{diff.original}&quot;
-                        </span>
-                        <span className="text-sm text-gray-400">→</span>
-                        <span className="text-sm text-green-600 font-medium">
-                          &quot;{diff.suggestion}&quot;
-                        </span>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-red-600 mb-1">
+                          {diff.original}
+                        </p>
+                        <p className="text-sm text-green-600 font-medium">
+                          {diff.suggestion}
+                        </p>
                       </div>
-                      
-                      <p className="text-xs text-gray-500">{diff.reason}</p>
-                      
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 ml-2">
                         <Button
-                          onClick={() => handleAcceptDiff(diff)}
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2 text-xs hover:bg-green-50 hover:border-green-300"
+                          onClick={() => handleAcceptDiff(diff)}
+                          className="h-7 px-2 text-xs"
                         >
                           <Check className="h-3 w-3 mr-1" />
                           Aceitar
                         </Button>
                         <Button
-                          onClick={() => handleRejectDiff(diff)}
                           size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs hover:bg-red-50 hover:border-red-300"
+                          variant="ghost"
+                          onClick={() => handleRejectDiff(diff)}
+                          className="h-7 px-2 text-xs"
                         >
-                          <X className="h-3 w-3 mr-1" />
-                          Rejeitar
+                          <X className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
-                  </motion.div>
+                    {diff.reason && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {diff.reason}
+                      </p>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

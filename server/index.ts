@@ -11,7 +11,7 @@ const safeParseInt = (value: string | undefined, defaultValue: number): number =
 };
 
 // Load environment variables
-const PORT = process.env.PORT ?? 6002;
+const PORT = safeParseInt(process.env.PORT, 6002);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
 const SERVER_NAME = process.env.SERVER_NAME ?? 'EspacoPessoal Docs Server';
@@ -34,13 +34,27 @@ interface DocumentState {
   pendingSave: boolean;
 }
 
+// Save result types
+interface SaveResult {
+  success: boolean;
+  error?: string;
+  type: 'success' | 'not_found' | 'error';
+}
+
+class DocumentNotFoundError extends Error {
+  constructor(documentName: string) {
+    super(`Document ${documentName} not found`);
+    this.name = 'DocumentNotFoundError';
+  }
+}
+
 const documentStates = new Map<string, DocumentState>();
 
 // Global document instances tracking for proper shutdown handling
 const documentInstances = new Map<string, Y.Doc>();
 
 // Utility functions for Convex API calls
-const saveDocumentToConvex = async (documentName: string, content: string): Promise<boolean> => {
+const saveDocumentToConvex = async (documentName: string, content: string): Promise<SaveResult> => {
   const url = `${CONVEX_SITE_URL}/updateDocumentContent`;
   const payload = {
     documentId: documentName,
@@ -68,19 +82,34 @@ const saveDocumentToConvex = async (documentName: string, content: string): Prom
       console.error(`[${new Date().toISOString()}] ❌ HTTP Error: ${response.status} - ${errorText}`);
       
       if (response.status === 404) {
-        console.log(`[${new Date().toISOString()}] 🚫 Document ${documentName} not found in Convex - skipping save (document may not have been created through UI)`);
-        return true; // Return true to avoid error logs for documents that simply don't exist
+        console.log(`[${new Date().toISOString()}] 🚫 Document ${documentName} not found in Convex - document may not have been created through UI`);
+        return {
+          success: false,
+          error: `Document ${documentName} not found`,
+          type: 'not_found'
+        };
       }
       
-      return false;
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${errorText}`,
+        type: 'error'
+      };
     }
 
     const result = await response.json() as { success: boolean; message: string };
     console.log(`[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`);
-    return true;
+    return {
+      success: true,
+      type: 'success'
+    };
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error saving document ${documentName} to Convex:`, error);
-    return false;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      type: 'error'
+    };
   }
 };
 
@@ -153,7 +182,15 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     const content = extractDocumentContent(document);
     console.log(`[${new Date().toISOString()}] Saving document ${documentName} (${content.length} chars)`);
     
-    await saveDocumentToConvex(documentName, content);
+    const result = await saveDocumentToConvex(documentName, content);
+    
+    if (!result.success) {
+      if (result.type === 'not_found') {
+        console.warn(`[${new Date().toISOString()}] Document ${documentName} not found, skipping save`);
+      } else {
+        console.error(`[${new Date().toISOString()}] Failed to save document ${documentName}: ${result.error}`);
+      }
+    }
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error during document save for ${documentName}:`, error);
   } finally {
@@ -232,11 +269,11 @@ const allowedOrigins = getAllowedOrigins();
 // Helper function to check if origin is allowed
 const isOriginAllowed = (origin: string | undefined): boolean => {
   if (!origin) return false;
-  return allowedOrigins.includes(origin) || allowedOrigins.includes('*');
+  return allowedOrigins.includes(origin);
 };
 
 const server = new Server({
-  port: Number(PORT),
+  port: PORT,
   timeout: TIMEOUT,
   name: SERVER_NAME,
   

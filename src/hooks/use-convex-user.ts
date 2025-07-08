@@ -21,11 +21,8 @@ export function useConvexUser(): ConvexUserData {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
   const syncUser = useMutation(api.users.syncNextAuthUser);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
   const convexUser = useQuery(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     api.users.getByNextAuthId, 
     session?.user?.id ? { nextAuthId: session.user.id } : "skip"
   );
@@ -59,7 +56,6 @@ export function useConvexUser(): ConvexUserData {
   }, [session?.user?.id, session?.user?.email, syncUser, status, isSyncing, convexUser]);
 
   return {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     convexUserId: convexUser?._id ?? null,
     isLoading: status === "loading" || (status === "authenticated" && !convexUser && !error) || isSyncing,
     error,

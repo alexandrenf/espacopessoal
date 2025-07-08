@@ -9,11 +9,12 @@ export async function GET(): Promise<Response> {
     // This is more of a placeholder since true WebSocket handling needs to be at the server level
     return NextResponse.json({ 
       message: 'WebSocket endpoint available',
-      wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? 'wss://localhost:3000'
+      wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? 'wss://localhost:6001'
     })
-  } catch {
+  } catch (error) {
+    console.error('WebSocket setup failed:', error)
     return NextResponse.json(
-      { error: 'WebSocket setup failed' },
+      { error: 'WebSocket setup failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

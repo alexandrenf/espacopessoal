@@ -460,9 +460,9 @@ export function UserDashboard() {
                 title="Meu Notebook"
                 description="Organize suas anotações, pensamentos e ideias com nosso editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
                 icon={<Notebook className="w-8 h-8" />}
-                href="/home"
+                href={isNotepadConfigured ? "/home" : "/notas"}
                 isActive={true}
-                status="configured"
+                status={isNotepadConfigured ? "configured" : "unconfigured"}
               />
             )}
 

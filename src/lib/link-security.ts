@@ -69,7 +69,10 @@ export function sanitizeUrl(url: string): string | null {
       const dataType = parsedUrl.pathname.split(';')[0];
       const allowedDataTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'text/plain'];
       
-      if (!dataType || !allowedDataTypes.some(type => dataType.startsWith(type))) {
+      // Stricter validation: ensure exact MIME type match using regex
+      const mimeTypeRegex = /^[a-zA-Z0-9][a-zA-Z0-9!#$&\-\^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\-\^_.+]*$/;
+      
+      if (!dataType || !mimeTypeRegex.test(dataType) || !allowedDataTypes.includes(dataType)) {
         console.warn(`Blocked data URL with disallowed type: ${dataType ?? 'unknown'}`);
         return null;
       }
