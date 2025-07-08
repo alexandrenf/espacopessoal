@@ -39,6 +39,7 @@ export default defineSchema({
     parentId: v.optional(v.id("documents")), // Reference to parent folder
     order: v.number(), // For sorting within the same level
     isFolder: v.boolean(), // true for folders, false for documents
+    isHome: v.optional(v.boolean()), // true for user's home document
   })
     .index("by_owner_id", ["ownerId"])
     .index("by_organization_id", ["organizationId"])

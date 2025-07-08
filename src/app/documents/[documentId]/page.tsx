@@ -13,9 +13,10 @@ import { useConvexUser } from "../../../hooks/use-convex-user";
 // Helper function to validate if a string is a valid Convex ID format
 function isValidConvexId(id: string | string[] | undefined): id is string {
   if (typeof id !== 'string') return false;
-  // Convex IDs are typically base64url-encoded strings with specific length constraints
-  // Basic validation: non-empty string without spaces
-  return id.length > 0 && !id.includes(' ') && !id.includes('\n') && !id.includes('\t');
+  // Convex IDs use base64url encoding: A-Z, a-z, 0-9, hyphens (-), and underscores (_)
+  // Must be at least 20 characters long
+  const convexIdPattern = /^[A-Za-z0-9_-]{20,}$/;
+  return convexIdPattern.test(id);
 }
 
 export default function DocumentPage() {

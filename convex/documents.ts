@@ -5,7 +5,8 @@ import { type Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 
 // Production-ready logging utility
-const isDevelopment = process.env.NODE_ENV === 'development';
+// Use LOG_LEVEL environment variable instead of NODE_ENV since NODE_ENV is always 'development' in Convex sandbox
+const isDevelopment = process.env.LOG_LEVEL === 'development';
 const logger = {
   log: (message: string, ...args: unknown[]) => {
     // Only log in development, remove for production
@@ -31,6 +32,7 @@ const logger = {
 };
 
 // For backward compatibility during migration
+// TODO: Create tracking issue to phase out DEFAULT_USER_ID in favor of native Convex user IDs
 const DEFAULT_USER_ID = "demo-user";
 
 export const create = mutation({
@@ -40,50 +42,75 @@ export const create = mutation({
     userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
     parentId: v.optional(v.id("documents")), // Parent folder
     isFolder: v.optional(v.boolean()), // Whether this is a folder
+    isHome: v.optional(v.boolean()), // Whether this is the home document
   },
   handler: async (ctx, args) => {
     const userId = args.userId ?? DEFAULT_USER_ID;
     const now = Date.now();
     const isFolder = args.isFolder ?? false;
     
-    // Get the next order number for the parent
-    let order = 0;
-    if (args.parentId) {
-      // Verify parent exists and is a folder
-      const parent = await ctx.db.get(args.parentId);
-      if (!parent?.isFolder) {
-        throw new ConvexError("Parent must be a folder");
+    // Use retry mechanism to handle race conditions in order calculation
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        // Get the next order number for the parent
+        let order = 0;
+        if (args.parentId) {
+          // Verify parent exists and is a folder
+          const parent = await ctx.db.get(args.parentId);
+          if (!parent?.isFolder) {
+            throw new ConvexError("Parent must be a folder");
+          }
+          
+          // Get the highest order in the parent folder
+          const siblings = await ctx.db
+            .query("documents")
+            .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
+            .collect();
+          const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+          order = maxOrder + 1;
+        } else {
+          // Get the highest order in the root level
+          const siblings = await ctx.db
+            .query("documents")
+            .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
+            .filter((q) => q.eq(q.field("ownerId"), userId))
+            .collect();
+          const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+          order = maxOrder + 1;
+        }
+        
+        // Insert the document
+        return await ctx.db.insert("documents", {
+          title: args.title ?? (isFolder ? "New Folder" : "Untitled Document"),
+          ownerId: userId,
+          initialContent: isFolder ? undefined : (args.initialContent ?? ""),
+          roomId: undefined, // Will be set to document ID after creation
+          createdAt: now,
+          updatedAt: now,
+          parentId: args.parentId,
+          order,
+          isFolder,
+          isHome: args.isHome ?? false,
+        });
+        
+      } catch (error) {
+        retryCount++;
+        logger.warn(`Document creation retry ${retryCount}/${maxRetries} due to:`, error);
+        
+        if (retryCount >= maxRetries) {
+          logger.error("Document creation failed after maximum retries:", error);
+          throw error;
+        }
+        
+        // Add small delay before retry to reduce collision probability
+        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
       }
-      
-      // Get the highest order in the parent folder
-      const siblings = await ctx.db
-        .query("documents")
-        .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
-        .collect();
-      const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-      order = maxOrder + 1;
-    } else {
-      // Get the highest order in the root level
-      const siblings = await ctx.db
-        .query("documents")
-        .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
-        .filter((q) => q.eq(q.field("ownerId"), userId))
-        .collect();
-      const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-      order = maxOrder + 1;
     }
     
-    return await ctx.db.insert("documents", {
-      title: args.title ?? (isFolder ? "New Folder" : "Untitled Document"),
-      ownerId: userId,
-      initialContent: isFolder ? undefined : (args.initialContent ?? ""),
-      roomId: undefined, // Will be set to document ID after creation
-      createdAt: now,
-      updatedAt: now,
-      parentId: args.parentId,
-      order,
-      isFolder,
-    });
+    throw new ConvexError("Document creation failed after maximum retries");
   },
 });
 
@@ -137,14 +164,17 @@ export const getHierarchical = query({
 export const getAllForTree = query({
   args: {
     userId: v.optional(v.string()),
+    limit: v.optional(v.number()), // Add limit to prevent performance issues
   },
-  handler: async (ctx, { userId }) => {
+  handler: async (ctx, { userId, limit }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
+    const documentLimit = limit ?? 1000; // Default limit of 1000 documents
     
     return await ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
-      .collect();
+      .order("asc")
+      .take(documentLimit);
   },
 });
 
@@ -348,8 +378,9 @@ export const updateContentInternal = internalMutation({
       throw new ConvexError(`Invalid document ID format: ${args.id}`);
     }
     
-    // Additional validation for Convex ID format - check for common prefixes and alphanumeric pattern
-    const convexIdPattern = /^[a-z0-9]{20,}$/;
+    // Additional validation for Convex ID format - check for base64url pattern
+    // Base64url uses A-Z, a-z, 0-9, hyphens (-), and underscores (_)
+    const convexIdPattern = /^[A-Za-z0-9_-]{20,}$/;
     if (!convexIdPattern.test(args.id)) {
       throw new ConvexError(`Invalid document ID format: ${args.id} - must be a valid Convex ID`);
     }
@@ -468,8 +499,9 @@ export const getByIdInternal = internalQuery({
       throw new ConvexError(`Invalid document ID format: ${args.id}`);
     }
     
-    // Additional validation for Convex ID format - check for common prefixes and alphanumeric pattern
-    const convexIdPattern = /^[a-z0-9]{20,}$/;
+    // Additional validation for Convex ID format - check for base64url pattern
+    // Base64url uses A-Z, a-z, 0-9, hyphens (-), and underscores (_)
+    const convexIdPattern = /^[A-Za-z0-9_-]{20,}$/;
     if (!convexIdPattern.test(args.id)) {
       throw new ConvexError(`Invalid document ID format: ${args.id} - must be a valid Convex ID`);
     }
@@ -520,17 +552,31 @@ export const createSharedDocument = mutation({
       throw new ConvexError("You don't have permission to share this document");
     }
     
-    // Generate unique URL
+    // Generate unique URL with retry limit to prevent infinite loops
     const generateUniqueUrl = async (): Promise<string> => {
-      while (true) {
-        // Generate 8-character URL-safe string
-        const url = Math.random().toString(36).substring(2, 10);
+      const maxRetries = 10;
+      let retryCount = 0;
+      
+      while (retryCount < maxRetries) {
+        // Generate 12-character URL-safe string for better collision resistance
+        const url = Math.random().toString(36).substring(2, 14);
         const existing = await ctx.db
           .query("sharedDocuments")
           .withIndex("by_url", (q) => q.eq("url", url))
           .first();
         if (!existing) return url;
+        
+        retryCount++;
+        logger.warn(`URL collision detected, retry ${retryCount}/${maxRetries}`);
       }
+      
+      // If we still can't generate a unique URL, use timestamp-based fallback
+      const timestamp = Date.now().toString(36);
+      const random = Math.random().toString(36).substring(2, 8);
+      const fallbackUrl = `${timestamp}${random}`.substring(0, 12);
+      
+      logger.error(`Failed to generate unique URL after ${maxRetries} attempts, using fallback: ${fallbackUrl}`);
+      return fallbackUrl;
     };
     
     const uniqueUrl = await generateUniqueUrl();
@@ -648,13 +694,11 @@ export const getOrCreateHomeDocument = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
-    // First, try to find an existing home document
+    // First, try to find an existing home document using the isHome field
     const homeDocument = await ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
-      .filter((q) => q.eq(q.field("title"), "My Notebook"))
-      .filter((q) => q.eq(q.field("isFolder"), false))
-      .filter((q) => q.eq(q.field("parentId"), undefined))
+      .filter((q) => q.eq(q.field("isHome"), true))
       .first();
     
     if (homeDocument) {
@@ -670,6 +714,7 @@ export const getOrCreateHomeDocument = mutation({
       parentId: undefined,
       order: 0,
       isFolder: false,
+      isHome: true, // Mark as home document
       initialContent: '<h1>Welcome to Your Notebook!</h1><p>Start writing your thoughts, ideas, and notes here. This is your personal space to organize everything important to you.</p><p></p><p><strong>Features you can use:</strong></p><ul><li>Real-time collaborative editing</li><li>Rich text formatting</li><li>Spell checking and dictionary replacements</li><li>Document sharing</li><li>Folder organization</li></ul><p></p><p>Happy writing! ✨</p>',
     });
     

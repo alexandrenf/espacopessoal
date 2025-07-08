@@ -112,7 +112,7 @@ interface EditorProps {
 export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
   const router = useRouter();
   const mutation = useMutation(api.documents.updateById);
-  const updateDocument = useMutation(api.documents.updateDocument);
+  const updateDocument = useMutation(api.documents.updateById);
   const create = useMutation(api.documents.create);
   const [documentTitle, setDocumentTitle] = useState(doc.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -123,6 +123,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const [isMobile, setIsMobile] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSpellCheckOpen, setIsSpellCheckOpen] = useState(false);
+  const [showSpellCheck, setShowSpellCheck] = useState(false);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
     word: string;
     suggestion: string;
@@ -130,7 +131,6 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   } | null>(null);
   const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
-  const [undoManager, setUndoManager] = useState<UndoManager | null>(null);
   
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const editorStore = useEditorStore();
@@ -176,7 +176,6 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   }, []);
   
   const { setEditor, setUndoManager } = useEditorStore();
-  const updateDocument = useMutation(api.documents.updateById);
 
   // Menu actions
   const onSaveJSON = () => {
@@ -641,11 +640,11 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   };
 
   const handleNavigateToHome = () => {
-    router.push('/');
+    void router.push('/');
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
-    router.push(`/documents/${documentId}`);
+    void router.push(`/documents/${documentId}`);
   };
 
   const getStatusIcon = () => {
@@ -945,7 +944,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                           Verificação Ortográfica
                         </MenubarItem>
                         {userIdString && (
-                          <MenubarItem onClick={() => setIsDictionaryModalOpen(true)}>
+                          <MenubarItem onClick={() => setIsDictionaryOpen(true)}>
                             <Replace className="size-4 mr-2" />
                             Dicionário
                           </MenubarItem>
@@ -993,8 +992,8 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
 
       {userIdString && (
         <DictionaryModal
-          isOpen={isDictionaryModalOpen}
-          onClose={() => setIsDictionaryModalOpen(false)}
+          isOpen={isDictionaryOpen}
+          onClose={() => setIsDictionaryOpen(false)}
           isPrivate={true} // Use private mode for authenticated users
           session={{ user: { id: userIdString } }} // Use real authenticated session
           createdById={userIdString}
@@ -1013,7 +1012,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       {replacementSuggestion && (
         <ReplacementPopup
           word={replacementSuggestion.word}
-          replacement={replacementSuggestion.replacement}
+          replacement={replacementSuggestion.suggestion}
           onAccept={acceptReplacement}
           onReject={rejectReplacement}
         />
