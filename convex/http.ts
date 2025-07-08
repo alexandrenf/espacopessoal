@@ -10,12 +10,24 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  let body: unknown;
   try {
     // Parse the request body
-    const body = await request.json();
-    const { documentId, content, userId } = body;
+    body = await request.json() as unknown;
+  } catch (parseError) {
+    return new Response(
+      JSON.stringify({ error: "Invalid JSON in request body" }),
+      { 
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
 
-    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length || 0}`);
+  try {
+    const { documentId, content, userId } = body as { documentId: string; content: string; userId?: string };
+
+    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}`);
 
     if (!documentId || typeof content !== "string") {
       return new Response(
@@ -27,12 +39,23 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
       );
     }
 
+    // Require authentication for document updates
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required. Please provide a valid userId." }),
+        { 
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+
     // Call the internal mutation to update the document
     console.log(`Calling updateContentInternal for document: ${documentId}`);
     const result = await ctx.runMutation(internal.documents.updateContentInternal, {
       id: documentId,
       content,
-      userId: userId || "demo-user",
+      userId,
     });
     
     console.log(`updateContentInternal completed successfully for ${documentId}`);
@@ -114,7 +137,7 @@ const getDocumentContent = httpAction(async (ctx, request) => {
         document: {
           id: document._id,
           title: document.title,
-          content: document.initialContent || "",
+          content: document.initialContent ?? "",
           updatedAt: document.updatedAt
         }
       }),

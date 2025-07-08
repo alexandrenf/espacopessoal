@@ -9,7 +9,12 @@ declare module "@tiptap/react" {
   }
 }
 
-export const LineHeightExtension = Extension.create({
+interface LineHeightOptions {
+  types: string[];
+  defaultLineHeight: string;
+}
+
+export const LineHeightExtension = Extension.create<LineHeightOptions>({
   name: "lineHeight",
   
   addOptions() {

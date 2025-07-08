@@ -56,7 +56,7 @@ export function useConvexUser(): ConvexUserData {
     if (status === "authenticated" && session?.user) {
       void performSync();
     }
-  }, [session?.user?.id, session?.user?.email, syncUser, status, isSyncing]);
+  }, [session?.user?.id, session?.user?.email, syncUser, status, isSyncing, convexUser]);
 
   return {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access

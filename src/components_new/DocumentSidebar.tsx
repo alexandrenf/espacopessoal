@@ -315,7 +315,7 @@ const DocumentSidebar = memo(({
         parentId: d.parentId,
         order: d.order
       })),
-      userId: "demo-user"
+      userId: userIdString
     }).catch(error => {
       console.error("Failed to update structure:", error);
       toast.error("Failed to update document structure");

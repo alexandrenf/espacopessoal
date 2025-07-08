@@ -98,7 +98,7 @@ export function Ruler({
         <div className="absolute inset-x-0 bottom-0 h-full">
           <div className="relative h-full w-[816px]">
             {markers.map((marker) => {
-              const pos = (marker * PAGE_WIDTH) / 82;
+              const pos = (marker * PAGE_WIDTH) / (markers.length - 1);
               return (
                 <div
                   key={marker}

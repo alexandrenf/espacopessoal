@@ -12,20 +12,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components_new/ui/dialog";
-import { Button } from "../components_new/ui/button";
-import { Input } from "../components_new/ui/input";
-
-type Document = {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-};
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Document } from "../types/document";
 
 interface RenameDialogProps {
   document: Document | null;

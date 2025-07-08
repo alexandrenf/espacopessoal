@@ -19,7 +19,6 @@ export const getDictionary = query({
 // Get public dictionary entries for a specific user (for shared notes)
 export const getPublicDictionary = query({
   args: { 
-    userId: v.optional(v.string()), // Current user ID for checking ownership
     createdById: v.string(), // Owner of the note being viewed
   },
   handler: async (ctx, { createdById }) => {

@@ -13,14 +13,18 @@ const Editor = () => {
   const [status, setStatus] = useState('connecting')
   const editorRef = useRef<TiptapEditor | null>(null)
   const [editorReady, setEditorReady] = useState(false)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const maxReconnectAttempts = 5
 
   useEffect(() => {
     const newYdoc = new Y.Doc()
-    const documentName = process.env.NEXT_PUBLIC_DOCUMENT_NAME || 'example-document'
+    const documentName = process.env.NEXT_PUBLIC_DOCUMENT_NAME ?? 'example-document'
     
     // Get WebSocket URL from environment or create secure fallback
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 
-      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:3000`
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT ?? '3000'
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 
+      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${wsPort}`
     
     console.log('🔗 WebSocket URL:', wsUrl)
     console.log('📡 Environment WS URL:', process.env.NEXT_PUBLIC_WS_URL)
@@ -33,25 +37,52 @@ const Editor = () => {
       document: newYdoc,
     })
 
+    const handleReconnect = () => {
+      if (reconnectAttempts < maxReconnectAttempts) {
+        setTimeout(() => {
+          setReconnectAttempts(prev => prev + 1)
+          void newProvider.connect()
+        }, Math.pow(2, reconnectAttempts) * 1000) // Exponential backoff
+      } else {
+        setConnectionError('Unable to establish connection after multiple attempts')
+      }
+    }
+
     newProvider.on('status', (event: { status: string }) => {
       console.log('Provider status:', event.status)
       setStatus(event.status)
+      if (event.status === 'connected') {
+        setConnectionError(null)
+        setReconnectAttempts(0)
+      }
     })
 
     newProvider.on('connect', () => {
       console.log('WebSocket connected successfully!')
+      setConnectionError(null)
+      setReconnectAttempts(0)
     })
 
-    newProvider.on('disconnect', () => {
-      console.log('WebSocket disconnected')
+    newProvider.on('disconnect', (event: unknown) => {
+      console.log('WebSocket disconnected:', event)
+      if (reconnectAttempts < maxReconnectAttempts) {
+        handleReconnect()
+      }
     })
 
-    newProvider.on('close', () => {
-      console.log('WebSocket closed')
+    newProvider.on('close', (event: unknown) => {
+      console.log('WebSocket closed:', event)
+      if (reconnectAttempts < maxReconnectAttempts) {
+        handleReconnect()
+      }
     })
 
-    newProvider.on('error', () => {
-      console.error('WebSocket error occurred')
+    newProvider.on('error', (event: unknown) => {
+      console.error('WebSocket error occurred:', event)
+      setConnectionError('Connection error occurred. Attempting to reconnect...')
+      if (reconnectAttempts < maxReconnectAttempts) {
+        handleReconnect()
+      }
     })
 
     const tiptapEditor = new TiptapEditor({
@@ -83,10 +114,22 @@ const Editor = () => {
   }, [])
 
   if (!editorReady || !editorRef.current) {
-    return null
+    return (
+      <div className="w-full max-w-4xl mx-auto p-4">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Initializing editor...</p>
+            {connectionError && (
+              <p className="text-red-600 mt-2 text-sm">{connectionError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Google Docs Clone'
+  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? 'Google Docs Clone'
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4">

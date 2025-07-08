@@ -1,13 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
-
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Loader2, Trash2, Plus, Pencil, Search, ArrowRight, X } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import { Id, Doc } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -20,16 +17,8 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { Badge } from "../components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Define the dictionary entry type
-interface DictionaryEntry {
-  _id: Id<"dictionary">;
-  from: string;
-  to: string;
-  ownerId: string;
-  isPublic?: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
+// Use Convex-generated types for dictionary entries
+type DictionaryEntry = Doc<"dictionary">;
 
 interface DictionaryModalProps {
   isOpen: boolean;
@@ -59,33 +48,27 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Always call both hooks unconditionally, use skip to control execution
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const publicDictionary = useQuery(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    api?.dictionary?.getPublicDictionary,
+    api.dictionary.getPublicDictionary,
     !isPrivate && session?.user?.id ? {
-      userId: session.user.id,
       createdById,
     } : "skip"
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const privateDictionary = useQuery(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    api?.dictionary?.getDictionary,
+    api.dictionary.getDictionary,
     isPrivate && session?.user?.id ? { userId: session.user.id } : "skip"
   );
 
   // Use the appropriate dictionary based on isPrivate with proper type safety
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const dictionary: DictionaryEntry[] = isPrivate 
     ? (privateDictionary ?? []) 
     : (publicDictionary ?? []);
   const isLoadingDictionary = (isPrivate ? privateDictionary : publicDictionary) === undefined;
 
-  const createEntry = useMutation(api?.dictionary?.create);
-  const updateEntryMutation = useMutation(api?.dictionary?.update);
-  const deleteEntryMutation = useMutation(api?.dictionary?.remove);
+  const createEntry = useMutation(api.dictionary.create);
+  const updateEntryMutation = useMutation(api.dictionary.update);
+  const deleteEntryMutation = useMutation(api.dictionary.remove);
 
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -292,10 +275,13 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
             </div>
           )}
 
-          {/* Dictionary List */}
-          <ScrollArea className="flex-grow px-6 pb-6">
+        </div>
+
+        {/* Dictionary List - ScrollArea as main container */}
+        <div className="flex-1 min-h-0">
+          <ScrollArea className="h-full px-6 pb-6">
             {!isLoadingDictionary && (
-              <div className="p-2 space-y-1">
+              <div className="space-y-1">
                 <AnimatePresence>
                   {filteredDictionary.length > 0 ? (
                     filteredDictionary.map((entry) => (

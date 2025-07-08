@@ -12,25 +12,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../components_new/ui/dropdown-menu";
-import { Button } from "../components_new/ui/button";
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
 import { 
   MoreHorizontal, 
   Edit, 
   Copy, 
   Trash2 
 } from "lucide-react";
-
-type Document = {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-};
+import { Document } from "../types/document";
 
 interface DocumentActionsMenuProps {
   document: Document;
@@ -50,7 +40,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
     try {
       const newDocumentId = await createDocument({
         title: `${document.title} (Copy)`,
-        initialContent: document.initialContent || "",
+        initialContent: document.initialContent ?? "",
       });
       
       toast.success("Document duplicated successfully!");

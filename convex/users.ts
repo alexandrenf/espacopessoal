@@ -115,6 +115,16 @@ export const createInternal = internalMutation({
     provider: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Check for existing user with the same email to prevent duplicates
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+    
+    if (existingUser) {
+      throw new ConvexError(`User with email ${args.email} already exists`);
+    }
+    
     const now = Date.now();
     
     return await ctx.db.insert("users", {

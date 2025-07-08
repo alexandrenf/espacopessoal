@@ -9,7 +9,11 @@ declare module "@tiptap/react" {
   }
 }
 
-export const FontSizeExtension = Extension.create({
+interface FontSizeOptions {
+  types: string[];
+}
+
+export const FontSizeExtension = Extension.create<FontSizeOptions>({
   name: "fontSize",
   
   addOptions() {

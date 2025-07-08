@@ -22,6 +22,18 @@ export interface SpellCheckDiff {
   reason: string;
 }
 
+interface ApiDiff {
+  original: string;
+  suggestion: string;
+  start: number;
+  end: number;
+  reason: string;
+}
+
+interface SpellCheckResponse {
+  diffs?: ApiDiff[];
+}
+
 interface SpellCheckSidebarProps {
   editor: Editor | null;
   isOpen: boolean;
@@ -47,8 +59,8 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
         body: JSON.stringify({ text: content }),
       });
       
-      const data = await response.json();
-      const diffsWithIds = (data.diffs || []).map((diff: any, idx: number) => ({
+      const data = await response.json() as SpellCheckResponse;
+      const diffsWithIds = (data.diffs ?? []).map((diff, idx: number) => ({
         ...diff,
         id: `diff-${Date.now()}-${idx}`,
       }));
@@ -237,7 +249,7 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
               <div className="flex flex-col items-center justify-center h-32">
                 <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
                 <p className="text-sm text-gray-600 text-center">
-                  Nenhum erro encontrado ou clique em "Verificar" para começar
+                  Nenhum erro encontrado ou clique em &quot;Verificar&quot; para começar
                 </p>
               </div>
             ) : (
@@ -263,11 +275,11 @@ export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebar
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
                         <span className="text-sm text-red-600 line-through">
-                          "{diff.original}"
+                          &quot;{diff.original}&quot;
                         </span>
                         <span className="text-sm text-gray-400">→</span>
                         <span className="text-sm text-green-600 font-medium">
-                          "{diff.suggestion}"
+                          &quot;{diff.suggestion}&quot;
                         </span>
                       </div>
                       

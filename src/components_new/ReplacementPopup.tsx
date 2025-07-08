@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
-import { Button } from '../components_new/ui/button';
+import { Button } from './ui/button';
 
 interface ReplacementPopupProps {
   word: string;

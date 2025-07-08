@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "../lib/utils";
 import { useEditorStore } from "../store/use-editor-store";
 import { type Level } from "@tiptap/extension-heading";
@@ -105,19 +105,32 @@ function LineHeightButton() {
 
 function FontSizeButton() {
   const { editor } = useEditorStore();
-  const currentFontSize = editor?.getAttributes("textStyle")?.fontSize
-    ? editor.getAttributes("textStyle").fontSize.replace("px", "")
-    : "16";
-  const [fontSize, setFontSize] = useState(currentFontSize);
-  const [inputValue, setInputValue] = useState(fontSize);
+  const MIN_FONT_SIZE = 8;
+  const MAX_FONT_SIZE = 72;
+  
+  // Single source of truth: derive font size from editor state
+  const currentFontSize = (() => {
+    const fontSize = editor?.getAttributes("textStyle")?.fontSize as string;
+    if (!fontSize) return "16";
+    // Extract numeric value from "16px" format
+    const numeric = parseInt(fontSize.replace("px", ""));
+    return isNaN(numeric) ? "16" : numeric.toString();
+  })();
+  
+  const [inputValue, setInputValue] = useState(currentFontSize);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Clamp font size to bounds
+  const clampFontSize = (size: number): number => {
+    return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, size));
+  };
 
   const updateFontSize = (newSize: string) => {
     const size = parseInt(newSize);
-    if (!isNaN(size) && size > 0) {
-      editor?.chain().focus().setFontSize(`${size}px`).run();
-      setFontSize(newSize);
-      setInputValue(newSize);
+    if (!isNaN(size)) {
+      const clampedSize = clampFontSize(size);
+      editor?.chain().focus().setFontSize(`${clampedSize}px`).run();
+      setInputValue(clampedSize.toString());
       setIsEditing(false);
     }
   };
@@ -139,15 +152,15 @@ function FontSizeButton() {
   };
 
   const increment = () => {
-    const newSize = parseInt(fontSize) + 1;
+    const currentSize = parseInt(currentFontSize);
+    const newSize = clampFontSize(currentSize + 1);
     updateFontSize(newSize.toString());
   };
 
   const decrement = () => {
-    const newSize = parseInt(fontSize) - 1;
-    if (newSize > 0) {
-      updateFontSize(newSize.toString());
-    }
+    const currentSize = parseInt(currentFontSize);
+    const newSize = clampFontSize(currentSize - 1);
+    updateFontSize(newSize.toString());
   };
 
   return (
@@ -171,7 +184,7 @@ function FontSizeButton() {
         <button
           onClick={() => {
             setIsEditing(true);
-            setFontSize(currentFontSize);
+            setInputValue(currentFontSize);
           }}
           className="h-7 w-10 shrink-0 text-center text-sm border border-neutral-400 rounded-sm hover:bg-neutral-200/80"
         >
@@ -286,6 +299,7 @@ function ImageButton() {
   const { editor } = useEditorStore();
   const [imageUrl, setImageUrl] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentObjectUrl, setCurrentObjectUrl] = useState<string | null>(null);
 
   const onChange = (src: string) => {
     if (editor) {
@@ -300,12 +314,33 @@ function ImageButton() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
+        // Revoke previous object URL to prevent memory leaks
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+        }
+        
         const imageUrl = URL.createObjectURL(file);
+        setCurrentObjectUrl(imageUrl);
         onChange(imageUrl);
+        
+        // Schedule URL revocation after a delay to allow image loading
+        setTimeout(() => {
+          URL.revokeObjectURL(imageUrl);
+          setCurrentObjectUrl(null);
+        }, 5000);
       }
     };
     input.click();
   };
+
+  // Cleanup effect to revoke object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+    };
+  }, [currentObjectUrl]);
 
   const handleImageUrlSubmit = () => {
     if (imageUrl) {
@@ -367,7 +402,7 @@ function LinkButton() {
     <DropdownMenu
       onOpenChange={(open) => {
         if (open) {
-          setValue(editor?.getAttributes("link")?.href);
+          setValue(editor?.getAttributes("link")?.href as string);
         }
       }}
     >
@@ -390,7 +425,7 @@ function LinkButton() {
 
 function HighlightColorButton() {
   const { editor } = useEditorStore();
-  const value = editor?.getAttributes("highlight")?.color || "#FFFFFF";
+  const value = (editor?.getAttributes("highlight")?.color as string) ?? "#FFFFFF";
 
   const onChange = (color: ColorResult) => {
     editor?.chain().focus().setHighlight({ color: color.hex }).run();
@@ -413,7 +448,7 @@ function HighlightColorButton() {
 
 function TextColorButton() {
   const { editor } = useEditorStore();
-  const value = editor?.getAttributes("textStyle")?.color || "#000000";
+  const value = (editor?.getAttributes("textStyle")?.color as string) ?? "#000000";
 
   const onChange = (color: ColorResult) => {
     editor?.chain().focus().setColor(color.hex).run();
@@ -527,7 +562,7 @@ function FontFamilyButton() {
     { label: "Georgia", value: "Georgia" },
   ];
 
-  const currentFont = editor?.getAttributes("textStyle")?.fontFamily || "Arial";
+  const currentFont = (editor?.getAttributes("textStyle")?.fontFamily as string) ?? "Arial";
 
   return (
     <DropdownMenu>
@@ -663,7 +698,7 @@ export function Toolbar() {
 
   return (
     <div className="bg-[#F1F4F9] px-2.5 py-0.5 rounded-sm border min-h-[40px] flex items-center gap-x-0.5 overflow-x-auto">
-      {sections[0].map((button, index) => (
+      {sections[0]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
@@ -673,7 +708,7 @@ export function Toolbar() {
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
       <FontSizeButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
-      {sections[1].map((button, index) => (
+      {sections[1]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
       <TextColorButton />
@@ -684,7 +719,7 @@ export function Toolbar() {
       <AlignButton />
       <LineHeightButton />
       <ListButton />
-      {sections[2].map((button, index) => (
+      {sections[2]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
     </div>

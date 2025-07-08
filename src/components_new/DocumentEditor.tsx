@@ -63,6 +63,7 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import { Heading } from "@tiptap/extension-heading";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Link as LinkExtension } from "@tiptap/extension-link";
+import { validateLinkUrl, createSafeHref } from "../lib/link-security";
 import { Table } from "@tiptap/extension-table";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -208,10 +209,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
   };
 
-  // Initialize Y.js document immediately (not in useEffect)
-  if (!ydocRef.current) {
-    ydocRef.current = new Y.Doc();
-  }
+  // Y.js document will be initialized in useEffect to prevent memory leaks
 
   // Enhanced WebSocket and Y.js integration
   const editor = useEditor({
@@ -297,10 +295,44 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       Color.configure({
         types: ['textStyle'],
       }),
-      LinkExtension.configure({
+      LinkExtension.extend({
+        renderHTML({ HTMLAttributes }) {
+          const href = HTMLAttributes.href as string;
+          const safeHref = createSafeHref(href);
+          
+          return [
+            'a',
+            {
+              ...HTMLAttributes,
+              href: safeHref,
+            },
+            0,
+          ];
+        },
+        
+        addCommands() {
+          return {
+            ...this.parent?.(),
+            setLink: (attributes) => ({ commands }) => {
+              if (attributes.href && !validateLinkUrl(attributes.href)) {
+                console.warn('Blocked attempt to set unsafe URL:', attributes.href);
+                return false;
+              }
+              
+              const sanitizedAttributes = {
+                ...attributes,
+                href: attributes.href ? createSafeHref(attributes.href) : attributes.href,
+              };
+              
+              return commands.setMark(this.name, sanitizedAttributes);
+            },
+          };
+        },
+      }).configure({
         openOnClick: false,
         autolink: true,
         defaultProtocol: "https",
+        validate: (url: string) => Boolean(validateLinkUrl(url)),
         HTMLAttributes: {
           class: 'text-blue-600 underline cursor-pointer',
           rel: 'noopener noreferrer',
@@ -387,10 +419,8 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   }, [editor, dictionary, recentlyRejected, acceptReplacement]);
 
   useEffect(() => {
-    if (!ydocRef.current) {
-      console.warn('Y.Doc not initialized yet, skipping WebSocket setup');
-      return;
-    }
+    // Initialize Y.js document once in useEffect to prevent memory leaks
+    ydocRef.current ??= new Y.Doc();
     
     const ydoc = ydocRef.current;
     const documentName = doc._id;
@@ -456,12 +486,26 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       toast.error("Connection error occurred");
     });
 
+    // Set initial content when editor is ready and content is available
     if ((doc.initialContent ?? initialContent) && editor) {
-      setTimeout(() => {
-        if (editor.isEmpty) {
+      // Use editor state to determine when it's truly ready
+      const checkEditorReady = () => {
+        if (editor.isEmpty && editor.isEditable) {
           editor.commands.setContent(doc.initialContent ?? initialContent ?? '');
+          return true;
         }
-      }, 100);
+        return false;
+      };
+      
+      // Try immediately, then use requestAnimationFrame if needed
+      if (!checkEditorReady()) {
+        const trySetContent = () => {
+          if (!checkEditorReady()) {
+            requestAnimationFrame(trySetContent);
+          }
+        };
+        requestAnimationFrame(trySetContent);
+      }
     }
 
     return () => {

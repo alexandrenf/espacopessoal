@@ -46,7 +46,7 @@ export default function HomePage() {
       }
     };
 
-    createAndRedirect();
+    void createAndRedirect();
   }, [status, isUserLoading, convexUserId, userIdString, getOrCreateHomeDocument, router, isRedirecting]);
 
   return (

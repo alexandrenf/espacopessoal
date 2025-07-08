@@ -18,6 +18,7 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import { Heading } from "@tiptap/extension-heading";
 import { Highlight } from "@tiptap/extension-highlight";
 import { Link as LinkExtension } from "@tiptap/extension-link";
+import { validateLinkUrl, createSafeHref } from "../../../../lib/link-security";
 import { Table } from "@tiptap/extension-table";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -88,10 +89,25 @@ export default function SharedDocumentPage() {
       Color.configure({
         types: ['textStyle'],
       }),
-      LinkExtension.configure({
+      LinkExtension.extend({
+        renderHTML({ HTMLAttributes }) {
+          const href = HTMLAttributes.href as string;
+          const safeHref = createSafeHref(href);
+          
+          return [
+            'a',
+            {
+              ...HTMLAttributes,
+              href: safeHref,
+            },
+            0,
+          ];
+        },
+      }).configure({
         openOnClick: true,
         autolink: true,
         defaultProtocol: "https",
+        validate: (url: string) => Boolean(validateLinkUrl(url)),
         HTMLAttributes: {
           class: 'text-blue-600 underline cursor-pointer',
           rel: 'noopener noreferrer',

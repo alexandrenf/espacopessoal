@@ -8,22 +8,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+} from "../components_new/ui/dropdown-menu";
 import { Id } from "../../convex/_generated/dataModel";
-
-export interface Document {
-  _id: Id<"documents">;
-  title: string;
-  ownerId: string;
-  createdAt: number;
-  updatedAt: number;
-  organizationId?: string;
-  initialContent?: string;
-  roomId?: string;
-  parentId?: Id<"documents">;
-  order: number;
-  isFolder: boolean;
-}
+import { Document } from "../types/document";
 
 interface DocumentItemProps {
   document: Document;
