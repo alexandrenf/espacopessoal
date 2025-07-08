@@ -11,7 +11,7 @@ const safeParseInt = (value: string | undefined, defaultValue: number): number =
 };
 
 // Load environment variables
-const PORT = process.env.PORT ?? 6001;
+const PORT = process.env.PORT ?? 6002;
 const HOST = process.env.HOST ?? '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
 const SERVER_NAME = process.env.SERVER_NAME ?? 'EspacoPessoal Docs Server';
@@ -19,8 +19,8 @@ const MAX_CONNECTIONS = safeParseInt(process.env.MAX_CONNECTIONS, 100);
 const TIMEOUT = safeParseInt(process.env.TIMEOUT, 30000);
 
 // Convex configuration
-const CONVEX_URL = process.env.CONVEX_URL ?? 'https://famous-chicken-620.convex.cloud';
-const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://famous-chicken-620.convex.site';
+const CONVEX_URL = process.env.CONVEX_URL ?? 'https://ardent-dolphin-114.convex.cloud';
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://ardent-dolphin-114.convex.site';
 
 // Server user ID configuration
 const SERVER_USER_ID = process.env.SERVER_USER_ID ?? 'hocus-pocus-server';
