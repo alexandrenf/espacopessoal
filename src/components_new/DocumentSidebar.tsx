@@ -175,7 +175,7 @@ const DocumentSidebar = memo(({
     try {
       console.log('Creating document with userId:', userIdString);
       
-      if (!userIdString || userIdString === "demo-user") {
+      if (!userIdString) {
         throw new Error("User authentication required to create documents");
       }
       
@@ -233,7 +233,7 @@ const DocumentSidebar = memo(({
     const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
     setIsCreating(true);
     try {
-      if (!userIdString || userIdString === "demo-user") {
+      if (!userIdString) {
         throw new Error("User authentication required to create folders");
       }
       
