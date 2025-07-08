@@ -38,7 +38,8 @@ import {
   Menu,
   PanelLeft,
   Sparkles,
-  Replace
+  Replace,
+  Share2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -81,11 +82,10 @@ import DocumentSidebar from "./DocumentSidebar";
 import { SpellCheckSidebar } from "./SpellCheckSidebar";
 import { DictionaryModal } from "./DictionaryModal";
 import { ReplacementPopup } from "./ReplacementPopup";
+import { ShareModal } from "./ShareModal";
 import { useEditorStore } from "../store/use-editor-store";
 import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../constants/margins";
-
-// TRPC API for dictionary functionality
-import { api as trpcApi } from "~/trpc/react";
+import { useConvexUser } from "../hooks/use-convex-user";
 
 type Document = {
   _id: Id<"documents">;
@@ -124,6 +124,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const [isMobile, setIsMobile] = useState(false);
   const [showSpellCheck, setShowSpellCheck] = useState(false);
   const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
     word: string;
     replacement: string;
@@ -133,10 +134,17 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fix: Use TRPC API for dictionary functionality with proper session handling
-  const { data: dictionary = [] } = trpcApi.dictionary.getDictionary.useQuery(undefined, {
-    enabled: true, // Always enabled for demo user
-  });
+  // Get authenticated user from NextAuth + Convex bridge
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  
+  // Convert Convex user ID to string for current API compatibility
+  const userIdString = convexUserId ? String(convexUserId) : undefined;
+  
+  // Use Convex API for dictionary functionality with real user authentication
+  const dictionary = useQuery(
+    api.dictionary.getDictionary, 
+    userIdString ? { userId: userIdString } : "skip"
+  ) ?? [];
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -200,8 +208,10 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
   };
 
-  // Initialize Y.js document
-  ydocRef.current ??= new Y.Doc();
+  // Initialize Y.js document immediately (not in useEffect)
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc();
+  }
 
   // Enhanced WebSocket and Y.js integration
   const editor = useEditor({
@@ -353,7 +363,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     
     const lastWord = match[0];
     const entry = dictionary.find(
-      (e) => e.from === lastWord || (lastWord.startsWith('@') && e.from === lastWord.slice(1))
+      (e: { from: string; to: string }) => e.from === lastWord || (lastWord.startsWith('@') && e.from === lastWord.slice(1))
     );
     
     if (entry && lastWord !== recentlyRejected) {
@@ -377,7 +387,12 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   }, [editor, dictionary, recentlyRejected, acceptReplacement]);
 
   useEffect(() => {
-    const ydoc = ydocRef.current!;
+    if (!ydocRef.current) {
+      console.warn('Y.Doc not initialized yet, skipping WebSocket setup');
+      return;
+    }
+    
+    const ydoc = ydocRef.current;
     const documentName = doc._id;
     
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? `ws://127.0.0.1:6001`;
@@ -573,12 +588,14 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     }
   };
 
-  if (!editor) {
+  if (!editor || isUserLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading collaborative editor...</p>
+          <p className="text-muted-foreground">
+            {isUserLoading ? "Loading user session..." : "Loading collaborative editor..."}
+          </p>
         </div>
       </div>
     );
@@ -708,6 +725,12 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                           Novo documento
                         </MenubarItem>
                         <MenubarSeparator />
+                        {userIdString && (
+                          <MenubarItem onClick={() => setIsShareModalOpen(true)}>
+                            <Share2 className="size-4 mr-2" />
+                            Compartilhar
+                          </MenubarItem>
+                        )}
                         <MenubarItem onClick={() => window.print()}>
                           <Printer className="size-4 mr-2" />
                           Imprimir <MenubarShortcut>Ctrl+P</MenubarShortcut>
@@ -831,10 +854,12 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                           <Sparkles className="size-4 mr-2" />
                           Verificação Ortográfica
                         </MenubarItem>
-                        <MenubarItem onClick={() => setIsDictionaryModalOpen(true)}>
-                          <Replace className="size-4 mr-2" />
-                          Dicionário
-                        </MenubarItem>
+                        {userIdString && (
+                          <MenubarItem onClick={() => setIsDictionaryModalOpen(true)}>
+                            <Replace className="size-4 mr-2" />
+                            Dicionário
+                          </MenubarItem>
+                        )}
                       </MenubarContent>
                     </MenubarMenu>
                   </>
@@ -876,13 +901,24 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
         </div>
       </div>
 
-      <DictionaryModal
-        isOpen={isDictionaryModalOpen}
-        onClose={() => setIsDictionaryModalOpen(false)}
-        isPrivate={false} // Fix: Set to false for demo user
-        session={{ user: { id: "demo-user" } }} // Fix: Provide session for demo user
-        createdById="demo-user"
-      />
+      {userIdString && (
+        <DictionaryModal
+          isOpen={isDictionaryModalOpen}
+          onClose={() => setIsDictionaryModalOpen(false)}
+          isPrivate={true} // Use private mode for authenticated users
+          session={{ user: { id: userIdString } }} // Use real authenticated session
+          createdById={userIdString}
+        />
+      )}
+
+      {userIdString && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          documentId={doc._id}
+          userId={userIdString}
+        />
+      )}
 
       {replacementSuggestion && (
         <ReplacementPopup

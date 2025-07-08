@@ -269,3 +269,70 @@ export const updateSession = internalMutation({
     }
   },
 }); 
+
+// Sync NextAuth user with Convex users table
+export const syncNextAuthUser = mutation({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    externalId: v.string(), // NextAuth user.id
+    provider: v.string(), // "nextauth"
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Check if user already exists by email or externalId
+    const existingByEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+      
+    const existingByExternalId = await ctx.db
+      .query("users")
+      .withIndex("by_external_id", (q) => 
+        q.eq("externalId", args.externalId).eq("provider", "nextauth")
+      )
+      .first();
+    
+    const existing = existingByEmail ?? existingByExternalId;
+    
+    if (existing) {
+      // Update existing user
+      await ctx.db.patch(existing._id, {
+        name: args.name,
+        image: args.image,
+        externalId: args.externalId,
+        provider: "nextauth",
+        updatedAt: now,
+      });
+      return existing._id;
+    } else {
+      // Create new user
+      return await ctx.db.insert("users", {
+        email: args.email,
+        name: args.name,
+        image: args.image,
+        externalId: args.externalId,
+        provider: "nextauth",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+// Get Convex user by NextAuth external ID
+export const getByNextAuthId = query({
+  args: { 
+    nextAuthId: v.string(),
+  },
+  handler: async (ctx, { nextAuthId }) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_external_id", (q) => 
+        q.eq("externalId", nextAuthId).eq("provider", "nextauth")
+      )
+      .first();
+  },
+}); 

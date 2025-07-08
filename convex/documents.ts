@@ -434,3 +434,198 @@ export const getByIdInternal = internalQuery({
     }
   },
 }); 
+
+// Create a shareable link for a document
+export const createSharedDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+    userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
+  },
+  handler: async (ctx, args) => {
+    // Check if document exists and user owns it
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      throw new ConvexError("Document not found");
+    }
+    
+    if (document.ownerId !== args.userId) {
+      throw new ConvexError("You don't have permission to share this document");
+    }
+    
+    // Generate unique URL
+    const generateUniqueUrl = async (): Promise<string> => {
+      while (true) {
+        // Generate 8-character URL-safe string
+        const url = Math.random().toString(36).substring(2, 10);
+        const existing = await ctx.db
+          .query("sharedDocuments")
+          .withIndex("by_url", (q) => q.eq("url", url))
+          .first();
+        if (!existing) return url;
+      }
+    };
+    
+    const uniqueUrl = await generateUniqueUrl();
+    const now = Date.now();
+    
+    return await ctx.db.insert("sharedDocuments", {
+      url: uniqueUrl,
+      documentId: args.documentId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+// Get shared document by URL (public access)
+export const getSharedDocument = query({
+  args: {
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sharedDoc = await ctx.db
+      .query("sharedDocuments")
+      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .first();
+      
+    if (!sharedDoc) {
+      throw new ConvexError("Shared document not found");
+    }
+    
+    const document = await ctx.db.get(sharedDoc.documentId);
+    if (!document) {
+      throw new ConvexError("Document not found");
+    }
+    
+    // Get document owner info
+    const owner = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("externalId"), document.ownerId))
+      .first();
+    
+    return {
+      ...sharedDoc,
+      document: {
+        ...document,
+        owner: owner ? {
+          name: owner.name,
+          email: owner.email,
+        } : null,
+      },
+    };
+  },
+});
+
+// Get sharing info for a document by document ID
+export const getSharedDocumentByDocumentId = query({
+  args: {
+    documentId: v.id("documents"),
+    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+  },
+  handler: async (ctx, args) => {
+    // Check if document exists
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      throw new ConvexError("Document not found");
+    }
+    
+    // Check if user owns the document
+    const isOwner = document.ownerId === args.userId;
+    
+    // Get shared document if it exists
+    const sharedDoc = await ctx.db
+      .query("sharedDocuments")
+      .withIndex("by_document_id", (q) => q.eq("documentId", args.documentId))
+      .first();
+    
+    return {
+      isOwner,
+      sharedDocument: sharedDoc,
+      document,
+    };
+  },
+});
+
+// Delete shared document
+export const deleteSharedDocument = mutation({
+  args: {
+    url: v.string(),
+    userId: v.string(), // TODO: Change to v.id("users") after auth migration
+  },
+  handler: async (ctx, args) => {
+    const sharedDoc = await ctx.db
+      .query("sharedDocuments")
+      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .first();
+      
+    if (!sharedDoc) {
+      throw new ConvexError("Shared document not found");
+    }
+    
+    const document = await ctx.db.get(sharedDoc.documentId);
+    if (!document) {
+      throw new ConvexError("Document not found");
+    }
+    
+    if (document.ownerId !== args.userId) {
+      throw new ConvexError("You don't have permission to delete this shared document");
+    }
+    
+    return await ctx.db.delete(sharedDoc._id);
+  },
+}); 
+
+// Get or create a user's home document
+export const getOrCreateHomeDocument = mutation({
+  args: {
+    userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // First, try to find an existing home document
+    let homeDocument = await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .filter((q) => q.eq(q.field("title"), "My Notebook"))
+      .filter((q) => q.eq(q.field("isFolder"), false))
+      .filter((q) => q.eq(q.field("parentId"), undefined))
+      .first();
+    
+    if (homeDocument) {
+      return homeDocument._id;
+    }
+    
+    // If no home document exists, create one
+    const documentId = await ctx.db.insert("documents", {
+      title: "My Notebook",
+      ownerId: args.userId,
+      createdAt: now,
+      updatedAt: now,
+      parentId: undefined,
+      order: 0,
+      isFolder: false,
+      initialContent: '<h1>Welcome to Your Notebook!</h1><p>Start writing your thoughts, ideas, and notes here. This is your personal space to organize everything important to you.</p><p></p><p><strong>Features you can use:</strong></p><ul><li>Real-time collaborative editing</li><li>Rich text formatting</li><li>Spell checking and dictionary replacements</li><li>Document sharing</li><li>Folder organization</li></ul><p></p><p>Happy writing! ✨</p>',
+    });
+    
+    return documentId;
+  },
+});
+
+// Get user's recent documents for quick access
+export const getRecentDocuments = query({
+  args: {
+    userId: v.string(), // TODO: Change to v.id("users") after auth migration
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 5;
+    
+    return await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .filter((q) => q.eq(q.field("isFolder"), false))
+      .order("desc")
+      .take(limit);
+  },
+}); 

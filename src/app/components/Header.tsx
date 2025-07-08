@@ -33,10 +33,10 @@ export default function Header() {
     }
   );
   
-  // Update the notepadUrl memo to use the new data structure
-  const notepadUrl = useMemo(() => 
-    userSettings?.settings?.notePadUrl ? `/notas/${userSettings.settings.notePadUrl}` : null,
-    [userSettings?.settings?.notePadUrl]
+  // Update to use the new home route instead of legacy notepad
+  const homeUrl = useMemo(() => 
+    isAuthenticated ? '/home' : null,
+    [isAuthenticated]
   );
 
   // Create a memoized debounced scroll handler
@@ -142,9 +142,9 @@ export default function Header() {
                     <span className="animate-pulse">Bloco de Notas</span>
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-slate-300 rounded-full" />
                   </div>
-                ) : notepadUrl ? (
+                ) : homeUrl ? (
                   <Link 
-                    href={notepadUrl} 
+                    href={homeUrl} 
                     className="relative group px-3 py-2"
                     prefetch={false}
                   >
@@ -229,9 +229,9 @@ export default function Header() {
                       
                       {isAuthenticated && (
                         <>
-                          {notepadUrl && (
+                          {homeUrl && (
                             <Link
-                              href={notepadUrl}
+                              href={homeUrl}
                               className="relative flex items-center px-4 py-3 rounded-lg group overflow-hidden"
                             >
                               <div className="absolute inset-0 bg-white/0 group-hover:bg-white/60 backdrop-blur-sm transition-all duration-300" />

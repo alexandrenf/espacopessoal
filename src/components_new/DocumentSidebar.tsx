@@ -18,6 +18,7 @@ import DocumentItem from "./DocumentItem";
 import FolderItem from "./FolderItem";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
+import { useConvexUser } from "../hooks/use-convex-user";
 
 // Document interface
 export interface Document {
@@ -68,8 +69,15 @@ const DocumentSidebar = memo(({
   isMobile = false,
   onNavigateToHome,
 }: DocumentSidebarProps) => {
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : "demo-user";
+  
   // Convex queries and mutations
-  const documents = useQuery(api.documents.getAllForTree, {}) || [];
+  const documents = useQuery(
+    api.documents.getAllForTree, 
+    !isUserLoading && userIdString ? { userId: userIdString } : "skip"
+  ) ?? [];
   const createDocument = useMutation(api.documents.create);
   const createFolder = useMutation(api.documents.createFolder);
   const deleteDocument = useMutation(api.documents.removeById);
@@ -114,15 +122,16 @@ const DocumentSidebar = memo(({
     
     setIsDeletingId(id);
     try {
-      await deleteDocument({ id, userId: "demo-user" });
+      await deleteDocument({ id, userId: userIdString });
       toast.success("Item deleted!");
       
       // If we deleted the current document, navigate to home
       if (id === currentDocument?._id && onNavigateToHome) {
         onNavigateToHome();
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete item");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete item";
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setIsDeletingId(undefined);
@@ -175,7 +184,7 @@ const DocumentSidebar = memo(({
     try {
       const documentId = await createDocument({
         title: "Untitled Document",
-        userId: "demo-user",
+        userId: userIdString,
       });
       toast.success("Document created!");
       setCurrentDocumentId(documentId);
@@ -192,7 +201,7 @@ const DocumentSidebar = memo(({
     try {
       await createFolder({
         title: "New Folder",
-        userId: "demo-user",
+        userId: userIdString,
       });
       toast.success("Folder created!");
     } catch (error) {
