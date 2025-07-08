@@ -339,6 +339,10 @@ export const updateContentInternal = internalMutation({
   handler: async (ctx, args) => {
     logger.debug(`Attempting to update document with ID: ${args.id}`);
     
+    // Check if this is a server update (trusted source)
+    const isServerUpdate = args.userId === 'hocus-pocus-server' || 
+                          (process.env.SERVER_USER_ID && args.userId === process.env.SERVER_USER_ID);
+    
     // Validate that the ID looks like a Convex ID
     if (!args.id || typeof args.id !== 'string' || args.id.length < 20) {
       throw new ConvexError(`Invalid document ID format: ${args.id}`);
@@ -361,8 +365,8 @@ export const updateContentInternal = internalMutation({
         // Check if there's a document with this ID in roomId field instead
         const docByRoomId = await ctx.db.query("documents").filter(q => q.eq(q.field("roomId"), args.id)).first();
         if (docByRoomId) {
-          // Verify ownership before updating existing document
-          if (!args.userId || docByRoomId.ownerId !== args.userId) {
+          // Verify ownership before updating existing document (skip for server updates)
+          if (!isServerUpdate && (!args.userId || docByRoomId.ownerId !== args.userId)) {
             throw new ConvexError("You don't have permission to update this document");
           }
           
@@ -372,6 +376,11 @@ export const updateContentInternal = internalMutation({
             updatedAt: Date.now(),
           });
           return result;
+        }
+        
+        // For server updates, don't create new documents - just return error
+        if (isServerUpdate) {
+          throw new ConvexError(`Document ${args.id} not found - server cannot create new documents`);
         }
         
         // Strengthen auto-creation validation - require explicit authorization
@@ -424,12 +433,12 @@ export const updateContentInternal = internalMutation({
         }
       }
       
-      // Verify ownership before updating existing document
-      if (!args.userId || document.ownerId !== args.userId) {
+      // Verify ownership before updating existing document (skip for server updates)
+      if (!isServerUpdate && (!args.userId || document.ownerId !== args.userId)) {
         throw new ConvexError("You don't have permission to update this document");
       }
       
-      logger.debug(`Successfully found document: ${document.title}`);
+      logger.debug(`Successfully found document: ${document.title} ${isServerUpdate ? '(server update)' : ''}`);
       
       const result = await ctx.db.patch(documentId, { 
         initialContent: args.content,
