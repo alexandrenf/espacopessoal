@@ -18,6 +18,7 @@ import DocumentItem from "./DocumentItem";
 import FolderItem from "./FolderItem";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
+import { useConvexUser } from "../hooks/use-convex-user";
 
 // Document interface
 export interface Document {
@@ -68,8 +69,15 @@ const DocumentSidebar = memo(({
   isMobile = false,
   onNavigateToHome,
 }: DocumentSidebarProps) => {
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : "demo-user";
+  
   // Convex queries and mutations
-  const documents = useQuery(api.documents.getAllForTree, {}) || [];
+  const documents = useQuery(
+    api.documents.getAllForTree, 
+    !isUserLoading && userIdString ? { userId: userIdString } : "skip"
+  ) ?? [];
   const createDocument = useMutation(api.documents.create);
   const createFolder = useMutation(api.documents.createFolder);
   const deleteDocument = useMutation(api.documents.removeById);
@@ -114,15 +122,16 @@ const DocumentSidebar = memo(({
     
     setIsDeletingId(id);
     try {
-      await deleteDocument({ id, userId: "demo-user" });
+      await deleteDocument({ id, userId: userIdString });
       toast.success("Item deleted!");
       
       // If we deleted the current document, navigate to home
       if (id === currentDocument?._id && onNavigateToHome) {
         onNavigateToHome();
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete item");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete item";
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setIsDeletingId(undefined);
@@ -173,15 +182,17 @@ const DocumentSidebar = memo(({
   const handleNewDocument = async () => {
     setIsCreating(true);
     try {
+      console.log('Creating document with userId:', userIdString);
       const documentId = await createDocument({
         title: "Untitled Document",
-        userId: "demo-user",
+        userId: userIdString,
       });
+      console.log('Document created with ID:', documentId);
       toast.success("Document created!");
       setCurrentDocumentId(documentId);
     } catch (error) {
       toast.error("Failed to create document");
-      console.error(error);
+      console.error('Document creation error:', error);
     } finally {
       setIsCreating(false);
     }
@@ -192,7 +203,7 @@ const DocumentSidebar = memo(({
     try {
       await createFolder({
         title: "New Folder",
-        userId: "demo-user",
+        userId: userIdString,
       });
       toast.success("Folder created!");
     } catch (error) {
@@ -311,6 +322,15 @@ const DocumentSidebar = memo(({
     });
   };
 
+  // Debug logging
+  console.log('DocumentSidebar render:', {
+    isUserLoading,
+    userIdString,
+    documentsLength: documents.length,
+    convexUserId,
+    documents: documents.slice(0, 3) // First 3 documents for debugging
+  });
+
   return (
     <section className={`w-full h-full md:h-screen flex flex-col bg-white ${isMobile ? 'fixed top-16 left-0 right-0 bottom-0 z-50' : ''}`}>
       <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200 bg-white/80 backdrop-blur-md">
@@ -325,7 +345,9 @@ const DocumentSidebar = memo(({
               {isMobile ? <X className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
             </Button>
           )}
-          <h1 className="text-xl font-semibold text-gray-800">Documents</h1>
+          <h1 className="text-xl font-semibold text-gray-800">
+            Documents {isUserLoading && <span className="text-sm text-gray-500">(Loading user...)</span>}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -358,30 +380,41 @@ const DocumentSidebar = memo(({
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        <Tree
-          treeData={treeData}
-          draggable={!isMobile}
-          onDrop={handleDrop}
-          onSelect={([selectedKey]) => {
-            if (selectedKey) {
-              const selectedDoc = documents.find(d => d._id.toString() === selectedKey);
-              if (selectedDoc && !selectedDoc.isFolder) {
-                setCurrentDocumentId(selectedDoc._id);
-                if (isMobile && onToggleSidebar) {
-                  onToggleSidebar();
+        {isUserLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No documents found</p>
+            <p className="text-sm mt-2">Create your first document using the + button above</p>
+          </div>
+        ) : (
+          <Tree
+            treeData={treeData}
+            draggable={!isMobile}
+            onDrop={handleDrop}
+            onSelect={([selectedKey]) => {
+              if (selectedKey) {
+                const selectedDoc = documents.find(d => d._id.toString() === selectedKey);
+                if (selectedDoc && !selectedDoc.isFolder) {
+                  setCurrentDocumentId(selectedDoc._id);
+                  if (isMobile && onToggleSidebar) {
+                    onToggleSidebar();
+                  }
                 }
               }
-            }
-          }}
-          selectedKeys={currentDocument && !currentDocument.isFolder ? [currentDocument._id.toString()] : []}
-          expandedKeys={expandedKeys}
-          onExpand={(expanded) => setExpandedKeys(expanded as string[])}
-          motion={false}
-          prefixCls="custom-tree"
-          className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
-          defaultExpandAll={false}
-          defaultExpandedKeys={[]}
-        />
+            }}
+            selectedKeys={currentDocument && !currentDocument.isFolder ? [currentDocument._id.toString()] : []}
+            expandedKeys={expandedKeys}
+            onExpand={(expanded) => setExpandedKeys(expanded as string[])}
+            motion={false}
+            prefixCls="custom-tree"
+            className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
+            defaultExpandAll={false}
+            defaultExpandedKeys={[]}
+          />
+        )}
       </div>
     </section>
   );

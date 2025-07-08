@@ -70,4 +70,14 @@ export default defineSchema({
     .index("by_owner_id", ["ownerId"])
     .index("by_from", ["from"])
     .index("by_public", ["isPublic"]),
+
+  // Shared documents for public links
+  sharedDocuments: defineTable({
+    url: v.string(), // Unique 8-character URL
+    documentId: v.id("documents"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_url", ["url"])
+    .index("by_document_id", ["documentId"]),
 }); 

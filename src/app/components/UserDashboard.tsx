@@ -455,14 +455,14 @@ export function UserDashboard() {
           <AnimatePresence>
             {status === "authenticated" && !isLoading && (
               <FeatureCard
-                key="notepad"
+                key="notebook"
                 index={0}
-                title="Bloco de Notas"
-                description="Organize suas anotações, pensamentos e ideias em um único lugar seguro e acessível de qualquer dispositivo."
+                title="Meu Notebook"
+                description="Organize suas anotações, pensamentos e ideias com nosso editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
                 icon={<Notebook className="w-8 h-8" />}
-                href={isNotepadConfigured ? `/notas/${data?.settings.notePadUrl}` : "/notas"}
+                href="/home"
                 isActive={true}
-                status={isNotepadConfigured ? 'configured' : 'unconfigured'}
+                status="configured"
               />
             )}
 
