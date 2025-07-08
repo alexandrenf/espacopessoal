@@ -9,6 +9,11 @@ import { Loader } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
+/**
+ * React component that manages user authentication and redirects to the user's home document.
+ *
+ * Displays a loading spinner and status message while checking authentication, loading user data, or redirecting. If the user is unauthenticated, redirects to the sign-in page. Once authenticated and user data is available, retrieves or creates the user's home document and navigates to it. Shows an error toast if document creation fails.
+ */
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status } = useSession();

@@ -13,6 +13,13 @@ interface RulerProps {
   onRightMarginChange: (margin: number) => void;
 }
 
+/**
+ * Renders an interactive horizontal ruler with draggable left and right margin markers.
+ *
+ * The ruler displays tick marks and numeric labels at regular intervals, and allows users to adjust the left and right margins by dragging the respective markers. Margins are constrained to maintain a minimum space between them. Double-clicking a marker resets its margin to the default value.
+ *
+ * @returns The JSX element representing the interactive ruler.
+ */
 export function Ruler({ 
   leftMargin, 
   rightMargin, 

@@ -13,8 +13,11 @@ interface ConvexUserData {
 }
 
 /**
- * Custom hook that bridges NextAuth sessions with Convex users
- * Automatically syncs user data and returns Convex user ID
+ * React hook that synchronizes the current NextAuth session user with Convex and provides the associated Convex user ID.
+ *
+ * When a user is authenticated via NextAuth, this hook ensures their data is synced to Convex if not already present. It returns the Convex user ID (or null if unavailable), a loading state reflecting authentication and sync status, and any error encountered during synchronization.
+ *
+ * @returns An object containing the Convex user ID, loading state, and error message if syncing fails.
  */
 export function useConvexUser(): ConvexUserData {
   const { data: session, status } = useSession();

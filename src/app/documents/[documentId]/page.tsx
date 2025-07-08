@@ -7,6 +7,11 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { DocumentEditor } from "../../../components_new/DocumentEditor";
 import { Loader } from "lucide-react";
 
+/**
+ * Displays a document editor page for a specific document based on the URL parameter.
+ *
+ * Fetches the document by its ID from the route parameters and renders a loading spinner while fetching, an error message if not found, or the document editor if successful.
+ */
 export default function DocumentPage() {
   const { documentId } = useParams();
   

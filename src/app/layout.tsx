@@ -48,6 +48,13 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+/**
+ * Root layout component that wraps the application with global providers, metadata, and UI elements.
+ *
+ * Renders the application's children within context providers for tRPC, user session, Convex client, and PWA features. Displays a loading spinner while suspenseful content is loading, and includes global toast notifications and analytics tracking.
+ *
+ * @param children - The content to be rendered within the layout
+ */
 export default function RootLayout({
   children,
 }: {

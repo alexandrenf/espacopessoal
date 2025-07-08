@@ -10,6 +10,14 @@ interface SearchInputProps {
   setSearch: (search: string) => void;
 }
 
+/**
+ * Renders a controlled search input field with integrated submit and clear buttons.
+ *
+ * Displays a search input initialized with the provided query, allowing users to update or clear the search term. Submitting the form or clicking the clear button updates the external search state and manages input focus.
+ *
+ * @param search - The current search query to display in the input field
+ * @param setSearch - Callback to update the search query state
+ */
 export function SearchInput({ search, setSearch }: SearchInputProps) {
   const [value, setValue] = useState(search);
   const inputRef = useRef<HTMLInputElement>(null);

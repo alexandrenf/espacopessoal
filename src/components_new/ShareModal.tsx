@@ -24,6 +24,11 @@ interface ShareModalProps {
   userId: string; // Current user ID
 }
 
+/**
+ * Displays a modal dialog for managing the sharing of a document, allowing users to create, view, copy, or remove a shareable link based on their ownership and authentication status.
+ *
+ * The modal adapts its content and available actions depending on whether a share link exists, whether the user is the document owner, and whether the user is authenticated. Provides user feedback for copy, create, and delete actions.
+ */
 export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
 

@@ -28,6 +28,13 @@ interface SpellCheckSidebarProps {
   onClose: () => void;
 }
 
+/**
+ * Renders a sidebar UI for spell-checking text within a TipTap editor, allowing users to review, accept, or reject spelling suggestions.
+ *
+ * The sidebar fetches spelling suggestions from an external API, displays detected issues, and provides controls to apply or dismiss corrections individually or all at once. It manages synchronization between the editor content and the list of suggestions, recalculating positions as changes are made. The sidebar is animated and closes automatically when all suggestions are resolved.
+ *
+ * @returns The spell-check sidebar React element, or `null` if not open.
+ */
 export function SpellCheckSidebar({ editor, isOpen, onClose }: SpellCheckSidebarProps) {
   const [diffs, setDiffs] = useState<SpellCheckDiff[]>([]);
   const [isChecking, setIsChecking] = useState(false);

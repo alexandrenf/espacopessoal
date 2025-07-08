@@ -29,6 +29,13 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Underline } from "@tiptap/extension-underline";
 import { ImageResize } from "tiptap-extension-resize-image";
 
+/**
+ * Displays a read-only shared document page based on a URL parameter.
+ *
+ * Fetches a shared document using the provided URL, initializes a TipTap editor in read-only mode with rich text features, and renders the document content. Handles loading, error, and success states with appropriate UI feedback.
+ *
+ * @returns The rendered shared document page as a React component.
+ */
 export default function SharedDocumentPage() {
   const { url } = useParams();
   const urlString = Array.isArray(url) ? url[0] : url;

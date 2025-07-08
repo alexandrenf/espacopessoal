@@ -107,6 +107,16 @@ interface EditorProps {
   isReadOnly?: boolean;
 }
 
+/**
+ * Renders a collaborative rich-text document editor with real-time synchronization, formatting tools, spell check, and export features.
+ *
+ * This component provides a full-featured editing environment with live collaboration via Yjs and Hocuspocus, persistent offline storage, and integration with user authentication and personalized dictionaries. It supports document title editing, margin adjustment, undo/redo, export to multiple formats, and responsive UI with sidebar and modals for sharing and dictionary management. Spell check and text replacement suggestions are integrated, with auto-accept and reject logic. The editor adapts to read-only mode and displays connection status with user feedback.
+ *
+ * @param document - The document object to be edited collaboratively.
+ * @param initialContent - Optional initial content for the editor if the document is empty.
+ * @param isReadOnly - Optional flag to render the editor in read-only mode.
+ * @returns The rendered collaborative document editor UI.
+ */
 export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const providerRef = useRef<HocuspocusProvider | null>(null);

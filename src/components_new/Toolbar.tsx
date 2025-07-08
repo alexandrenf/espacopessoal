@@ -52,6 +52,11 @@ import {
   Upload,
 } from "lucide-react";
 
+/**
+ * Renders a dropdown menu for selecting paragraph line height in the editor.
+ *
+ * Allows users to choose from predefined line height options, updating the selected paragraph's line height in the editor and highlighting the active choice.
+ */
 function LineHeightButton() {
   const { editor } = useEditorStore();
   const lineHeights = [
@@ -103,6 +108,11 @@ function LineHeightButton() {
   );
 }
 
+/**
+ * Renders a font size control for the editor, allowing users to increment, decrement, or directly input a font size value.
+ *
+ * Displays the current font size and provides input validation to ensure only positive integer values are applied to the selected text.
+ */
 function FontSizeButton() {
   const { editor } = useEditorStore();
   const currentFontSize = editor?.getAttributes("textStyle")?.fontSize
@@ -188,6 +198,11 @@ function FontSizeButton() {
   );
 }
 
+/**
+ * Renders a dropdown menu for toggling bullet and numbered list formatting in the editor.
+ *
+ * Highlights the currently active list type and allows users to switch between bullet and numbered lists.
+ */
 function ListButton() {
   const { editor } = useEditorStore();
   const lists = [
@@ -231,6 +246,11 @@ function ListButton() {
   );
 }
 
+/**
+ * Renders a dropdown menu for selecting text alignment in the editor.
+ *
+ * Provides options for left, center, right, and justify alignment. Highlights the currently active alignment and updates the editor's text alignment when an option is selected.
+ */
 function AlignButton() {
   const { editor } = useEditorStore();
   const alignments = [
@@ -282,6 +302,11 @@ function AlignButton() {
   );
 }
 
+/**
+ * Renders a toolbar button for inserting images into the editor, supporting both file upload and image URL input.
+ *
+ * Opens a dropdown menu with options to upload an image file or paste an image URL. Selecting either option inserts the chosen image at the current editor selection.
+ */
 function ImageButton() {
   const { editor } = useEditorStore();
   const [imageUrl, setImageUrl] = useState("");
@@ -354,6 +379,11 @@ function ImageButton() {
   );
 }
 
+/**
+ * Renders a toolbar button for adding or editing hyperlinks in the editor.
+ *
+ * Opens a dropdown input to enter a URL, pre-filling it with the current link if present. On submission, applies the link to the selected text in the editor.
+ */
 function LinkButton() {
   const { editor } = useEditorStore();
   const [value, setValue] = useState("");
@@ -388,6 +418,11 @@ function LinkButton() {
   );
 }
 
+/**
+ * Renders a toolbar button that opens a color picker for setting the highlight (background) color of selected text in the editor.
+ *
+ * Displays the current highlight color and updates the editor's highlight color when a new color is selected.
+ */
 function HighlightColorButton() {
   const { editor } = useEditorStore();
   const value = editor?.getAttributes("highlight")?.color || "#FFFFFF";
@@ -411,6 +446,11 @@ function HighlightColorButton() {
   );
 }
 
+/**
+ * Renders a toolbar button for selecting and applying text color in the editor.
+ *
+ * Displays the current text color and opens a color picker for choosing a new color, which is applied to the selected text.
+ */
 function TextColorButton() {
   const { editor } = useEditorStore();
   const value = editor?.getAttributes("textStyle")?.color || "#000000";
@@ -434,6 +474,11 @@ function TextColorButton() {
   );
 }
 
+/**
+ * Renders a dropdown menu for selecting the heading level in the editor.
+ *
+ * Displays the current heading level and allows users to switch between normal text and heading levels 1–5. Selecting an option updates the editor's formatting accordingly.
+ */
 function HeadingLevelButton() {
   const { editor } = useEditorStore();
   const headings = [
@@ -517,6 +562,11 @@ function HeadingLevelButton() {
   );
 }
 
+/**
+ * Renders a dropdown menu for selecting the font family in the editor.
+ *
+ * Displays the current font family and allows users to choose from predefined options. Selecting a font updates the editor's text style accordingly and highlights the active font.
+ */
 function FontFamilyButton() {
   const { editor } = useEditorStore();
   const fonts = [
@@ -557,6 +607,13 @@ function FontFamilyButton() {
   );
 }
 
+/**
+ * Renders a toolbar button with an icon and optional active styling.
+ *
+ * @param onClick - Optional click handler for the button
+ * @param isActive - If true, applies active styling to the button
+ * @param icon - The icon component to display inside the button
+ */
 function ToolbarButton({
   onClick,
   isActive,
@@ -579,6 +636,11 @@ function ToolbarButton({
   );
 }
 
+/**
+ * Renders the main toolbar for the rich text editor, providing controls for formatting, lists, alignment, colors, links, images, tables, and undo/redo actions.
+ *
+ * The toolbar organizes formatting options into logical sections with separators and integrates with the editor's state to reflect active formatting and enable corresponding commands.
+ */
 export function Toolbar() {
   const { editor, undoManager } = useEditorStore();
 

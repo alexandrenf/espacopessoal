@@ -7,7 +7,11 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { api } from "~/trpc/react";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "~/components/ui/sheet";
-import debounce from "lodash/debounce"; // Using lodash's debounce since it's already in dependencies
+import debounce from "lodash/debounce"; /**
+ * Renders a responsive, authentication-aware navigation header for the application.
+ *
+ * Displays navigation links, authentication controls, and visual effects that adapt to user authentication state and scroll position. Includes both desktop and mobile navigation menus, with conditional links for authenticated users and dynamic UI feedback.
+ */
 
 export default function Header() {
   const { data: session, status } = useSession({

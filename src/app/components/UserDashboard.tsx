@@ -225,6 +225,11 @@ const LoadingState = () => (
   </main>
 );
 
+/**
+ * Renders the main user dashboard with animated backgrounds, personalized greeting, feature cards, and quick action buttons.
+ *
+ * Displays loading and error states as appropriate. The dashboard adapts its UI based on authentication status and user preferences for reduced motion, and presents interactive features and shortcuts tailored to the user's session.
+ */
 export function UserDashboard() {
   const { data: session, status } = useSession();
   // Detect prefers-reduced-motion

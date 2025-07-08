@@ -36,6 +36,11 @@ interface DocumentsTableProps {
   status: PaginationStatus;
 }
 
+/**
+ * Displays a paginated table of documents with options to rename documents and load more entries.
+ *
+ * Renders a responsive table showing document titles, owners, and creation dates. Provides UI for renaming a selected document and loading additional documents when available. Shows a loading indicator when documents are being fetched and an empty state message if no documents are present.
+ */
 export function DocumentsTable({
   documents,
   loadMore,

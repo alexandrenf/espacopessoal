@@ -37,6 +37,14 @@ interface DocumentActionsMenuProps {
   onRename?: (document: Document) => void;
 }
 
+/**
+ * Renders a dropdown menu with actions for a document, including rename, duplicate, and delete.
+ *
+ * Provides UI options to rename the document via a callback, duplicate it by creating a copy, or delete it after user confirmation. Duplicate and delete actions display loading states and success or error notifications.
+ *
+ * @param document - The document for which actions are provided
+ * @param onRename - Optional callback invoked when the rename action is selected
+ */
 export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);

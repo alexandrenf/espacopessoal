@@ -8,6 +8,11 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
+/**
+ * Displays a horizontally scrollable gallery of document templates, allowing users to create a new document from a selected template.
+ *
+ * When a template is selected, initiates the creation of a new document with the template's title and content, provides user feedback via toast notifications, and navigates to the new document upon success. Disables further interactions during the creation process.
+ */
 export function TemplatesGallery() {
   const router = useRouter();
   const create = useMutation(api.documents.create);

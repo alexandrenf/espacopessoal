@@ -33,6 +33,15 @@ interface RenameDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Displays a modal dialog for renaming a document.
+ *
+ * Renders a form allowing the user to update the document's title. Handles input validation, mutation to update the document, and provides user feedback on success or failure. The dialog is controlled via the `open` prop and closes on successful rename, cancellation, or Escape key press. Returns `null` if no document is provided.
+ *
+ * @param document - The document to be renamed, or `null` to hide the dialog
+ * @param open - Whether the dialog is visible
+ * @param onOpenChange - Callback to update the dialog's open state
+ */
 export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps) {
   const [title, setTitle] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);

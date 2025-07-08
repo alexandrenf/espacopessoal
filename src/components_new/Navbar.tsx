@@ -9,6 +9,15 @@ interface NavbarProps {
   setSearch: (search: string) => void;
 }
 
+/**
+ * Renders a navigation bar with a logo, title, search input, and user action area.
+ *
+ * The navigation bar includes a clickable logo linking to the homepage, a "Docs" heading, a central search input, and a placeholder user avatar. The search input is controlled via the provided `search` value and `setSearch` function.
+ *
+ * @param search - The current search query string
+ * @param setSearch - Function to update the search query
+ * @returns The navigation bar component
+ */
 export function Navbar({ search, setSearch }: NavbarProps) {
   return (
     <nav className="flex items-center justify-between h-full w-full gap-6">

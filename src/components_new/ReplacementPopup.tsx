@@ -9,6 +9,11 @@ interface ReplacementPopupProps {
   onReject: () => void;
 }
 
+/**
+ * Displays a popup suggesting a replacement for a word, allowing the user to accept or reject the suggestion.
+ *
+ * Shows the original word and its suggested replacement, with buttons to confirm or dismiss the change.
+ */
 export function ReplacementPopup({ word, replacement, onAccept, onReject }: ReplacementPopupProps) {
   return (
     <motion.div
