@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { useConvexUser } from "../hooks/use-convex-user";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,10 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
   const [title, setTitle] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
   
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : null;
+  
   const updateDocument = useMutation(api.documents.updateById);
 
   useEffect(() => {
@@ -40,8 +45,18 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
     
     if (!document || !title.trim()) return;
 
-    if (title.trim() === document.title) {
+        if (title.trim() === document.title) {
       onOpenChange(false);
+      return;
+    }
+
+    if (isUserLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+
+    if (!userIdString) {
+      toast.error("User authentication required to rename documents");
       return;
     }
 
@@ -50,6 +65,7 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
       await updateDocument({
         id: document._id,
         title: title.trim(),
+        userId: userIdString,
       });
       
       toast.success("Document renamed successfully!");
@@ -86,7 +102,7 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
               onKeyDown={handleKeyDown}
               placeholder="Document name"
               autoFocus
-              disabled={isRenaming}
+              disabled={isRenaming || isUserLoading}
             />
           </div>
           <DialogFooter>
@@ -94,13 +110,13 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isRenaming}
+              disabled={isRenaming || isUserLoading}
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={isRenaming || !title.trim()}
+              disabled={isRenaming || isUserLoading || !title.trim()}
             >
               {isRenaming ? "Renaming..." : "Rename"}
             </Button>

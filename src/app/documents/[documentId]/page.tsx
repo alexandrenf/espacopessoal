@@ -7,6 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { DocumentEditor } from "../../../components_new/DocumentEditor";
 import { Loader } from "lucide-react";
 import { useEffect } from "react";
+import { useConvexUser } from "../../../hooks/use-convex-user";
 
 // Helper function to validate if a string is a valid Convex ID format
 function isValidConvexId(id: string | string[] | undefined): id is string {
@@ -20,12 +21,16 @@ export default function DocumentPage() {
   const { documentId } = useParams();
   const router = useRouter();
   
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : null;
+  
   // Validate documentId before using it
   const validatedDocumentId = isValidConvexId(documentId) ? documentId as Id<"documents"> : null;
   
   const document = useQuery(
     api.documents.getById, 
-    validatedDocumentId ? { id: validatedDocumentId } : "skip"
+    !isUserLoading && validatedDocumentId && userIdString ? { id: validatedDocumentId, userId: userIdString } : "skip"
   );
   
   // Handle invalid documentId
@@ -44,6 +49,33 @@ export default function DocumentPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-2">Invalid Document ID</h1>
           <p className="text-muted-foreground">The document ID format is invalid.</p>
+          <button 
+            onClick={() => router.push('/')} 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while user authentication is being resolved
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="animate-spin h-8 w-8 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Show authentication error if user is not authenticated
+  if (!userIdString) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Authentication Required</h1>
+          <p className="text-muted-foreground">You must be signed in to view this document.</p>
           <button 
             onClick={() => router.push('/')} 
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"

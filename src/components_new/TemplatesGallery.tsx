@@ -7,15 +7,30 @@ import { cn } from "../lib/utils";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
+import { useConvexUser } from "../hooks/use-convex-user";
 
 export function TemplatesGallery() {
   const router = useRouter();
   const create = useMutation(api.documents.create);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : null;
 
   const onTemplateClick = (title: string, initialContent: string) => {
+    if (isUserLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("User authentication required to create documents");
+      return;
+    }
+    
     setIsCreating(true);
-    create({ title, initialContent })
+    create({ title, initialContent, userId: userIdString })
       .then((documentId) => {
         toast.success("Document created successfully!");
         router.push(`/documents/${documentId}`);
@@ -36,11 +51,11 @@ export function TemplatesGallery() {
               key={template.id}
               className={cn(
                 "flex-shrink-0 w-32 aspect-[3/4] flex flex-col gap-y-2.5",
-                isCreating && "pointer-events-none opacity-50"
+                (isCreating || isUserLoading) && "pointer-events-none opacity-50"
               )}
             >
               <button
-                disabled={isCreating}
+                disabled={isCreating || isUserLoading}
                 onClick={() =>
                   onTemplateClick(template.label, template.initialContent)
                 }

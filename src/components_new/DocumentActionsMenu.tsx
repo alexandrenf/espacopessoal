@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useConvexUser } from "../hooks/use-convex-user";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,14 +33,29 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   
+  // Get authenticated user
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId ? String(convexUserId) : null;
+  
   const deleteDocument = useMutation(api.documents.removeById);
   const createDocument = useMutation(api.documents.create);
 
   const handleDuplicate = async () => {
+    if (isUserLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("User authentication required to duplicate documents");
+      return;
+    }
+    
     setIsDuplicating(true);
     try {
       const newDocumentId = await createDocument({
         title: `${document.title} (Copy)`,
+        userId: userIdString,
         initialContent: document.initialContent ?? "",
       });
       
@@ -53,13 +69,23 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
   };
 
   const handleDelete = async () => {
+    if (isUserLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("User authentication required to delete documents");
+      return;
+    }
+    
     if (!confirm(`Are you sure you want to delete "${document.title}"? This action cannot be undone.`)) {
       return;
     }
 
     setIsDeleting(true);
     try {
-      await deleteDocument({ id: document._id });
+      await deleteDocument({ id: document._id, userId: userIdString });
       toast.success("Document deleted successfully!");
       router.refresh();
     } catch (error) {
@@ -94,7 +120,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={handleDuplicate}
-          disabled={isDuplicating}
+          disabled={isDuplicating || isUserLoading}
         >
           <Copy className="mr-2 h-4 w-4" />
           {isDuplicating ? "Duplicating..." : "Duplicate"}
@@ -102,7 +128,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={handleDelete}
-          disabled={isDeleting}
+          disabled={isDeleting || isUserLoading}
           className="text-red-600 focus:text-red-600"
         >
           <Trash2 className="mr-2 h-4 w-4" />

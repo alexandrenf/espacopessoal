@@ -5,13 +5,16 @@ import { type Id } from "./_generated/dataModel";
 // Get user's dictionary entries
 export const getDictionary = query({
   args: { 
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, { userId }) => {
-    const ownerId = userId ?? "demo-user";
+    if (!userId) {
+      throw new ConvexError("User ID is required to access dictionary");
+    }
+    
     return await ctx.db
       .query("dictionary")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", userId))
       .collect();
   },
 });
@@ -35,17 +38,20 @@ export const create = mutation({
   args: {
     from: v.string(),
     to: v.string(),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.string(), // Made required for security
     isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to create dictionary entries");
+    }
+    
     const now = Date.now();
-    const ownerId = args.userId ?? "demo-user";
     
     // Check if entry already exists for this user
     const existing = await ctx.db
       .query("dictionary")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .filter((q) => q.eq(q.field("from"), args.from))
       .first();
     
@@ -56,7 +62,7 @@ export const create = mutation({
     return await ctx.db.insert("dictionary", {
       from: args.from,
       to: args.to,
-      ownerId: ownerId,
+      ownerId: args.userId,
       isPublic: args.isPublic ?? false,
       createdAt: now,
       updatedAt: now,
@@ -71,17 +77,20 @@ export const update = mutation({
     from: v.optional(v.string()),
     to: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, args) => {
-    const ownerId = args.userId ?? "demo-user";
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to update dictionary entries");
+    }
+    
     const entry = await ctx.db.get(args.id);
     if (!entry) {
       throw new ConvexError("Dictionary entry not found!");
     }
     
     // Check ownership
-    if (entry.ownerId !== ownerId) {
+    if (entry.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to update this entry");
     }
     
@@ -89,7 +98,7 @@ export const update = mutation({
     if (args.from && args.from !== entry.from) {
       const existing = await ctx.db
         .query("dictionary")
-        .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+        .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
         .filter((q) => q.eq(q.field("from"), args.from))
         .first();
       
@@ -119,17 +128,20 @@ export const update = mutation({
 export const remove = mutation({
   args: {
     id: v.id("dictionary"),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, args) => {
-    const ownerId = args.userId ?? "demo-user";
+    if (!args.userId) {
+      throw new ConvexError("User ID is required to delete dictionary entries");
+    }
+    
     const entry = await ctx.db.get(args.id);
     if (!entry) {
       throw new ConvexError("Dictionary entry not found!");
     }
     
     // Check ownership
-    if (entry.ownerId !== ownerId) {
+    if (entry.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to delete this entry");
     }
     
@@ -141,13 +153,16 @@ export const remove = mutation({
 export const getByFromText = query({
   args: { 
     from: v.string(),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.string(), // Made required for security
   },
   handler: async (ctx, { from, userId }) => {
-    const ownerId = userId ?? "demo-user";
+    if (!userId) {
+      throw new ConvexError("User ID is required to access dictionary");
+    }
+    
     return await ctx.db
       .query("dictionary")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", userId))
       .filter((q) => q.eq(q.field("from"), from))
       .first();
   },

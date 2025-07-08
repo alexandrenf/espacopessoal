@@ -57,7 +57,7 @@ const DocumentSidebar = memo(({
 }: DocumentSidebarProps) => {
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId ? String(convexUserId) : "demo-user";
+  const userIdString = convexUserId ? String(convexUserId) : null;
   
   // Convex queries and mutations
   const documents = useQuery(
@@ -104,6 +104,11 @@ const DocumentSidebar = memo(({
   const handleDeleteDocument = async (e: React.MouseEvent<Element>, id: Id<"documents">) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (!userIdString) {
+      toast.error("User authentication required to delete documents");
+      return;
+    }
     
     setIsDeletingId(id);
     try {
@@ -382,6 +387,11 @@ const DocumentSidebar = memo(({
 
   // Helper function to persist changes to database
   const persistDocumentStructure = async (updatedDocuments: DocumentWithTreeProps[]) => {
+    if (!userIdString) {
+      toast.error("User authentication required to update document structure");
+      return;
+    }
+    
     try {
       await updateStructure({
         updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({

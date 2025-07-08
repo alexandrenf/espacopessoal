@@ -582,10 +582,16 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   // Enhanced title handling
   const handleTitleSubmit = async () => {
     if (documentTitle.trim() && documentTitle !== doc.title) {
+      if (!userIdString) {
+        toast.error("Please wait for authentication to complete");
+        return;
+      }
+      
       try {
         await updateDocument({ 
           id: doc._id, 
-          title: documentTitle.trim() 
+          title: documentTitle.trim(),
+          userId: userIdString
         });
         toast.success("Document title updated!");
       } catch (error) {
