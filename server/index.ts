@@ -297,102 +297,85 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
 
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
-    // Debug: Check what's in the root of the Y.js document
-    console.log('🔍 Y.js document structure:');
-    console.log('🔍 Document toString:', ydoc.toString());
-    
-    // Debug: Try to get all shared types from the document
-    console.log('🔍 Available shared types:');
+    // Debug: Check what shared types exist
     const sharedTypes = ydoc.share;
-    console.log('🔍 Shared types:', Object.keys(sharedTypes));
+    console.log('🔍 Available shared types:', Object.keys(sharedTypes));
     
-    // Debug: Check specific common locations
-    const possibleKeys = ['prosemirror', 'default', 'doc', 'content', 'document'];
-    for (const key of possibleKeys) {
-      const map = ydoc.getMap(key);
-      if (map && map.size > 0) {
-        console.log(`🔍 Found non-empty map at key "${key}":`, Array.from(map.keys()));
-        for (const [mapKey, mapValue] of map.entries()) {
-          console.log(`🔍 ${key}.${mapKey}:`, typeof mapValue, mapValue);
+    // Look for the prosemirror shared type
+    if (sharedTypes.has('prosemirror')) {
+      const prosemirrorType = sharedTypes.get('prosemirror');
+      if (prosemirrorType) {
+        console.log('🔍 Found prosemirror type:', prosemirrorType.constructor.name);
+        
+        // Cast to any to access methods safely
+        const prosemirrorMap = prosemirrorType as any;
+        
+        // Try to get content as a simple string first
+        if (prosemirrorMap?.has && prosemirrorMap.has('content')) {
+          const content = prosemirrorMap.get('content');
+          if (typeof content === 'string' && content.length > 0) {
+            console.log('📄 Found string content in prosemirror map');
+            return content;
+          }
         }
-      }
-      
-      const array = ydoc.getArray(key);
-      if (array && array.length > 0) {
-        console.log(`🔍 Found non-empty array at key "${key}":`, array.length, 'items');
-        console.log(`🔍 Array content:`, array.toArray());
-      }
-      
-      const text = ydoc.getText(key);
-      if (text && text.length > 0) {
-        console.log(`🔍 Found non-empty text at key "${key}":`, text.toString());
-      }
-    }
-    
-    const prosemirrorMap = ydoc.getMap('prosemirror');
-    
-    // Debug: Log all available keys in the prosemirror map
-    console.log('🔍 Available keys in prosemirror map:', Array.from(prosemirrorMap.keys()));
-    
-    // Debug: Log all key-value pairs to understand the structure
-    for (const [key, value] of prosemirrorMap.entries()) {
-      console.log(`🔍 Key: ${key}, Value type: ${typeof value}, Value:`, value);
-      if (value && typeof value === 'object') {
-        console.log(`🔍 Object keys for ${key}:`, Object.keys(value));
-        if ('constructor' in value) {
-          console.log(`🔍 Constructor name for ${key}:`, value.constructor.name);
-        }
-      }
-    }
-    
-    // First, try to get content as a simple string (from onLoadDocument)
-    if (prosemirrorMap?.has('content')) {
-      const content = prosemirrorMap.get('content');
-      if (typeof content === 'string' && content.length > 0) {
-        console.log('📄 Found string content in prosemirror map');
-        return content;
-      }
-    }
-    
-    // If no string content, try to extract from Y.js native format (TipTap collaborative editing)
-    // TipTap stores content in YXmlFragment format in the 'default' key
-    if (prosemirrorMap?.has('default')) {
-      const fragment = prosemirrorMap.get('default');
-      if (fragment && typeof fragment === 'object' && 'toJSON' in fragment) {
-        // Convert YXmlFragment to JSON and then to HTML
-        try {
-          const json = (fragment as any).toJSON();
-          if (json && typeof json === 'object') {
-            // Convert ProseMirror JSON to HTML
-            const html = convertProseMirrorToHtml(json);
-            if (html && html.length > 0) {
-              console.log('📄 Extracted content from Y.js native format');
-              return html;
+        
+        // If it's a YMap, look for other common keys
+        if (prosemirrorType.constructor.name === 'YMap' && prosemirrorMap.keys) {
+          console.log('🔍 Prosemirror map keys:', Array.from(prosemirrorMap.keys()));
+          
+          // Look for common TipTap keys
+          const keysToCheck = ['default', 'doc', 'fragment', 'content'];
+          for (const key of keysToCheck) {
+            if (prosemirrorMap.has(key)) {
+              const value = prosemirrorMap.get(key);
+              console.log(`🔍 Found key "${key}":`, value ? value.constructor.name : 'null');
+              
+              // If it's a YXmlFragment, try to extract content
+              if (value && value.constructor.name === 'YXmlFragment') {
+                try {
+                  const xmlContent = value.toString();
+                  console.log(`🔍 XML content from ${key}:`, xmlContent);
+                  if (xmlContent && xmlContent.length > 0) {
+                    console.log(`📄 Extracted content from XML fragment in ${key}`);
+                    return xmlContent;
+                  }
+                } catch (e) {
+                  console.log(`🔍 Error extracting XML from ${key}:`, e);
+                }
+              }
+              
+              // If it's another Y.js type, try to get JSON
+              if (value && typeof value === 'object' && value.toJSON) {
+                try {
+                  const json = value.toJSON();
+                  console.log(`🔍 JSON from ${key}:`, json);
+                  if (json) {
+                    const html = convertProseMirrorToHtml(json);
+                    if (html && html.length > 0) {
+                      console.log(`📄 Extracted content from JSON in ${key}`);
+                      return html;
+                    }
+                  }
+                } catch (e) {
+                  console.log(`🔍 Error extracting JSON from ${key}:`, e);
+                }
+              }
             }
           }
-        } catch (fragmentError) {
-          console.warn('Error converting YXmlFragment to HTML:', fragmentError);
         }
       }
     }
     
-    // Try to extract from any other keys that might contain content
-    for (const [key, value] of prosemirrorMap.entries()) {
-      if (key !== 'content' && value && typeof value === 'object' && 'toJSON' in value) {
-        try {
-          const json = (value as any).toJSON();
-          if (json && typeof json === 'object') {
-            const html = convertProseMirrorToHtml(json);
-            if (html && html.length > 0) {
-              console.log(`📄 Extracted content from Y.js key: ${key}`);
-              return html;
-            }
-          }
-        } catch (keyError) {
-          console.warn(`Error converting content from key ${key}:`, keyError);
-        }
+    // If no prosemirror type found, check if there are any other shared types
+    if (sharedTypes.size === 0) {
+      console.log('🔍 No shared types found in document');
+    } else {
+      console.log('🔍 Checking all shared types for content:');
+      for (const [key, sharedType] of sharedTypes.entries()) {
+        console.log(`🔍 Type "${key}":`, sharedType.constructor.name);
       }
     }
+
     
     // Log if no content found in prosemirror map
     console.log('📄 No content found in prosemirror map, returning empty document');
