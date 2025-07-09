@@ -1055,33 +1055,27 @@ const server = new Server({
     console.log(`[${new Date().toISOString()}] Loading document: ${documentName}`);
     
     try {
-      // Wait longer for IndexedDB to finish loading if it's in progress
+      // Wait for IndexedDB/client hydration to complete
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const fragment = document.getXmlFragment('default');
       const hasExistingContent = fragment.length > 0;
       
-      console.log(`[${new Date().toISOString()}] 📊 Y.js fragment length: ${fragment.length}`);
-      console.log(`[${new Date().toISOString()}] 📊 Y.js has existing content: ${hasExistingContent}`);
-      
-      // Extract current Y.js document content as HTML
+      // Extract current Y.js document content
       let currentHtml = '';
       try {
         currentHtml = extractDocumentContent(document);
-        console.log(`[${new Date().toISOString()}] 📊 Current Y.js HTML (${currentHtml.length} chars): ${currentHtml.substring(0, 100)}...`);
       } catch (error) {
         currentHtml = '';
-        console.log(`[${new Date().toISOString()}] ❌ Failed to extract Y.js content:`, error);
       }
       
-      // Load existing content from Convex database
+      // Load content from database
       const existingContent = await loadDocumentFromConvex(documentName);
-      console.log(`[${new Date().toISOString()}] 📊 DB content (${(existingContent || '').length} chars): ${(existingContent || '').substring(0, 100)}...`);
       
-      // Aggressive normalization: remove all empty tags, collapse whitespace, trim, lowercase
-      const normalize = (str: string) =>
+      // Normalize content for comparison
+      const normalize = (str: string): string =>
         (str || '')
-          .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove all empty tags
+          .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove empty tags
           .replace(/<[^>]*>/g, (tag) => tag.toLowerCase()) // normalize tag case
           .replace(/\s+/g, ' ') // collapse whitespace
           .replace(/^\s*<p>\s*<\/p>\s*/, '') // remove leading empty paragraph
@@ -1091,41 +1085,34 @@ const server = new Server({
       const normalizedYjs = normalize(currentHtml);
       const normalizedDB = normalize(existingContent || '');
       
-      console.log(`[${new Date().toISOString()}] 🔍 Normalized Y.js (${normalizedYjs.length} chars): "${normalizedYjs}"`);
-      console.log(`[${new Date().toISOString()}] 🔍 Normalized DB (${normalizedDB.length} chars): "${normalizedDB}"`);
-      console.log(`[${new Date().toISOString()}] 🔍 Contents match: ${normalizedYjs === normalizedDB}`);
-      
-      // STRICT: If content is identical, absolutely do not load from DB
+      // Skip loading if content is identical
       if (normalizedYjs && normalizedDB && normalizedYjs === normalizedDB) {
-        console.log(`[${new Date().toISOString()}] ✅ Content is identical - SKIPPING DB load to prevent duplication`);
+        console.log(`[${new Date().toISOString()}] Content is identical - skipping DB load`);
         return document;
       }
       
-      // STRICT: If Y.js is non-empty but DB is empty, keep Y.js content
-      if (hasExistingContent && (!existingContent || normalizedDB === '')) {
-        console.log(`[${new Date().toISOString()}] ✅ Y.js has content but DB is empty - KEEPING Y.js content`);
+      // Skip loading if Y.js has content but DB is empty
+      if (hasExistingContent && !normalizedDB) {
+        console.log(`[${new Date().toISOString()}] Y.js has content, DB is empty - keeping Y.js content`);
         return document;
       }
       
-      // STRICT: If both are empty, do nothing
-      if (!hasExistingContent && (!existingContent || normalizedDB === '')) {
-        console.log(`[${new Date().toISOString()}] ✅ Both Y.js and DB are empty - no action needed`);
+      // Skip if both are empty
+      if (!hasExistingContent && !normalizedDB) {
+        console.log(`[${new Date().toISOString()}] Both Y.js and DB are empty - no action needed`);
         return document;
       }
       
-      // Only load if DB has content and it's different from Y.js
+      // Load from DB if content differs
       if (existingContent && existingContent.trim() && existingContent !== '<p></p>' && normalizedDB !== normalizedYjs) {
-        console.log(`[${new Date().toISOString()}] 🔄 Content differs - replacing Y.js with DB content for ${documentName}`);
-        console.log(`[${new Date().toISOString()}] 🔄 Y.js before replacement: ${normalizedYjs}`);
-        console.log(`[${new Date().toISOString()}] 🔄 DB content to load: ${normalizedDB}`);
+        console.log(`[${new Date().toISOString()}] Loading content from DB (${normalizedDB.length} chars)`);
         
-        // Set flag to prevent onChange from saving during replacement
+        // Prevent onChange during population
         isPopulatingFromDatabase.set(documentName, true);
         
         try {
-          // COMPLETE REPLACEMENT: Clear everything and insert DB content
+          // Clear and replace content
           fragment.delete(0, fragment.length);
-          console.log(`[${new Date().toISOString()}] 🧹 Cleared Y.js fragment (now ${fragment.length} elements)`);
           
           if (existingContent.includes('<')) {
             convertHtmlToYjsFragment(existingContent, fragment);
@@ -1137,28 +1124,20 @@ const server = new Server({
             fragment.insert(0, [paragraph]);
           }
           
-          console.log(`[${new Date().toISOString()}] ✅ Successfully replaced Y.js document for ${documentName} with ${fragment.length} elements`);
-          
-          // Verify the replacement worked
-          const newContent = extractDocumentContent(document);
-          const newNormalized = normalize(newContent);
-          console.log(`[${new Date().toISOString()}] 🔍 Y.js after replacement: "${newNormalized}"`);
-          console.log(`[${new Date().toISOString()}] 🔍 Replacement successful: ${newNormalized === normalizedDB}`);
+          console.log(`[${new Date().toISOString()}] Successfully loaded document with ${fragment.length} elements`);
           
         } finally {
           setTimeout(() => {
             isPopulatingFromDatabase.set(documentName, false);
-            console.log(`[${new Date().toISOString()}] 🔓 Re-enabled onChange tracking for ${documentName} after DB population`);
           }, 100);
         }
         return document;
       } else {
-        console.log(`[${new Date().toISOString()}] ✅ No DB content to load or content is identical - starting with current Y.js state`);
+        console.log(`[${new Date().toISOString()}] No DB content to load - using current Y.js state`);
         return document;
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Error loading document ${documentName}:`, error);
-      // Return the document even if loading fails, so collaboration can still work
       return document;
     }
   },

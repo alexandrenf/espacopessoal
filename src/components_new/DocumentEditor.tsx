@@ -735,19 +735,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     setIsPersistenceReady(false);
     setStatus('connecting');
     
-    // Initialize IndexedDB persistence with the current Y.js document
-    // TEMPORARILY DISABLED: IndexedDB is causing race conditions with server content loading
-    // const persistence = new IndexeddbPersistence(docName, ydocRef.current);
-    
-    // persistence.on('synced', () => {
-    //   console.log('📦 IndexedDB synchronized for:', docName);
-    //   if (currentDocumentIdRef.current === docName) {
-    //     setIsPersistenceReady(true);
-    //   }
-    // });
-    
-    // For now, mark persistence as ready immediately since we're not using IndexedDB
-    console.log('📦 IndexedDB DISABLED - marking persistence as ready for:', docName);
+    // Mark persistence as ready immediately (no IndexedDB)
     setIsPersistenceReady(true);
     
     // Create new WebSocket provider with the current Y.js document
@@ -940,54 +928,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // This useEffect has been replaced by the enhanced document switching logic above
 
-  // Optimized content setting with debounced retries and proper cleanup
-  const debouncedSetContent = useCallback(
-    debounce((content: string, retryCount = 0) => {
-      if (!editor || !editor.isEditable || retryCount >= 5) {
-        if (retryCount >= 5) {
-          console.warn('Content setting failed after maximum retries for document:', currentDocumentId);
-        }
-        return;
-      }
-      
-      try {
-        if (editor.isEmpty) {
-          console.log('📄 Setting initial content for:', currentDocumentId);
-          editor.commands.clearContent();
-          editor.commands.setContent(content);
-          editor.commands.focus('start');
-        } else {
-          // Retry with exponential backoff
-          setTimeout(() => {
-            debouncedSetContent(content, retryCount + 1);
-          }, Math.min(100 * (retryCount + 1), 1000));
-        }
-      } catch (error) {
-        console.error('Error setting content:', error);
-      }
-    }, 100),
-    [editor, currentDocumentId]
-  );
 
-  // TEMPORARY DISABLE: Frontend content setting to prevent duplication
-  // The server's onLoadDocument should handle all content loading
-  useEffect(() => {
-    if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) {
-      return;
-    }
-    
-    console.log('📄 Frontend content setting is DISABLED - server handles all content loading for:', currentDocumentId);
 
-    // Just log the state for debugging
-    const fragment = ydocRef.current.getXmlFragment('default');
-    const hasCollaborativeContent = fragment.length > 0;
-    const editorHasContent = !editor.isEmpty;
-    
-    console.log('📄 Content state check - Y.js:', hasCollaborativeContent, ', Editor:', editorHasContent, 'for:', currentDocumentId);
-    
-    // No content setting - let server handle everything
-    
-  }, [editor, isYdocReady, isPersistenceReady, currentDocumentId]);
+  // Server handles all content loading - no frontend content setting needed
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {
@@ -1132,48 +1075,24 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
   };
 
-  // After providerRef.current is set and isYdocReady is true
+
+
+  // Monitor reconnections for debugging
   useEffect(() => {
     if (!editor || !isYdocReady || !providerRef.current || !ydocRef.current) return;
 
     const provider = providerRef.current;
-    const ydoc = ydocRef.current;
 
     const handleConnect = () => {
-      // Wait longer for server content to stabilize
+      // Simple reconnect monitoring
       setTimeout(() => {
         try {
-          // Get the current Y.js document content (server is source of truth)
-          const editorContent = editor.getHTML();
-          
-          // Aggressive normalization matching server logic
-          const normalize = (str: string) =>
-            (str || '')
-              .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove all empty tags
-              .replace(/<[^>]*>/g, (tag) => tag.toLowerCase()) // normalize tag case
-              .replace(/\s+/g, ' ') // collapse whitespace
-              .replace(/^\s*<p>\s*<\/p>\s*/, '') // remove leading empty paragraph
-              .replace(/\s*<p>\s*<\/p>\s*$/, '') // remove trailing empty paragraph
-              .trim();
-
-          const normalizedEditor = normalize(editorContent);
-          
-          console.log(`[FRONTEND] 🔄 Reconnect check for document: ${currentDocumentId}`);
-          console.log(`[FRONTEND] 🔍 Editor content (${editorContent.length} chars): ${editorContent.substring(0, 100)}...`);
-          console.log(`[FRONTEND] 🔍 Normalized content (${normalizedEditor.length} chars): "${normalizedEditor}"`);
-          
-          // Check Y.js fragment state
-          const fragment = ydoc.getXmlFragment('default');
-          console.log(`[FRONTEND] 🔍 Y.js fragment length: ${fragment.length}`);
-          
-          // For now, we only log and don't take action since the server handles content loading
-          // This is primarily for debugging the reconnect process
-          console.log(`[FRONTEND] ✅ Reconnect check completed - server handles all content loading`);
-          
+          const fragment = ydocRef.current?.getXmlFragment('default');
+          console.log(`[FRONTEND] Reconnected to document ${currentDocumentId}, fragment length: ${fragment?.length || 0}`);
         } catch (error) {
-          console.error(`[FRONTEND] ❌ Error during reconnect check:`, error);
+          console.error(`[FRONTEND] Error during reconnect check:`, error);
         }
-      }, 1000); // Wait 1 second for server content to stabilize
+      }, 500);
     };
 
     provider.on('connect', handleConnect);
