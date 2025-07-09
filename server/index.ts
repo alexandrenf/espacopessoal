@@ -31,13 +31,14 @@ const INITIAL_RETRY_DELAY = 1000; // 1 second
 const RETRY_BACKOFF_MULTIPLIER = 2;
 const MAX_RETRY_DELAY = 10000; // 10 seconds
 
-// Document tracking
+// Enhanced document state tracking with last saved content
 interface DocumentState {
   documentName: string;
   connectedUsers: Set<string>;
   saveTimeout?: NodeJS.Timeout;
   lastActivity: number;
   pendingSave: boolean;
+  lastSavedContent?: string; // Track last saved content to avoid unnecessary saves
 }
 
 // Save result types
@@ -273,51 +274,84 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
   if (!state) return;
 
-  // Clear existing timeout
+  // Clear any existing save timeout
   if (state.saveTimeout) {
     clearTimeout(state.saveTimeout);
   }
 
-  // Don't schedule if already pending save
-  if (state.pendingSave) {
-    console.log(`[${new Date().toISOString()}] Save already pending for ${documentName}, skipping schedule`);
-    return;
-  }
+  // Update last activity
+  state.lastActivity = Date.now();
+  state.pendingSave = true;
 
-  // Schedule save after 2 seconds of inactivity (consistent with frontend expectations)
+  // Schedule save after 5 seconds of inactivity (increased from 2 seconds)
   state.saveTimeout = setTimeout(() => {
     void performDocumentSave(documentName, document);
-  }, 2000);
-
-  state.lastActivity = Date.now();
-  console.log(`[${new Date().toISOString()}] Scheduled save for ${documentName} in 2 seconds`);
+  }, 5000);
 };
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
-  if (!state || state.pendingSave) return;
-
-  state.pendingSave = true;
+  if (!state || !state.pendingSave) {
+    console.log(`[${new Date().toISOString()}] Skipping save for ${documentName} - no pending changes`);
+    return;
+  }
 
   try {
-    // Extract HTML content from Y.js document
-    const content = extractDocumentContent(document);
-    console.log(`[${new Date().toISOString()}] Saving document ${documentName} (${content.length} chars)`);
+    // Extract current content
+    const currentContent = extractDocumentContent(document);
     
-    const result = await saveDocumentToConvex(documentName, content);
+    // Normalize content for comparison
+    const normalize = (str: string): string =>
+      (str || '')
+        .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove empty tags
+        .replace(/\s+/g, ' ') // collapse whitespace
+        .trim();
     
-    if (!result.success) {
-      if (result.type === 'not_found') {
-        console.warn(`[${new Date().toISOString()}] Document ${documentName} not found, skipping save`);
-      } else {
-        console.error(`[${new Date().toISOString()}] Failed to save document ${documentName}: ${result.error}`);
-      }
-    }
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error during document save for ${documentName}:`, error);
-  } finally {
-    if (state) {
+    const normalizedCurrent = normalize(currentContent);
+    const normalizedLastSaved = normalize(state.lastSavedContent ?? '');
+    
+    // Skip save if content hasn't actually changed
+    if (normalizedCurrent === normalizedLastSaved) {
+      console.log(`[${new Date().toISOString()}] Skipping save for ${documentName} - content unchanged`);
       state.pendingSave = false;
+      if (state.saveTimeout) {
+        clearTimeout(state.saveTimeout);
+        state.saveTimeout = undefined;
+      }
+      return;
+    }
+    
+    // Only save if content is meaningful (not just empty paragraphs)
+    if (!normalizedCurrent || normalizedCurrent === '<p></p>') {
+      console.log(`[${new Date().toISOString()}] Skipping save for ${documentName} - empty content`);
+      state.pendingSave = false;
+      if (state.saveTimeout) {
+        clearTimeout(state.saveTimeout);
+        state.saveTimeout = undefined;
+      }
+      return;
+    }
+
+    console.log(`[${new Date().toISOString()}] Saving document ${documentName} (${currentContent.length} chars)`);
+    
+    const result = await saveDocumentToConvex(documentName, currentContent);
+    
+    if (result.success) {
+      // Update last saved content on successful save
+      state.lastSavedContent = currentContent;
+      console.log(`[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`);
+    } else {
+      console.error(`[${new Date().toISOString()}] ❌ Failed to save document ${documentName}:`, result.error);
+    }
+    
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error saving document ${documentName}:`, error);
+  } finally {
+    // Reset state
+    state.pendingSave = false;
+    if (state.saveTimeout) {
+      clearTimeout(state.saveTimeout);
+      state.saveTimeout = undefined;
     }
   }
 };
@@ -870,6 +904,7 @@ const initializeDocumentStateIfNeeded = (documentName: string): void => {
       connectedUsers: new Set(),
       lastActivity: Date.now(),
       pendingSave: false,
+      lastSavedContent: undefined, // Initialize last saved content
     });
     console.log(`[${new Date().toISOString()}] Initialized tracking for new document: ${documentName}`);
   }

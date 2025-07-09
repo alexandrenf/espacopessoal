@@ -1004,7 +1004,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   };
 
   const handleForceSave = () => {
-    toast.info("Documents are automatically saved by the server after 2 seconds of inactivity");
+    toast.info("Documents are automatically saved when content changes after 5 seconds of inactivity");
   };
 
   const handleToggleSidebar = () => {
