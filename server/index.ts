@@ -304,19 +304,60 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   }
 };
 
+// Type definitions for Y.js structures
+interface YXmlElement {
+  nodeName: string;
+  length: number;
+  get(index: number): YXmlElement | YXmlText | null;
+  getAttributes(): Record<string, unknown>;
+  toString(): string;
+}
+
+interface YXmlText {
+  toString(): string;
+  length: number;
+}
+
+interface YXmlFragment {
+  length: number;
+  get(index: number): YXmlElement | YXmlText | null;
+}
+
+// Type for delta operations
+interface DeltaOperation {
+  insert?: string;
+  attributes?: Record<string, unknown>;
+}
+
+// Helper function to safely check if an object is a YXmlElement
+const isYXmlElement = (obj: unknown): obj is YXmlElement => {
+  return obj !== null && 
+         typeof obj === 'object' && 
+         'nodeName' in obj && 
+         'length' in obj && 
+         'get' in obj &&
+         typeof (obj as { get: unknown }).get === 'function';
+};
+
+// Helper function to safely check if an object is a YXmlText
+const isYXmlText = (obj: unknown): obj is YXmlText => {
+  return obj !== null && 
+         typeof obj === 'object' && 
+         'toString' in obj &&
+         typeof (obj as { toString: unknown }).toString === 'function' &&
+         !('nodeName' in obj); // YXmlText doesn't have nodeName
+};
+
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
     console.log('🔍 Starting content extraction...');
     
-    // The key insight: TipTap stores content in YXmlFragment, but we need to traverse the tree structure
-    // From the debug output, we know there's a 'default' fragment with length 2 that contains the actual content
-    
+    // TipTap stores content in YXmlFragment 'default'
     const defaultFragment = ydoc.getXmlFragment('default');
     if (defaultFragment && defaultFragment.length > 0) {
       console.log(`🔍 Found default fragment with ${defaultFragment.length} children`);
       
-      // Build HTML by traversing the Y.js XML structure
-      const extractFromXmlFragment = (fragment: Y.XmlFragment): string => {
+      const extractFromXmlFragment = (fragment: YXmlFragment): string => {
         let html = '';
         
         for (let i = 0; i < fragment.length; i++) {
@@ -325,56 +366,105 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           
           console.log(`🔍 Processing child ${i}:`, child.constructor?.name ?? typeof child);
           
-          // Handle YXmlElement (like paragraphs, headings, etc.)
-          if (child.constructor?.name === 'YXmlElement') {
-            const xmlElement = child as unknown as {
-              nodeName?: string;
-              getAttributes?: () => Record<string, unknown>;
-              length: number;
-              get: (index: number) => unknown;
-            };
-            
-            const nodeName = xmlElement.nodeName ?? 'div';
-            const attrs = xmlElement.getAttributes ? xmlElement.getAttributes() : {};
+          if (isYXmlElement(child)) {
+            const nodeName = child.nodeName ?? 'div';
+            const attrs = child.getAttributes();
             
             console.log(`🔍 YXmlElement: ${nodeName}`, attrs);
             
-            // Get the text content from this element
+            // Extract text content from this element using multiple approaches
             let innerContent = '';
-            if (xmlElement.length > 0) {
-              for (let j = 0; j < xmlElement.length; j++) {
-                const grandChild = xmlElement.get(j);
-                if (grandChild && typeof grandChild === 'object' && (grandChild as any).constructor?.name === 'YXmlText') {
-                  const textContent = (grandChild as any).toString();
-                  if (textContent && textContent !== '[object Object]') {
-                    innerContent += textContent;
+            
+            // Method 1: Try string conversion of the entire element
+            try {
+              const elementString = child.toString();
+              if (elementString && elementString !== '[object Object]' && !elementString.includes('[object')) {
+                innerContent = elementString;
+                console.log(`🔍 Extracted using toString(): "${innerContent}"`);
+              }
+            } catch (error) {
+              console.log('🔍 Element toString() failed:', error);
+            }
+            
+            // Method 2: Traverse children to extract text
+            if (!innerContent && child.length > 0) {
+              for (let j = 0; j < child.length; j++) {
+                const grandChild = child.get(j);
+                if (isYXmlText(grandChild)) {
+                  try {
+                    const textContent = grandChild.toString();
+                    console.log(`🔍 Found YXmlText child ${j}: "${textContent}"`);
+                    if (textContent && textContent !== '[object Object]') {
+                      innerContent += textContent;
+                    }
+                  } catch (error) {
+                    console.log('🔍 Error extracting text from grandchild:', error);
+                  }
+                } else if (isYXmlElement(grandChild)) {
+                  // Recursively process nested elements
+                  try {
+                    const nestedText = grandChild.toString();
+                    if (nestedText && nestedText !== '[object Object]') {
+                      innerContent += nestedText;
+                    }
+                  } catch (error) {
+                    console.log('🔍 Error extracting text from nested element:', error);
                   }
                 }
               }
             }
             
+            // Method 3: Try accessing internal properties (Y.js specific)
+            if (!innerContent) {
+              try {
+                // Y.js elements sometimes have internal text representation
+                const element = child as unknown as {
+                  _content?: { str?: string };
+                  _item?: { content?: { str?: string } };
+                };
+                
+                if (element._content?.str) {
+                  innerContent = element._content.str;
+                  console.log(`🔍 Extracted using _content.str: "${innerContent}"`);
+                } else if (element._item?.content?.str) {
+                  innerContent = element._item.content.str;
+                  console.log(`🔍 Extracted using _item.content.str: "${innerContent}"`);
+                }
+              } catch (error) {
+                console.log('🔍 Internal property access failed:', error);
+              }
+            }
+            
+            console.log(`🔍 Final extracted inner content: "${innerContent}"`);
+            
             // Convert to HTML based on node type
             if (nodeName === 'paragraph') {
               html += `<p>${innerContent}</p>`;
             } else if (nodeName === 'heading') {
-              const level = typeof attrs.level === 'number' ? attrs.level : 1;
+              const level = typeof attrs.level === 'number' && attrs.level >= 1 && attrs.level <= 6 ? attrs.level : 1;
               html += `<h${level}>${innerContent}</h${level}>`;
+            } else if (nodeName === 'bulletList') {
+              html += `<ul>${innerContent}</ul>`;
+            } else if (nodeName === 'orderedList') {
+              html += `<ol>${innerContent}</ol>`;
+            } else if (nodeName === 'listItem') {
+              html += `<li>${innerContent}</li>`;
+            } else if (nodeName === 'blockquote') {
+              html += `<blockquote>${innerContent}</blockquote>`;
+            } else if (nodeName === 'codeBlock') {
+              html += `<pre><code>${innerContent}</code></pre>`;
             } else {
               html += `<${nodeName}>${innerContent}</${nodeName}>`;
             }
-          }
-          // Handle YXmlText (direct text content)
-          else if (child.constructor?.name === 'YXmlText') {
-            const textContent = child.toString();
-            if (textContent && textContent !== '[object Object]') {
-              html += `<p>${textContent}</p>`;
-            }
-          }
-          // Handle other types by trying toString
-          else if (child.toString && typeof child.toString === 'function') {
-            const content = child.toString();
-            if (content && content !== '[object Object]' && content.length > 0) {
-              html += content;
+          } else if (isYXmlText(child)) {
+            try {
+              const textContent = child.toString();
+              console.log(`🔍 Found direct YXmlText: "${textContent}"`);
+              if (textContent && textContent !== '[object Object]') {
+                html += `<p>${textContent}</p>`;
+              }
+            } catch (error) {
+              console.log('🔍 Error extracting direct text content:', error);
             }
           }
         }
@@ -383,45 +473,8 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
       };
       
       const extractedHtml = extractFromXmlFragment(defaultFragment);
-      if (extractedHtml && extractedHtml.length > 0) {
+      if (extractedHtml && extractedHtml.trim()) {
         console.log('📄 Successfully extracted content from default fragment:', extractedHtml);
-        return extractedHtml;
-      }
-    }
-    
-    // Fallback: Try prosemirror fragment
-    const prosemirrorFragment = ydoc.getXmlFragment('prosemirror');
-    if (prosemirrorFragment && prosemirrorFragment.length > 0) {
-      console.log(`🔍 Trying prosemirror fragment with ${prosemirrorFragment.length} children`);
-      
-      // Use the same extraction logic
-      const extractFromXmlFragment = (fragment: any): string => {
-        let html = '';
-        for (let i = 0; i < fragment.length; i++) {
-          const child = fragment.get(i);
-          if (child?.constructor?.name === 'YXmlElement') {
-            const nodeName = child.nodeName || 'div';
-            let innerContent = '';
-            if (child.length > 0) {
-              for (let j = 0; j < child.length; j++) {
-                const grandChild = child.get(j);
-                if (grandChild?.constructor?.name === 'YXmlText') {
-                  const textContent = grandChild.toString();
-                  if (textContent && textContent !== '[object Object]') {
-                    innerContent += textContent;
-                  }
-                }
-              }
-            }
-            html += nodeName === 'paragraph' ? `<p>${innerContent}</p>` : `<${nodeName}>${innerContent}</${nodeName}>`;
-          }
-        }
-        return html;
-      };
-      
-      const extractedHtml = extractFromXmlFragment(prosemirrorFragment);
-      if (extractedHtml && extractedHtml.length > 0) {
-        console.log('📄 Successfully extracted content from prosemirror fragment:', extractedHtml);
         return extractedHtml;
       }
     }
