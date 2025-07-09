@@ -118,10 +118,14 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
 
     const { documentId, content, userId } = validation;
 
-    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}`);
+    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}, userId: ${userId}`);
 
-    // Require authentication for document updates
-    if (!userId) {
+    // Check if this is a server update (trusted source)
+    const isServerUpdate = userId === 'hocus-pocus-server' || 
+                          (process.env.SERVER_USER_ID && userId === process.env.SERVER_USER_ID);
+
+    // Require authentication for non-server updates
+    if (!isServerUpdate && !userId) {
       return new Response(
         JSON.stringify({ error: "Authentication required. Please provide a valid userId." }),
         { 

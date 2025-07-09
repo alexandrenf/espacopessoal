@@ -306,7 +306,10 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
       }
     }
     
-    // Return empty paragraph for empty documents (no fallback attempts to maintain consistency)
+    // Log if no content found in prosemirror map
+    console.log('📄 No content found in prosemirror map, returning empty document');
+    
+    // Return empty paragraph for empty documents
     return '<p></p>';
     
   } catch (error) {
@@ -508,15 +511,16 @@ const server = new Server({
     // Try to load from Convex
     const content = await loadDocumentFromConvex(documentName);
     
-    if (content) {
+    if (content && content.trim() !== '' && content !== '<p></p>') {
       // Create Y.js document with the loaded content
       const ydoc = new Y.Doc();
       
       try {
-        // For TipTap collaboration, we typically store content in a specific structure
-        // This is a simplified approach - the actual structure depends on TipTap configuration
-        const prosemirrorState = ydoc.getMap('prosemirror');
-        prosemirrorState.set('content', content);
+        // For TipTap collaboration, we store content in the prosemirror map
+        // This matches the structure expected by TipTap's Collaboration extension
+        const prosemirrorMap = ydoc.getMap('prosemirror');
+        prosemirrorMap.set('content', content);
+        
         console.log(`[${new Date().toISOString()}] Loaded ${content.length} characters for document ${documentName}`);
         return ydoc;
       } catch (error) {
@@ -525,6 +529,8 @@ const server = new Server({
     }
     
     // Return null to let Hocuspocus create a new document
+    // This will start with empty content and get populated by the editor
+    console.log(`[${new Date().toISOString()}] No content found for document ${documentName}, starting with empty document`);
     return null;
   },
   

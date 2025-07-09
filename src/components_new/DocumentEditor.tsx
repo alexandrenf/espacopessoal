@@ -161,6 +161,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const undoManagerRef = useRef<UndoManager | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
   const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
+  const documentInstances = useRef<Map<string, Y.Doc>>(new Map());
   
   // Use Convex API for dictionary functionality with real user authentication
   const dictionary = useQuery(
@@ -212,6 +213,23 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   // Set mounted state to handle router mounting
   useEffect(() => {
     setIsMounted(true);
+    
+    // Component cleanup on unmount
+    return () => {
+      console.log('🧹 Component unmounting, cleaning up Y.js documents and connections');
+      
+      setUndoManager(null);
+      if (providerRef.current) {
+        providerRef.current.destroy();
+      }
+      
+      // Clean up all document instances
+      for (const [docId, ydoc] of documentInstances.current.entries()) {
+        console.log('🧹 Destroying Y.js document for:', docId);
+        ydoc.destroy();
+      }
+      documentInstances.current.clear();
+    };
   }, []);
 
   // Initialize Y.js document first
@@ -551,19 +569,24 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   }, [editor, dictionary, recentlyRejected, acceptReplacement]);
 
   useEffect(() => {
-    // Clean up previous Y.js document and provider
-    if (ydocRef.current) {
-      ydocRef.current.destroy();
+    // Get or create Y.js document for this specific document ID
+    const docName = currentDocumentId;
+    let ydoc = documentInstances.current.get(docName);
+    
+    if (!ydoc) {
+      ydoc = new Y.Doc();
+      documentInstances.current.set(docName, ydoc);
+      console.log('📄 Y.js document created for:', docName);
+    } else {
+      console.log('📄 Y.js document reused for:', docName);
     }
+    
+    ydocRef.current = ydoc;
+    
+    // Clean up previous provider only
     if (providerRef.current) {
       providerRef.current.destroy();
     }
-    
-    // Create new Y.js document for current document
-    const ydoc = new Y.Doc();
-    ydocRef.current = ydoc;
-    
-    const documentName = currentDocumentId;
     
     // Ensure WebSocket URL is properly configured - no fallback for production safety
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
@@ -576,9 +599,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
     
     console.log('🔗 Connecting to WebSocket:', wsUrl);
-    console.log('📄 Document ID:', documentName);
+    console.log('📄 Document ID:', docName);
     
-    const persistence = new IndexeddbPersistence(documentName, ydoc);
+    const persistence = new IndexeddbPersistence(docName, ydocRef.current);
     
     persistence.on('update', () => {
       console.log('📦 Document loaded from IndexedDB');
@@ -586,17 +609,20 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
     const newProvider = new HocuspocusProvider({
       url: wsUrl,
-      name: documentName,
-      document: ydoc,
+      name: docName,
+      document: ydocRef.current,
     });
 
     providerRef.current = newProvider;
 
-    const undoManager = new UndoManager(ydoc.getXmlFragment('default'), {
-      captureTimeout: 1000,
-    });
-    undoManagerRef.current = undoManager;
-    setUndoManager(undoManager);
+    // Initialize undo manager only once
+    if (!undoManagerRef.current) {
+      const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
+        captureTimeout: 1000,
+      });
+      undoManagerRef.current = undoManager;
+      setUndoManager(undoManager);
+    }
 
     newProvider.on('status', (event: { status: string }) => {
       console.log('📡 Provider status:', event.status);
@@ -618,34 +644,40 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       setStatus('connected');
     });
 
-    newProvider.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected');
+    newProvider.on('disconnect', ({ event }: { event: CloseEvent }) => {
+      console.log('❌ WebSocket disconnected:', event.code, event.reason);
       setStatus('disconnected');
+      
+      // Provide more specific error messages based on close codes
+      if (event.code === 1006) {
+        toast.error("Connection lost unexpectedly. Attempting to reconnect...");
+      } else if (event.code === 1000) {
+        // Normal closure, don't show error
+      } else {
+        toast.error("Connection closed. Attempting to reconnect...");
+      }
     });
 
-    newProvider.on('close', () => {
-      console.log('🔒 WebSocket closed');
+    newProvider.on('close', ({ event }: { event: CloseEvent }) => {
+      console.log('🔒 WebSocket closed:', event.code, event.reason);
       setStatus('disconnected');
     });
 
     newProvider.on('error', (error: Error) => {
       console.error('💥 WebSocket error occurred:', error);
       setStatus('error');
-      toast.error("Connection error occurred");
+      toast.error("Connection error occurred. Please check your internet connection.");
     });
 
     setIsYdocReady(true);
 
     return () => {
-      console.log('🧹 Cleaning up editor and connections');
+      console.log('🧹 Cleaning up provider connection');
       
-      setUndoManager(null);
       if (newProvider) {
         newProvider.destroy();
       }
-      if (ydoc) {
-        ydoc.destroy();
-      }
+      // Don't destroy the Y.js document here - it should persist
     };
   }, [currentDocumentId]);
 
