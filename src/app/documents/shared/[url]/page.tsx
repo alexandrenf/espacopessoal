@@ -66,6 +66,7 @@ export default function SharedDocumentPage() {
   // Real-time collaboration setup for shared documents
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
+  const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
   const [collaborativeContent, setCollaborativeContent] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -80,9 +81,12 @@ export default function SharedDocumentPage() {
       setIsYdocReady(true);
     }
     
-    // Clean up previous provider if exists
+    // Clean up previous provider and persistence if exists
     if (providerRef.current) {
       providerRef.current.destroy();
+    }
+    if (persistenceRef.current) {
+      void persistenceRef.current.destroy();
     }
     
     // Connect to collaborative server in read-only mode
@@ -93,6 +97,7 @@ export default function SharedDocumentPage() {
       setConnectionStatus('connecting');
       
       const persistence = new IndexeddbPersistence(documentId, ydocRef.current);
+      persistenceRef.current = persistence;
       
       const provider = new HocuspocusProvider({
         url: wsUrl,
@@ -142,6 +147,7 @@ export default function SharedDocumentPage() {
       
       return () => {
         provider.destroy();
+        void persistence.destroy();
         setConnectionStatus('disconnected');
       };
     }
@@ -152,6 +158,9 @@ export default function SharedDocumentPage() {
     return () => {
       if (providerRef.current) {
         providerRef.current.destroy();
+      }
+      if (persistenceRef.current) {
+        void persistenceRef.current.destroy();
       }
       if (ydocRef.current) {
         ydocRef.current.destroy();
