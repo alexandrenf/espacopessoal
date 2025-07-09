@@ -299,6 +299,20 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
     const prosemirrorMap = ydoc.getMap('prosemirror');
     
+    // Debug: Log all available keys in the prosemirror map
+    console.log('🔍 Available keys in prosemirror map:', Array.from(prosemirrorMap.keys()));
+    
+    // Debug: Log all key-value pairs to understand the structure
+    for (const [key, value] of prosemirrorMap.entries()) {
+      console.log(`🔍 Key: ${key}, Value type: ${typeof value}, Value:`, value);
+      if (value && typeof value === 'object') {
+        console.log(`🔍 Object keys for ${key}:`, Object.keys(value));
+        if ('constructor' in value) {
+          console.log(`🔍 Constructor name for ${key}:`, value.constructor.name);
+        }
+      }
+    }
+    
     // First, try to get content as a simple string (from onLoadDocument)
     if (prosemirrorMap?.has('content')) {
       const content = prosemirrorMap.get('content');
