@@ -615,13 +615,16 @@ const DocumentSidebar = memo(({
               if (selectedKey) {
                 const selectedDoc = documents.find(d => d._id.toString() === selectedKey);
                 if (selectedDoc && !selectedDoc.isFolder) {
-                  // Prevent duplicate selections
-                  if (selectedDoc._id !== lastSelectedIdRef.current) {
+                  // Prevent duplicate selections with additional checks
+                  if (selectedDoc._id !== lastSelectedIdRef.current && selectedDoc._id !== currentDocument?._id) {
+                    console.log('📁 Sidebar selecting document:', selectedDoc._id, 'title:', selectedDoc.title);
                     lastSelectedIdRef.current = selectedDoc._id;
                     setCurrentDocumentId(selectedDoc._id);
                     if (isMobile && onToggleSidebar) {
                       onToggleSidebar();
                     }
+                  } else {
+                    console.log('📁 Ignoring duplicate selection for document:', selectedDoc._id);
                   }
                 }
               }

@@ -106,6 +106,18 @@ const cacheDocumentContent = async (documentId: string, content: string): Promis
   }
 };
 
+// Cache invalidation for document switching
+const invalidateDocumentCache = async (documentId: string): Promise<void> => {
+  if (!redis) return;
+  
+  try {
+    await redis.del(`doc:${documentId}`);
+    console.log(`[${new Date().toISOString()}] Invalidated cache for document ${documentId}`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error invalidating cache for document ${documentId}:`, error);
+  }
+};
+
 const getCachedDocumentData = async (documentId: string): Promise<{ content: string; hash: string; timestamp: number } | null> => {
   if (!redis) return null;
   
@@ -139,6 +151,8 @@ const shouldSaveToConvex = async (documentId: string, newContent: string): Promi
     }
     
     console.log(`[${new Date().toISOString()}] Content changed for document ${documentId} (${cachedData.hash.substring(0, 8)}... -> ${newHash.substring(0, 8)}...)`);
+  } else {
+    console.log(`[${new Date().toISOString()}] No cached data for document ${documentId}, will save to Convex`);
   }
   
   return true;
@@ -348,7 +362,7 @@ const loadDocumentFromConvex = async (documentName: string): Promise<string | nu
   }
 };
 
-// Document saving logic
+// Document saving logic with enhanced scheduling
 const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
   if (!state) return;
@@ -360,15 +374,17 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
 
   // Don't schedule if already pending save
   if (state.pendingSave) {
+    console.log(`[${new Date().toISOString()}] Save already pending for ${documentName}, skipping schedule`);
     return;
   }
 
-  // Schedule save after 30 seconds of inactivity (optimized for Redis caching)
+  // Schedule save after 2 seconds of inactivity (consistent with frontend expectations)
   state.saveTimeout = setTimeout(() => {
     void performDocumentSave(documentName, document);
-  }, 30000);
+  }, 2000);
 
   state.lastActivity = Date.now();
+  console.log(`[${new Date().toISOString()}] Scheduled save for ${documentName} in 2 seconds`);
 };
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
@@ -745,6 +761,12 @@ const server = new Server({
     state.connectedUsers.add(socketId);
     
     console.log(`[${new Date().toISOString()}] Document ${documentName} now has ${state.connectedUsers.size} connected users`);
+    
+    // If this is the first connection to this document, ensure cache is fresh
+    if (state.connectedUsers.size === 1) {
+      console.log(`[${new Date().toISOString()}] First connection to ${documentName}, ensuring fresh cache`);
+      await invalidateDocumentCache(documentName);
+    }
   },
   
   async onDisconnect(data: onDisconnectPayload) {
@@ -850,7 +872,10 @@ const server = new Server({
     // Initialize document state atomically to prevent race conditions
     initializeDocumentStateIfNeeded(documentName);
     
-    // Schedule save after 2 seconds of inactivity (now consistent with comment)
+    // Log the change for debugging
+    console.log(`[${new Date().toISOString()}] Document ${documentName} changed, scheduling save`);
+    
+    // Schedule save after 2 seconds of inactivity (consistent with frontend expectations)
     scheduleDocumentSave(documentName, document);
   },
   

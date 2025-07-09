@@ -460,14 +460,16 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     editable: !isReadOnly,
     onCreate({ editor }) {
       setEditor(editor);
+      console.log('📝 Editor created for document:', currentDocumentId);
     },
     onDestroy() {
       setEditor(null);
+      console.log('📝 Editor destroyed for document:', currentDocumentId);
     },
     onUpdate({ editor, transaction }) {
       setEditor(editor);
       if (transaction.docChanged) {
-        console.log('Document changed - server will handle saving');
+        console.log('📝 Document content changed - server will handle saving');
       }
     },
     onSelectionUpdate({ editor }) {
@@ -484,6 +486,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     },
     onContentError({ editor }) {
       setEditor(editor);
+      console.error('📝 Editor content error for document:', currentDocumentId);
     },
     editorProps: {
       attributes: {
@@ -516,13 +519,17 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
   }, [replacementSuggestion]);
 
-  // Efficient document switching function
+  // Enhanced document switching function with proper synchronization
   const handleDocumentSwitch = useCallback(async (newDocumentId: Id<"documents">) => {
     // Prevent switching to the same document
-    if (newDocumentId === currentDocumentId) return;
+    if (newDocumentId === currentDocumentId) {
+      console.log('🔄 Ignoring switch to same document:', newDocumentId);
+      return;
+    }
     
     // Prevent multiple simultaneous switches
     if (isSwitchingRef.current) {
+      console.log('🔄 Switch in progress, queuing:', newDocumentId);
       // Queue the switch for later
       pendingDocumentIdRef.current = newDocumentId;
       return;
@@ -535,44 +542,64 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
     
     // Debounce rapid switches with longer delay for stability
-    switchTimeoutRef.current = setTimeout(() => {
+    switchTimeoutRef.current = setTimeout(async () => {
       isSwitchingRef.current = true;
       setIsLoadingDocument(true);
       setDocumentError(null);
       
-      console.log('🔄 Switching from document:', currentDocumentId, 'to:', newDocumentId);
+      console.log('🔄 Starting document switch from:', currentDocumentId, 'to:', newDocumentId);
       
       try {
-        // Update the document ID state - this will trigger the useEffect to handle Y.js document switching
+        // Step 1: Clean up current editor state
+        if (editor) {
+          console.log('🔄 Clearing editor content for clean switch');
+          editor.commands.clearContent();
+        }
+        
+        // Step 2: Clean up current provider connection immediately
+        if (providerRef.current) {
+          console.log('🔄 Disconnecting current provider:', providerRef.current.configuration.name);
+          await new Promise<void>((resolve) => {
+            const currentProvider = providerRef.current;
+            if (currentProvider) {
+              currentProvider.disconnect();
+              // Wait for disconnect to complete
+              setTimeout(() => {
+                currentProvider.destroy();
+                resolve();
+              }, 100);
+            } else {
+              resolve();
+            }
+          });
+          providerRef.current = null;
+        }
+        
+        // Step 3: Reset Y.js document ready state
+        setIsYdocReady(false);
+        setIsPersistenceReady(false);
+        
+        // Step 4: Update the document ID state - this will trigger the useEffect to handle Y.js document switching
         setCurrentDocumentId(newDocumentId);
         
-        // Update browser URL without causing navigation
+        // Step 5: Update browser URL without causing navigation
         const newUrl = `/documents/${newDocumentId}`;
         window.history.pushState({ documentId: newDocumentId }, '', newUrl);
         
-        // Success message will show after document loads successfully
+        console.log('🔄 Document switch state updated, waiting for Y.js connection...');
+        
       } catch (error) {
-        console.error('Error switching document:', error);
+        console.error('🔄 Error during document switch:', error);
         const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
         setDocumentError(errorMessage);
         toast.error(errorMessage);
-      } finally {
-        // Use a longer timeout to ensure the switch completes
-        setTimeout(() => {
-          setIsLoadingDocument(false);
-          isSwitchingRef.current = false;
-          
-          // Check if there's a pending switch
-          if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
-            const pendingId = pendingDocumentIdRef.current;
-            pendingDocumentIdRef.current = null;
-            // Execute the pending switch
-            void handleDocumentSwitch(pendingId);
-          }
-        }, 500); // Give more time for the switch to complete
+        
+        // Reset switching state on error
+        isSwitchingRef.current = false;
+        setIsLoadingDocument(false);
       }
-    }, 200); // Increased debounce time for stability
-  }, [currentDocumentId]);
+    }, 200); // Debounce time for stability
+  }, [currentDocumentId, editor]);
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -686,14 +713,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     
     ydocRef.current = ydoc;
     
-    // Clean up previous provider immediately for clean switches
-    if (providerRef.current) {
-      console.log('🔌 Disconnecting previous WebSocket provider for:', providerRef.current.configuration.name);
-      providerRef.current.disconnect();
-      providerRef.current.destroy();
-      providerRef.current = null;
-    }
-    
     // Ensure WebSocket URL is properly configured - no fallback for production safety
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
     
@@ -718,8 +737,11 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     
     // Wait for IndexedDB to fully load before allowing initial content setting
     persistence.on('synced', () => {
-      console.log('📦 IndexedDB fully synchronized');
-      setIsPersistenceReady(true);
+      console.log('📦 IndexedDB fully synchronized for:', docName);
+      // Only set persistence ready if this is still the current document
+      if (currentDocumentIdRef.current === docName) {
+        setIsPersistenceReady(true);
+      }
     });
 
     const newProvider = new HocuspocusProvider({
@@ -730,14 +752,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
     providerRef.current = newProvider;
 
-    // Initialize undo manager only once
-    if (!undoManagerRef.current) {
-      const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
-        captureTimeout: 1000,
-      });
-      undoManagerRef.current = undoManager;
-      setUndoManager(undoManager);
-    }
+    // Initialize undo manager with fresh document reference
+    const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
+      captureTimeout: 1000,
+    });
+    undoManagerRef.current = undoManager;
+    setUndoManager(undoManager);
 
     newProvider.on('status', (event: { status: string }) => {
       // Verify this event is for the current document
@@ -756,6 +776,21 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       if (event.status === 'connected' && isLoadingDocument) {
         // Only show success message if we're actively switching documents
         toast.success("Connected to real-time collaboration");
+        // Mark document switching as complete
+        if (isSwitchingRef.current) {
+          setTimeout(() => {
+            isSwitchingRef.current = false;
+            setIsLoadingDocument(false);
+            
+            // Check if there's a pending switch
+            if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== docName) {
+              const pendingId = pendingDocumentIdRef.current;
+              pendingDocumentIdRef.current = null;
+              console.log('🔄 Executing pending document switch to:', pendingId);
+              void handleDocumentSwitch(pendingId);
+            }
+          }, 100);
+        }
       }
     });
 
@@ -818,63 +853,87 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       // Reset persistence ready state when cleaning up
       setIsPersistenceReady(false);
       
-      // Don't destroy the provider immediately if we're switching documents
-      // This prevents connection flashing
+      // Immediately destroy the provider if we're switching to a different document
       if (providerRef.current && currentDocumentIdRef.current !== docName) {
-        setTimeout(() => {
-          if (providerRef.current && currentDocumentIdRef.current !== docName) {
-            providerRef.current.destroy();
-          }
-        }, 100);
+        console.log('🧹 Destroying provider for old document:', docName);
+        providerRef.current.disconnect();
+        providerRef.current.destroy();
       }
     };
-  }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument]);
+  }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument, handleDocumentSwitch]);
 
-  // Separate useEffect to handle initial content setting when editor becomes ready
+  // Enhanced content setting logic with proper synchronization
   useEffect(() => {
-    if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) return;
+    if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) {
+      console.log('📄 Content setting prerequisites not met:', {
+        editor: !!editor,
+        isYdocReady,
+        ydocRef: !!ydocRef.current,
+        isPersistenceReady,
+        currentDocumentId
+      });
+      return;
+    }
     
     const contentToSet = doc.initialContent ?? initialContent;
-    if (!contentToSet) return;
+    if (!contentToSet) {
+      console.log('📄 No initial content to set for document:', currentDocumentId);
+      return;
+    }
 
     // Check if the Y.js document already has content from collaboration/IndexedDB
     const fragment = ydocRef.current.getXmlFragment('default');
     const hasCollaborativeContent = fragment.length > 0;
     
     if (hasCollaborativeContent) {
-      console.log('📄 Document already has collaborative content, skipping initial content setting');
+      console.log('📄 Document already has collaborative content, skipping initial content setting for:', currentDocumentId);
       return;
     }
 
     // Use editor state to determine when it's truly ready
     const checkEditorReady = () => {
       if (editor.isEmpty && editor.isEditable) {
-        console.log('📄 Setting initial content from database:', contentToSet.substring(0, 100) + '...');
+        console.log('📄 Setting initial content from database for:', currentDocumentId, '(', contentToSet.substring(0, 100) + '...', ')');
+        
+        // Clear any existing content first
+        editor.commands.clearContent();
+        
+        // Set the new content
         editor.commands.setContent(contentToSet);
+        
+        // Force a transaction to ensure the content is properly set
+        editor.commands.focus('start');
+        
         return true;
       }
       return false;
     };
     
-    // Try immediately, then use requestAnimationFrame with retry limit if needed
-    if (!checkEditorReady()) {
-      let retryCount = 0;
-      const maxRetries = 50; // Limit to prevent infinite loops
-      
-      const trySetContent = () => {
-        if (retryCount >= maxRetries) {
-          console.warn('Editor content setting failed after maximum retries');
-          return;
-        }
+    // Try immediately with a small delay to ensure editor is fully ready
+    setTimeout(() => {
+      if (!checkEditorReady()) {
+        let retryCount = 0;
+        const maxRetries = 10; // Reduced to prevent excessive retries
         
-        retryCount++;
-        if (!checkEditorReady()) {
-          requestAnimationFrame(trySetContent);
-        }
-      };
-      requestAnimationFrame(trySetContent);
-    }
-  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent]);
+        const trySetContent = () => {
+          if (retryCount >= maxRetries) {
+            console.warn('Editor content setting failed after maximum retries for document:', currentDocumentId);
+            return;
+          }
+          
+          retryCount++;
+          if (!checkEditorReady()) {
+            // Use exponential backoff for retries
+            setTimeout(() => {
+              trySetContent();
+            }, Math.min(100 * retryCount, 1000));
+          }
+        };
+        
+        trySetContent();
+      }
+    }, 50); // Small delay to ensure editor is fully initialized
+  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent, currentDocumentId]);
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {
