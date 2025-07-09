@@ -165,6 +165,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const undoManagerRef = useRef<UndoManager | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
+  const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
   const documentInstances = useRef<Map<string, Y.Doc>>(new Map());
   
@@ -701,10 +702,19 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     console.log('🔗 Connecting to WebSocket:', wsUrl);
     console.log('📄 Document ID:', docName);
     
+    // Reset persistence ready state for new document
+    setIsPersistenceReady(false);
+    
     const persistence = new IndexeddbPersistence(docName, ydocRef.current);
     
     persistence.on('update', () => {
       console.log('📦 Document loaded from IndexedDB');
+    });
+    
+    // Wait for IndexedDB to fully load before allowing initial content setting
+    persistence.on('synced', () => {
+      console.log('📦 IndexedDB fully synchronized');
+      setIsPersistenceReady(true);
     });
 
     const newProvider = new HocuspocusProvider({
@@ -788,6 +798,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     return () => {
       console.log('🧹 Cleaning up provider connection for document:', docName);
       
+      // Reset persistence ready state when cleaning up
+      setIsPersistenceReady(false);
+      
       // Don't destroy the provider immediately if we're switching documents
       // This prevents connection flashing
       if (providerRef.current && currentDocumentIdRef.current !== docName) {
@@ -802,12 +815,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // Separate useEffect to handle initial content setting when editor becomes ready
   useEffect(() => {
-    if (!editor || !isYdocReady || !ydocRef.current) return;
+    if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) return;
     
     const contentToSet = doc.initialContent ?? initialContent;
     if (!contentToSet) return;
 
-    // Check if the Y.js document already has content from collaboration
+    // Check if the Y.js document already has content from collaboration/IndexedDB
     const fragment = ydocRef.current.getXmlFragment('default');
     const hasCollaborativeContent = fragment.length > 0;
     
@@ -844,7 +857,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       };
       requestAnimationFrame(trySetContent);
     }
-  }, [editor, isYdocReady, doc.initialContent, initialContent]);
+  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent]);
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {
