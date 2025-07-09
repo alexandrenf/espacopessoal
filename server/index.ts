@@ -297,54 +297,125 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
 
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
-    // Use y-prosemirror to properly extract content from Y.js document
-    const { yXmlFragmentToProsemirrorJSON } = require('y-prosemirror');
+    console.log('🔍 Starting content extraction...');
     
-    // Try to get the prosemirror fragment
-    const fragment = ydoc.getXmlFragment('prosemirror');
+    // The key insight: TipTap stores content in YXmlFragment, but we need to traverse the tree structure
+    // From the debug output, we know there's a 'default' fragment with length 2 that contains the actual content
     
-    if (fragment && fragment.length > 0) {
-      try {
-        // Convert Y.js XML fragment to ProseMirror JSON
-        const prosemirrorJSON = yXmlFragmentToProsemirrorJSON(fragment);
-        console.log('📄 Extracted ProseMirror JSON:', JSON.stringify(prosemirrorJSON, null, 2));
-        
-        if (prosemirrorJSON && prosemirrorJSON.content) {
-          // Convert ProseMirror JSON to HTML
-          const html = convertProseMirrorToHtml(prosemirrorJSON);
-          if (html && html.length > 0 && html !== '<p></p>') {
-            console.log('📄 Successfully extracted content using y-prosemirror');
-            return html;
-          }
-        }
-      } catch (e) {
-        console.log('🔍 Error using y-prosemirror:', e);
-      }
-    }
-    
-    // Fallback: Try the default fragment
     const defaultFragment = ydoc.getXmlFragment('default');
     if (defaultFragment && defaultFragment.length > 0) {
-      try {
-        const prosemirrorJSON = yXmlFragmentToProsemirrorJSON(defaultFragment);
-        console.log('📄 Extracted from default fragment:', JSON.stringify(prosemirrorJSON, null, 2));
+      console.log(`🔍 Found default fragment with ${defaultFragment.length} children`);
+      
+      // Build HTML by traversing the Y.js XML structure
+      const extractFromXmlFragment = (fragment: Y.XmlFragment): string => {
+        let html = '';
         
-        if (prosemirrorJSON && prosemirrorJSON.content) {
-          const html = convertProseMirrorToHtml(prosemirrorJSON);
-          if (html && html.length > 0 && html !== '<p></p>') {
-            console.log('📄 Successfully extracted content from default fragment');
-            return html;
+        for (let i = 0; i < fragment.length; i++) {
+          const child = fragment.get(i);
+          if (!child) continue;
+          
+          console.log(`🔍 Processing child ${i}:`, child.constructor?.name ?? typeof child);
+          
+          // Handle YXmlElement (like paragraphs, headings, etc.)
+          if (child.constructor?.name === 'YXmlElement') {
+            const xmlElement = child as unknown as {
+              nodeName?: string;
+              getAttributes?: () => Record<string, unknown>;
+              length: number;
+              get: (index: number) => unknown;
+            };
+            
+            const nodeName = xmlElement.nodeName ?? 'div';
+            const attrs = xmlElement.getAttributes ? xmlElement.getAttributes() : {};
+            
+            console.log(`🔍 YXmlElement: ${nodeName}`, attrs);
+            
+            // Get the text content from this element
+            let innerContent = '';
+            if (xmlElement.length > 0) {
+              for (let j = 0; j < xmlElement.length; j++) {
+                const grandChild = xmlElement.get(j);
+                if (grandChild && typeof grandChild === 'object' && (grandChild as any).constructor?.name === 'YXmlText') {
+                  const textContent = (grandChild as any).toString();
+                  if (textContent && textContent !== '[object Object]') {
+                    innerContent += textContent;
+                  }
+                }
+              }
+            }
+            
+            // Convert to HTML based on node type
+            if (nodeName === 'paragraph') {
+              html += `<p>${innerContent}</p>`;
+            } else if (nodeName === 'heading') {
+              const level = attrs.level || 1;
+              html += `<h${level}>${innerContent}</h${level}>`;
+            } else {
+              html += `<${nodeName}>${innerContent}</${nodeName}>`;
+            }
+          }
+          // Handle YXmlText (direct text content)
+          else if (child.constructor?.name === 'YXmlText') {
+            const textContent = child.toString();
+            if (textContent && textContent !== '[object Object]') {
+              html += `<p>${textContent}</p>`;
+            }
+          }
+          // Handle other types by trying toString
+          else if (child.toString && typeof child.toString === 'function') {
+            const content = child.toString();
+            if (content && content !== '[object Object]' && content.length > 0) {
+              html += content;
+            }
           }
         }
-      } catch (e) {
-        console.log('🔍 Error using y-prosemirror on default fragment:', e);
+        
+        return html;
+      };
+      
+      const extractedHtml = extractFromXmlFragment(defaultFragment);
+      if (extractedHtml && extractedHtml.length > 0) {
+        console.log('📄 Successfully extracted content from default fragment:', extractedHtml);
+        return extractedHtml;
       }
     }
     
-    // Debug: Show what's actually in the document
-    console.log('🔍 Available shared types:', Object.keys(ydoc.share));
-    console.log('🔍 Prosemirror fragment length:', fragment ? fragment.length : 'not found');
-    console.log('🔍 Default fragment length:', defaultFragment ? defaultFragment.length : 'not found');
+    // Fallback: Try prosemirror fragment
+    const prosemirrorFragment = ydoc.getXmlFragment('prosemirror');
+    if (prosemirrorFragment && prosemirrorFragment.length > 0) {
+      console.log(`🔍 Trying prosemirror fragment with ${prosemirrorFragment.length} children`);
+      
+      // Use the same extraction logic
+      const extractFromXmlFragment = (fragment: any): string => {
+        let html = '';
+        for (let i = 0; i < fragment.length; i++) {
+          const child = fragment.get(i);
+          if (child?.constructor?.name === 'YXmlElement') {
+            const nodeName = child.nodeName || 'div';
+            let innerContent = '';
+            if (child.length > 0) {
+              for (let j = 0; j < child.length; j++) {
+                const grandChild = child.get(j);
+                if (grandChild?.constructor?.name === 'YXmlText') {
+                  const textContent = grandChild.toString();
+                  if (textContent && textContent !== '[object Object]') {
+                    innerContent += textContent;
+                  }
+                }
+              }
+            }
+            html += nodeName === 'paragraph' ? `<p>${innerContent}</p>` : `<${nodeName}>${innerContent}</${nodeName}>`;
+          }
+        }
+        return html;
+      };
+      
+      const extractedHtml = extractFromXmlFragment(prosemirrorFragment);
+      if (extractedHtml && extractedHtml.length > 0) {
+        console.log('📄 Successfully extracted content from prosemirror fragment:', extractedHtml);
+        return extractedHtml;
+      }
+    }
     
     console.log('📄 No content found, returning empty document');
     return '<p></p>';
