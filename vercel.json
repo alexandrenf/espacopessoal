@@ -10,5 +10,9 @@
     "app/api/gemini/route.ts": {
       "maxDuration": 20
     }
-  }
+  },
+  "ignorePatterns": [
+    "deno/**/*",
+    "server/**/*"
+  ]
 }
