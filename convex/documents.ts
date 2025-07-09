@@ -53,7 +53,7 @@ export const create = mutation({
     // Use atomic transaction to prevent race conditions
     // All operations (parent validation, order calculation, insertion) happen atomically
     try {
-      // Get the next order number for the parent
+      // Get the next order number for the parent - optimized approach
       let order = 0;
       if (args.parentId) {
         // Verify parent exists and is a folder
@@ -62,22 +62,22 @@ export const create = mutation({
           throw new ConvexError("Parent must be a folder");
         }
         
-        // Get the highest order in the parent folder atomically
-        const siblings = await ctx.db
+        // Get the highest order in the parent folder - optimized with limit
+        const lastSibling = await ctx.db
           .query("documents")
-          .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
-          .collect();
-        const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-        order = maxOrder + 1;
+          .withIndex("by_parent_and_order", (q) => q.eq("parentId", args.parentId))
+          .order("desc")
+          .first();
+        order = (lastSibling?.order || -1) + 1;
       } else {
-        // Get the highest order in the root level atomically
-        const siblings = await ctx.db
+        // Get the highest order in the root level - optimized with limit
+        const lastSibling = await ctx.db
           .query("documents")
-          .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
+          .withIndex("by_parent_and_order", (q) => q.eq("parentId", undefined))
           .filter((q) => q.eq(q.field("ownerId"), userId))
-          .collect();
-        const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-        order = maxOrder + 1;
+          .order("desc")
+          .first();
+        order = (lastSibling?.order || -1) + 1;
       }
       
       // Insert the document atomically within the same transaction
@@ -147,15 +147,45 @@ export const getHierarchical = query({
   },
 });
 
-// Get all documents in a flat structure for the tree
+// Get all documents in a flat structure for the tree with pagination
 export const getAllForTree = query({
   args: {
     userId: v.optional(v.string()),
-    limit: v.optional(v.number()), // Add limit to prevent performance issues
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, cursor, limit }) => {
+    const ownerId = userId ?? DEFAULT_USER_ID;
+    const documentLimit = limit ?? 100; // Reduced default limit for better performance
+    
+    let query = ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+      .order("asc");
+    
+    if (cursor) {
+      query = query.filter(q => q.gt(q.field("_id"), cursor));
+    }
+    
+    const documents = await query.take(documentLimit);
+    
+    return {
+      documents,
+      nextCursor: documents.length === documentLimit ? documents[documents.length - 1]._id : null,
+      hasMore: documents.length === documentLimit
+    };
+  },
+});
+
+// Get all documents for tree (fallback for components not ready for pagination)
+export const getAllForTreeLegacy = query({
+  args: {
+    userId: v.optional(v.string()),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, { userId, limit }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
-    const documentLimit = limit ?? 1000; // Default limit of 1000 documents
+    const documentLimit = limit ?? 100; // Reduced from 1000 to 100
     
     return await ctx.db
       .query("documents")
@@ -217,7 +247,7 @@ export const updateById = mutation({
   },
 });
 
-// Update document structure (for drag and drop)
+// Optimized update document structure with batched operations
 export const updateStructure = mutation({
   args: {
     updates: v.array(v.object({
@@ -233,13 +263,28 @@ export const updateStructure = mutation({
       throw new ConvexError("User ID is required for document structure updates");
     }
     
+    // Limit batch size to prevent timeouts
+    const MAX_BATCH_SIZE = 50;
+    if (updates.length > MAX_BATCH_SIZE) {
+      throw new ConvexError(`Too many updates in batch. Maximum ${MAX_BATCH_SIZE} allowed.`);
+    }
+    
     // Store original states for rollback mechanism
     const originalStates = new Map<string, { parentId: Id<"documents"> | undefined; order: number }>();
+    const documentsToUpdate = new Map<string, any>();
     
     try {
-      // First pass: Validate all documents and store original states
-      for (const update of updates) {
-        const document = await ctx.db.get(update.id);
+      // First pass: Batch fetch all documents to validate
+      const documentIds = updates.map(update => update.id);
+      const documents = await Promise.all(
+        documentIds.map(id => ctx.db.get(id))
+      );
+      
+      // Validate all documents and store original states
+      for (let i = 0; i < documents.length; i++) {
+        const document = documents[i];
+        const update = updates[i];
+        
         if (!document || document.ownerId !== userId) {
           throw new ConvexError(`Document ${update.id} not found or access denied`);
         }
@@ -250,43 +295,73 @@ export const updateStructure = mutation({
           order: document.order || 0,
         });
         
-        // If parentId is specified, verify it's a folder and user owns it
-        if (update.parentId) {
-          const parent = await ctx.db.get(update.parentId);
+        documentsToUpdate.set(update.id, document);
+      }
+      
+      // Validate parent folders in batch
+      const parentIds = updates
+        .filter(update => update.parentId)
+        .map(update => update.parentId!);
+      
+      if (parentIds.length > 0) {
+        const parents = await Promise.all(
+          parentIds.map(id => ctx.db.get(id))
+        );
+        
+        for (let i = 0; i < parents.length; i++) {
+          const parent = parents[i];
+          const parentId = parentIds[i];
+          
           if (!parent || !parent.isFolder || parent.ownerId !== userId) {
-            throw new ConvexError(`Parent folder ${update.parentId} not found or not a folder`);
+            throw new ConvexError(`Parent folder ${parentId} not found or not a folder`);
           }
         }
       }
       
-      // Second pass: Apply all updates atomically
-      for (const update of updates) {
-        await ctx.db.patch(update.id, {
-          parentId: update.parentId,
-          order: update.order,
-          updatedAt: Date.now(),
-        });
+      // Second pass: Apply all updates in parallel batches
+      const batchSize = 10;
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, i + batchSize);
+        
+        await Promise.all(
+          batch.map(update => 
+            ctx.db.patch(update.id, {
+              parentId: update.parentId,
+              order: update.order,
+              updatedAt: Date.now(),
+            })
+          )
+        );
       }
       
     } catch (error) {
       // Rollback: Restore all documents to their original states
       logger.error("Error in updateStructure, rolling back changes:", error);
       
-      const rollbackPromises = [];
-      for (const [documentId, originalState] of originalStates) {
-        const rollbackPromise = ctx.db.patch(documentId as Id<"documents">, {
-          parentId: originalState.parentId,
-          order: originalState.order,
-          updatedAt: Date.now(),
-        }).catch(rollbackError => {
-          // Log rollback errors but don't throw to avoid masking the original error
-          logger.error(`Failed to rollback document ${documentId}:`, rollbackError);
-        });
-        rollbackPromises.push(rollbackPromise);
+      // Rollback in batches to avoid overwhelming the database
+      const rollbackBatches = [];
+      const rollbackEntries = Array.from(originalStates.entries());
+      
+      for (let i = 0; i < rollbackEntries.length; i += 10) {
+        const batch = rollbackEntries.slice(i, i + 10);
+        
+        const rollbackPromise = Promise.all(
+          batch.map(([documentId, originalState]) => 
+            ctx.db.patch(documentId as Id<"documents">, {
+              parentId: originalState.parentId,
+              order: originalState.order,
+              updatedAt: Date.now(),
+            }).catch(rollbackError => {
+              logger.error(`Failed to rollback document ${documentId}:`, rollbackError);
+            })
+          )
+        );
+        
+        rollbackBatches.push(rollbackPromise);
       }
       
       // Wait for all rollback operations to complete
-      await Promise.all(rollbackPromises);
+      await Promise.all(rollbackBatches);
       
       // Re-throw the original error to maintain consistency
       throw error instanceof ConvexError ? error : new ConvexError(`Structure update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -549,22 +624,30 @@ export const createSharedDocument = mutation({
       return existingSharedDoc;
     }
     
-    // Generate unique URL with retry limit to prevent infinite loops
+    // Optimized unique URL generation with better collision handling
     const generateUniqueUrl = async (): Promise<string> => {
-      const maxRetries = 10;
+      const maxRetries = 5; // Reduced retries as collisions are extremely rare
       let retryCount = 0;
       
       while (retryCount < maxRetries) {
         // Generate secure 12-character URL using nanoid
         const url = nanoid(12);
+        
+        // Check for existing URL - this is extremely rare with 12-char nanoid
         const existing = await ctx.db
           .query("sharedDocuments")
           .withIndex("by_url", (q) => q.eq("url", url))
           .first();
-        if (!existing) return url;
+          
+        if (!existing) {
+          return url;
+        }
         
         retryCount++;
-        logger.warn(`URL collision detected, retry ${retryCount}/${maxRetries}`);
+        logger.warn(`URL collision detected (extremely rare), retry ${retryCount}/${maxRetries}`);
+        
+        // Add small delay to prevent tight retry loops
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
       
       // If we still can't generate a unique URL after max retries, throw error

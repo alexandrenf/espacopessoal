@@ -21,12 +21,10 @@ import {
   AlertCircle,
   File,
   FilePlus,
-  FilePen,
   FileText,
   FileJson,
   Globe,
   Printer,
-  Trash,
   Undo2,
   Redo2,
   Bold,
@@ -35,7 +33,6 @@ import {
   Strikethrough,
   Text,
   RemoveFormatting,
-  Menu,
   PanelLeft,
   Sparkles,
   Replace,
@@ -113,9 +110,7 @@ interface EditorProps {
 export function DocumentEditor({ document: initialDocument, initialContent, isReadOnly }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  const mutation = useMutation(api.documents.updateById);
   const updateDocument = useMutation(api.documents.updateById);
-  const create = useMutation(api.documents.create);
   
   // New state management for document switching
   const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(initialDocument._id);
@@ -150,7 +145,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const [showSidebar, setShowSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isSpellCheckOpen, setIsSpellCheckOpen] = useState(false);
   const [showSpellCheck, setShowSpellCheck] = useState(false);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
     word: string;
@@ -161,7 +155,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const editorStore = useEditorStore();
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const undoManagerRef = useRef<UndoManager | null>(null);
@@ -590,62 +583,64 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
     
     // Debounce rapid switches with longer delay for stability
-    switchTimeoutRef.current = setTimeout(async () => {
-      isSwitchingRef.current = true;
-      setIsLoadingDocument(true);
-      setDocumentError(null);
-      
-      console.log('🔄 Starting document switch from:', currentDocumentId, 'to:', newDocumentId);
-      
-      try {
-        // Step 1: Clean up current editor state
-        if (editor) {
-          console.log('🔄 Clearing editor content for clean switch');
-          editor.commands.clearContent();
-        }
+    switchTimeoutRef.current = setTimeout(() => {
+      void (async () => {
+        isSwitchingRef.current = true;
+        setIsLoadingDocument(true);
+        setDocumentError(null);
         
-        // Step 2: Clean up current provider connection immediately
-        if (providerRef.current) {
-          console.log('🔄 Disconnecting current provider:', providerRef.current.configuration.name);
-          await new Promise<void>((resolve) => {
-            const currentProvider = providerRef.current;
-            if (currentProvider) {
-              currentProvider.disconnect();
-              // Wait for disconnect to complete
-              setTimeout(() => {
-                currentProvider.destroy();
+        console.log('🔄 Starting document switch from:', currentDocumentId, 'to:', newDocumentId);
+        
+        try {
+          // Step 1: Clean up current editor state
+          if (editor) {
+            console.log('🔄 Clearing editor content for clean switch');
+            editor.commands.clearContent();
+          }
+          
+          // Step 2: Clean up current provider connection immediately
+          if (providerRef.current) {
+            console.log('🔄 Disconnecting current provider:', providerRef.current.configuration.name);
+            await new Promise<void>((resolve) => {
+              const currentProvider = providerRef.current;
+              if (currentProvider) {
+                currentProvider.disconnect();
+                // Wait for disconnect to complete
+                setTimeout(() => {
+                  currentProvider.destroy();
+                  resolve();
+                }, 100);
+              } else {
                 resolve();
-              }, 100);
-            } else {
-              resolve();
-            }
-          });
-          providerRef.current = null;
+              }
+            });
+            providerRef.current = null;
+          }
+          
+          // Step 3: Reset Y.js document ready state
+          setIsYdocReady(false);
+          setIsPersistenceReady(false);
+          
+          // Step 4: Update the document ID state - this will trigger the useEffect to handle Y.js document switching
+          setCurrentDocumentId(newDocumentId);
+          
+          // Step 5: Update browser URL without causing navigation
+          const newUrl = `/documents/${newDocumentId}`;
+          window.history.pushState({ documentId: newDocumentId }, '', newUrl);
+          
+          console.log('🔄 Document switch state updated, waiting for Y.js connection...');
+          
+        } catch (error) {
+          console.error('🔄 Error during document switch:', error);
+          const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
+          setDocumentError(errorMessage);
+          toast.error(errorMessage);
+          
+          // Reset switching state on error
+          isSwitchingRef.current = false;
+          setIsLoadingDocument(false);
         }
-        
-        // Step 3: Reset Y.js document ready state
-        setIsYdocReady(false);
-        setIsPersistenceReady(false);
-        
-        // Step 4: Update the document ID state - this will trigger the useEffect to handle Y.js document switching
-        setCurrentDocumentId(newDocumentId);
-        
-        // Step 5: Update browser URL without causing navigation
-        const newUrl = `/documents/${newDocumentId}`;
-        window.history.pushState({ documentId: newDocumentId }, '', newUrl);
-        
-        console.log('🔄 Document switch state updated, waiting for Y.js connection...');
-        
-      } catch (error) {
-        console.error('🔄 Error during document switch:', error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
-        setDocumentError(errorMessage);
-        toast.error(errorMessage);
-        
-        // Reset switching state on error
-        isSwitchingRef.current = false;
-        setIsLoadingDocument(false);
-      }
+      })();
     }, 200); // Debounce time for stability
   }, [currentDocumentId, editor]);
 

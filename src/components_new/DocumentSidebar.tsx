@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, memo, useRef } from "react";
+import React, { useMemo, useState, useEffect, memo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -72,10 +72,10 @@ const DocumentSidebar = memo(({
     }
   }, [isUserLoading, userIdString]);
   
-  // Convex queries and mutations
+  // Optimized Convex queries with fallback
   const documents = useQuery(
-    api.documents.getAllForTree, 
-    !isUserLoading && userIdString ? { userId: userIdString } : "skip"
+    api.documents.getAllForTreeLegacy, 
+    !isUserLoading && userIdString ? { userId: userIdString, limit: 200 } : "skip"
   ) ?? [];
   const createDocument = useMutation(api.documents.create);
   const deleteDocument = useMutation(api.documents.removeById);
@@ -158,46 +158,74 @@ const DocumentSidebar = memo(({
     }
   };
 
-  // Convert documents to rc-tree format
+  // Optimized tree data conversion with better performance
   const treeData = useMemo(() => {
-    const makeTreeNode = (document: DocumentWithTreeProps, level = 0): CustomDataNode => ({
-      key: document._id.toString(),
-      title: document.isFolder ? (
-        <FolderItem
-          folder={document}
-          isActive={currentDocument?._id === document._id}
-          onDelete={handleDeleteDocument}
-          onClick={() => !document.isFolder && setCurrentDocumentId(document._id)}
-          expanded={expandedKeys.includes(document._id.toString())}
-          onExpand={handleExpand}
-          eventKey={document._id.toString()}
-        />
-      ) : (
-        <DocumentItem
-          document={document}
-          currentDocumentId={currentDocument?._id}
-          onDelete={handleDeleteDocument}
-          isDeletingId={isDeletingId}
-          onSelect={() => setCurrentDocumentId(document._id)}
-          selected={currentDocument?._id === document._id}
-          isNested={level > 0}
-        />
-      ),
-      children: document.isFolder
-        ? documents
-            .filter((d: DocumentWithTreeProps) => d.parentId === document._id)
-            .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order)
-            .map((d: DocumentWithTreeProps) => makeTreeNode(d, level + 1))
-        : undefined,
-      isLeaf: !document.isFolder,
-      level,
+    if (!documents.length) return [];
+    
+    // Pre-build maps for O(1) lookups instead of O(n) filters
+    const documentMap = new Map<string, DocumentWithTreeProps>();
+    const childrenMap = new Map<string, DocumentWithTreeProps[]>();
+    const rootDocuments: DocumentWithTreeProps[] = [];
+    
+    // First pass: build maps
+    documents.forEach((doc: DocumentWithTreeProps) => {
+      documentMap.set(doc._id, doc);
+      
+      if (doc.parentId) {
+        const parentId = doc.parentId.toString();
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, []);
+        }
+        childrenMap.get(parentId)!.push(doc);
+      } else {
+        rootDocuments.push(doc);
+      }
     });
+    
+    // Sort children once for each parent
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => a.order - b.order);
+    });
+    
+    // Sort root documents
+    rootDocuments.sort((a, b) => a.order - b.order);
+    
+    const makeTreeNode = (document: DocumentWithTreeProps, level = 0): CustomDataNode => {
+      const children = childrenMap.get(document._id) || [];
+      
+      return {
+        key: document._id.toString(),
+        title: document.isFolder ? (
+          <FolderItem
+            folder={document}
+            isActive={currentDocument?._id === document._id}
+            onDelete={handleDeleteDocument}
+            onClick={() => !document.isFolder && setCurrentDocumentId(document._id)}
+            expanded={expandedKeys.includes(document._id.toString())}
+            onExpand={handleExpand}
+            eventKey={document._id.toString()}
+          />
+        ) : (
+          <DocumentItem
+            document={document}
+            currentDocumentId={currentDocument?._id}
+            onDelete={handleDeleteDocument}
+            isDeletingId={isDeletingId}
+            onSelect={() => setCurrentDocumentId(document._id)}
+            selected={currentDocument?._id === document._id}
+            isNested={level > 0}
+          />
+        ),
+        children: document.isFolder
+          ? children.map((d: DocumentWithTreeProps) => makeTreeNode(d, level + 1))
+          : undefined,
+        isLeaf: !document.isFolder,
+        level,
+      };
+    };
 
-    return documents
-      .filter((document: DocumentWithTreeProps) => document.parentId === undefined)
-      .sort((a: DocumentWithTreeProps, b: DocumentWithTreeProps) => a.order - b.order)
-      .map((document: DocumentWithTreeProps) => makeTreeNode(document, 0));
-  }, [documents, currentDocument?._id, isDeletingId, expandedKeys]);
+    return rootDocuments.map((document: DocumentWithTreeProps) => makeTreeNode(document, 0));
+  }, [documents, currentDocument?._id, isDeletingId, expandedKeys, handleDeleteDocument, setCurrentDocumentId, handleExpand]);
 
   const handleNewDocument = async (eventOrRetryCount?: React.MouseEvent | number) => {
     const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
@@ -373,40 +401,51 @@ const DocumentSidebar = memo(({
     });
   };
 
-  // Helper function to update orders in source folder after removing a document
-  const updateOrdersInSourceFolder = (
+  // Optimized helper functions with reduced array iterations
+  const updateOrdersInSourceFolder = useCallback((
     documents: DocumentWithTreeProps[],
     sourceParentId: Id<"documents"> | undefined,
     sourceOrder: number
   ): DocumentWithTreeProps[] => {
-    return documents.map((doc: DocumentWithTreeProps) => {
+    // Use a more efficient approach - only update affected documents
+    const updated = new Map<string, DocumentWithTreeProps>();
+    
+    documents.forEach((doc: DocumentWithTreeProps) => {
       if (doc.parentId === sourceParentId && doc.order > sourceOrder) {
-        return {
+        updated.set(doc._id, {
           ...doc,
           order: doc.order - 1
-        };
+        });
       }
-      return doc;
     });
-  };
+    
+    return documents.map((doc: DocumentWithTreeProps) => 
+      updated.get(doc._id) || doc
+    );
+  }, []);
 
-  // Helper function to update orders in target folder after insertion
-  const updateOrdersInTargetFolder = (
+  const updateOrdersInTargetFolder = useCallback((
     documents: DocumentWithTreeProps[],
     targetParentId: Id<"documents"> | undefined,
     targetIndex: number,
     dragDocumentId: Id<"documents">
   ): DocumentWithTreeProps[] => {
-    return documents.map((doc: DocumentWithTreeProps) => {
+    // Use a more efficient approach - only update affected documents
+    const updated = new Map<string, DocumentWithTreeProps>();
+    
+    documents.forEach((doc: DocumentWithTreeProps) => {
       if (doc.parentId === targetParentId && doc._id !== dragDocumentId && doc.order >= targetIndex) {
-        return {
+        updated.set(doc._id, {
           ...doc,
           order: doc.order + 1
-        };
+        });
       }
-      return doc;
     });
-  };
+    
+    return documents.map((doc: DocumentWithTreeProps) => 
+      updated.get(doc._id) || doc
+    );
+  }, []);
 
   // Helper function to handle dropping into a folder
   const handleDropIntoFolder = (
