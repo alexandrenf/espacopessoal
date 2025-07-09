@@ -3,7 +3,7 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
@@ -88,6 +88,7 @@ import { ShareModal } from "./ShareModal";
 import { useEditorStore } from "../store/use-editor-store";
 import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../constants/margins";
 import { useConvexUser } from "../hooks/use-convex-user";
+import { debounce } from 'lodash';
 
 type Document = {
   _id: Id<"documents">;
@@ -173,19 +174,41 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const MAX_CACHED_DOCUMENTS = 5;
   const documentAccessOrder = useRef<string[]>([]);
   
-  // Helper function to clean up least recently used documents
+  // Enhanced cleanup function with memory leak prevention
   const cleanupOldDocuments = useCallback(() => {
     if (documentInstances.current.size > MAX_CACHED_DOCUMENTS) {
-      // Remove least recently used documents
+      // Remove least recently used documents with proper error handling
       while (documentInstances.current.size > MAX_CACHED_DOCUMENTS && documentAccessOrder.current.length > 0) {
         const oldestDocId = documentAccessOrder.current.shift();
         if (oldestDocId && oldestDocId !== currentDocumentId) {
           const oldDoc = documentInstances.current.get(oldestDocId);
           if (oldDoc) {
-            console.log('🧹 Cleaning up old Y.js document:', oldestDocId);
-            oldDoc.destroy();
-            documentInstances.current.delete(oldestDocId);
+            try {
+              console.log('🧹 Cleaning up old Y.js document:', oldestDocId);
+              oldDoc.destroy();
+              documentInstances.current.delete(oldestDocId);
+            } catch (error) {
+              console.error(`Error cleaning up document ${oldestDocId}:`, error);
+              // Force removal even if destroy fails
+              documentInstances.current.delete(oldestDocId);
+            }
           }
+        }
+      }
+    }
+    
+    // Additional cleanup: remove any orphaned entries
+    for (const [docId, doc] of documentInstances.current.entries()) {
+      if (docId !== currentDocumentId) {
+        try {
+          // Check if document is still valid
+          if (!doc || typeof doc.destroy !== 'function') {
+            console.log('🧹 Removing invalid document instance:', docId);
+            documentInstances.current.delete(docId);
+          }
+        } catch (error) {
+          console.error(`Error checking document ${docId}:`, error);
+          documentInstances.current.delete(docId);
         }
       }
     }
@@ -230,31 +253,56 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // Browser navigation handling moved after handleDocumentSwitch declaration to fix dependency order
 
-  // Set mounted state to handle router mounting
+  // Set mounted state to handle router mounting with comprehensive cleanup
   useEffect(() => {
     setIsMounted(true);
     
-    // Component cleanup on unmount
+    // Component cleanup on unmount - enhanced memory management
     return () => {
       console.log('🧹 Component unmounting, cleaning up Y.js documents and connections');
       
-      // Clear any pending switch timeout
+      // Clear all timeouts to prevent memory leaks
       if (switchTimeoutRef.current) {
         clearTimeout(switchTimeoutRef.current);
         switchTimeoutRef.current = null;
       }
       
-      setUndoManager(null);
-      if (providerRef.current) {
-        providerRef.current.destroy();
+      if (suggestionTimeoutRef.current) {
+        clearTimeout(suggestionTimeoutRef.current);
+        suggestionTimeoutRef.current = null;
       }
       
-      // Clean up all document instances
+      // Clean up editor state
+      setUndoManager(null);
+      setEditor(null);
+      
+      // Destroy WebSocket provider with proper cleanup
+      if (providerRef.current) {
+        try {
+          providerRef.current.disconnect();
+          providerRef.current.destroy();
+        } catch (error) {
+          console.error('Error destroying provider:', error);
+        }
+        providerRef.current = null;
+      }
+      
+      // Clean up all document instances with error handling
       for (const [docId, ydoc] of documentInstances.current.entries()) {
-        console.log('🧹 Destroying Y.js document for:', docId);
-        ydoc.destroy();
+        try {
+          console.log('🧹 Destroying Y.js document for:', docId);
+          ydoc.destroy();
+        } catch (error) {
+          console.error(`Error destroying Y.js document ${docId}:`, error);
+        }
       }
       documentInstances.current.clear();
+      documentAccessOrder.current = [];
+      
+      // Reset all state to prevent memory leaks
+      setIsYdocReady(false);
+      setIsPersistenceReady(false);
+      setStatus('disconnected');
     };
   }, []);
 
@@ -328,8 +376,8 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
   };
 
-  // Create base extensions that don't require Y.js
-  const baseExtensions = [
+  // Memoize base extensions to prevent recreation on every render
+  const baseExtensions = useMemo(() => [
     StarterKit.configure({
       history: false,
       heading: false,
@@ -451,7 +499,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }),
     FontSizeExtension,
     LineHeightExtension,
-  ];
+  ], []); // Empty dependency array since these are static configurations
 
   // Enhanced WebSocket and Y.js integration - always create editor with basic extensions
   const editor = useEditor({
@@ -494,7 +542,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10 cursor-text`,
       },
     },
-    extensions: [
+    extensions: useMemo(() => [
       ...baseExtensions,
       // Only add Collaboration when Y.js document is ready
       ...(isYdocReady && ydocRef.current ? [
@@ -502,7 +550,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
           document: ydocRef.current,
         }),
       ] : []),
-    ],
+    ], [baseExtensions, isYdocReady, ydocRef.current]),
   }, [isYdocReady, leftMargin, rightMargin, isReadOnly, currentDocumentId]);
 
   // Functions that use editor - must be defined after editor is declared
@@ -862,22 +910,43 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     };
   }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument, handleDocumentSwitch]);
 
+  // Optimized content setting with debounced retries and proper cleanup
+  const debouncedSetContent = useCallback(
+    debounce((content: string, retryCount = 0) => {
+      if (!editor || !editor.isEditable || retryCount >= 5) {
+        if (retryCount >= 5) {
+          console.warn('Content setting failed after maximum retries for document:', currentDocumentId);
+        }
+        return;
+      }
+      
+      try {
+        if (editor.isEmpty) {
+          console.log('📄 Setting initial content for:', currentDocumentId);
+          editor.commands.clearContent();
+          editor.commands.setContent(content);
+          editor.commands.focus('start');
+        } else {
+          // Retry with exponential backoff
+          setTimeout(() => {
+            debouncedSetContent(content, retryCount + 1);
+          }, Math.min(100 * (retryCount + 1), 1000));
+        }
+      } catch (error) {
+        console.error('Error setting content:', error);
+      }
+    }, 100),
+    [editor, currentDocumentId]
+  );
+
   // Enhanced content setting logic with proper synchronization
   useEffect(() => {
     if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) {
-      console.log('📄 Content setting prerequisites not met:', {
-        editor: !!editor,
-        isYdocReady,
-        ydocRef: !!ydocRef.current,
-        isPersistenceReady,
-        currentDocumentId
-      });
       return;
     }
     
     const contentToSet = doc.initialContent ?? initialContent;
     if (!contentToSet) {
-      console.log('📄 No initial content to set for document:', currentDocumentId);
       return;
     }
 
@@ -890,50 +959,14 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       return;
     }
 
-    // Use editor state to determine when it's truly ready
-    const checkEditorReady = () => {
-      if (editor.isEmpty && editor.isEditable) {
-        console.log('📄 Setting initial content from database for:', currentDocumentId, '(', contentToSet.substring(0, 100) + '...', ')');
-        
-        // Clear any existing content first
-        editor.commands.clearContent();
-        
-        // Set the new content
-        editor.commands.setContent(contentToSet);
-        
-        // Force a transaction to ensure the content is properly set
-        editor.commands.focus('start');
-        
-        return true;
-      }
-      return false;
-    };
+    // Use debounced content setting to prevent excessive retries
+    debouncedSetContent(contentToSet);
     
-    // Try immediately with a small delay to ensure editor is fully ready
-    setTimeout(() => {
-      if (!checkEditorReady()) {
-        let retryCount = 0;
-        const maxRetries = 10; // Reduced to prevent excessive retries
-        
-        const trySetContent = () => {
-          if (retryCount >= maxRetries) {
-            console.warn('Editor content setting failed after maximum retries for document:', currentDocumentId);
-            return;
-          }
-          
-          retryCount++;
-          if (!checkEditorReady()) {
-            // Use exponential backoff for retries
-            setTimeout(() => {
-              trySetContent();
-            }, Math.min(100 * retryCount, 1000));
-          }
-        };
-        
-        trySetContent();
-      }
-    }, 50); // Small delay to ensure editor is fully initialized
-  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent, currentDocumentId]);
+    // Cleanup function to cancel pending debounced calls
+    return () => {
+      debouncedSetContent.cancel();
+    };
+  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent, currentDocumentId, debouncedSetContent]);
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {
