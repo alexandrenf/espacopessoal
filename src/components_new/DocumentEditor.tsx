@@ -121,6 +121,11 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
   
+  // Add refs to track switching state and prevent race conditions
+  const isSwitchingRef = useRef(false);
+  const pendingDocumentIdRef = useRef<Id<"documents"> | null>(null);
+  const switchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Get authenticated user with proper error handling
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId;
@@ -163,6 +168,28 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
   const documentInstances = useRef<Map<string, Y.Doc>>(new Map());
   
+  // Add a limit to cached documents to prevent memory leaks
+  const MAX_CACHED_DOCUMENTS = 5;
+  const documentAccessOrder = useRef<string[]>([]);
+  
+  // Helper function to clean up least recently used documents
+  const cleanupOldDocuments = useCallback(() => {
+    if (documentInstances.current.size > MAX_CACHED_DOCUMENTS) {
+      // Remove least recently used documents
+      while (documentInstances.current.size > MAX_CACHED_DOCUMENTS && documentAccessOrder.current.length > 0) {
+        const oldestDocId = documentAccessOrder.current.shift();
+        if (oldestDocId && oldestDocId !== currentDocumentId) {
+          const oldDoc = documentInstances.current.get(oldestDocId);
+          if (oldDoc) {
+            console.log('🧹 Cleaning up old Y.js document:', oldestDocId);
+            oldDoc.destroy();
+            documentInstances.current.delete(oldestDocId);
+          }
+        }
+      }
+    }
+  }, [currentDocumentId]);
+  
   // Use Convex API for dictionary functionality with real user authentication
   const dictionary = useQuery(
     api.dictionary.getDictionary, 
@@ -182,33 +209,25 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       setDocumentError("Document not found");
       toast.error("Document not found. Switching back to original document.");
       setCurrentDocumentId(initialDocument._id);
+    } else if (currentDocument && isLoadingDocument) {
+      // Document loaded successfully
+      setIsLoadingDocument(false);
+      setDocumentError(null);
+      toast.success("Document loaded successfully");
     }
-  }, [currentDocument, currentDocumentId, initialDocument._id]);
+  }, [currentDocument, currentDocumentId, initialDocument._id, isLoadingDocument]);
 
   // Update URL when document changes without navigation
   useEffect(() => {
-    if (currentDocumentId !== initialDocument._id && isMounted) {
-      const newUrl = `/documents/${currentDocumentId}`;
-      window.history.pushState({ documentId: currentDocumentId }, '', newUrl);
-    }
+    // URL update is now handled in handleDocumentSwitch to prevent race conditions
+    // if (currentDocumentId !== initialDocument._id && isMounted) {
+    //   const newUrl = `/documents/${currentDocumentId}`;
+    //   window.history.pushState({ documentId: currentDocumentId }, '', newUrl);
+    // }
     currentDocumentIdRef.current = currentDocumentId;
   }, [currentDocumentId, initialDocument._id, isMounted]);
 
-  // Handle browser back/forward navigation
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state && typeof event.state === 'object' && 'documentId' in event.state) {
-        const state = event.state as { documentId: unknown };
-        const documentId = state.documentId;
-        if (typeof documentId === 'string') {
-          setCurrentDocumentId(documentId as Id<"documents">);
-        }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  // Browser navigation handling moved after handleDocumentSwitch declaration to fix dependency order
 
   // Set mounted state to handle router mounting
   useEffect(() => {
@@ -217,6 +236,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     // Component cleanup on unmount
     return () => {
       console.log('🧹 Component unmounting, cleaning up Y.js documents and connections');
+      
+      // Clear any pending switch timeout
+      if (switchTimeoutRef.current) {
+        clearTimeout(switchTimeoutRef.current);
+        switchTimeoutRef.current = null;
+      }
       
       setUndoManager(null);
       if (providerRef.current) {
@@ -492,28 +517,91 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // Efficient document switching function
   const handleDocumentSwitch = useCallback(async (newDocumentId: Id<"documents">) => {
+    // Prevent switching to the same document
     if (newDocumentId === currentDocumentId) return;
     
-    setIsLoadingDocument(true);
-    setDocumentError(null);
-    
-    try {
-      // Update the document ID state - this will trigger the useEffect to handle Y.js document switching
-      setCurrentDocumentId(newDocumentId);
-      
-      toast.success("Document switched successfully");
-    } catch (error) {
-      console.error('Error switching document:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
-      setDocumentError(errorMessage);
-      toast.error(errorMessage);
-      
-      // Revert to previous document on error
-      setCurrentDocumentId(currentDocumentId);
-    } finally {
-      setIsLoadingDocument(false);
+    // Prevent multiple simultaneous switches
+    if (isSwitchingRef.current) {
+      // Queue the switch for later
+      pendingDocumentIdRef.current = newDocumentId;
+      return;
     }
+    
+    // Clear any pending switch timeout
+    if (switchTimeoutRef.current) {
+      clearTimeout(switchTimeoutRef.current);
+      switchTimeoutRef.current = null;
+    }
+    
+    // Debounce rapid switches
+    switchTimeoutRef.current = setTimeout(() => {
+      isSwitchingRef.current = true;
+      setIsLoadingDocument(true);
+      setDocumentError(null);
+      
+      try {
+        // Update the document ID state - this will trigger the useEffect to handle Y.js document switching
+        setCurrentDocumentId(newDocumentId);
+        
+        // Update browser URL without causing navigation
+        const newUrl = `/documents/${newDocumentId}`;
+        window.history.pushState({ documentId: newDocumentId }, '', newUrl);
+        
+        // Success message will show after document loads successfully
+      } catch (error) {
+        console.error('Error switching document:', error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
+        setDocumentError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setIsLoadingDocument(false);
+        isSwitchingRef.current = false;
+        
+        // Check if there's a pending switch
+        if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
+          const pendingId = pendingDocumentIdRef.current;
+          pendingDocumentIdRef.current = null;
+          // Execute the pending switch
+          void handleDocumentSwitch(pendingId);
+        }
+      }
+    }, 100); // 100ms debounce
   }, [currentDocumentId]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && typeof event.state === 'object' && 'documentId' in event.state) {
+        const state = event.state as { documentId: unknown };
+        const documentId = state.documentId;
+        if (typeof documentId === 'string' && documentId !== currentDocumentId) {
+          // Use the document switch handler to properly switch documents
+          void handleDocumentSwitch(documentId as Id<"documents">);
+        }
+      } else if (!event.state && window.location.pathname.startsWith('/documents/')) {
+        // Handle direct URL navigation
+        const pathParts = window.location.pathname.split('/');
+        const docIdFromUrl = pathParts[pathParts.length - 1];
+        if (docIdFromUrl && docIdFromUrl !== currentDocumentId) {
+          void handleDocumentSwitch(docIdFromUrl as Id<"documents">);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Handle initial page load with document ID in URL
+    if (isMounted && window.location.pathname.startsWith('/documents/')) {
+      const pathParts = window.location.pathname.split('/');
+      const docIdFromUrl = pathParts[pathParts.length - 1];
+      if (docIdFromUrl && docIdFromUrl !== currentDocumentId && docIdFromUrl !== initialDocument._id) {
+        // Set initial state for browser history
+        window.history.replaceState({ documentId: docIdFromUrl }, '', window.location.pathname);
+      }
+    }
+    
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentDocumentId, handleDocumentSwitch, isMounted, initialDocument._id]);
 
   const acceptReplacement = useCallback(() => {
     if (!editor || !replacementSuggestion) return;
@@ -576,8 +664,18 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     if (!ydoc) {
       ydoc = new Y.Doc();
       documentInstances.current.set(docName, ydoc);
+      documentAccessOrder.current.push(docName);
       console.log('📄 Y.js document created for:', docName);
+      
+      // Clean up old documents after creating a new one
+      cleanupOldDocuments();
     } else {
+      // Move to the end of the access order (most recently used)
+      const index = documentAccessOrder.current.indexOf(docName);
+      if (index > -1) {
+        documentAccessOrder.current.splice(index, 1);
+      }
+      documentAccessOrder.current.push(docName);
       console.log('📄 Y.js document reused for:', docName);
     }
     
@@ -585,7 +683,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     
     // Clean up previous provider only
     if (providerRef.current) {
+      console.log('🔌 Disconnecting previous WebSocket provider');
       providerRef.current.destroy();
+      providerRef.current = null;
     }
     
     // Ensure WebSocket URL is properly configured - no fallback for production safety
@@ -632,10 +732,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         : 'disconnected';
       setStatus(statusValue);
       
-      if (event.status === 'connected') {
+      if (event.status === 'connected' && isLoadingDocument) {
+        // Only show success message if we're actively switching documents
         toast.success("Connected to real-time collaboration");
-      } else if (event.status === 'disconnected') {
-        toast.error("Disconnected from collaboration server");
       }
     });
 
@@ -648,13 +747,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       console.log('❌ WebSocket disconnected:', event.code, event.reason);
       setStatus('disconnected');
       
-      // Provide more specific error messages based on close codes
+      // Only show error for unexpected disconnections
       if (event.code === 1006) {
-        toast.error("Connection lost unexpectedly. Attempting to reconnect...");
-      } else if (event.code === 1000) {
-        // Normal closure, don't show error
-      } else {
-        toast.error("Connection closed. Attempting to reconnect...");
+        console.log("Connection lost, provider will attempt to reconnect automatically");
       }
     });
 
@@ -666,20 +761,44 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     newProvider.on('error', (error: Error) => {
       console.error('💥 WebSocket error occurred:', error);
       setStatus('error');
-      toast.error("Connection error occurred. Please check your internet connection.");
+      // Don't show error toast for every error, let the status indicator handle it
+    });
+
+    // Add reconnection handler
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    
+    newProvider.on('reconnect', () => {
+      reconnectAttempts++;
+      console.log(`🔄 Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
+      
+      if (reconnectAttempts === maxReconnectAttempts) {
+        toast.error("Unable to establish connection. Please check your internet connection and refresh the page.");
+      }
+    });
+    
+    newProvider.on('reconnected', () => {
+      reconnectAttempts = 0;
+      console.log('🔄 Reconnected successfully!');
+      toast.success("Reconnected to collaboration server");
     });
 
     setIsYdocReady(true);
 
     return () => {
-      console.log('🧹 Cleaning up provider connection');
+      console.log('🧹 Cleaning up provider connection for document:', docName);
       
-      if (newProvider) {
-        newProvider.destroy();
+      // Don't destroy the provider immediately if we're switching documents
+      // This prevents connection flashing
+      if (providerRef.current && currentDocumentIdRef.current !== docName) {
+        setTimeout(() => {
+          if (providerRef.current && currentDocumentIdRef.current !== docName) {
+            providerRef.current.destroy();
+          }
+        }, 100);
       }
-      // Don't destroy the Y.js document here - it should persist
     };
-  }, [currentDocumentId]);
+  }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument]);
 
   // Separate useEffect to handle initial content setting when editor becomes ready
   useEffect(() => {

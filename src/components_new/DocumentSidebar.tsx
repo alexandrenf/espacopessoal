@@ -59,6 +59,19 @@ const DocumentSidebar = memo(({
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId ? String(convexUserId) : null;
   
+  // Track if we've shown the authentication error to prevent spamming
+  const hasShownAuthErrorRef = useRef(false);
+  
+  // Show authentication error only once when user is not authenticated after loading
+  useEffect(() => {
+    if (!isUserLoading && !userIdString && !hasShownAuthErrorRef.current) {
+      hasShownAuthErrorRef.current = true;
+      toast.error("Please sign in to manage documents");
+    } else if (userIdString) {
+      hasShownAuthErrorRef.current = false; // Reset when user signs in
+    }
+  }, [isUserLoading, userIdString]);
+  
   // Convex queries and mutations
   const documents = useQuery(
     api.documents.getAllForTree, 
@@ -72,6 +85,16 @@ const DocumentSidebar = memo(({
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<Id<"documents">>();
+  
+  // Add state to track the last selected document to prevent duplicate selections
+  const lastSelectedIdRef = useRef<Id<"documents"> | undefined>(currentDocument?._id);
+
+  // Update last selected when current document changes
+  useEffect(() => {
+    if (currentDocument?._id) {
+      lastSelectedIdRef.current = currentDocument._id;
+    }
+  }, [currentDocument?._id]);
 
   // Add effect to expand parent folder when a document is selected
   useEffect(() => {
@@ -80,12 +103,19 @@ const DocumentSidebar = memo(({
       setExpandedKeys(prevKeys => {
         const parentKey = parentId.toString();
         if (!prevKeys.includes(parentKey)) {
-          return [...prevKeys, parentKey];
+          // Also expand all ancestor folders
+          const ancestors: string[] = [parentKey];
+          let currentParent = documents.find(d => d._id === parentId);
+          while (currentParent?.parentId) {
+            ancestors.push(currentParent.parentId.toString());
+            currentParent = documents.find(d => d._id === currentParent?.parentId);
+          }
+          return [...prevKeys, ...ancestors];
         }
         return prevKeys;
       });
     }
-  }, [currentDocument?.parentId]);
+  }, [currentDocument?.parentId, documents]);
 
     const handleExpand = (e: React.MouseEvent, node: EventDataNode<unknown>) => {
     const key = node.key as string;
@@ -171,14 +201,27 @@ const DocumentSidebar = memo(({
 
   const handleNewDocument = async (eventOrRetryCount?: React.MouseEvent | number) => {
     const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
+    
+    // Check authentication state first
+    if (isUserLoading) {
+      toast.info("Please wait for authentication to complete...");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("Please sign in to create documents");
+      return;
+    }
+    
+    // Prevent multiple simultaneous creates
+    if (isCreating) {
+      return;
+    }
+    
     setIsCreating(true);
     try {
       if (process.env.NODE_ENV === 'development') {
         console.log('Creating document with userId:', userIdString);
-      }
-      
-      if (!userIdString) {
-        throw new Error("User authentication required to create documents");
       }
       
       const documentId = await createDocument({
@@ -237,12 +280,25 @@ const DocumentSidebar = memo(({
 
   const handleNewFolder = async (eventOrRetryCount?: React.MouseEvent | number) => {
     const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
+    
+    // Check authentication state first
+    if (isUserLoading) {
+      toast.info("Please wait for authentication to complete...");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("Please sign in to create folders");
+      return;
+    }
+    
+    // Prevent multiple simultaneous creates
+    if (isCreating) {
+      return;
+    }
+    
     setIsCreating(true);
     try {
-      if (!userIdString) {
-        throw new Error("User authentication required to create folders");
-      }
-      
       const folderId = await createDocument({
         title: "New Folder",
         userId: userIdString,
@@ -559,9 +615,13 @@ const DocumentSidebar = memo(({
               if (selectedKey) {
                 const selectedDoc = documents.find(d => d._id.toString() === selectedKey);
                 if (selectedDoc && !selectedDoc.isFolder) {
-                  setCurrentDocumentId(selectedDoc._id);
-                  if (isMobile && onToggleSidebar) {
-                    onToggleSidebar();
+                  // Prevent duplicate selections
+                  if (selectedDoc._id !== lastSelectedIdRef.current) {
+                    lastSelectedIdRef.current = selectedDoc._id;
+                    setCurrentDocumentId(selectedDoc._id);
+                    if (isMobile && onToggleSidebar) {
+                      onToggleSidebar();
+                    }
                   }
                 }
               }
@@ -574,6 +634,9 @@ const DocumentSidebar = memo(({
             className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
             defaultExpandAll={false}
             defaultExpandedKeys={[]}
+            // Add these props for better selection behavior
+            multiple={false}
+            autoExpandParent={true}
           />
         )}
       </div>

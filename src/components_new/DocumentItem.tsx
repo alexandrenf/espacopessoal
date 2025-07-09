@@ -50,16 +50,30 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   return (
     <div
       className={`
-        group flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors
-        ${selected ? 'bg-blue-100 text-blue-900' : 'hover:bg-gray-100'}
+        group flex items-center justify-between p-2 rounded-md cursor-pointer transition-all duration-150
+        ${selected ? 'bg-blue-100 text-blue-900 shadow-sm' : 'hover:bg-gray-100'}
         ${isNested ? 'ml-4' : ''}
         ${isDeleting ? 'opacity-50 pointer-events-none' : ''}
       `}
       onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Create a synthetic mouse event for keyboard activation
+          const syntheticEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          onSelect();
+        }
+      }}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <FileText className="h-4 w-4 text-gray-600 flex-shrink-0" />
-        <span className="text-sm font-medium truncate">
+        <FileText className={`h-4 w-4 flex-shrink-0 ${selected ? 'text-blue-600' : 'text-gray-600'}`} />
+        <span className={`text-sm font-medium truncate ${selected ? 'font-semibold' : ''}`}>
           {document.title}
         </span>
       </div>
@@ -82,9 +96,10 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           <DropdownMenuItem
             onClick={handleDelete}
             className="text-red-600 focus:text-red-600"
+            disabled={isDeleting}
           >
             <Trash className="h-3 w-3 mr-2" />
-            Delete
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

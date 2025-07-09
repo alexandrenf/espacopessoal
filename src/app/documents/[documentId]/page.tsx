@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { DocumentEditor } from "../../../components_new/DocumentEditor";
+import { ErrorBoundary } from "../../../components_new/ErrorBoundary";
 import { Button } from "../../../components_new/ui/button";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -144,5 +145,9 @@ export default function DocumentPage() {
   }
 
   // Pass the initial document to DocumentEditor - it will handle all document switching internally
-  return <DocumentEditor document={initialDocument} />;
+  return (
+    <ErrorBoundary>
+      <DocumentEditor document={initialDocument} />
+    </ErrorBoundary>
+  );
 } 
