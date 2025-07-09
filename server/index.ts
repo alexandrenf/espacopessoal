@@ -78,6 +78,9 @@ const documentStates = new Map<string, DocumentState>();
 // Global document instances tracking for proper shutdown handling
 const documentInstances = new Map<string, Y.Doc>();
 
+// Track when we're populating documents from database to prevent onChange from triggering
+const isPopulatingFromDatabase = new Map<string, boolean>();
+
 // Helper function for delay with jitter to prevent thundering herd
 const delay = (ms: number): Promise<void> => {
   // Add jitter to prevent thundering herd (10% random variation)
@@ -409,12 +412,12 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
 
 // Helper function to convert Y.js XMLFragment to HTML
 const convertXmlFragmentToHtml = (fragment: Y.XmlFragment): string => {
-  let html = '';
-
+        let html = '';
+        
   try {
     fragment.forEach((child, index) => {
       if (!child) return;
-
+          
       console.log(`🔍 Processing child ${index}:`, child.constructor.name);
 
       if (child instanceof Y.XmlElement) {
@@ -443,9 +446,18 @@ const convertXmlFragmentToHtml = (fragment: Y.XmlFragment): string => {
 const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment): void => {
   try {
     console.log(`[${new Date().toISOString()}] Converting HTML to Y.js fragment:`, htmlContent.substring(0, 200));
+            
+    // CRITICAL: Clear the fragment first to prevent content insertion at cursor position
+    // This ensures we replace the entire document content, not append to it
+    fragment.delete(0, fragment.length);
+    console.log(`[${new Date().toISOString()}] Cleared existing fragment content`);
     
     // Enhanced HTML to Y.js conversion - handles headings, formatting, and structure
-    const content = htmlContent.trim();
+    let content = htmlContent.trim();
+    
+    // CRITICAL: Remove leading empty paragraphs from HTML before processing
+    // This handles cases like "<p></p><h1>Title</h1>" or "<p></p><p>Content</p>"
+    content = content.replace(/^(<p[^>]*><\/p>\s*)+/, '');
     
     // Split content into blocks while preserving HTML structure
     const blockRegex = /<(h[1-6]|p|ul|ol|li|blockquote)[^>]*>.*?<\/\1>|<(h[1-6]|p)[^>]*>.*?(?=<(?:h[1-6]|p|ul|ol|blockquote)|$)/gs;
@@ -455,7 +467,7 @@ const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment):
       // Fallback: treat entire content as single block
       const element = parseHtmlBlock(content);
       if (element) {
-        fragment.insert(fragment.length, [element]);
+        fragment.insert(0, [element]);
       }
       return;
     }
@@ -481,7 +493,7 @@ const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment):
           !elementHasContent(firstElement)) {
         console.log(`[${new Date().toISOString()}] Removing leading empty paragraph to prevent blank line at start`);
         fragment.delete(0, 1);
-      } else {
+            } else {
         break; // Stop once we find non-empty content
       }
     }
@@ -496,8 +508,8 @@ const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment):
     if (cleanText) {
       paragraph.insert(0, [new Y.XmlText(cleanText)]);
       fragment.insert(0, [paragraph]);
-    }
-  }
+            }
+          }
 };
 
 // Helper function to check if an element has actual content
@@ -511,12 +523,12 @@ const elementHasContent = (element: Y.XmlElement): boolean => {
       hasContent = true;
     } else if (child instanceof Y.XmlElement && elementHasContent(child)) {
       hasContent = true;
-    }
+            }
   });
-  
+        
   return hasContent;
-};
-
+      };
+      
 // Helper function to parse individual HTML blocks into Y.js elements
 const parseHtmlBlock = (blockHtml: string, skipEmptyParagraphs = false): Y.XmlElement | null => {
   try {
@@ -1035,6 +1047,7 @@ const server = new Server({
     
     documentStates.clear();
     documentInstances.clear();
+    isPopulatingFromDatabase.clear();
   },
   
   async onLoadDocument(data: onLoadDocumentPayload) {
@@ -1042,39 +1055,105 @@ const server = new Server({
     console.log(`[${new Date().toISOString()}] Loading document: ${documentName}`);
     
     try {
+      // Wait longer for IndexedDB to finish loading if it's in progress
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const fragment = document.getXmlFragment('default');
+      const hasExistingContent = fragment.length > 0;
+      
+      console.log(`[${new Date().toISOString()}] 📊 Y.js fragment length: ${fragment.length}`);
+      console.log(`[${new Date().toISOString()}] 📊 Y.js has existing content: ${hasExistingContent}`);
+      
+      // Extract current Y.js document content as HTML
+      let currentHtml = '';
+      try {
+        currentHtml = extractDocumentContent(document);
+        console.log(`[${new Date().toISOString()}] 📊 Current Y.js HTML (${currentHtml.length} chars): ${currentHtml.substring(0, 100)}...`);
+      } catch (error) {
+        currentHtml = '';
+        console.log(`[${new Date().toISOString()}] ❌ Failed to extract Y.js content:`, error);
+      }
+      
       // Load existing content from Convex database
       const existingContent = await loadDocumentFromConvex(documentName);
+      console.log(`[${new Date().toISOString()}] 📊 DB content (${(existingContent || '').length} chars): ${(existingContent || '').substring(0, 100)}...`);
       
-      if (existingContent && existingContent.trim() && existingContent !== '<p></p>') {
-        console.log(`[${new Date().toISOString()}] Found existing content for ${documentName}, populating Y.js document`);
+      // Aggressive normalization: remove all empty tags, collapse whitespace, trim, lowercase
+      const normalize = (str: string) =>
+        (str || '')
+          .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove all empty tags
+          .replace(/<[^>]*>/g, (tag) => tag.toLowerCase()) // normalize tag case
+          .replace(/\s+/g, ' ') // collapse whitespace
+          .replace(/^\s*<p>\s*<\/p>\s*/, '') // remove leading empty paragraph
+          .replace(/\s*<p>\s*<\/p>\s*$/, '') // remove trailing empty paragraph
+          .trim();
+          
+      const normalizedYjs = normalize(currentHtml);
+      const normalizedDB = normalize(existingContent || '');
+      
+      console.log(`[${new Date().toISOString()}] 🔍 Normalized Y.js (${normalizedYjs.length} chars): "${normalizedYjs}"`);
+      console.log(`[${new Date().toISOString()}] 🔍 Normalized DB (${normalizedDB.length} chars): "${normalizedDB}"`);
+      console.log(`[${new Date().toISOString()}] 🔍 Contents match: ${normalizedYjs === normalizedDB}`);
+      
+      // STRICT: If content is identical, absolutely do not load from DB
+      if (normalizedYjs && normalizedDB && normalizedYjs === normalizedDB) {
+        console.log(`[${new Date().toISOString()}] ✅ Content is identical - SKIPPING DB load to prevent duplication`);
+        return document;
+      }
+      
+      // STRICT: If Y.js is non-empty but DB is empty, keep Y.js content
+      if (hasExistingContent && (!existingContent || normalizedDB === '')) {
+        console.log(`[${new Date().toISOString()}] ✅ Y.js has content but DB is empty - KEEPING Y.js content`);
+        return document;
+      }
+      
+      // STRICT: If both are empty, do nothing
+      if (!hasExistingContent && (!existingContent || normalizedDB === '')) {
+        console.log(`[${new Date().toISOString()}] ✅ Both Y.js and DB are empty - no action needed`);
+        return document;
+      }
+      
+      // Only load if DB has content and it's different from Y.js
+      if (existingContent && existingContent.trim() && existingContent !== '<p></p>' && normalizedDB !== normalizedYjs) {
+        console.log(`[${new Date().toISOString()}] 🔄 Content differs - replacing Y.js with DB content for ${documentName}`);
+        console.log(`[${new Date().toISOString()}] 🔄 Y.js before replacement: ${normalizedYjs}`);
+        console.log(`[${new Date().toISOString()}] 🔄 DB content to load: ${normalizedDB}`);
         
-        // Convert HTML content to Y.js document structure
-        // We need to populate the 'default' fragment that TipTap uses
-        const fragment = document.getXmlFragment('default');
+        // Set flag to prevent onChange from saving during replacement
+        isPopulatingFromDatabase.set(documentName, true);
         
-        // Clear any existing content
-        if (fragment.length > 0) {
+        try {
+          // COMPLETE REPLACEMENT: Clear everything and insert DB content
           fragment.delete(0, fragment.length);
-        }
-        
-        // Parse the HTML and convert to Y.js structure
-        // For now, we'll handle simple cases - this can be expanded for complex HTML
-        if (existingContent.includes('<')) {
-          // HTML content - convert to ProseMirror/Y.js structure
-          convertHtmlToYjsFragment(existingContent, fragment);
-        } else {
-          // Plain text content
-          const paragraph = new Y.XmlElement('paragraph');
-          if (existingContent.trim()) {
-            paragraph.insert(0, [new Y.XmlText(existingContent)]);
+          console.log(`[${new Date().toISOString()}] 🧹 Cleared Y.js fragment (now ${fragment.length} elements)`);
+          
+          if (existingContent.includes('<')) {
+            convertHtmlToYjsFragment(existingContent, fragment);
+          } else {
+            const paragraph = new Y.XmlElement('paragraph');
+            if (existingContent.trim()) {
+              paragraph.insert(0, [new Y.XmlText(existingContent)]);
+            }
+            fragment.insert(0, [paragraph]);
           }
-          fragment.insert(0, [paragraph]);
+          
+          console.log(`[${new Date().toISOString()}] ✅ Successfully replaced Y.js document for ${documentName} with ${fragment.length} elements`);
+          
+          // Verify the replacement worked
+          const newContent = extractDocumentContent(document);
+          const newNormalized = normalize(newContent);
+          console.log(`[${new Date().toISOString()}] 🔍 Y.js after replacement: "${newNormalized}"`);
+          console.log(`[${new Date().toISOString()}] 🔍 Replacement successful: ${newNormalized === normalizedDB}`);
+          
+        } finally {
+          setTimeout(() => {
+            isPopulatingFromDatabase.set(documentName, false);
+            console.log(`[${new Date().toISOString()}] 🔓 Re-enabled onChange tracking for ${documentName} after DB population`);
+          }, 100);
         }
-        
-        console.log(`[${new Date().toISOString()}] Successfully populated Y.js document for ${documentName} with ${fragment.length} elements`);
         return document;
       } else {
-        console.log(`[${new Date().toISOString()}] No existing content found for ${documentName}, starting with empty document`);
+        console.log(`[${new Date().toISOString()}] ✅ No DB content to load or content is identical - starting with current Y.js state`);
         return document;
       }
     } catch (error) {
@@ -1086,6 +1165,12 @@ const server = new Server({
   
   async onChange(data: onChangePayload) {
     const { documentName, document } = data;
+    
+    // Skip onChange if we're currently populating from database to prevent duplication
+    if (isPopulatingFromDatabase.get(documentName)) {
+      console.log(`[${new Date().toISOString()}] 🚫 Skipping onChange for ${documentName} - currently populating from database`);
+      return;
+    }
     
     // Track document instance globally for shutdown handling
     documentInstances.set(documentName, document);

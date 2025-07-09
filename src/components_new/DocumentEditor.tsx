@@ -161,7 +161,8 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
   const documentInstances = useRef<Map<string, Y.Doc>>(new Map());
   
-  // Initialize Y.js document immediately - CRITICAL for collaboration
+  // Y.js document management - each document gets its own Y.js instance
+  // Create document immediately with current document ID
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
   
   // Add a limit to cached documents to prevent memory leaks
@@ -317,11 +318,37 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     };
   }, []);
 
-  // Set Y.js ready state immediately since document is pre-initialized
+  // Y.js document recreation per document - SIMPLE approach to prevent content mixing
   useEffect(() => {
-    console.log('📄 Y.js document ready for collaboration');
+    const docName = currentDocumentId;
+    
+    console.log('📄 Creating fresh Y.js document for:', docName);
+    
+    // Reset Y.js ready state to force editor recreation
+    setIsYdocReady(false);
+    
+    // CRITICAL: Always create a fresh Y.js document for each document to prevent content mixing
+    // This is the simplest solution to the duplication problem
+    const newDoc = new Y.Doc();
+    ydocRef.current = newDoc;
+    
+    // Store in instances for potential cleanup (but don't reuse to prevent content mixing)
+    documentInstances.current.set(docName, newDoc);
+    
+    // Clean up old documents
+    cleanupOldDocuments();
+    
+    console.log('📄 Fresh Y.js document ready for collaboration with:', docName, 'GUID:', newDoc.guid);
+    
+    // Set ready state after a small delay to ensure document is fully initialized
+    setTimeout(() => {
     setIsYdocReady(true);
-  }, []);
+    }, 50);
+    
+    return () => {
+      console.log('📄 Y.js document lifecycle ended for:', docName);
+    };
+  }, [currentDocumentId, cleanupOldDocuments]);
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -509,14 +536,21 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     LineHeightExtension,
   ], []); // Empty dependency array since these are static configurations
 
-  // Enhanced WebSocket and Y.js integration - create editor with Collaboration from start
+    // Enhanced WebSocket and Y.js integration - create editor with Collaboration from start
   const editor = useEditor({
-    autofocus: !isReadOnly,
+    autofocus: false, // Disable autofocus to prevent cursor positioning issues during content loading
     immediatelyRender: false,
     editable: !isReadOnly,
     onCreate({ editor }) {
       setEditor(editor);
       console.log('📝 Editor created with collaboration for document:', currentDocumentId);
+      
+      // Focus the editor after a short delay to ensure content is loaded
+      if (!isReadOnly) {
+        setTimeout(() => {
+          editor.commands.focus('start');
+        }, 100);
+      }
     },
     onDestroy() {
       setEditor(null);
@@ -565,15 +599,16 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10 cursor-text`,
       },
     },
-    extensions: useMemo(() => [
-      ...baseExtensions,
-      // CRITICAL: Always include Collaboration extension with Y.js document
-      // The document is pre-initialized and ready for immediate synchronization
-      Collaboration.configure({
-        document: ydocRef.current,
-      }),
-    ], [baseExtensions]),
-  }, [leftMargin, rightMargin, isReadOnly, currentDocumentId]);
+    extensions: useMemo(() => {
+      // Always include base extensions to ensure proper schema
+      const extensions = [...baseExtensions];
+      
+      // Only add Collaboration extension when Y.js document is ready
+      return isYdocReady && ydocRef.current
+        ? [...extensions, Collaboration.configure({ document: ydocRef.current })]
+        : extensions;
+    }, [baseExtensions, isYdocReady]),
+  }, [leftMargin, rightMargin, isReadOnly, currentDocumentId, isYdocReady]);
 
   // Functions that use editor - must be defined after editor is declared
   const rejectReplacement = useCallback(() => {
@@ -700,17 +735,22 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     setIsPersistenceReady(false);
     setStatus('connecting');
     
-    // Initialize IndexedDB persistence with the global Y.js document
-    const persistence = new IndexeddbPersistence(docName, ydocRef.current);
+    // Initialize IndexedDB persistence with the current Y.js document
+    // TEMPORARILY DISABLED: IndexedDB is causing race conditions with server content loading
+    // const persistence = new IndexeddbPersistence(docName, ydocRef.current);
     
-    persistence.on('synced', () => {
-      console.log('📦 IndexedDB synchronized for:', docName);
-      if (currentDocumentIdRef.current === docName) {
-        setIsPersistenceReady(true);
-      }
-    });
+    // persistence.on('synced', () => {
+    //   console.log('📦 IndexedDB synchronized for:', docName);
+    //   if (currentDocumentIdRef.current === docName) {
+    //     setIsPersistenceReady(true);
+    //   }
+    // });
     
-    // Create new WebSocket provider with the global Y.js document
+    // For now, mark persistence as ready immediately since we're not using IndexedDB
+    console.log('📦 IndexedDB DISABLED - marking persistence as ready for:', docName);
+    setIsPersistenceReady(true);
+    
+    // Create new WebSocket provider with the current Y.js document
     console.log('🔗 Creating WebSocket provider for:', docName);
     const newProvider = new HocuspocusProvider({
       url: wsUrl,
@@ -762,7 +802,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     newProvider.on('disconnect', handleDisconnected);
     newProvider.on('error', handleError);
     
-    // Initialize undo manager with the global Y.js document
+    // Initialize undo manager with the current Y.js document
     const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
       captureTimeout: 1000,
     });
@@ -929,51 +969,25 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     [editor, currentDocumentId]
   );
 
-  // Enhanced content setting logic with proper synchronization
+  // TEMPORARY DISABLE: Frontend content setting to prevent duplication
+  // The server's onLoadDocument should handle all content loading
   useEffect(() => {
     if (!editor || !isYdocReady || !ydocRef.current || !isPersistenceReady) {
       return;
     }
     
-    const contentToSet = doc.initialContent ?? initialContent;
-    if (!contentToSet) {
-      return;
-    }
+    console.log('📄 Frontend content setting is DISABLED - server handles all content loading for:', currentDocumentId);
 
-    // Enhanced collision detection: check both Y.js document and editor content
+    // Just log the state for debugging
     const fragment = ydocRef.current.getXmlFragment('default');
     const hasCollaborativeContent = fragment.length > 0;
     const editorHasContent = !editor.isEmpty;
     
-    if (hasCollaborativeContent || editorHasContent) {
-      console.log('📄 Document already has content (Y.js:', hasCollaborativeContent, ', Editor:', editorHasContent, '), skipping initial content setting for:', currentDocumentId);
-      return;
-    }
-
-    // Additional check: wait a bit longer for server-loaded content to propagate
-    // This gives the server's onLoadDocument more time to populate the Y.js document
-    const checkDelay = setTimeout(() => {
-      // Re-check after delay
-      const fragmentAfterDelay = ydocRef.current?.getXmlFragment('default');
-      const hasContentAfterDelay = fragmentAfterDelay && fragmentAfterDelay.length > 0;
-      const editorHasContentAfterDelay = editor && !editor.isEmpty;
-      
-      if (hasContentAfterDelay || editorHasContentAfterDelay) {
-        console.log('📄 Content detected after delay, skipping frontend content setting for:', currentDocumentId);
-        return;
-      }
-      
-      console.log('📄 No content detected after delay, proceeding with frontend content setting for:', currentDocumentId);
-      // Use debounced content setting to prevent excessive retries
-      debouncedSetContent(contentToSet);
-    }, 500); // Wait 500ms for server content to load
+    console.log('📄 Content state check - Y.js:', hasCollaborativeContent, ', Editor:', editorHasContent, 'for:', currentDocumentId);
     
-    // Cleanup function to cancel pending debounced calls and timeout
-    return () => {
-      clearTimeout(checkDelay);
-      debouncedSetContent.cancel();
-    };
-  }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent, currentDocumentId, debouncedSetContent]);
+    // No content setting - let server handle everything
+    
+  }, [editor, isYdocReady, isPersistenceReady, currentDocumentId]);
 
   // Fix: Properly handle useEffect dependencies and cleanup
   useEffect(() => {
@@ -1117,6 +1131,57 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         return 'Unknown';
     }
   };
+
+  // After providerRef.current is set and isYdocReady is true
+  useEffect(() => {
+    if (!editor || !isYdocReady || !providerRef.current || !ydocRef.current) return;
+
+    const provider = providerRef.current;
+    const ydoc = ydocRef.current;
+
+    const handleConnect = () => {
+      // Wait longer for server content to stabilize
+      setTimeout(() => {
+        try {
+          // Get the current Y.js document content (server is source of truth)
+          const editorContent = editor.getHTML();
+          
+          // Aggressive normalization matching server logic
+          const normalize = (str: string) =>
+            (str || '')
+              .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, '') // remove all empty tags
+              .replace(/<[^>]*>/g, (tag) => tag.toLowerCase()) // normalize tag case
+              .replace(/\s+/g, ' ') // collapse whitespace
+              .replace(/^\s*<p>\s*<\/p>\s*/, '') // remove leading empty paragraph
+              .replace(/\s*<p>\s*<\/p>\s*$/, '') // remove trailing empty paragraph
+              .trim();
+
+          const normalizedEditor = normalize(editorContent);
+          
+          console.log(`[FRONTEND] 🔄 Reconnect check for document: ${currentDocumentId}`);
+          console.log(`[FRONTEND] 🔍 Editor content (${editorContent.length} chars): ${editorContent.substring(0, 100)}...`);
+          console.log(`[FRONTEND] 🔍 Normalized content (${normalizedEditor.length} chars): "${normalizedEditor}"`);
+          
+          // Check Y.js fragment state
+          const fragment = ydoc.getXmlFragment('default');
+          console.log(`[FRONTEND] 🔍 Y.js fragment length: ${fragment.length}`);
+          
+          // For now, we only log and don't take action since the server handles content loading
+          // This is primarily for debugging the reconnect process
+          console.log(`[FRONTEND] ✅ Reconnect check completed - server handles all content loading`);
+          
+        } catch (error) {
+          console.error(`[FRONTEND] ❌ Error during reconnect check:`, error);
+        }
+      }, 1000); // Wait 1 second for server content to stabilize
+    };
+
+    provider.on('connect', handleConnect);
+
+    return () => {
+      provider.off('connect', handleConnect);
+    };
+  }, [editor, isYdocReady, currentDocumentId]);
 
   if (!editor || isUserLoading) {
     return (
