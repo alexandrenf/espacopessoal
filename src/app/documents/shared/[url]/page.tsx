@@ -122,7 +122,9 @@ export default function SharedDocumentPage() {
       LineHeightExtension,
     ],
     editable: false, // Make editor read-only for shared documents
-    content: sharedDocument?.document?.initialContent ?? '<p>Loading document...</p>',
+    content: sharedDocument?.document?.initialContent !== undefined 
+      ? (sharedDocument.document.initialContent || '<p></p>') 
+      : '<p>Loading document...</p>',
     editorProps: {
       attributes: {
         class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
@@ -132,8 +134,10 @@ export default function SharedDocumentPage() {
 
   // Update content when shared document loads
   useEffect(() => {
-    if (editor && sharedDocument?.document?.initialContent) {
-      editor.commands.setContent(sharedDocument.document.initialContent);
+    if (editor && sharedDocument?.document?.initialContent !== undefined) {
+      // Set content even if it's an empty string - this ensures blank documents display correctly
+      const contentToSet = sharedDocument.document.initialContent || '<p></p>';
+      editor.commands.setContent(contentToSet);
     }
   }, [editor, sharedDocument?.document?.initialContent]);
 
