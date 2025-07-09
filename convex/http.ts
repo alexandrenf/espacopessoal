@@ -6,14 +6,14 @@ import { type Id } from "./_generated/dataModel";
 
 // Helper function to validate Convex ID format
 function isValidConvexId(id: string): boolean {
-  // Convex IDs should be non-empty strings with alphanumeric characters, underscores, and dashes
+  // Convex IDs should be non-empty strings with RFC 4648 base32hex encoding
   if (!id || typeof id !== "string") return false;
   
   // Check for whitespace
   if (id.includes(" ") || id.trim() !== id) return false;
   
-  // Check for valid characters (alphanumeric, underscores, dashes)
-  const validIdPattern = /^[a-zA-Z0-9_-]+$/;
+  // Check for valid characters (RFC 4648 base32hex: A-V and 0-9 only)
+  const validIdPattern = /^[A-V0-9]+$/;
   return validIdPattern.test(id);
 }
 
@@ -212,7 +212,7 @@ const getDocumentContent = httpAction(async (ctx, request) => {
     // Call the internal query to get the document with properly typed ID
     console.log(`Calling getByIdInternal for document: ${documentId}`);
     const document = await ctx.runQuery(internal.documents.getByIdInternal, {
-      id: documentId as Id<"documents">,
+      id: documentId, // getByIdInternal accepts string IDs and handles conversion internally
     });
     
     console.log(`getByIdInternal result for ${documentId}:`, document ? `Found document "${document.title}"` : 'Document not found');

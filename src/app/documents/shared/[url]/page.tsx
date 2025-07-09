@@ -50,16 +50,26 @@ export default function SharedDocumentPage() {
   // Force refresh shared document data periodically to ensure latest content
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Track initial load completion to distinguish between loading and intentionally empty documents
+  useEffect(() => {
+    if (sharedDocument !== undefined && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [sharedDocument, isInitialLoad]);
 
   // Auto-refresh every 10 seconds if the document seems empty but should have content
+  // Only refresh during initial load phase, not for intentionally blank documents
   useEffect(() => {
     if (sharedDocument?.document && 
+        isInitialLoad && // Only refresh during initial load
         (!sharedDocument.document.initialContent || sharedDocument.document.initialContent.trim() === '') &&
         Date.now() - lastRefresh > 10000) { // Only refresh if it's been more than 10 seconds
       setRefreshKey((prev: number) => prev + 1);
       setLastRefresh(Date.now());
     }
-  }, [sharedDocument, lastRefresh]);
+  }, [sharedDocument, lastRefresh, isInitialLoad]);
 
   const editor = useEditor({
     immediatelyRender: false,
