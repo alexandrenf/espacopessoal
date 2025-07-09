@@ -338,6 +338,14 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           }
         }
         
+        // Debug: Check what properties and methods are available
+        console.log(`🔍 ${typeName} available properties:`, Object.getOwnPropertyNames(sharedType));
+        console.log(`🔍 ${typeName} has 'has' method:`, typeof sharedType.has);
+        console.log(`🔍 ${typeName} has 'get' method:`, typeof sharedType.get);
+        console.log(`🔍 ${typeName} has 'keys' method:`, typeof sharedType.keys);
+        console.log(`🔍 ${typeName} has 'entries' method:`, typeof sharedType.entries);
+        console.log(`🔍 ${typeName} has 'size' property:`, typeof sharedType.size);
+        
         // Try to access as a map (if it has has/get methods)
         if (sharedType.has && sharedType.get) {
           console.log(`🔍 ${typeName} has map-like methods`);
