@@ -4,11 +4,15 @@
     "deploymentEnabled": {
       "deno/**/*": false,
       "server/**/*": false
-    }
+      },
+      "ignored": [
+        "**/*.test.*"
+      ]
   },
   "functions": {
     "app/api/gemini/route.ts": {
       "maxDuration": 20
     }
   }
+  
 }
