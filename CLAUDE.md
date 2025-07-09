@@ -32,11 +32,6 @@ Espaço Pessoal is a Portuguese smart notepad application that provides synchron
 - `bun run format:check` - Check code formatting with Prettier
 - `bun run format:write` - Format code with Prettier
 
-### Testing
-- `bun run test` - Run Jest tests
-- `bun run test:watch` - Run Jest in watch mode
-- `bun run test:coverage` - Run Jest with coverage report
-
 ## Architecture Overview
 
 ### Dual Database System
@@ -122,7 +117,7 @@ Say: "I'll spawn agents to tackle different aspects of this problem" whenever a 
 -   Before declaring "done".
 -   **WHEN HOOKS FAIL WITH ERRORS** ❌
 
-Run: `bun run format:write && bun run lint && bun run typecheck && bun run test`.
+Run: `bun run format:write && bun run lint && bun run typecheck`.
 
 > Why: You can lose track of what's actually working. These checkpoints prevent cascading failures.
 

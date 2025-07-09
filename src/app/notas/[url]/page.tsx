@@ -1,14 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { api } from "~/trpc/react";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useQuery, useMutation } from "convex/react";
+import { api as convexApi } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
+import { LoadingSpinner } from "~/app/components/LoadingSpinner";
+import { TRPCReactProvider } from "~/trpc/react";
+import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Plus, FileText, Folder, Calendar, Edit, Trash2, Lock, Globe } from "lucide-react";
+import { toast } from "~/hooks/use-toast";
+import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { NotepadPasswordAuth } from "~/app/components/NotepadPasswordAuth";
-import { LoadingSpinner } from "../../components/LoadingSpinner";
-import App from "./notepad";
 
-// Create a simple password storage helper
-const STORAGE_KEY = "notepad_passwords";
+// Password storage helper
+const STORAGE_KEY = "notebook_passwords";
 
 const getStoredPasswords = (): Record<string, string> => {
   if (typeof window === "undefined") return {};
@@ -31,66 +40,84 @@ const storePassword = (url: string, password: string) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
 };
 
-export default function NotepadPage() {
+function NotebookPageContent() {
   const { url } = useParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [password, setPassword] = useState<string | null>(null);
+  const [isCreatingDocument, setIsCreatingDocument] = useState(false);
 
-  // Normalize URL for consistent storage
   const normalizedUrl = typeof url === "string" ? url : "";
 
   // Load stored password on mount
   useEffect(() => {
     const passwords = getStoredPasswords();
-    // Try both original case and lowercase for backward compatibility
-    const storedPassword =
-      passwords[normalizedUrl] ?? passwords[normalizedUrl.toLowerCase()];
+    const storedPassword = passwords[normalizedUrl];
     if (storedPassword) {
       setPassword(storedPassword);
     }
   }, [normalizedUrl]);
 
-  // Try to fetch notes
-  const { isLoading, error } = api.notes.fetchNotesPublic.useQuery(
-    {
-      url: normalizedUrl,
-      password: password ?? undefined,
-    },
-    {
-      enabled: !!normalizedUrl,
-      retry: false,
-    },
+  // Get notebook information
+  const notebook = useQuery(
+    convexApi.notebooks.getByUrl,
+    session?.user?.id
+      ? { 
+          url: normalizedUrl, 
+          userId: session.user.id 
+        }
+      : "skip"
   );
 
-  // Handle unauthorized error
-  useEffect(() => {
-    if (error?.data?.code === "UNAUTHORIZED") {
-      const passwords = getStoredPasswords();
-      delete passwords[normalizedUrl];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
-      setPassword(null);
-    }
-  }, [error, normalizedUrl]);
+  // Get documents in notebook
+  const documents = useQuery(
+    convexApi.documents.getHierarchical,
+    session?.user?.id && notebook?._id
+      ? { 
+          userId: session.user.id,
+          parentId: undefined // Get root level documents
+        }
+      : "skip"
+  );
 
-  if (isLoading) {
+  // Create document mutation
+  const createDocument = useMutation(convexApi.documents.create);
+
+  // Check if user is authenticated
+  if (status === "loading") {
     return (
-      <div className="flex min-h-screen flex-col">
-        <div className="flex flex-grow items-center justify-center">
-          <LoadingSpinner className="h-8 w-8" />
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <LoadingSpinner className="h-8 w-8" />
+        <span className="ml-2 text-sm text-gray-600">Authenticating...</span>
       </div>
     );
   }
 
-  // If unauthorized and no password set, show auth form
-  if (error?.data?.code === "UNAUTHORIZED" && !password) {
+  if (!session?.user?.id) {
+    router.push("/auth/signin");
+    return null;
+  }
+
+  // Check if notebook is loading
+  if (notebook === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LoadingSpinner className="h-8 w-8" />
+        <span className="ml-2 text-sm text-gray-600">Loading notebook...</span>
+      </div>
+    );
+  }
+
+  // Handle private notebook authentication
+  if (notebook === null || (!notebook.isOwner && notebook.isPrivate && !password)) {
     return (
       <div className="flex min-h-screen flex-col">
         <div className="flex-grow">
           <NotepadPasswordAuth
-            url={url as string}
+            url={normalizedUrl}
             onAuthenticated={(pwd) => {
               setPassword(pwd);
-              storePassword(url as string, pwd);
+              storePassword(normalizedUrl, pwd);
             }}
           />
         </div>
@@ -98,26 +125,199 @@ export default function NotepadPage() {
     );
   }
 
-  // Handle other errors
-  if (error) {
+  // Handle notebook not found
+  if (notebook === null) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <div className="flex flex-grow items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-red-600">Error</h2>
-            <p className="mt-2 text-gray-600">{error.message}</p>
-          </div>
-        </div>
-      </div>
+      <DocumentNotFound
+        title="Notebook Not Found"
+        message="The notebook you're looking for doesn't exist or you don't have permission to access it."
+        actionText="Go to Home"
+        actionHref="/"
+      />
     );
   }
 
-  // Render notes
+  // Handle create document
+  const handleCreateDocument = async () => {
+    if (!session?.user?.id || !notebook?._id) return;
+
+    setIsCreatingDocument(true);
+    try {
+      const documentId = await createDocument({
+        title: "Untitled Document",
+        initialContent: "",
+        userId: session.user.id,
+        notebookId: notebook._id,
+        isFolder: false,
+      });
+
+      // Navigate to the new document
+      router.push(`/notas/${normalizedUrl}/${documentId}`);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingDocument(false);
+    }
+  };
+
+  // Handle document click
+  const handleDocumentClick = (documentId: string) => {
+    router.push(`/notas/${normalizedUrl}/${documentId}`);
+  };
+
+  // Format date
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("pt-BR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="flex-grow">
-        <App password={password} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500 text-white">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{notebook.title}</h1>
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  {notebook.isPrivate ? (
+                    <Lock className="h-4 w-4" />
+                  ) : (
+                    <Globe className="h-4 w-4" />
+                  )}
+                  <span>{notebook.isPrivate ? "Private" : "Public"} notebook</span>
+                  <span>•</span>
+                  <span>Created {formatDate(notebook.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={handleCreateDocument}
+                disabled={isCreatingDocument}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                {isCreatingDocument ? (
+                  <LoadingSpinner className="mr-2 h-4 w-4" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                New Document
+              </Button>
+            </div>
+          </div>
+          {notebook.description && (
+            <p className="mt-4 text-gray-600">{notebook.description}</p>
+          )}
+        </div>
+
+        {/* Documents List */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
+            <div className="text-sm text-gray-500">
+              {documents?.length ?? 0} {documents?.length === 1 ? "document" : "documents"}
+            </div>
+          </div>
+
+          {documents === undefined ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner className="h-8 w-8" />
+              <span className="ml-2 text-sm text-gray-600">Loading documents...</span>
+            </div>
+          ) : documents && documents.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {documents.map((document) => (
+                <Card
+                  key={document._id}
+                  className="cursor-pointer transition-all hover:shadow-md"
+                  onClick={() => handleDocumentClick(document._id)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {document.isFolder ? (
+                          <Folder className="h-5 w-5 text-yellow-500" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-blue-500" />
+                        )}
+                        <CardTitle className="text-lg">{document.title}</CardTitle>
+                      </div>
+                      {document.isHome && (
+                        <div className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                          Home
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(document.updatedAt)}</span>
+                        </div>
+                      </div>
+                      {document.initialContent && (
+                        <p className="line-clamp-2 text-sm text-gray-600">
+                          {document.initialContent.replace(/<[^>]*>/g, "").slice(0, 120)}...
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="py-16">
+              <CardContent className="text-center">
+                <div className="mb-4 flex justify-center">
+                  <div className="rounded-full bg-gray-100 p-4">
+                    <FileText className="h-8 w-8 text-gray-400" />
+                  </div>
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">No documents yet</h3>
+                <p className="mb-4 text-sm text-gray-600">
+                  Start by creating your first document in this notebook.
+                </p>
+                <Button
+                  onClick={handleCreateDocument}
+                  disabled={isCreatingDocument}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  {isCreatingDocument ? (
+                    <LoadingSpinner className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Create First Document
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function NotebookPage() {
+  return (
+    <TRPCReactProvider>
+      <ConvexClientProvider>
+        <NotebookPageContent />
+      </ConvexClientProvider>
+    </TRPCReactProvider>
   );
 }

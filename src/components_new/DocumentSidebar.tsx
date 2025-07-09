@@ -45,6 +45,8 @@ interface DocumentSidebarProps {
   showSidebar?: boolean;
   isMobile?: boolean;
   onNavigateToHome?: () => void;
+  notebookId?: Id<"notebooks">; // Notebook context for filtering documents
+  notebookUrl?: string; // Notebook URL for navigation
 }
 
 interface TreeDropInfo {
@@ -64,6 +66,8 @@ const DocumentSidebar = memo(
     showSidebar = true,
     isMobile = false,
     onNavigateToHome,
+    notebookId,
+    notebookUrl,
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -87,7 +91,7 @@ const DocumentSidebar = memo(
       useQuery(
         api.documents.getAllForTreeLegacy,
         !isUserLoading && userIdString
-          ? { userId: userIdString, limit: 200 }
+          ? { userId: userIdString, limit: 200, notebookId }
           : "skip",
       ) ?? [];
     const createDocument = useMutation(api.documents.create);
@@ -307,6 +311,7 @@ const DocumentSidebar = memo(
         const documentId = await createDocument({
           title: "Untitled Document",
           userId: userIdString,
+          notebookId,
         });
 
         if (!documentId) {
@@ -403,6 +408,7 @@ const DocumentSidebar = memo(
           title: "New Folder",
           userId: userIdString,
           isFolder: true,
+          notebookId,
         });
 
         if (!folderId) {

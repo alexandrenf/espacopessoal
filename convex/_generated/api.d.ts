@@ -16,6 +16,8 @@ import type {
 import type * as dictionary from "../dictionary.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
+import type * as migratedocumentstonotebooks from "../migratedocumentstonotebooks.js";
+import type * as notebooks from "../notebooks.js";
 import type * as users from "../users.js";
 
 /**
@@ -30,6 +32,8 @@ declare const fullApi: ApiFromModules<{
   dictionary: typeof dictionary;
   documents: typeof documents;
   http: typeof http;
+  migratedocumentstonotebooks: typeof migratedocumentstonotebooks;
+  notebooks: typeof notebooks;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

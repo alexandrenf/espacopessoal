@@ -46,6 +46,7 @@ export const create = mutation({
     title: v.optional(v.string()),
     initialContent: v.optional(v.string()),
     userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    notebookId: v.optional(v.id("notebooks")), // Reference to parent notebook
     parentId: v.optional(v.id("documents")), // Parent folder
     isFolder: v.optional(v.boolean()), // Whether this is a folder
     isHome: v.optional(v.boolean()), // Whether this is the home document
@@ -58,6 +59,14 @@ export const create = mutation({
     // Use atomic transaction to prevent race conditions
     // All operations (parent validation, order calculation, insertion) happen atomically
     try {
+      // Validate notebook if provided
+      if (args.notebookId) {
+        const notebook = await ctx.db.get(args.notebookId);
+        if (!notebook || notebook.ownerId !== userId) {
+          throw new ConvexError("Notebook not found or access denied");
+        }
+      }
+
       // Get the next order number for the parent - optimized approach
       let order = 0;
       if (args.parentId) {
@@ -65,6 +74,11 @@ export const create = mutation({
         const parent = await ctx.db.get(args.parentId);
         if (!parent?.isFolder) {
           throw new ConvexError("Parent must be a folder");
+        }
+
+        // Verify parent belongs to the same notebook
+        if (args.notebookId && parent.notebookId !== args.notebookId) {
+          throw new ConvexError("Parent must be in the same notebook");
         }
 
         // Get the highest order in the parent folder - optimized with limit
@@ -77,13 +91,18 @@ export const create = mutation({
           .first();
         order = (lastSibling?.order ?? -1) + 1;
       } else {
-        // Get the highest order in the root level - optimized with limit
-        const lastSibling = await ctx.db
+        // Get the highest order in the root level for this notebook - optimized with limit
+        let query = ctx.db
           .query("documents")
           .withIndex("by_parent_and_order", (q) => q.eq("parentId", undefined))
-          .filter((q) => q.eq(q.field("ownerId"), userId))
-          .order("desc")
-          .first();
+          .filter((q) => q.eq(q.field("ownerId"), userId));
+        
+        // Filter by notebook if provided
+        if (args.notebookId) {
+          query = query.filter((q) => q.eq(q.field("notebookId"), args.notebookId));
+        }
+        
+        const lastSibling = await query.order("desc").first();
         order = (lastSibling?.order ?? -1) + 1;
       }
 
@@ -91,6 +110,7 @@ export const create = mutation({
       return await ctx.db.insert("documents", {
         title: args.title ?? (isFolder ? "New Folder" : "Untitled Document"),
         ownerId: userId,
+        notebookId: args.notebookId,
         initialContent: isFolder ? undefined : (args.initialContent ?? ""),
         roomId: undefined, // Will be set to document ID after creation
         createdAt: now,
@@ -114,24 +134,36 @@ export const get = query({
     paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
     userId: v.optional(v.string()),
+    notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
-  handler: async (ctx, { paginationOpts, search, userId }) => {
+  handler: async (ctx, { paginationOpts, search, userId, notebookId }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
 
     if (search) {
-      return await ctx.db
+      let searchQuery = ctx.db
         .query("documents")
         .withSearchIndex("search_title", (q) =>
           q.search("title", search).eq("ownerId", ownerId),
-        )
-        .paginate(paginationOpts);
+        );
+
+      // Filter by notebook if provided
+      if (notebookId) {
+        searchQuery = searchQuery.filter((q) => q.eq(q.field("notebookId"), notebookId));
+      }
+
+      return await searchQuery.paginate(paginationOpts);
     }
 
-    return await ctx.db
+    let query = ctx.db
       .query("documents")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
-      .order("desc")
-      .paginate(paginationOpts);
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId));
+
+    // Filter by notebook if provided
+    if (notebookId) {
+      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
+    }
+
+    return await query.order("desc").paginate(paginationOpts);
   },
 });
 
@@ -140,16 +172,22 @@ export const getHierarchical = query({
   args: {
     userId: v.optional(v.string()),
     parentId: v.optional(v.id("documents")),
+    notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
-  handler: async (ctx, { userId, parentId }) => {
+  handler: async (ctx, { userId, parentId, notebookId }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
 
-    return await ctx.db
+    let query = ctx.db
       .query("documents")
       .withIndex("by_parent_id", (q) => q.eq("parentId", parentId))
-      .filter((q) => q.eq(q.field("ownerId"), ownerId))
-      .order("asc")
-      .collect();
+      .filter((q) => q.eq(q.field("ownerId"), ownerId));
+
+    // Filter by notebook if provided
+    if (notebookId) {
+      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
+    }
+
+    return await query.order("asc").collect();
   },
 });
 
@@ -159,8 +197,9 @@ export const getAllForTree = query({
     userId: v.optional(v.string()),
     cursor: v.optional(v.string()),
     limit: v.optional(v.number()),
+    notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
-  handler: async (ctx, { userId, cursor, limit }) => {
+  handler: async (ctx, { userId, cursor, limit, notebookId }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
     const documentLimit = limit ?? 100; // Reduced default limit for better performance
 
@@ -171,6 +210,11 @@ export const getAllForTree = query({
 
     if (cursor) {
       query = query.filter((q) => q.gt(q.field("_id"), cursor));
+    }
+
+    // Filter by notebook if provided
+    if (notebookId) {
+      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
     }
 
     const documents = await query.take(documentLimit);
@@ -191,16 +235,23 @@ export const getAllForTreeLegacy = query({
   args: {
     userId: v.optional(v.string()),
     limit: v.optional(v.number()),
+    notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
-  handler: async (ctx, { userId, limit }) => {
+  handler: async (ctx, { userId, limit, notebookId }) => {
     const ownerId = userId ?? DEFAULT_USER_ID;
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
-    return await ctx.db
+    let query = ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
-      .order("asc")
-      .take(documentLimit);
+      .order("asc");
+
+    // Filter by notebook if provided
+    if (notebookId) {
+      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
+    }
+
+    return await query.take(documentLimit);
   },
 });
 
@@ -208,8 +259,9 @@ export const getById = query({
   args: {
     id: v.id("documents"),
     userId: v.string(), // Made required for security
+    notebookId: v.optional(v.id("notebooks")), // Validate notebook access
   },
-  handler: async (ctx, { id, userId }) => {
+  handler: async (ctx, { id, userId, notebookId }) => {
     if (!userId) {
       throw new ConvexError("User ID is required to access documents");
     }
@@ -224,6 +276,23 @@ export const getById = query({
       throw new ConvexError(
         "You don't have permission to access this document",
       );
+    }
+
+    // Validate notebook access if provided
+    if (notebookId && document.notebookId !== notebookId) {
+      throw new ConvexError(
+        "Document does not belong to the specified notebook",
+      );
+    }
+
+    // If document has a notebook, verify user has access to it
+    if (document.notebookId) {
+      const notebook = await ctx.db.get(document.notebookId);
+      if (!notebook || notebook.ownerId !== userId) {
+        throw new ConvexError(
+          "You don't have permission to access this document's notebook",
+        );
+      }
     }
 
     return document;
@@ -888,20 +957,35 @@ export const deleteSharedDocument = mutation({
   },
 });
 
-// Get or create a user's home document
+// Get or create a user's home document within a notebook
 export const getOrCreateHomeDocument = mutation({
   args: {
     userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
+    notebookId: v.optional(v.id("notebooks")), // Notebook to create home document in
   },
   handler: async (ctx, args) => {
     const now = Date.now();
 
+    // Validate notebook if provided
+    if (args.notebookId) {
+      const notebook = await ctx.db.get(args.notebookId);
+      if (!notebook || notebook.ownerId !== args.userId) {
+        throw new ConvexError("Notebook not found or access denied");
+      }
+    }
+
     // First, try to find an existing home document using the isHome field
-    const homeDocument = await ctx.db
+    let homeQuery = ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
-      .filter((q) => q.eq(q.field("isHome"), true))
-      .first();
+      .filter((q) => q.eq(q.field("isHome"), true));
+
+    // Filter by notebook if provided
+    if (args.notebookId) {
+      homeQuery = homeQuery.filter((q) => q.eq(q.field("notebookId"), args.notebookId));
+    }
+
+    const homeDocument = await homeQuery.first();
 
     if (homeDocument) {
       return homeDocument._id;
@@ -911,6 +995,7 @@ export const getOrCreateHomeDocument = mutation({
     const documentId = await ctx.db.insert("documents", {
       title: "My Notebook",
       ownerId: args.userId,
+      notebookId: args.notebookId,
       createdAt: now,
       updatedAt: now,
       parentId: undefined,
@@ -930,15 +1015,22 @@ export const getRecentDocuments = query({
   args: {
     userId: v.string(), // TODO: Change to v.id("users") after auth migration
     limit: v.optional(v.number()),
+    notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 5;
 
-    return await ctx.db
+    let query = ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .filter((q) => q.eq(q.field("isFolder"), false))
-      .order("desc")
-      .take(limit);
+      .order("desc");
+
+    // Filter by notebook if provided
+    if (args.notebookId) {
+      query = query.filter((q) => q.eq(q.field("notebookId"), args.notebookId));
+    }
+
+    return await query.take(limit);
   },
 });

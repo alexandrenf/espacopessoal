@@ -27,10 +27,26 @@ export default defineSchema({
     .index("by_session_token", ["sessionToken"])
     .index("by_user_id", ["userId"]),
 
+  // Notebooks for organizing documents
+  notebooks: defineTable({
+    url: v.string(), // Custom URL for notebook access (3-50 characters)
+    title: v.string(),
+    description: v.optional(v.string()),
+    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    isPrivate: v.boolean(), // Whether the notebook is private
+    password: v.optional(v.string()), // Optional password for private notebooks
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_owner_id", ["ownerId"])
+    .index("by_url", ["url"])
+    .index("by_owner_and_url", ["ownerId", "url"]),
+
   documents: defineTable({
     title: v.string(),
     initialContent: v.optional(v.string()),
     ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    notebookId: v.optional(v.id("notebooks")), // Reference to parent notebook
     organizationId: v.optional(v.string()),
     roomId: v.optional(v.string()), // For HocusPocus room association
     createdAt: v.number(),
@@ -42,12 +58,13 @@ export default defineSchema({
     isHome: v.optional(v.boolean()), // true for user's home document
   })
     .index("by_owner_id", ["ownerId"])
+    .index("by_notebook_id", ["notebookId"]) // New index for notebook-scoped queries
     .index("by_organization_id", ["organizationId"])
     .index("by_parent_id", ["parentId"]) // New index for hierarchical queries
     .index("by_parent_and_order", ["parentId", "order"]) // New index for ordered queries
     .searchIndex("search_title", {
       searchField: "title",
-      filterFields: ["ownerId", "organizationId"],
+      filterFields: ["ownerId", "notebookId", "organizationId"],
     }),
 
   documentPermissions: defineTable({

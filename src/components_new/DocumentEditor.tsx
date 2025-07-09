@@ -120,12 +120,18 @@ interface EditorProps {
   document: Document;
   initialContent?: string | undefined;
   isReadOnly?: boolean;
+  notebookId?: Id<"notebooks">; // Notebook context for sidebar
+  notebookUrl?: string; // Notebook URL for navigation
+  notebookTitle?: string; // Notebook title for display
 }
 
 export function DocumentEditor({
   document: initialDocument,
   initialContent,
   isReadOnly,
+  notebookId,
+  notebookUrl,
+  notebookTitle,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -1336,6 +1342,8 @@ export function DocumentEditor({
             showSidebar={showSidebar}
             isMobile={isMobile}
             onNavigateToHome={handleNavigateToHome}
+            notebookId={notebookId}
+            notebookUrl={notebookUrl}
           />
         </div>
       )}

@@ -62,10 +62,39 @@ export default function DocumentPage() {
       : "skip",
   );
 
+  // Get notebook if document has one (for redirect logic)
+  const notebook = useQuery(
+    api.notebooks.getById,
+    !isUserLoading && initialDocument?.notebookId && userIdString
+      ? { id: initialDocument.notebookId, userId: userIdString }
+      : "skip",
+  );
+
+  // Handle redirect to new notebook-based URL format
+  useEffect(() => {
+    if (
+      initialDocument &&
+      initialDocument.notebookId &&
+      notebook &&
+      validatedDocumentId &&
+      isMounted
+    ) {
+      // Redirect to new notebook-based URL format
+      const newUrl = `/notas/${notebook.url}/${validatedDocumentId}`;
+      console.log(`Redirecting from legacy URL to: ${newUrl}`);
+      router.replace(newUrl);
+    }
+  }, [initialDocument, notebook, validatedDocumentId, isMounted, router]);
+
   // Show loading screen immediately if we're waiting for user auth or document
-  const shouldShowLoading =
-    isUserLoading ||
-    (validatedDocumentId && userIdString && initialDocument === undefined);
+  const isWaitingForAuth = Boolean(isUserLoading);
+  const isWaitingForDocument = Boolean(
+    validatedDocumentId && userIdString && initialDocument === undefined
+  );
+  const isWaitingForNotebook = Boolean(
+    initialDocument?.notebookId && notebook === undefined
+  );
+  const shouldShowLoading = isWaitingForAuth || isWaitingForDocument || isWaitingForNotebook;
 
   // Show loading immediately to prevent blank screen
   if (shouldShowLoading) {
@@ -74,7 +103,11 @@ export default function DocumentPage() {
         <div className="text-center">
           <Loader className="mx-auto mb-4 h-8 w-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {isUserLoading ? "Authenticating..." : "Loading document..."}
+            {isUserLoading 
+              ? "Authenticating..." 
+              : initialDocument?.notebookId && notebook === undefined
+                ? "Redirecting to notebook..."
+                : "Loading document..."}
           </p>
         </div>
       </div>
