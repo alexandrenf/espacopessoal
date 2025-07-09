@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { type Editor } from "@tiptap/react";
-import { UndoManager } from "yjs";
+import { type UndoManager } from "yjs";
 
 interface EditorState {
   editor: Editor | null;

@@ -21,7 +21,7 @@ import {
   Copy, 
   Trash2 
 } from "lucide-react";
-import { Document } from "../types/document";
+import { type Document } from "../types/document";
 
 interface DocumentActionsMenuProps {
   document: Document;

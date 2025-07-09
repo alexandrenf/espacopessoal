@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useEffect, useState, useRef } from "react";
-import { Id } from "../../convex/_generated/dataModel";
+import { type Id } from "../../convex/_generated/dataModel";
 
 interface ConvexUserData {
   convexUserId: Id<"users"> | null;

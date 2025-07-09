@@ -16,7 +16,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Document } from "../types/document";
+import { type Document } from "../types/document";
 
 interface RenameDialogProps {
   document: Document | null;

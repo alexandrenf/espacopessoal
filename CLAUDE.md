@@ -226,6 +226,56 @@ The document sidebar had several UX issues including poor mobile responsiveness,
 - Improved accessibility with proper focus states
 - Better error handling and user feedback
 
+## Document Loading and Deletion Fixes (2025-01-09)
+
+### Issues Fixed:
+1. **Blank Screen During Document Loading**: Users experienced a blank screen before the loading indicator appeared when switching documents
+2. **Convex Errors on Document Deletion**: When deleting the currently open document, users would see Convex errors instead of a graceful experience
+
+### Improvements Made:
+
+1. **Immediate Loading States**:
+   - Combined user authentication and document loading into a single state check
+   - Loading screen appears immediately when switching documents
+   - Clear user feedback with specific messages ("Authenticating...", "Loading document...")
+   - Prevents blank screen flash during document transitions
+
+2. **Graceful Document Deletion Handling**:
+   - Added proper error handling when current document is deleted
+   - Shows "Document was deleted, redirecting..." message before redirect
+   - Automatic redirection to home page when document no longer exists
+   - Prevention of Convex errors by checking document existence
+
+3. **Enhanced Document Not Found Page**:
+   - Beautiful card-based design with clear messaging
+   - "Create New Document" button with loading state
+   - "Go to Home" fallback option
+   - Proper error handling with user-friendly interface
+
+4. **Improved Drag and Drop Error Handling**:
+   - Fixed runtime error: "Cannot read properties of undefined (reading 'key')"
+   - Added proper validation for drag and drop operations
+   - Enhanced error handling in allowDrop and handleDrop functions
+   - Better type safety for tree component interactions
+
+### Technical Improvements:
+- **Loading State Management**: Consolidated multiple loading states into efficient single checks
+- **Error Boundaries**: Proper error handling prevents crashes and provides user feedback
+- **Type Safety**: Enhanced TypeScript support for drag and drop operations
+- **Performance**: Reduced unnecessary re-renders during document switching
+
+### Files Modified:
+- `src/app/documents/[documentId]/page.tsx` - Enhanced loading and error handling
+- `src/components_new/DocumentEditor.tsx` - Added deletion handling and redirect logic
+- `src/components_new/DocumentSidebar.tsx` - Fixed drag and drop errors and improved deletion flow
+
+### User Experience Improvements:
+- No more blank screens during document loading
+- Graceful handling of document deletion without errors
+- Clear visual feedback for all loading states
+- Intuitive create document flow when documents don't exist
+- Robust drag and drop functionality without runtime errors
+
 ## Troubleshooting Document Sync Issues
 
 ### If documents don't switch properly:

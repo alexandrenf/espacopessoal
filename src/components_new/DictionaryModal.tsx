@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { Loader2, Trash2, Plus, Pencil, Search, ArrowRight, X } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id, Doc } from "../../convex/_generated/dataModel";
+import { type Id, type Doc } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import {
   Dialog,

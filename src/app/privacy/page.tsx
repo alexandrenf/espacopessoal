@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
-import { Metadata, Viewport } from "next";
+import { type Metadata, type Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade",

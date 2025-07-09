@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
-import { Editor } from '@tiptap/react';
+import { type Editor } from '@tiptap/react';
 import { 
   Check, 
   X, 

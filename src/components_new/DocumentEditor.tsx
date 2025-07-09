@@ -36,9 +36,20 @@ import {
   PanelLeft,
   Sparkles,
   Replace,
-  Share2
+  Share2,
+  User,
+  Settings,
+  LogOut,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import {
   Menubar,
   MenubarContent,
@@ -52,6 +63,7 @@ import {
   MenubarTrigger,
 } from "../components_new/ui/menubar";
 import { useRouter } from 'next/navigation';
+import { signOut, useSession } from 'next-auth/react';
 
 // TipTap Extensions
 import { FontSizeExtension } from "../extensions/font-size";
@@ -124,6 +136,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   // Get authenticated user with proper error handling
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId;
+  
+  // Get NextAuth session for user profile info
+  const { data: session } = useSession();
   
   // Query for current document
   const currentDocument = useQuery(
@@ -217,12 +232,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   );
   const dictionary = useMemo(() => dictionaryQuery ?? [], [dictionaryQuery]);
 
-  // Update document title when document changes
+  // Update document title when document changes (but not when user is editing)
   useEffect(() => {
-    if (doc && doc.title !== documentTitle) {
+    if (doc && doc.title !== documentTitle && !isEditingTitle) {
       setDocumentTitle(doc.title);
     }
-  }, [doc, documentTitle]);
+  }, [doc, documentTitle, isEditingTitle]);
 
   // Reset switching state when current document successfully loads
   useEffect(() => {
@@ -239,8 +254,11 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   // Handle document query errors
   useEffect(() => {
     if (currentDocument === null && currentDocumentId !== initialDocument._id) {
-      toast.error("Document not found. Switching back to original document.");
-      setCurrentDocumentId(initialDocument._id);
+      // Document was deleted or doesn't exist, redirect to home
+      console.log('📄 Document not found, redirecting to home');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     } else if (currentDocument && isLoadingDocument) {
       // Document loaded successfully
       setIsLoadingDocument(false);
@@ -982,25 +1000,37 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // Enhanced title handling
   const handleTitleSubmit = async () => {
-    if (documentTitle.trim() && documentTitle !== doc.title) {
-      if (!userIdString) {
-        toast.error("Please wait for authentication to complete");
-        return;
-      }
-      
-      try {
-        await updateDocument({ 
-          id: doc._id, 
-          title: documentTitle.trim(),
-          userId: userIdString
-        });
-        toast.success("Document title updated!");
-      } catch {
-        toast.error("Failed to update title");
-        setDocumentTitle(doc.title);
-      }
+    if (!documentTitle.trim()) {
+      // If empty, restore original title
+      setDocumentTitle(doc.title);
+      setIsEditingTitle(false);
+      return;
     }
-    setIsEditingTitle(false);
+    
+    if (documentTitle.trim() === doc.title) {
+      // No change, just exit editing mode
+      setIsEditingTitle(false);
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+    
+    try {
+      await updateDocument({ 
+        id: doc._id, 
+        title: documentTitle.trim(),
+        userId: userIdString
+      });
+      toast.success("Document title updated!");
+      setIsEditingTitle(false);
+    } catch {
+      toast.error("Failed to update title");
+      setDocumentTitle(doc.title);
+      setIsEditingTitle(false);
+    }
   };
 
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
@@ -1020,38 +1050,41 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     setShowSidebar(!showSidebar);
   };
 
-  // Safe router navigation functions - modified to use document switching
-  const safeNavigate = (path: string) => {
-    if (path.startsWith('/documents/')) {
-      const documentId = path.split('/documents/')[1];
-      if (documentId && documentId !== currentDocumentId) {
-        void handleDocumentSwitch(documentId as Id<"documents">);
-      }
-    } else {
-      // For non-document paths, use normal navigation
-      if (isMounted && router) {
-        try {
-          void router.push(path);
-        } catch (error) {
-          console.error('Router navigation failed:', error);
-          if (typeof window !== 'undefined') {
-            window.location.href = path;
-          }
-        }
-      } else {
-        if (typeof window !== 'undefined') {
-          window.location.href = path;
-        }
-      }
-    }
-  };
+  // Safe router navigation functions - removed unused function
 
   const handleNavigateToHome = () => {
-    safeNavigate('/');
+    // Force navigation to home page
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
     void handleDocumentSwitch(documentId);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut({ callbackUrl: '/' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+    }
+  };
+
+  const getUserDisplayName = () => {
+    if (session?.user?.name) {
+      return session.user.name;
+    }
+    if (session?.user?.email) {
+      return session.user.email;
+    }
+    return 'User';
+  };
+
+  const getUserInitials = () => {
+    const name = getUserDisplayName();
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   const getStatusIcon = () => {
@@ -1119,6 +1152,18 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
           <p className="text-muted-foreground">
             {isUserLoading ? "Loading user session..." : "Loading collaborative editor..."}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state if current document is null (deleted)
+  if (currentDocument === null && currentDocumentId !== initialDocument._id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-sm text-gray-600">Document was deleted, redirecting...</p>
         </div>
       </div>
     );
@@ -1230,9 +1275,59 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
                   Save Info
                 </Button>
                 
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">
-                  {doc.ownerId.charAt(0).toUpperCase()}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
+                    >
+                      {session?.user?.image ? (
+                        <img
+                          className="h-8 w-8 rounded-full object-cover"
+                          src={session.user.image}
+                          alt={getUserDisplayName()}
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                          {getUserInitials()}
+                        </div>
+                      )}
+                      <ChevronDown className="h-3 w-3 absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <div className="flex flex-col space-y-1 leading-none">
+                        {session?.user?.name && (
+                          <p className="font-medium">{session.user.name}</p>
+                        )}
+                        {session?.user?.email && (
+                          <p className="w-[200px] truncate text-sm text-muted-foreground">
+                            {session.user.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="cursor-pointer">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             

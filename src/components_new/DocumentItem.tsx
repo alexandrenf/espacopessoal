@@ -1,7 +1,11 @@
 "use client";
 
-import React from "react";
-import { FileText, MoreHorizontal, Trash } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { FileText, MoreHorizontal, Trash, Edit } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { toast } from "sonner";
+import { useConvexUser } from "../hooks/use-convex-user";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -9,8 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Id } from "../../convex/_generated/dataModel";
-import { Document } from "../types/document";
+import { type Id } from "../../convex/_generated/dataModel";
+import { type Document } from "../types/document";
 
 interface DocumentItemProps {
   document: Document;
@@ -32,6 +36,27 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   isNested = false,
 }) => {
   const isDeleting = isDeletingId === document._id;
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [documentTitle, setDocumentTitle] = useState(document.title);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId;
+  const updateDocument = useMutation(api.documents.updateById);
+  
+  // Focus input when entering rename mode
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isRenaming]);
+  
+  // Update local title when document prop changes
+  useEffect(() => {
+    setDocumentTitle(document.title);
+  }, [document.title]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -46,15 +71,73 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
     e.stopPropagation();
     onDelete(e, document._id);
   };
+  
+  const handleRename = (e: React.MouseEvent<Element>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDeleting) return; // Prevent renaming during deletion
+    setIsRenaming(true);
+    setDocumentTitle(document.title);
+  };
+  
+  const handleRenameSubmit = async () => {
+    if (!documentTitle.trim() || documentTitle.trim() === document.title) {
+      setIsRenaming(false);
+      setDocumentTitle(document.title);
+      return;
+    }
+    
+    if (isUserLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+    
+    if (!userIdString) {
+      toast.error("User authentication required to rename documents");
+      return;
+    }
+    
+    setIsUpdating(true);
+    try {
+      await updateDocument({
+        id: document._id,
+        title: documentTitle.trim(),
+        userId: userIdString,
+      });
+      
+      toast.success("Document renamed successfully!");
+      setIsRenaming(false);
+    } catch (error) {
+      console.error("Failed to rename document:", error);
+      toast.error("Failed to rename document");
+      setDocumentTitle(document.title);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleRenameCancel = () => {
+    setIsRenaming(false);
+    setDocumentTitle(document.title);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void handleRenameSubmit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleRenameCancel();
+    }
+  };
 
   return (
     <div
       className={`
-        group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ease-in-out
-        ${selected ? 'bg-blue-100 text-blue-900 shadow-sm ring-2 ring-blue-200' : 'hover:bg-gray-50 hover:shadow-sm'}
+        group flex items-center justify-between p-2 rounded-md cursor-pointer transition-all duration-150
+        ${selected ? 'bg-blue-100 text-blue-900 shadow-sm' : 'hover:bg-gray-100'}
         ${isNested ? 'ml-4' : ''}
-        ${isDeleting ? 'opacity-50 pointer-events-none animate-pulse' : ''}
-        hover:scale-[1.02] active:scale-[0.98]
+        ${isDeleting ? 'opacity-50 pointer-events-none' : ''}
       `}
       onClick={handleClick}
       role="button"
@@ -66,13 +149,24 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
         }
       }}
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className={`p-1 rounded-md transition-colors ${selected ? 'bg-blue-200' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
-          <FileText className={`h-4 w-4 flex-shrink-0 ${selected ? 'text-blue-700' : 'text-gray-600'}`} />
-        </div>
-        <span className={`text-sm font-medium truncate transition-colors ${selected ? 'font-semibold text-blue-900' : 'text-gray-800'}`}>
-          {document.title}
-        </span>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <FileText className={`h-4 w-4 flex-shrink-0 ${selected ? 'text-blue-600' : 'text-gray-600'}`} />
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={documentTitle}
+            onChange={(e) => setDocumentTitle(e.target.value)}
+            onBlur={() => void handleRenameSubmit()}
+            onKeyDown={handleKeyDown}
+            className="text-sm font-medium bg-white border border-blue-300 rounded px-2 py-1 flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isUpdating}
+          />
+        ) : (
+          <span className={`text-sm font-medium truncate transition-colors ${selected ? 'font-semibold text-blue-900' : 'text-gray-800'}`}>
+            {document.title}
+          </span>
+        )}
       </div>
 
       <DropdownMenu>
@@ -80,22 +174,30 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-50 hover:text-red-600"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
             }}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem
+            onClick={handleRename}
+            className="focus:bg-blue-50"
+            disabled={isDeleting || isRenaming}
+          >
+            <Edit className="h-3 w-3 mr-2" />
+            Rename
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleDelete}
             className="text-red-600 focus:text-red-600 focus:bg-red-50"
             disabled={isDeleting}
           >
-            <Trash className="h-4 w-4 mr-2" />
+            <Trash className="h-3 w-3 mr-2" />
             {isDeleting ? 'Deleting...' : 'Delete'}
           </DropdownMenuItem>
         </DropdownMenuContent>

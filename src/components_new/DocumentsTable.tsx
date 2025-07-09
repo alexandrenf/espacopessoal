@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PaginationStatus } from "convex/react";
+import { type PaginationStatus } from "convex/react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { formatDate } from "../lib/utils";
@@ -18,7 +18,7 @@ import {
 import { Loader } from "lucide-react";
 import { DocumentActionsMenu } from "./DocumentActionsMenu";
 import { RenameDialog } from "./RenameDialog";
-import { Document } from "../types/document";
+import { type Document } from "../types/document";
 
 // Configurable pagination size
 const DEFAULT_PAGE_SIZE = 5;

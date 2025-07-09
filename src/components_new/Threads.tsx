@@ -1,6 +1,6 @@
 "use client";
 
-import { Editor } from "@tiptap/react";
+import { type Editor } from "@tiptap/react";
 
 interface ThreadsProps {
   editor: Editor | null;

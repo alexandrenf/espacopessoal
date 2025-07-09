@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, memo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import { type Id } from "../../convex/_generated/dataModel";
 import { Button } from "../components_new/ui/button";  
 import { ArrowLeft, FolderPlus, FilePlus, X, FileText } from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
@@ -19,7 +19,7 @@ import FolderItem from "./FolderItem";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
 import { useConvexUser } from "../hooks/use-convex-user";
-import { DocumentWithTreeProps } from "../types/document";
+import { type DocumentWithTreeProps } from "../types/document";
 import "./DocumentSidebar.css";
 
 // Extend DataNode to include level
@@ -41,7 +41,8 @@ interface DocumentSidebarProps {
 }
 
 interface TreeDropInfo {
-  node: EventDataNode<CustomDataNode>;
+  node?: EventDataNode<CustomDataNode>;
+  dropNode?: EventDataNode<CustomDataNode>;
   dragNode: EventDataNode<CustomDataNode>;
   dragNodesKeys: Key[];
   dropPosition: number;
@@ -86,6 +87,7 @@ const DocumentSidebar = memo(({
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<Id<"documents">>();
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   
   // Add state to track the last selected document to prevent duplicate selections
   const lastSelectedIdRef = useRef<Id<"documents"> | undefined>(currentDocument?._id);
@@ -118,7 +120,7 @@ const DocumentSidebar = memo(({
     }
   }, [currentDocument?.parentId, documents]);
 
-    const handleExpand = (e: React.MouseEvent, node: EventDataNode<unknown>) => {
+  const handleExpand = useCallback((e: React.MouseEvent, node: EventDataNode<unknown>) => {
     const key = node.key as string;
     setExpandedKeys(prevKeys => {
       const index = prevKeys.indexOf(key);
@@ -130,9 +132,9 @@ const DocumentSidebar = memo(({
         return [...prevKeys, key];
       }
     });
-  };
+  }, []);
 
-  const handleDeleteDocument = async (e: React.MouseEvent<Element>, id: Id<"documents">) => {
+  const handleDeleteDocument = useCallback(async (e: React.MouseEvent<Element>, id: Id<"documents">) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -147,8 +149,15 @@ const DocumentSidebar = memo(({
       toast.success("Item deleted!");
       
       // If we deleted the current document, navigate to home
-      if (id === currentDocument?._id && onNavigateToHome) {
-        onNavigateToHome();
+      if (id === currentDocument?._id) {
+        if (onNavigateToHome) {
+          onNavigateToHome();
+        } else {
+          // Fallback navigation to home
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          }
+        }
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete item";
@@ -157,7 +166,7 @@ const DocumentSidebar = memo(({
     } finally {
       setIsDeletingId(undefined);
     }
-  };
+  }, [userIdString, deleteDocument, currentDocument?._id, onNavigateToHome]);
 
   // Optimized tree data conversion with better performance
   const treeData = useMemo(() => {
@@ -538,9 +547,22 @@ const DocumentSidebar = memo(({
   };
 
   const handleDrop = (info: TreeDropInfo) => {
-    const dropKey = String(info.node.key);
+    console.log('🖱️ Drop triggered:', info);
+    toast.info('Drop event triggered!'); // Visual feedback
+    
+    // Use the actual structure (node for onDrop, but access varies)
+    const dropNode = info.node ?? info.dropNode;
+    
+    // Validate that required properties exist
+    if (!dropNode?.key || !info.dragNode?.key || !dropNode?.pos) {
+      console.warn('Invalid drop info:', info);
+      toast.error('Invalid drop info');
+      return;
+    }
+    
+    const dropKey = String(dropNode.key);
     const dragKey = String(info.dragNode.key);
-    const dropPos = info.node.pos.split('-');
+    const dropPos = dropNode.pos.split('-');
     const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
 
     const dragDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dragKey);
@@ -550,18 +572,42 @@ const DocumentSidebar = memo(({
       if (process.env.NODE_ENV === 'development') {
         console.warn("Drag or drop document not found", { dragKey, dropKey });
       }
+      toast.error("Invalid drag and drop operation");
       return;
     }
+    
+    // Prevent dropping onto itself
+    if (dragDocument._id === dropDocument._id) {
+      console.log('📁 Preventing drop onto self');
+      return;
+    }
+    
+    // Prevent dropping folder into its own descendant
+    if (dragDocument.isFolder && dropDocument.parentId === dragDocument._id) {
+      toast.error("Cannot move folder into its own contents");
+      return;
+    }
+    
+    console.log('📁 Drag and drop operation:', {
+      dragDocument: dragDocument.title,
+      dropDocument: dropDocument.title,
+      dropPosition,
+      isFolder: dropDocument.isFolder
+    });
 
     const initialDocuments = documents.map((doc: DocumentWithTreeProps) => ({ ...doc }));
     let updatedDocuments: DocumentWithTreeProps[];
     let newParentId: Id<"documents"> | undefined;
 
     // Handle dropping into a folder vs dropping between documents
-    if (dropPosition === 0 && dropDocument.isFolder) {
+    // Only drop into folder if dropPosition is exactly 0 (dropping directly onto folder)
+    // and not if it's -1 or 1 (dropping above or below the folder)
+    if (dropPosition === 0 && dropDocument.isFolder && !info.dropToGap) {
+      console.log('🖱️ Dropping into folder:', dropDocument.title);
       newParentId = dropDocument._id;
       updatedDocuments = handleDropIntoFolder(initialDocuments, dragDocument, newParentId);
     } else {
+      console.log('🖱️ Dropping between documents, position:', dropPosition);
       const result = handleDropBetweenDocuments(initialDocuments, dragDocument, dropDocument, dropPosition);
       updatedDocuments = result.updatedDocuments;
       newParentId = result.targetParentId;
@@ -575,6 +621,13 @@ const DocumentSidebar = memo(({
     
     // Persist changes to database
     void persistDocumentStructure(updatedDocuments);
+    
+    // Show success feedback
+    if (dropPosition === 0 && dropDocument.isFolder) {
+      toast.success(`Moved "${dragDocument.title}" to "${dropDocument.title}"`);
+    } else {
+      toast.success(`Reordered "${dragDocument.title}"`);
+    }
   };
 
   // Debug logging
@@ -584,7 +637,9 @@ const DocumentSidebar = memo(({
       userIdString,
       documentsLength: documents.length,
       convexUserId,
-      documents: documents.slice(0, 3) // First 3 documents for debugging
+      documents: documents.slice(0, 3), // First 3 documents for debugging
+      isMobile,
+      draggable: !isMobile && typeof window !== 'undefined' && window.innerWidth >= 768
     });
   }
 
@@ -634,6 +689,19 @@ const DocumentSidebar = memo(({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Desktop collapse button */}
+          {onToggleSidebar && (
+            <Button
+              onClick={onToggleSidebar}
+              variant="ghost"
+              size="icon"
+              className="hidden md:flex hover:bg-blue-100 transition-colors"
+              title="Collapse sidebar"
+            >
+              <ArrowLeft className="h-4 w-4 text-gray-600" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -652,8 +720,70 @@ const DocumentSidebar = memo(({
         ) : (
           <Tree
             treeData={treeData}
-            draggable={!isMobile}
+            draggable={{
+              icon: false,
+              nodeDraggable: () => true,
+            }}
             onDrop={handleDrop}
+            allowDrop={(info) => {
+              console.log('🖱️ AllowDrop check:', info);
+              
+              // Check if required properties exist
+              if (!info.dragNode?.key) {
+                console.log('🖱️ AllowDrop: No dragNode key');
+                return false;
+              }
+              
+              // Access dropNode key (the structure uses dropNode in allowDrop)
+              const infoTyped = info as unknown as { dropNode?: { key?: string } };
+              const nodeKey = infoTyped.dropNode?.key;
+              if (!nodeKey) {
+                console.log('🖱️ AllowDrop: No dropNode key');
+                return false;
+              }
+              
+              const dragDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === info.dragNode.key);
+              const dropDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === nodeKey);
+              
+              if (!dragDocument || !dropDocument) {
+                console.log('🖱️ AllowDrop: Document not found', { dragDocument, dropDocument });
+                return false;
+              }
+              
+              // Prevent dropping onto itself
+              if (dragDocument._id === dropDocument._id) {
+                console.log('🖱️ AllowDrop: Dropping onto itself');
+                return false;
+              }
+              
+              // Prevent dropping folder into its own descendant
+              if (dragDocument.isFolder && dropDocument.parentId === dragDocument._id) {
+                console.log('🖱️ AllowDrop: Dropping folder into its own descendant');
+                return false;
+              }
+              
+              console.log('🖱️ AllowDrop: Allowed!');
+              return true;
+            }}
+            onDragStart={(info) => {
+              if (info.node?.key) {
+                setDraggedNodeId(info.node.key.toString());
+                console.log('🖱️ Drag started:', info.node.key);
+              }
+            }}
+            onDragEnd={() => {
+              setDraggedNodeId(null);
+              console.log('🖱️ Drag ended');
+            }}
+            onDragEnter={(info) => {
+              console.log('🖱️ Drag enter:', info.node?.key);
+            }}
+            onDragLeave={(info) => {
+              console.log('🖱️ Drag leave:', info.node?.key);
+            }}
+            onDragOver={(info) => {
+              console.log('🖱️ Drag over:', info.node?.key);
+            }}
             onSelect={([selectedKey]) => {
               if (selectedKey) {
                 const selectedDoc = documents.find(d => d._id.toString() === selectedKey);
@@ -686,6 +816,25 @@ const DocumentSidebar = memo(({
             // Add these props for better selection behavior
             multiple={false}
             autoExpandParent={true}
+            // Enhanced drag and drop props
+            dropIndicatorRender={(props) => {
+              console.log('🖱️ Drop indicator render:', props);
+              const { dropPosition, dropLevelOffset, indent } = props;
+              const style: React.CSSProperties = {
+                position: 'absolute',
+                right: 0,
+                top: dropPosition === -1 ? -3 : -1,
+                left: -(dropLevelOffset || 0) + (indent || 0),
+                height: 3,
+                backgroundColor: '#3b82f6',
+                zIndex: 1000,
+                pointerEvents: 'none',
+                borderRadius: '2px',
+              };
+              return <div style={style} />;
+            }}
+            showIcon={false}
+            showLine={false}
           />
         )}
       </div>

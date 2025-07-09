@@ -1,5 +1,5 @@
 
-import { Editor } from '@tiptap/react'
+import { type Editor } from '@tiptap/react'
 
 const MenuBar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) {

@@ -7,7 +7,7 @@ import { Share2, Copy, Loader2, Trash2, Link2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import { type Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import Link from "next/link";
 import {

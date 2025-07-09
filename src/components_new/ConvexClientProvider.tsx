@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProvider } from "convex/react";
 

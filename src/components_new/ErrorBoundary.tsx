@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, useCallback, useEffect, useState } from 'react';
+import React, { Component, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { AlertCircle, RefreshCw, Home, Bug } from 'lucide-react';
 import { toast } from 'sonner';

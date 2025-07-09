@@ -36,7 +36,7 @@ import {
   List,
   ListCollapse,
   ListTodo,
-  LucideIcon,
+  type LucideIcon,
   MessageSquarePlus,
   Minus,
   Table,

@@ -3,6 +3,115 @@
   padding: 8px 0;
 }
 
+/* Drag and Drop Visual Feedback */
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over {
+  background-color: #dbeafe !important;
+  border: 2px dashed #3b82f6 !important;
+  border-radius: 6px !important;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over-gap-top {
+  border-top: 2px solid #3b82f6 !important;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over-gap-bottom {
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper.dragging {
+  opacity: 0.5;
+  background-color: #f3f4f6;
+  transform: scale(0.95);
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.custom-tree-container .rc-tree-draggable-icon {
+  color: #6b7280;
+  cursor: grab;
+  opacity: 0; /* Hide by default, show on hover */
+  transition: opacity 0.2s ease;
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f3f4f6;
+  border-radius: 2px;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper:hover .rc-tree-draggable-icon {
+  opacity: 1;
+  background-color: #e5e7eb;
+}
+
+.custom-tree-container .rc-tree-draggable-icon:active {
+  cursor: grabbing;
+}
+
+/* Ensure draggable elements are properly positioned */
+.custom-tree-container .rc-tree-draggable-icon:before {
+  content: '⋮⋮';
+  font-size: 12px;
+  line-height: 1;
+  color: #6b7280;
+}
+
+/* Make sure drag handles are clickable */
+.custom-tree-container .rc-tree-node-content-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.custom-tree-container .rc-tree-draggable-icon {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+/* Enhanced drop zones */
+.custom-tree-container .rc-tree-drop-indicator {
+  background-color: #3b82f6 !important;
+  height: 3px !important;
+  border-radius: 2px !important;
+  position: absolute !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Folder drop zone highlighting */
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over.folder-drop-zone {
+  background-color: #f0f9ff !important;
+  border: 2px dashed #0ea5e9 !important;
+}
+
+/* Better visual feedback for drop zones */
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over {
+  background-color: #dbeafe !important;
+  border: 2px dashed #3b82f6 !important;
+  border-radius: 6px !important;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over-gap-top {
+  border-top: 3px solid #3b82f6 !important;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper.drag-over-gap-bottom {
+  border-bottom: 3px solid #3b82f6 !important;
+}
+
+/* Prevent text selection during drag */
+.custom-tree-container .rc-tree-node-content-wrapper {
+  user-select: none;
+}
+
+/* Improve drag handle visibility */
+.custom-tree-container .rc-tree-node-content-wrapper:hover {
+  background-color: #f9fafb;
+}
+
 .custom-tree-container .rc-tree-node-content-wrapper {
   transition: all 0.2s ease-in-out;
   border-radius: 8px;
