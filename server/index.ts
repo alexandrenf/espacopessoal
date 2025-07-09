@@ -352,130 +352,77 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
     console.log('🔍 Starting content extraction...');
     
-    // TipTap stores content in YXmlFragment 'default'
     const defaultFragment = ydoc.getXmlFragment('default');
     if (defaultFragment && defaultFragment.length > 0) {
       console.log(`🔍 Found default fragment with ${defaultFragment.length} children`);
       
-      const extractFromXmlFragment = (fragment: YXmlFragment): string => {
-        let html = '';
+      let html = '';
+      
+      for (let i = 0; i < defaultFragment.length; i++) {
+        const child = defaultFragment.get(i);
+        if (!child) continue;
         
-        for (let i = 0; i < fragment.length; i++) {
-          const child = fragment.get(i);
-          if (!child) continue;
+        console.log(`🔍 Processing child ${i}:`, child.constructor?.name ?? typeof child);
+        
+        // Use safe property access without strict typing
+        const childObj = child as Record<string, unknown>;
+        
+        if (childObj.nodeName && typeof childObj.nodeName === 'string') {
+          const nodeName = childObj.nodeName;
+          console.log(`🔍 YXmlElement: ${nodeName}`);
           
-          console.log(`🔍 Processing child ${i}:`, child.constructor?.name ?? typeof child);
+          let innerContent = '';
           
-          if (isYXmlElement(child)) {
-            const nodeName = child.nodeName ?? 'div';
-            const attrs = child.getAttributes();
-            
-            console.log(`🔍 YXmlElement: ${nodeName}`, attrs);
-            
-            // Extract text content from this element using multiple approaches
-            let innerContent = '';
-            
-            // Method 1: Try string conversion of the entire element
-            try {
-              const elementString = child.toString();
-              if (elementString && elementString !== '[object Object]' && !elementString.includes('[object')) {
-                innerContent = elementString;
-                console.log(`🔍 Extracted using toString(): "${innerContent}"`);
-              }
-            } catch (error) {
-              console.log('🔍 Element toString() failed:', error);
-            }
-            
-            // Method 2: Traverse children to extract text
-            if (!innerContent && child.length > 0) {
-              for (let j = 0; j < child.length; j++) {
-                const grandChild = child.get(j);
-                if (isYXmlText(grandChild)) {
-                  try {
-                    const textContent = grandChild.toString();
-                    console.log(`🔍 Found YXmlText child ${j}: "${textContent}"`);
+          // Try to extract text content using various methods
+          if (typeof childObj.length === 'number' && childObj.length > 0 && typeof childObj.get === 'function') {
+            for (let j = 0; j < childObj.length; j++) {
+              try {
+                const grandChild = (childObj.get as (index: number) => unknown)(j);
+                if (grandChild && typeof grandChild === 'object') {
+                  const grandChildObj = grandChild as Record<string, unknown>;
+                  
+                  // Check if it's a text node (no nodeName means it's likely text)
+                  if (!grandChildObj.nodeName && typeof grandChildObj.toString === 'function') {
+                    const textContent = String((grandChildObj.toString as () => unknown)());
+                    console.log(`🔍 Found text content: "${textContent}"`);
                     if (textContent && textContent !== '[object Object]') {
                       innerContent += textContent;
                     }
-                  } catch (error) {
-                    console.log('🔍 Error extracting text from grandchild:', error);
                   }
-                } else if (isYXmlElement(grandChild)) {
-                  // Recursively process nested elements
-                  try {
-                    const nestedText = grandChild.toString();
-                    if (nestedText && nestedText !== '[object Object]') {
-                      innerContent += nestedText;
-                    }
-                  } catch (error) {
-                    console.log('🔍 Error extracting text from nested element:', error);
-                  }
-                }
-              }
-            }
-            
-            // Method 3: Try accessing internal properties (Y.js specific)
-            if (!innerContent) {
-              try {
-                // Y.js elements sometimes have internal text representation
-                const element = child as unknown as {
-                  _content?: { str?: string };
-                  _item?: { content?: { str?: string } };
-                };
-                
-                if (element._content?.str) {
-                  innerContent = element._content.str;
-                  console.log(`🔍 Extracted using _content.str: "${innerContent}"`);
-                } else if (element._item?.content?.str) {
-                  innerContent = element._item.content.str;
-                  console.log(`🔍 Extracted using _item.content.str: "${innerContent}"`);
                 }
               } catch (error) {
-                console.log('🔍 Internal property access failed:', error);
+                console.log(`🔍 Error processing grandchild ${j}:`, error);
               }
-            }
-            
-            console.log(`🔍 Final extracted inner content: "${innerContent}"`);
-            
-            // Convert to HTML based on node type
-            if (nodeName === 'paragraph') {
-              html += `<p>${innerContent}</p>`;
-            } else if (nodeName === 'heading') {
-              const level = typeof attrs.level === 'number' && attrs.level >= 1 && attrs.level <= 6 ? attrs.level : 1;
-              html += `<h${level}>${innerContent}</h${level}>`;
-            } else if (nodeName === 'bulletList') {
-              html += `<ul>${innerContent}</ul>`;
-            } else if (nodeName === 'orderedList') {
-              html += `<ol>${innerContent}</ol>`;
-            } else if (nodeName === 'listItem') {
-              html += `<li>${innerContent}</li>`;
-            } else if (nodeName === 'blockquote') {
-              html += `<blockquote>${innerContent}</blockquote>`;
-            } else if (nodeName === 'codeBlock') {
-              html += `<pre><code>${innerContent}</code></pre>`;
-            } else {
-              html += `<${nodeName}>${innerContent}</${nodeName}>`;
-            }
-          } else if (isYXmlText(child)) {
-            try {
-              const textContent = child.toString();
-              console.log(`🔍 Found direct YXmlText: "${textContent}"`);
-              if (textContent && textContent !== '[object Object]') {
-                html += `<p>${textContent}</p>`;
-              }
-            } catch (error) {
-              console.log('🔍 Error extracting direct text content:', error);
             }
           }
+          
+          console.log(`🔍 Extracted inner content: "${innerContent}"`);
+          
+          // Convert to HTML
+          if (nodeName === 'paragraph') {
+            html += `<p>${innerContent}</p>`;
+          } else if (nodeName === 'heading') {
+            html += `<h1>${innerContent}</h1>`;
+          } else {
+            html += `<${nodeName}>${innerContent}</${nodeName}>`;
+          }
+        } else if (typeof childObj.toString === 'function' && !childObj.nodeName) {
+          // Direct text node
+          try {
+            const textContent = String((childObj.toString as () => unknown)());
+            console.log(`🔍 Found direct text: "${textContent}"`);
+            if (textContent && textContent !== '[object Object]') {
+              html += `<p>${textContent}</p>`;
+            }
+          } catch (error) {
+            console.log('🔍 Error extracting direct text:', error);
+          }
         }
-        
-        return html;
-      };
+      }
       
-      const extractedHtml = extractFromXmlFragment(defaultFragment);
-      if (extractedHtml && extractedHtml.trim()) {
-        console.log('📄 Successfully extracted content from default fragment:', extractedHtml);
-        return extractedHtml;
+      if (html && html.trim()) {
+        console.log('📄 Successfully extracted content:', html);
+        return html;
       }
     }
     
