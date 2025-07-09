@@ -220,6 +220,18 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
   }, [doc, documentTitle]);
 
+  // Reset switching state when current document successfully loads
+  useEffect(() => {
+    if (currentDocument && currentDocument._id === currentDocumentId) {
+      // Document loaded successfully, ensure switching state is reset
+      if (isSwitchingRef.current) {
+        console.log('🔄 Document loaded successfully, resetting switching state');
+        isSwitchingRef.current = false;
+        setIsLoadingDocument(false);
+      }
+    }
+  }, [currentDocument, currentDocumentId]);
+
   // Handle document query errors
   useEffect(() => {
     if (currentDocument === null && currentDocumentId !== initialDocument._id) {
@@ -247,6 +259,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   // Set mounted state to handle router mounting with comprehensive cleanup
   useEffect(() => {
     setIsMounted(true);
+    
+    // Reset switching state on mount to prevent stuck states
+    console.log('🔄 Component mounted, ensuring switching state is clean');
+    isSwitchingRef.current = false;
+    pendingDocumentIdRef.current = null;
+    setIsLoadingDocument(false);
     
     // Component cleanup on unmount - enhanced memory management
     return () => {
@@ -636,6 +654,23 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
           isSwitchingRef.current = false;
           setIsLoadingDocument(false);
         }
+        
+        // Always reset switching state after a reasonable timeout to prevent permanent blocking
+        setTimeout(() => {
+          if (isSwitchingRef.current) {
+            console.log('🔄 Timeout reached, resetting switching state');
+            isSwitchingRef.current = false;
+            setIsLoadingDocument(false);
+            
+            // Check if there's a pending switch to execute
+            if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
+              const pendingId = pendingDocumentIdRef.current;
+              pendingDocumentIdRef.current = null;
+              console.log('🔄 Executing timeout-queued document switch to:', pendingId);
+              void handleDocumentSwitch(pendingId);
+            }
+          }
+        }, 5000); // 5 second timeout
       })();
     }, 200); // Debounce time for stability
   }, [currentDocumentId, editor]);
@@ -812,12 +847,16 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         : 'disconnected';
       setStatus(statusValue);
       
-      if (event.status === 'connected' && isLoadingDocument) {
-        // Only show success message if we're actively switching documents
-        toast.success("Connected to real-time collaboration");
-        // Mark document switching as complete
-        if (isSwitchingRef.current) {
+      if (event.status === 'connected') {
+        // Mark document switching as complete if we were switching
+        if (isSwitchingRef.current || isLoadingDocument) {
+          // Only show success message if we're actively switching documents
+          if (isLoadingDocument) {
+            toast.success("Connected to real-time collaboration");
+          }
+          
           setTimeout(() => {
+            console.log('🔄 Connection successful, resetting switching state');
             isSwitchingRef.current = false;
             setIsLoadingDocument(false);
             
