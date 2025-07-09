@@ -173,7 +173,9 @@ const DocumentSidebar = memo(({
     const retryCount = typeof eventOrRetryCount === 'number' ? eventOrRetryCount : 0;
     setIsCreating(true);
     try {
-      console.log('Creating document with userId:', userIdString);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Creating document with userId:', userIdString);
+      }
       
       if (!userIdString) {
         throw new Error("User authentication required to create documents");
@@ -188,11 +190,15 @@ const DocumentSidebar = memo(({
         throw new Error("Document creation returned invalid ID");
       }
       
-      console.log('Document created with ID:', documentId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Document created with ID:', documentId);
+      }
       toast.success("Document created successfully!");
       setCurrentDocumentId(documentId);
     } catch (error) {
-      console.error('Document creation error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Document creation error:', error);
+      }
       
       let errorMessage = "Failed to create document";
       let shouldRetry = false;
@@ -249,7 +255,9 @@ const DocumentSidebar = memo(({
       
       toast.success("Folder created successfully!");
     } catch (error) {
-      console.error('Folder creation error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Folder creation error:', error);
+      }
       
       let errorMessage = "Failed to create folder";
       let shouldRetry = false;
@@ -426,7 +434,9 @@ const DocumentSidebar = memo(({
         userId: userIdString
       });
     } catch (error) {
-      console.error("Failed to update structure:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Failed to update structure:", error);
+      }
       toast.error("Failed to update document structure");
     }
   };
@@ -441,7 +451,9 @@ const DocumentSidebar = memo(({
     const dropDocument = documents.find((d: DocumentWithTreeProps) => d._id.toString() === dropKey);
 
     if (!dragDocument || !dropDocument) {
-      console.warn("Drag or drop document not found", { dragKey, dropKey });
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Drag or drop document not found", { dragKey, dropKey });
+      }
       return;
     }
 
@@ -470,13 +482,15 @@ const DocumentSidebar = memo(({
   };
 
   // Debug logging
-  console.log('DocumentSidebar render:', {
-    isUserLoading,
-    userIdString,
-    documentsLength: documents.length,
-    convexUserId,
-    documents: documents.slice(0, 3) // First 3 documents for debugging
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('DocumentSidebar render:', {
+      isUserLoading,
+      userIdString,
+      documentsLength: documents.length,
+      convexUserId,
+      documents: documents.slice(0, 3) // First 3 documents for debugging
+    });
+  }
 
   return (
     <section className={`w-full h-full md:h-screen flex flex-col bg-white ${isMobile ? 'fixed top-16 left-0 right-0 bottom-0 z-50' : ''}`}>

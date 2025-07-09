@@ -2,6 +2,14 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 
+// Shared email validation utility function
+const validateEmail = (email: string): void => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new ConvexError("Invalid email format");
+  }
+};
+
 // Get user by ID
 export const getById = query({
   args: { 
@@ -53,6 +61,9 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     
+    // Validate email format
+    validateEmail(args.email);
+    
     // Check if user already exists
     const existingUser = await ctx.db
       .query("users")
@@ -89,6 +100,21 @@ export const update = mutation({
       throw new ConvexError("User not found!");
     }
     
+    // If email is being updated, validate format and check for duplicates
+    if (args.email !== undefined) {
+      validateEmail(args.email);
+      
+      // Check if any other user has this email
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email!))
+        .first();
+      
+      if (existingUser && existingUser._id !== args.id) {
+        throw new ConvexError("Email already in use by another user");
+      }
+    }
+    
     const updates: Partial<typeof user> = {
       updatedAt: Date.now(),
     };
@@ -111,6 +137,9 @@ export const createInternal = internalMutation({
     provider: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Validate email format
+    validateEmail(args.email);
+    
     // Check for existing user with the same email to prevent duplicates
     const existingUser = await ctx.db
       .query("users")

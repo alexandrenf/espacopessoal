@@ -66,7 +66,7 @@ CORS_CREDENTIALS=true
 In your Coolify service, set these environment variables:
 
 ```env
-PORT=6001
+PORT=6002
 HOST=0.0.0.0
 NODE_ENV=production
 CORS_ORIGIN=https://docs.espacopessoal.com,https://espacopessoal-v2.vercel.app
@@ -77,9 +77,9 @@ CORS_ORIGIN=https://docs.espacopessoal.com,https://espacopessoal-v2.vercel.app
 For your client on Vercel, ensure these environment variables are set:
 
 ```env
-NEXT_PUBLIC_WS_URL=wss://socket.espacopessoal.com:6001
+NEXT_PUBLIC_WS_URL=wss://socket.espacopessoal.com:6002
 NEXT_PUBLIC_WS_HOST=socket.espacopessoal.com
-NEXT_PUBLIC_WS_PORT=6001
+NEXT_PUBLIC_WS_PORT=6002
 ```
 
 ## 🔍 Testing CORS
@@ -161,14 +161,14 @@ CORS_ORIGIN=*
 bun run start
 
 # Test WebSocket connection
-wscat -c wss://socket.espacopessoal.com:6001
+wscat -c wss://socket.espacopessoal.com:6002
 
 # Check CORS headers
 curl -H "Origin: https://docs.espacopessoal.com" \
      -H "Access-Control-Request-Method: GET" \
      -H "Access-Control-Request-Headers: Content-Type" \
      -X OPTIONS \
-     https://socket.espacopessoal.com:6001
+     https://socket.espacopessoal.com:6002
 ```
 
 ## 📝 Environment Files
@@ -180,7 +180,7 @@ CORS_ORIGIN=https://docs.espacopessoal.com,https://espacopessoal-v2.vercel.app
 
 ### Client (.env.local)
 ```env
-NEXT_PUBLIC_WS_URL=wss://socket.espacopessoal.com:6001
+NEXT_PUBLIC_WS_URL=wss://socket.espacopessoal.com:6002
 ```
 
 ## 🔄 Updating CORS Settings

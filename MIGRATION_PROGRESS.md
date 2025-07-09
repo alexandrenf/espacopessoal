@@ -25,7 +25,7 @@ Replace the traditional React-based editor (`src/app/components/Editor.tsx`) wit
 ### 2. ✅ migration-003: Set up WebSocket server for HocusPocus collaboration
 **Status**: COMPLETED (confirmed by user)
 **Details**: 
-- HocusPocus WebSocket server is running on `ws://127.0.0.1:6001`
+- HocusPocus WebSocket server is running on `ws://127.0.0.1:6002`
 - DocumentEditor.tsx is configured to connect to the collaboration server
 - Real-time collaborative editing is functional
 
@@ -160,7 +160,7 @@ Replace the traditional React-based editor (`src/app/components/Editor.tsx`) wit
 ## Environment Configuration
 
 The new system requires:
-- `NEXT_PUBLIC_WS_URL` - WebSocket server URL (defaults to `ws://127.0.0.1:6001`)
+- `NEXT_PUBLIC_WS_URL` - WebSocket server URL (defaults to `ws://127.0.0.1:6002`)
 - `NEXT_PUBLIC_DENO_API_URL` - Deno API URL for spell checking (defaults to `http://localhost:8000`)
 - Convex environment properly configured
 

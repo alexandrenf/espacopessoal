@@ -25,6 +25,12 @@ const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://ardent-dolphin-1
 // Server user ID configuration
 const SERVER_USER_ID = process.env.SERVER_USER_ID ?? 'hocus-pocus-server';
 
+// Retry configuration for network requests
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const RETRY_BACKOFF_MULTIPLIER = 2;
+const MAX_RETRY_DELAY = 10000; // 10 seconds
+
 // Document tracking
 interface DocumentState {
   documentName: string;
@@ -53,6 +59,30 @@ const documentStates = new Map<string, DocumentState>();
 // Global document instances tracking for proper shutdown handling
 const documentInstances = new Map<string, Y.Doc>();
 
+// Helper function for delay with jitter to prevent thundering herd
+const delay = (ms: number): Promise<void> => {
+  // Add jitter to prevent thundering herd (10% random variation)
+  const jitter = Math.random() * 0.1;
+  const delayWithJitter = ms * (1 + jitter);
+  return new Promise(resolve => setTimeout(resolve, delayWithJitter));
+};
+
+// Helper function to determine if an error is retryable
+const isRetryableError = (error: unknown, response?: Response): boolean => {
+  // Network errors (no response) are retryable
+  if (!response) return true;
+  
+  // Server errors (5xx) are retryable
+  if (response.status >= 500) return true;
+  
+  // Rate limiting (429) is retryable
+  if (response.status === 429) return true;
+  
+  // Client errors (4xx) are generally not retryable
+  // 404 (Not Found) and other client errors should not be retried
+  return false;
+};
+
 // Utility functions for Convex API calls
 const saveDocumentToConvex = async (documentName: string, content: string): Promise<SaveResult> => {
   const url = `${CONVEX_SITE_URL}/updateDocumentContent`;
@@ -66,51 +96,116 @@ const saveDocumentToConvex = async (documentName: string, content: string): Prom
   console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
   console.log(`[${new Date().toISOString()}] 📝 Content length: ${content.length} chars`);
   
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    console.log(`[${new Date().toISOString()}] 📡 Response status: ${response.status} ${response.statusText}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[${new Date().toISOString()}] ❌ HTTP Error: ${response.status} - ${errorText}`);
+  let lastError: unknown;
+  let lastResponse: Response | undefined;
+  
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      // Log retry attempt if not the first attempt
+      if (attempt > 1) {
+        console.log(`[${new Date().toISOString()}] 🔄 Retry attempt ${attempt}/${MAX_RETRY_ATTEMPTS} for document ${documentName}`);
+      }
       
-      if (response.status === 404) {
-        console.log(`[${new Date().toISOString()}] 🚫 Document ${documentName} not found in Convex - document may not have been created through UI`);
-        return {
-          success: false,
-          error: `Document ${documentName} not found`,
-          type: 'not_found'
-        };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log(`[${new Date().toISOString()}] 📡 Response status: ${response.status} ${response.statusText}`);
+      lastResponse = response;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[${new Date().toISOString()}] ❌ HTTP Error: ${response.status} - ${errorText}`);
+        
+        // Handle non-retryable errors immediately
+        if (response.status === 404) {
+          console.log(`[${new Date().toISOString()}] 🚫 Document ${documentName} not found in Convex - document may not have been created through UI`);
+          return {
+            success: false,
+            error: `Document ${documentName} not found`,
+            type: 'not_found'
+          };
+        }
+        
+        // Check if this error is retryable
+        if (!isRetryableError(null, response)) {
+          console.log(`[${new Date().toISOString()}] ❌ Non-retryable error for document ${documentName}, giving up`);
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${errorText}`,
+            type: 'error'
+          };
+        }
+        
+        // Store error for potential retry
+        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+        
+        // If this is the last attempt, don't retry
+        if (attempt === MAX_RETRY_ATTEMPTS) {
+          console.error(`[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName}, giving up`);
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${errorText}`,
+            type: 'error'
+          };
+        }
+        
+        // Calculate delay for next attempt with exponential backoff
+        const delayMs = Math.min(
+          INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
+          MAX_RETRY_DELAY
+        );
+        
+        console.log(`[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to ${response.status} error`);
+        await delay(delayMs);
+        continue;
+      }
+
+      // Success case
+      const result = await response.json() as { success: boolean; message: string };
+      
+      if (attempt > 1) {
+        console.log(`[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex after ${attempt} attempts`);
+      } else {
+        console.log(`[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`);
       }
       
       return {
-        success: false,
-        error: `HTTP ${response.status}: ${errorText}`,
-        type: 'error'
+        success: true,
+        type: 'success'
       };
+      
+    } catch (error) {
+      lastError = error;
+      console.error(`[${new Date().toISOString()}] Network error saving document ${documentName} to Convex:`, error);
+      
+      // Network errors are always retryable
+      if (attempt === MAX_RETRY_ATTEMPTS) {
+        console.error(`[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName} after network error, giving up`);
+        break;
+      }
+      
+      // Calculate delay for next attempt with exponential backoff
+      const delayMs = Math.min(
+        INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
+        MAX_RETRY_DELAY
+      );
+      
+      console.log(`[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to network error`);
+      await delay(delayMs);
     }
-
-    const result = await response.json() as { success: boolean; message: string };
-    console.log(`[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`);
-    return {
-      success: true,
-      type: 'success'
-    };
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error saving document ${documentName} to Convex:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      type: 'error'
-    };
   }
+  
+  // If we get here, all retries failed
+  return {
+    success: false,
+    error: lastError instanceof Error ? lastError.message : 'Unknown error after retries',
+    type: 'error'
+  };
 };
 
 const loadDocumentFromConvex = async (documentName: string): Promise<string | null> => {

@@ -24,8 +24,8 @@ export default function HomePage() {
     setIsMounted(true);
   }, []);
 
-  // Safe router navigation function
-  const safeNavigate = (path: string) => {
+  // Safe router navigation function - memoized to prevent unnecessary re-renders
+  const safeNavigate = useCallback((path: string) => {
     if (isMounted && router) {
       try {
         router.push(path);
@@ -42,7 +42,7 @@ export default function HomePage() {
         window.location.href = path;
       }
     }
-  };
+  }, [isMounted, router]);
 
   // Memoize the createAndRedirect function to prevent unnecessary re-renders
   const createAndRedirect = useCallback(async () => {

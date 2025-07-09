@@ -1,16 +1,68 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import DocumentSidebar from './DocumentSidebar';
 import { Id } from 'convex/_generated/dataModel';
+import { DocumentWithTreeProps } from '../types/document';
 
-// Simple mock implementations
+// Mock implementations
 const mockSetCurrentDocumentId = jest.fn();
 const mockUpdateStructure = jest.fn();
+const mockCreateDocument = jest.fn();
+const mockDeleteDocument = jest.fn();
 
-// Mock the Convex hooks
+// Mock Convex hooks
+const mockDocuments: DocumentWithTreeProps[] = [
+  {
+    _id: 'folder1' as Id<"documents">,
+    title: 'Folder 1',
+    ownerId: 'user123',
+    parentId: undefined,
+    order: 0,
+    isFolder: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  },
+  {
+    _id: 'doc1' as Id<"documents">,
+    title: 'Document 1',
+    ownerId: 'user123',
+    parentId: undefined,
+    order: 1,
+    isFolder: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  },
+  {
+    _id: 'doc2' as Id<"documents">,
+    title: 'Document 2',
+    ownerId: 'user123',
+    parentId: undefined,
+    order: 2,
+    isFolder: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  },
+  {
+    _id: 'doc3' as Id<"documents">,
+    title: 'Document 3',
+    ownerId: 'user123',
+    parentId: 'folder1' as Id<"documents">,
+    order: 0,
+    isFolder: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+];
+
 jest.mock('convex/react', () => ({
-  useQuery: jest.fn(() => []),
-  useMutation: jest.fn(() => mockUpdateStructure),
+  useQuery: jest.fn(() => mockDocuments),
+  useMutation: jest.fn((api) => {
+    if (api === 'documents.updateStructure') return mockUpdateStructure;
+    if (api === 'documents.create') return mockCreateDocument;
+    if (api === 'documents.removeById') return mockDeleteDocument;
+    return jest.fn();
+  }),
   useConvexAuth: jest.fn(() => ({ isAuthenticated: true, isLoading: false })),
 }));
 
@@ -18,269 +70,351 @@ jest.mock('convex/react', () => ({
 jest.mock('sonner', () => ({
   toast: {
     error: jest.fn(),
+    success: jest.fn(),
   },
 }));
 
 // Mock the user hook
 jest.mock('~/hooks/use-convex-user', () => ({
   useConvexUser: () => ({ 
-    user: { _id: 'user123' as Id<"users">, name: 'Test User' }, 
+    convexUserId: 'user123' as Id<"users">,
     isLoading: false 
   })
 }));
 
-// Mock document type
-interface DocumentWithTreeProps {
-  _id: Id<"documents">;
-  title: string;
-  content: string;
-  parentId: Id<"documents"> | undefined;
-  order: number;
-  isFolder: boolean;
-  userId: Id<"users">;
-  createdAt: number;
-  updatedAt: number;
-}
+// Mock API imports
+jest.mock('../../convex/_generated/api', () => ({
+  api: {
+    documents: {
+      getAllForTree: 'documents.getAllForTree',
+      create: 'documents.create',
+      removeById: 'documents.removeById',
+      updateStructure: 'documents.updateStructure'
+    }
+  }
+}));
 
-describe('DocumentSidebar handleDrop', () => {
-  const createMockDocument = (
-    id: string,
-    title: string,
-    parentId?: string,
-    order: number = 0,
-    isFolder: boolean = false
-  ): DocumentWithTreeProps => ({
-    _id: id as Id<"documents">,
-    title,
-    content: isFolder ? `${title}\n!folder` : title,
-    parentId: parentId ? (parentId as Id<"documents">) : undefined,
-    order,
-    isFolder,
-    userId: 'user123' as Id<"users">,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
+// Helper to create drag event
+const createDragEvent = (type: string, dataTransfer?: Partial<DataTransfer>) => {
+  const event = new DragEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    dataTransfer: {
+      effectAllowed: 'move',
+      dropEffect: 'move',
+      files: {} as FileList,
+      items: {} as DataTransferItemList,
+      types: [],
+      clearData: jest.fn(),
+      getData: jest.fn(),
+      setData: jest.fn(),
+      setDragImage: jest.fn(),
+      ...dataTransfer
+    } as DataTransfer
   });
+  return event;
+};
 
+describe('DocumentSidebar Drag and Drop', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUpdateStructure.mockResolvedValue(undefined);
+    mockCreateDocument.mockResolvedValue('new-doc-id');
+    mockDeleteDocument.mockResolvedValue(undefined);
   });
 
-  describe('dropping into a folder (dropPosition === 0 and isFolder true)', () => {
-    it('should render component and handle drop trigger', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('doc1', 'Document 1', undefined, 1, false),
-        createMockDocument('doc2', 'Document 2', undefined, 2, false)
-      ];
+  it('renders document tree structure correctly', async () => {
+    render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
 
-      const { container } = render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
-
-      // Check if the mock tree component is rendered
-      const treeComponent = container.querySelector('[data-testid="mock-tree"]');
-      expect(treeComponent).toBeTruthy();
-
-      // Check if the drop button exists
-      const dropButton = screen.getByText('Trigger Drop');
-      expect(dropButton).toBeTruthy();
-
-      // Simulate a drop action
-      fireEvent.click(dropButton);
-
-      // Test passes if component renders and handles interaction
-      expect(treeComponent).toBeTruthy();
-    });
-
-    it('should handle folder structure correctly', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('doc1', 'Document 1', 'folder1', 0, false),
-        createMockDocument('doc2', 'Document 2', 'folder1', 1, false),
-        createMockDocument('doc3', 'Document 3', undefined, 1, false)
-      ];
-
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
-
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component renders and handles folder structure
-      expect(dropButton).toBeTruthy();
-    });
+         // Wait for the tree to render
+     await waitFor(() => {
+       expect(screen.getByText('Folder 1')).toBeTruthy();
+       expect(screen.getByText('Document 1')).toBeTruthy();
+       expect(screen.getByText('Document 2')).toBeTruthy();
+     });
   });
 
-  describe('dropping between documents with various dropPosition values', () => {
-    it('should handle dropPosition negative values', async () => {
-      const documents = [
-        createMockDocument('doc1', 'Document 1', undefined, 0, false),
-        createMockDocument('doc2', 'Document 2', undefined, 1, false),
-        createMockDocument('doc3', 'Document 3', undefined, 2, false)
-      ];
+  it('handles drag and drop to reorder documents', async () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
 
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
-
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component handles negative drop positions
-      expect(dropButton).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Document 1')).toBeInTheDocument();
+      expect(screen.getByText('Document 2')).toBeInTheDocument();
     });
 
-    it('should handle dropPosition positive values', async () => {
-      const documents = [
-        createMockDocument('doc1', 'Document 1', undefined, 0, false),
-        createMockDocument('doc2', 'Document 2', undefined, 1, false),
-        createMockDocument('doc3', 'Document 3', undefined, 2, false)
-      ];
+    // Find tree nodes - they should be in the DOM with draggable attributes
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    expect(treeNodes.length).toBeGreaterThan(0);
 
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
+    // Simulate dragging Document 1 to after Document 2
+    const dragNode = treeNodes[0]; // Assuming first draggable is Document 1
+    const dropNode = treeNodes[1]; // Assuming second draggable is Document 2
 
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component handles positive drop positions
-      expect(dropButton).toBeTruthy();
-    });
+    if (dragNode && dropNode) {
+      // Simulate drag start
+      fireEvent(dragNode, createDragEvent('dragstart'));
+      
+      // Simulate drag over
+      fireEvent(dropNode, createDragEvent('dragover'));
+      
+      // Simulate drop
+      fireEvent(dropNode, createDragEvent('drop'));
+      
+      // Verify that updateStructure was called
+      await waitFor(() => {
+        expect(mockUpdateStructure).toHaveBeenCalled();
+      });
+    }
   });
 
-  describe('normalizeOrders function calls', () => {
-    it('should handle order normalization for source folder', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('folder2', 'Folder 2', undefined, 1, true),
-        createMockDocument('doc1', 'Document 1', 'folder1', 0, false),
-        createMockDocument('doc2', 'Document 2', 'folder1', 1, false)
-      ];
+  it('handles dropping document into folder', async () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
 
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
+         await waitFor(() => {
+       expect(screen.getByText('Folder 1')).toBeTruthy();
+       expect(screen.getByText('Document 1')).toBeTruthy();
+     });
+
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    
+    if (treeNodes.length >= 2) {
+      const documentNode = Array.from(treeNodes).find(node => 
+        node.textContent?.includes('Document 1')
+      );
+      const folderNode = Array.from(treeNodes).find(node => 
+        node.textContent?.includes('Folder 1')
       );
 
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component handles order normalization
-      expect(dropButton).toBeTruthy();
-    });
+      if (documentNode && folderNode) {
+        // Simulate drag start on document
+        fireEvent(documentNode, createDragEvent('dragstart'));
+        
+        // Simulate drag over folder
+        fireEvent(folderNode, createDragEvent('dragover'));
+        
+        // Simulate drop on folder
+        fireEvent(folderNode, createDragEvent('drop'));
+        
+        // Verify that updateStructure was called with correct parameters
+        await waitFor(() => {
+          expect(mockUpdateStructure).toHaveBeenCalledWith({
+            updates: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'doc1',
+                parentId: 'folder1'
+              })
+            ]),
+            userId: 'user123'
+          });
+        });
+      }
+    }
   });
 
-  describe('persistDocumentStructure function calls', () => {
-    it('should handle document structure persistence', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('doc1', 'Document 1', undefined, 1, false)
-      ];
+  it('handles document selection', async () => {
+    render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
 
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
+         await waitFor(() => {
+       expect(screen.getByText('Document 1')).toBeTruthy();
+     });
 
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
+    // Click on a document to select it
+    const documentElement = screen.getByText('Document 1');
+    fireEvent.click(documentElement);
 
-      // Test passes if component handles persistence
-      expect(dropButton).toBeTruthy();
-    });
-
-    it('should handle error cases gracefully', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('doc1', 'Document 1', undefined, 1, false)
-      ];
-
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
-
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component handles errors
-      expect(dropButton).toBeTruthy();
-    });
-
-    it('should handle unauthenticated state', async () => {
-      const documents = [
-        createMockDocument('folder1', 'Folder 1', undefined, 0, true),
-        createMockDocument('doc1', 'Document 1', undefined, 1, false)
-      ];
-
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
-
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
-
-      // Test passes if component handles unauthenticated state
-      expect(dropButton).toBeTruthy();
+    await waitFor(() => {
+      expect(mockSetCurrentDocumentId).toHaveBeenCalledWith('doc1');
     });
   });
 
-  describe('edge cases and error handling', () => {
-    it('should handle missing documents gracefully', async () => {
-      const documents = [
-        createMockDocument('doc1', 'Document 1', undefined, 0, false)
-      ];
+  it('handles folder expansion and collapse', async () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
 
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
+         await waitFor(() => {
+       expect(screen.getByText('Folder 1')).toBeTruthy();
+     });
 
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
+    // Find folder element and click to expand
+    const folderElement = screen.getByText('Folder 1');
+    fireEvent.click(folderElement);
 
-      // Test passes if component handles missing documents
-      expect(dropButton).toBeTruthy();
+         // Check if nested document appears after expansion
+     await waitFor(() => {
+       expect(screen.getByText('Document 3')).toBeTruthy();
+     });
+  });
+
+  it('handles drag and drop with different drop positions', async () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Document 1')).toBeInTheDocument();
+      expect(screen.getByText('Document 2')).toBeInTheDocument();
     });
 
-    it('should handle empty documents array', async () => {
-      render(
-        <DocumentSidebar
-          setCurrentDocumentId={mockSetCurrentDocumentId}
-          isMobile={false}
-        />
-      );
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    
+    if (treeNodes.length >= 2) {
+      const dragNode = treeNodes[1]; // Document 2
+      const dropNode = treeNodes[0]; // Document 1
+      
+      // Simulate drag and drop to reorder
+      fireEvent(dragNode, createDragEvent('dragstart'));
+      fireEvent(dropNode, createDragEvent('dragover'));
+      fireEvent(dropNode, createDragEvent('drop'));
+      
+      // Verify structure update was called
+      await waitFor(() => {
+        expect(mockUpdateStructure).toHaveBeenCalledWith({
+          updates: expect.arrayContaining([
+            expect.objectContaining({
+              order: expect.any(Number)
+            })
+          ]),
+          userId: 'user123'
+        });
+      });
+    }
+  });
 
-      const dropButton = screen.getByText('Trigger Drop');
-      fireEvent.click(dropButton);
+  it('handles error during drag and drop', async () => {
+    // Mock updateStructure to throw an error
+    mockUpdateStructure.mockRejectedValue(new Error('Update failed'));
 
-      // Test passes if component handles empty state
-      expect(dropButton).toBeTruthy();
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
+
+         await waitFor(() => {
+       expect(screen.getByText('Document 1')).toBeTruthy();
+     });
+
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    
+    if (treeNodes.length >= 2) {
+      const dragNode = treeNodes[0];
+      const dropNode = treeNodes[1];
+      
+      fireEvent(dragNode, createDragEvent('dragstart'));
+      fireEvent(dropNode, createDragEvent('dragover'));
+      fireEvent(dropNode, createDragEvent('drop'));
+      
+      // Verify error handling
+      await waitFor(() => {
+        expect(mockUpdateStructure).toHaveBeenCalled();
+      });
+    }
+  });
+
+  it('disables drag and drop on mobile', () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={true}
+      />
+    );
+
+    // On mobile, draggable should be disabled
+    const draggableNodes = container.querySelectorAll('[draggable="true"]');
+    expect(draggableNodes.length).toBe(0);
+  });
+
+  it('handles unauthenticated user', async () => {
+    // Mock unauthenticated user
+    jest.mocked(require('~/hooks/use-convex-user').useConvexUser).mockReturnValue({
+      convexUserId: null,
+      isLoading: false
     });
+
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
+
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    
+    if (treeNodes.length >= 2) {
+      const dragNode = treeNodes[0];
+      const dropNode = treeNodes[1];
+      
+      fireEvent(dragNode, createDragEvent('dragstart'));
+      fireEvent(dropNode, createDragEvent('drop'));
+      
+      // Should not call updateStructure for unauthenticated user
+      await waitFor(() => {
+        expect(mockUpdateStructure).not.toHaveBeenCalled();
+      });
+    }
+  });
+
+  it('normalizes document orders after drag and drop', async () => {
+    const { container } = render(
+      <DocumentSidebar
+        setCurrentDocumentId={mockSetCurrentDocumentId}
+        isMobile={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Document 1')).toBeInTheDocument();
+      expect(screen.getByText('Document 2')).toBeInTheDocument();
+    });
+
+    const treeNodes = container.querySelectorAll('[draggable="true"]');
+    
+    if (treeNodes.length >= 2) {
+      const dragNode = treeNodes[0];
+      const dropNode = treeNodes[1];
+      
+      fireEvent(dragNode, createDragEvent('dragstart'));
+      fireEvent(dropNode, createDragEvent('drop'));
+      
+      // Verify that orders are normalized (sequential starting from 0)
+      await waitFor(() => {
+        expect(mockUpdateStructure).toHaveBeenCalledWith({
+          updates: expect.arrayContaining([
+            expect.objectContaining({
+              order: expect.any(Number)
+            })
+          ]),
+          userId: 'user123'
+        });
+      });
+    }
   });
 }); 

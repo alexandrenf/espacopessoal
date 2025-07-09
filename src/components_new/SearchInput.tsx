@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "../components_new/ui/button";
 import { Input } from "../components_new/ui/input";
 import { Search, X } from "lucide-react";
@@ -13,6 +13,11 @@ interface SearchInputProps {
 export function SearchInput({ search, setSearch }: SearchInputProps) {
   const [value, setValue] = useState(search);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep local value in sync with search prop
+  useEffect(() => {
+    setValue(search);
+  }, [search]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setValue(event.target.value);

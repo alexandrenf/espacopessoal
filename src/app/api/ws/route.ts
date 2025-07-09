@@ -9,7 +9,7 @@ export async function GET(): Promise<Response> {
     // This is more of a placeholder since true WebSocket handling needs to be at the server level
     return NextResponse.json({ 
       message: 'WebSocket endpoint available',
-      wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? 'wss://localhost:6001'
+      wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? 'ws://127.0.0.1:6002'
     })
   } catch (error) {
     console.error('WebSocket setup failed:', error)

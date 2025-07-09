@@ -2,13 +2,13 @@
 
 import React from "react";
 import { Folder, FolderOpen, ChevronRight, ChevronDown, MoreHorizontal, Trash } from "lucide-react";
-import { Button } from "../components_new/ui/button";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components_new/ui/dropdown-menu";
+} from "./ui/dropdown-menu";
 import type { EventDataNode } from "rc-tree/lib/interface";
 import { Id } from "../../convex/_generated/dataModel";
 import { DocumentWithTreeProps } from "../types/document";

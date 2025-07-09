@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
+import { nanoid } from "nanoid";
 
 // Production-ready logging utility
 // Use LOG_LEVEL environment variable instead of NODE_ENV since NODE_ENV is always 'development' in Convex sandbox
@@ -49,68 +50,54 @@ export const create = mutation({
     const now = Date.now();
     const isFolder = args.isFolder ?? false;
     
-    // Use retry mechanism to handle race conditions in order calculation
-    const maxRetries = 3;
-    let retryCount = 0;
-    
-    while (retryCount < maxRetries) {
-      try {
-        // Get the next order number for the parent
-        let order = 0;
-        if (args.parentId) {
-          // Verify parent exists and is a folder
-          const parent = await ctx.db.get(args.parentId);
-          if (!parent?.isFolder) {
-            throw new ConvexError("Parent must be a folder");
-          }
-          
-          // Get the highest order in the parent folder
-          const siblings = await ctx.db
-            .query("documents")
-            .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
-            .collect();
-          const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-          order = maxOrder + 1;
-        } else {
-          // Get the highest order in the root level
-          const siblings = await ctx.db
-            .query("documents")
-            .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
-            .filter((q) => q.eq(q.field("ownerId"), userId))
-            .collect();
-          const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
-          order = maxOrder + 1;
+    // Use atomic transaction to prevent race conditions
+    // All operations (parent validation, order calculation, insertion) happen atomically
+    try {
+      // Get the next order number for the parent
+      let order = 0;
+      if (args.parentId) {
+        // Verify parent exists and is a folder
+        const parent = await ctx.db.get(args.parentId);
+        if (!parent?.isFolder) {
+          throw new ConvexError("Parent must be a folder");
         }
         
-        // Insert the document
-        return await ctx.db.insert("documents", {
-          title: args.title ?? (isFolder ? "New Folder" : "Untitled Document"),
-          ownerId: userId,
-          initialContent: isFolder ? undefined : (args.initialContent ?? ""),
-          roomId: undefined, // Will be set to document ID after creation
-          createdAt: now,
-          updatedAt: now,
-          parentId: args.parentId,
-          order,
-          isFolder,
-          isHome: args.isHome ?? false,
-        });
-        
-      } catch (error) {
-        retryCount++;
-        logger.warn(`Document creation retry ${retryCount}/${maxRetries} due to:`, error);
-        
-        if (retryCount >= maxRetries) {
-          logger.error("Document creation failed after maximum retries:", error);
-          throw error;
-        }
-        
-        // Add small delay before retry to reduce collision probability
-        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+        // Get the highest order in the parent folder atomically
+        const siblings = await ctx.db
+          .query("documents")
+          .withIndex("by_parent_id", (q) => q.eq("parentId", args.parentId))
+          .collect();
+        const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+        order = maxOrder + 1;
+      } else {
+        // Get the highest order in the root level atomically
+        const siblings = await ctx.db
+          .query("documents")
+          .withIndex("by_parent_id", (q) => q.eq("parentId", undefined))
+          .filter((q) => q.eq(q.field("ownerId"), userId))
+          .collect();
+        const maxOrder = siblings.reduce((max, doc) => Math.max(max, doc.order || 0), -1);
+        order = maxOrder + 1;
       }
+      
+      // Insert the document atomically within the same transaction
+      return await ctx.db.insert("documents", {
+        title: args.title ?? (isFolder ? "New Folder" : "Untitled Document"),
+        ownerId: userId,
+        initialContent: isFolder ? undefined : (args.initialContent ?? ""),
+        roomId: undefined, // Will be set to document ID after creation
+        createdAt: now,
+        updatedAt: now,
+        parentId: args.parentId,
+        order,
+        isFolder,
+        isHome: args.isHome ?? false,
+      });
+      
+    } catch (error) {
+      logger.error("Document creation failed:", error);
+      throw error instanceof ConvexError ? error : new ConvexError("Document creation failed");
     }
-    
-    throw new ConvexError("Document creation failed after maximum retries");
   },
 });
 
@@ -246,25 +233,63 @@ export const updateStructure = mutation({
       throw new ConvexError("User ID is required for document structure updates");
     }
     
-    for (const update of updates) {
-      const document = await ctx.db.get(update.id);
-      if (!document || document.ownerId !== userId) {
-        throw new ConvexError(`Document ${update.id} not found or access denied`);
-      }
-      
-      // If parentId is specified, verify it's a folder and user owns it
-      if (update.parentId) {
-        const parent = await ctx.db.get(update.parentId);
-        if (!parent || !parent.isFolder || parent.ownerId !== userId) {
-          throw new ConvexError(`Parent folder ${update.parentId} not found or not a folder`);
+    // Store original states for rollback mechanism
+    const originalStates = new Map<string, { parentId: Id<"documents"> | undefined; order: number }>();
+    
+    try {
+      // First pass: Validate all documents and store original states
+      for (const update of updates) {
+        const document = await ctx.db.get(update.id);
+        if (!document || document.ownerId !== userId) {
+          throw new ConvexError(`Document ${update.id} not found or access denied`);
+        }
+        
+        // Store original state for potential rollback
+        originalStates.set(update.id, {
+          parentId: document.parentId,
+          order: document.order || 0,
+        });
+        
+        // If parentId is specified, verify it's a folder and user owns it
+        if (update.parentId) {
+          const parent = await ctx.db.get(update.parentId);
+          if (!parent || !parent.isFolder || parent.ownerId !== userId) {
+            throw new ConvexError(`Parent folder ${update.parentId} not found or not a folder`);
+          }
         }
       }
       
-      await ctx.db.patch(update.id, {
-        parentId: update.parentId,
-        order: update.order,
-        updatedAt: Date.now(),
-      });
+      // Second pass: Apply all updates atomically
+      for (const update of updates) {
+        await ctx.db.patch(update.id, {
+          parentId: update.parentId,
+          order: update.order,
+          updatedAt: Date.now(),
+        });
+      }
+      
+    } catch (error) {
+      // Rollback: Restore all documents to their original states
+      logger.error("Error in updateStructure, rolling back changes:", error);
+      
+      const rollbackPromises = [];
+      for (const [documentId, originalState] of originalStates) {
+        const rollbackPromise = ctx.db.patch(documentId as Id<"documents">, {
+          parentId: originalState.parentId,
+          order: originalState.order,
+          updatedAt: Date.now(),
+        }).catch(rollbackError => {
+          // Log rollback errors but don't throw to avoid masking the original error
+          logger.error(`Failed to rollback document ${documentId}:`, rollbackError);
+        });
+        rollbackPromises.push(rollbackPromise);
+      }
+      
+      // Wait for all rollback operations to complete
+      await Promise.all(rollbackPromises);
+      
+      // Re-throw the original error to maintain consistency
+      throw error instanceof ConvexError ? error : new ConvexError(`Structure update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 });
@@ -409,59 +434,10 @@ export const updateContentInternal = internalMutation({
           return result;
         }
         
-        // For server updates, don't create new documents - just return error
-        if (isServerUpdate) {
-          throw new ConvexError(`Document ${args.id} not found - server cannot create new documents`);
-        }
-        
-        // Strengthen auto-creation validation - require explicit authorization
-        if (!args.userId) {
-          throw new ConvexError(`Document ${args.id} not found and no user ID provided for authorization`);
-        }
-        
-        // Require valid user authorization - validate userId format and reject unauthorized users
-        if (args.userId === "demo-user") {
-          throw new ConvexError(`Document ${args.id} not found and demo-user is not authorized to create new documents`);
-        }
-        
-        // Implement proper user validation - verify user exists in database
-        if (typeof args.userId !== 'string' || args.userId.trim().length === 0) {
-          throw new ConvexError(`Document ${args.id} not found and invalid user ID provided`);
-        }
-        
-        // Validate that the user exists in the users table by checking NextAuth external ID
-        const validUser = await ctx.db
-          .query("users")
-          .withIndex("by_external_id", (q) => 
-            q.eq("externalId", args.userId).eq("provider", "nextauth")
-          )
-          .first();
-        
-        if (!validUser) {
-          throw new ConvexError(`Document ${args.id} not found and user ${args.userId} is not authorized or does not exist`);
-        }
-        
-        // Create a basic document record only for authorized users
-        try {
-          const now = Date.now();
-          const newDocumentId = await ctx.db.insert("documents", {
-            title: "Untitled Document (Auto-created)",
-            ownerId: args.userId,
-            initialContent: args.content,
-            roomId: args.id,
-            createdAt: now,
-            updatedAt: now,
-            parentId: undefined,
-            order: 0,
-            isFolder: false,
-          });
-          
-          logger.debug(`Created new document with ID: ${newDocumentId} for authorized user: ${args.userId}`);
-          return newDocumentId;
-        } catch (createError) {
-          logger.error(`Failed to create new document:`, createError);
-          throw new ConvexError(`Document ${args.id} not found and could not create replacement`);
-        }
+        // Document not found - return error instead of auto-creating
+        // Auto-creation has been removed to prevent security vulnerabilities
+        // where users could create documents by requesting random IDs
+        throw new ConvexError(`Document ${args.id} not found`);
       }
       
       // Verify ownership before updating existing document (skip for server updates)
@@ -558,8 +534,8 @@ export const createSharedDocument = mutation({
       let retryCount = 0;
       
       while (retryCount < maxRetries) {
-        // Generate 12-character URL-safe string for better collision resistance
-        const url = Math.random().toString(36).substring(2, 14);
+        // Generate secure 12-character URL using nanoid
+        const url = nanoid(12);
         const existing = await ctx.db
           .query("sharedDocuments")
           .withIndex("by_url", (q) => q.eq("url", url))
@@ -570,13 +546,8 @@ export const createSharedDocument = mutation({
         logger.warn(`URL collision detected, retry ${retryCount}/${maxRetries}`);
       }
       
-      // If we still can't generate a unique URL, use timestamp-based fallback
-      const timestamp = Date.now().toString(36);
-      const random = Math.random().toString(36).substring(2, 8);
-      const fallbackUrl = `${timestamp}${random}`.substring(0, 12);
-      
-      logger.error(`Failed to generate unique URL after ${maxRetries} attempts, using fallback: ${fallbackUrl}`);
-      return fallbackUrl;
+      // If we still can't generate a unique URL after max retries, throw error
+      throw new ConvexError("Failed to generate unique URL after maximum retries");
     };
     
     const uniqueUrl = await generateUniqueUrl();

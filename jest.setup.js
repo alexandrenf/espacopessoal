@@ -21,32 +21,7 @@ jest.mock('next/dynamic', () => (fn) => {
   return Component;
 });
 
-// Mock rc-tree
-jest.mock('rc-tree', () => {
-  return {
-    __esModule: true,
-    default: ({ onDrop, treeData, onSelect, selectedKeys, expandedKeys, onExpand }) => (
-      <div data-testid="mock-tree">
-        <button 
-          onClick={() => onDrop && onDrop({
-            node: { key: 'drop-node', pos: '0-0' },
-            dragNode: { key: 'drag-node', pos: '0-1' },
-            dropPosition: 0,
-            dropToGap: false,
-            dragNodesKeys: ['drag-node']
-          })}
-        >
-          Trigger Drop
-        </button>
-        {treeData?.map((item) => (
-          <div key={item.key} data-testid={`tree-item-${item.key}`}>
-            {item.title}
-          </div>
-        ))}
-      </div>
-    ),
-  };
-});
+// Note: rc-tree mock removed to allow real drag-and-drop testing
 
 // Mock framer-motion
 jest.mock('framer-motion', () => ({

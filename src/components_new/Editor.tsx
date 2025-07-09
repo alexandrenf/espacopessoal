@@ -14,14 +14,8 @@ const Editor = () => {
   const editorRef = useRef<TiptapEditor | null>(null)
   const [editorReady, setEditorReady] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [reconnectAttempts, setReconnectAttempts] = useState(0)
   const reconnectAttemptsRef = useRef(0)
   const maxReconnectAttempts = 5
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    reconnectAttemptsRef.current = reconnectAttempts
-  }, [reconnectAttempts])
 
   useEffect(() => {
     const newYdoc = new Y.Doc()
@@ -32,8 +26,10 @@ const Editor = () => {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 
       `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:${wsPort}`
     
-    console.log('🔗 WebSocket URL:', wsUrl)
-    console.log('📡 Environment WS URL:', process.env.NEXT_PUBLIC_WS_URL)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔗 WebSocket URL:', wsUrl)
+      console.log('📡 Environment WS URL:', process.env.NEXT_PUBLIC_WS_URL)
+    }
     
     const persistence = new IndexeddbPersistence(documentName, newYdoc)
 
@@ -46,7 +42,7 @@ const Editor = () => {
     const handleReconnect = () => {
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         setTimeout(() => {
-          setReconnectAttempts(prev => prev + 1)
+          reconnectAttemptsRef.current += 1
           void newProvider.connect()
         }, Math.pow(2, reconnectAttemptsRef.current) * 1000) // Exponential backoff
       } else {
@@ -55,38 +51,46 @@ const Editor = () => {
     }
 
     newProvider.on('status', (event: { status: string }) => {
-      console.log('Provider status:', event.status)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Provider status:', event.status)
+      }
       setStatus(event.status)
       if (event.status === 'connected') {
         setConnectionError(null)
-        setReconnectAttempts(0)
         reconnectAttemptsRef.current = 0
       }
     })
 
     newProvider.on('connect', () => {
-      console.log('WebSocket connected successfully!')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket connected successfully!')
+      }
       setConnectionError(null)
-      setReconnectAttempts(0)
       reconnectAttemptsRef.current = 0
     })
 
     newProvider.on('disconnect', (event: unknown) => {
-      console.log('WebSocket disconnected:', event)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket disconnected:', event)
+      }
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()
       }
     })
 
     newProvider.on('close', (event: unknown) => {
-      console.log('WebSocket closed:', event)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WebSocket closed:', event)
+      }
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()
       }
     })
 
     newProvider.on('error', (event: unknown) => {
-      console.error('WebSocket error occurred:', event)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('WebSocket error occurred:', event)
+      }
       setConnectionError('Connection error occurred. Attempting to reconnect...')
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         handleReconnect()

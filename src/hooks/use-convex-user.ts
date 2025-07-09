@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface ConvexUserData {
@@ -20,6 +20,7 @@ export function useConvexUser(): ConvexUserData {
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const lastConvexUser = useRef<typeof convexUser>(undefined);
   
   const syncUser = useMutation(api.users.syncNextAuthUser);
   const convexUser = useQuery(
@@ -30,7 +31,11 @@ export function useConvexUser(): ConvexUserData {
   // Sync user when session becomes available
   useEffect(() => {
     const performSync = async () => {
-      if (session?.user?.id && session.user.email && !convexUser && !isSyncing) {
+      // Prevent multiple sync operations from running simultaneously
+      if (isSyncing) return;
+      
+      // Only sync if we have session data, no existing user, and convexUser is strictly undefined (not null)
+      if (session?.user?.id && session.user.email && convexUser === undefined && !isSyncing) {
         setIsSyncing(true);
         try {
           await syncUser({
@@ -50,14 +55,20 @@ export function useConvexUser(): ConvexUserData {
       }
     };
 
-    if (status === "authenticated" && session?.user) {
-      void performSync();
+    // Check if convexUser has changed using strict equality
+    if (lastConvexUser.current !== convexUser) {
+      lastConvexUser.current = convexUser;
+      
+      if (status === "authenticated" && session?.user) {
+        void performSync();
+      }
     }
-  }, [session?.user?.id, session?.user?.email, syncUser, status, isSyncing, convexUser]);
+  }, [session?.user?.id, session?.user?.email, status, isSyncing, convexUser]);
 
   return {
     convexUserId: convexUser?._id ?? null,
-    isLoading: status === "loading" || (status === "authenticated" && !convexUser && !error) || isSyncing,
+    // Only show loading when status is "loading" or when authenticated with undefined convexUser (not null) and no error
+    isLoading: status === "loading" || (status === "authenticated" && convexUser === undefined && !error) || isSyncing,
     error,
   };
 } 
