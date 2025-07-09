@@ -301,66 +301,119 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
     const sharedTypes = ydoc.share;
     console.log('🔍 Available shared types:', Object.keys(sharedTypes));
     
-    // Look for the prosemirror shared type
-    if (sharedTypes.has('prosemirror')) {
-      const prosemirrorType = sharedTypes.get('prosemirror');
-      if (prosemirrorType) {
-        console.log('🔍 Found prosemirror type:', prosemirrorType.constructor.name);
-        
-        // Cast to any to access methods safely
-        const prosemirrorMap = prosemirrorType as any;
-        
-        // Try to get content as a simple string first
-        if (prosemirrorMap?.has && prosemirrorMap.has('content')) {
-          const content = prosemirrorMap.get('content');
-          if (typeof content === 'string' && content.length > 0) {
-            console.log('📄 Found string content in prosemirror map');
-            return content;
+    // Helper function to try extracting content from a shared type
+    const tryExtractFromType = (typeName: string, sharedType: any): string | null => {
+      console.log(`🔍 Checking ${typeName} type:`, sharedType.constructor.name);
+      
+      try {
+        // If it's an AbstractType, try to access it as different concrete types
+        if (sharedType.constructor.name === 'AbstractType') {
+          // Try to access as YXmlFragment
+          try {
+            const xmlContent = sharedType.toString();
+            console.log(`🔍 XML toString from ${typeName}:`, xmlContent);
+            if (xmlContent && xmlContent.length > 0 && xmlContent !== '') {
+              console.log(`📄 Extracted content from AbstractType toString in ${typeName}`);
+              return xmlContent;
+            }
+          } catch (e) {
+            console.log(`🔍 Error getting toString from ${typeName}:`, e);
           }
-        }
-        
-        // If it's a YMap, look for other common keys
-        if (prosemirrorType.constructor.name === 'YMap' && prosemirrorMap.keys) {
-          console.log('🔍 Prosemirror map keys:', Array.from(prosemirrorMap.keys()));
           
-          // Look for common TipTap keys
-          const keysToCheck = ['default', 'doc', 'fragment', 'content'];
-          for (const key of keysToCheck) {
-            if (prosemirrorMap.has(key)) {
-              const value = prosemirrorMap.get(key);
-              console.log(`🔍 Found key "${key}":`, value ? value.constructor.name : 'null');
-              
-              // If it's a YXmlFragment, try to extract content
-              if (value && value.constructor.name === 'YXmlFragment') {
-                try {
-                  const xmlContent = value.toString();
-                  console.log(`🔍 XML content from ${key}:`, xmlContent);
-                  if (xmlContent && xmlContent.length > 0) {
-                    console.log(`📄 Extracted content from XML fragment in ${key}`);
-                    return xmlContent;
-                  }
-                } catch (e) {
-                  console.log(`🔍 Error extracting XML from ${key}:`, e);
-                }
-              }
-              
-              // If it's another Y.js type, try to get JSON
-              if (value && typeof value === 'object' && value.toJSON) {
-                try {
-                  const json = value.toJSON();
-                  console.log(`🔍 JSON from ${key}:`, json);
-                  if (json) {
-                    const html = convertProseMirrorToHtml(json);
-                    if (html && html.length > 0) {
-                      console.log(`📄 Extracted content from JSON in ${key}`);
-                      return html;
-                    }
-                  }
-                } catch (e) {
-                  console.log(`🔍 Error extracting JSON from ${key}:`, e);
+          // Try to access toJSON method
+          try {
+            if (sharedType.toJSON) {
+              const json = sharedType.toJSON();
+              console.log(`🔍 JSON from ${typeName}:`, json);
+              if (json) {
+                const html = convertProseMirrorToHtml(json);
+                if (html && html.length > 0) {
+                  console.log(`📄 Extracted content from AbstractType JSON in ${typeName}`);
+                  return html;
                 }
               }
             }
+          } catch (e) {
+            console.log(`🔍 Error getting JSON from ${typeName}:`, e);
+          }
+        }
+        
+        // Try to access as a map (if it has has/get methods)
+        if (sharedType.has && sharedType.get) {
+          console.log(`🔍 ${typeName} has map-like methods`);
+          
+          // Try to get content as a simple string first
+          if (sharedType.has('content')) {
+            const content = sharedType.get('content');
+            console.log(`🔍 Found content key in ${typeName}:`, typeof content, content);
+            if (typeof content === 'string' && content.length > 0) {
+              console.log(`📄 Found string content in ${typeName}`);
+              return content;
+            }
+          }
+          
+          // If it has keys method, iterate through all keys
+          if (sharedType.keys) {
+            try {
+              const keys = Array.from(sharedType.keys());
+              console.log(`🔍 ${typeName} keys:`, keys);
+              
+              for (const key of keys) {
+                const value = sharedType.get(key);
+                console.log(`🔍 ${typeName}.${key}:`, value ? value.constructor.name : 'null');
+                
+                // If it's a YXmlFragment, try to extract content
+                if (value && value.constructor.name === 'YXmlFragment') {
+                  try {
+                    const xmlContent = value.toString();
+                    console.log(`🔍 XML content from ${typeName}.${key}:`, xmlContent);
+                    if (xmlContent && xmlContent.length > 0) {
+                      console.log(`📄 Extracted content from XML fragment in ${typeName}.${key}`);
+                      return xmlContent;
+                    }
+                  } catch (e) {
+                    console.log(`🔍 Error extracting XML from ${typeName}.${key}:`, e);
+                  }
+                }
+                
+                // If it's another Y.js type, try to get JSON
+                if (value && typeof value === 'object' && value.toJSON) {
+                  try {
+                    const json = value.toJSON();
+                    console.log(`🔍 JSON from ${typeName}.${key}:`, json);
+                    if (json) {
+                      const html = convertProseMirrorToHtml(json);
+                      if (html && html.length > 0) {
+                        console.log(`📄 Extracted content from JSON in ${typeName}.${key}`);
+                        return html;
+                      }
+                    }
+                  } catch (e) {
+                    console.log(`🔍 Error extracting JSON from ${typeName}.${key}:`, e);
+                  }
+                }
+              }
+            } catch (e) {
+              console.log(`🔍 Error iterating keys of ${typeName}:`, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`🔍 Error processing ${typeName}:`, e);
+      }
+      
+      return null;
+    };
+    
+    // Check both 'prosemirror' and 'default' shared types
+    const typesToCheck = ['prosemirror', 'default'];
+    for (const typeName of typesToCheck) {
+      if (sharedTypes.has(typeName)) {
+        const sharedType = sharedTypes.get(typeName);
+        if (sharedType) {
+          const content = tryExtractFromType(typeName, sharedType);
+          if (content) {
+            return content;
           }
         }
       }
