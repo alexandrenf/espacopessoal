@@ -141,6 +141,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const [leftMargin, setLeftMargin] = useState(LEFT_MARGIN_DEFAULT);
   const [rightMargin, setRightMargin] = useState(RIGHT_MARGIN_DEFAULT);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [isContentLoading, setIsContentLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -667,6 +668,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       // Step 3: Reset all Y.js states
       setIsYdocReady(false);
       setIsPersistenceReady(false);
+      setIsContentLoading(false); // Reset content loading state
       setStatus('connecting');
       
       // Step 4: Small delay to ensure cleanup completes
@@ -753,6 +755,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       console.log('✅ WebSocket connected for:', docName);
       if (currentDocumentIdRef.current === docName) {
         setStatus('connected');
+        setIsContentLoading(true); // Show loading while server loads content
+        
+        // Hide loading state after server has time to load content
+        setTimeout(() => {
+          setIsContentLoading(false);
+        }, 2000);
         
         // Complete the document switch
         if (isSwitchingRef.current) {
@@ -768,6 +776,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       console.log('❌ WebSocket disconnected for:', docName, event.code);
       if (currentDocumentIdRef.current === docName) {
         setStatus('disconnected');
+        setIsContentLoading(false); // Reset loading state on disconnect
       }
     };
     
@@ -1004,7 +1013,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   };
 
   const handleForceSave = () => {
-    toast.info("Documents are automatically saved when content changes after 5 seconds of inactivity");
+    toast.info("Documents are automatically saved when content changes after 10 seconds of inactivity");
   };
 
   const handleToggleSidebar = () => {
@@ -1124,6 +1133,21 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">
               Loading document...
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* Loading overlay for content loading */}
+      {isContentLoading && status === 'connected' && (
+        <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-40">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-3"></div>
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              Loading document content...
+            </p>
+            <p className="text-xs text-gray-500">
+              Fetching from server
             </p>
           </div>
         </div>

@@ -283,10 +283,10 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
   state.lastActivity = Date.now();
   state.pendingSave = true;
 
-  // Schedule save after 5 seconds of inactivity (increased from 2 seconds)
+  // Schedule save after 10 seconds of inactivity (reduced from 5 seconds for cost optimization)
   state.saveTimeout = setTimeout(() => {
     void performDocumentSave(documentName, document);
-  }, 5000);
+  }, 10000);
 };
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
