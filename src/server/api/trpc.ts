@@ -10,9 +10,12 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { ConvexHttpClient } from "convex/browser";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+
+const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
 
 /**
  * 1. CONTEXT
@@ -32,6 +35,7 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
   return {
     db,
     session,
+    convex,
     ...opts,
   };
 };
