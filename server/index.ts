@@ -338,13 +338,57 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           }
         }
         
-        // Debug: Check what properties and methods are available
-        console.log(`🔍 ${typeName} available properties:`, Object.getOwnPropertyNames(sharedType));
-        console.log(`🔍 ${typeName} has 'has' method:`, typeof sharedType.has);
-        console.log(`🔍 ${typeName} has 'get' method:`, typeof sharedType.get);
-        console.log(`🔍 ${typeName} has 'keys' method:`, typeof sharedType.keys);
-        console.log(`🔍 ${typeName} has 'entries' method:`, typeof sharedType.entries);
-        console.log(`🔍 ${typeName} has 'size' property:`, typeof sharedType.size);
+        // Try to access internal Y.js structure
+        if (sharedType._map) {
+          console.log(`🔍 ${typeName} has _map property:`, typeof sharedType._map);
+          console.log(`🔍 ${typeName} _map:`, sharedType._map);
+          
+          // If _map is a Map, iterate through it
+          if (sharedType._map instanceof Map) {
+            console.log(`🔍 ${typeName} _map is a Map with ${sharedType._map.size} entries`);
+            for (const [key, value] of sharedType._map.entries()) {
+              console.log(`🔍 ${typeName}._map.${key}:`, value);
+              
+              // Try to extract content from the value
+              if (value && typeof value === 'object') {
+                console.log(`🔍 ${typeName}._map.${key} type:`, value.constructor.name);
+                
+                // If it's a YXmlFragment or similar, try to extract content
+                if (value.toString && typeof value.toString === 'function') {
+                  try {
+                    const content = value.toString();
+                    console.log(`🔍 ${typeName}._map.${key} toString:`, content);
+                    if (content && content.length > 0 && content !== '[object Object]') {
+                      console.log(`📄 Extracted content from ${typeName}._map.${key}`);
+                      return content;
+                    }
+                  } catch (e) {
+                    console.log(`🔍 Error calling toString on ${typeName}._map.${key}:`, e);
+                  }
+                }
+                
+                // Try toJSON if available
+                if (value.toJSON && typeof value.toJSON === 'function') {
+                  try {
+                    const json = value.toJSON();
+                    console.log(`🔍 ${typeName}._map.${key} toJSON:`, json);
+                    if (json) {
+                      const html = convertProseMirrorToHtml(json);
+                      if (html && html.length > 0) {
+                        console.log(`📄 Extracted content from ${typeName}._map.${key} JSON`);
+                        return html;
+                      }
+                    }
+                  } catch (e) {
+                    console.log(`🔍 Error calling toJSON on ${typeName}._map.${key}:`, e);
+                  }
+                }
+              }
+            }
+          } else {
+            console.log(`🔍 ${typeName} _map is not a Map:`, typeof sharedType._map);
+          }
+        }
         
         // Try to access as a map (if it has has/get methods)
         if (sharedType.has && sharedType.get) {
