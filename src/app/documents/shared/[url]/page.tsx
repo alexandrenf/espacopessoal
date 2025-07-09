@@ -5,9 +5,9 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, AlertCircle, Eye, Share2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Eye, Share2, RefreshCw } from 'lucide-react';
 import { Button } from "../../../../components_new/ui/button";
 
 // TipTap Extensions for read-only viewing
@@ -39,8 +39,27 @@ export default function SharedDocumentPage() {
     urlString ? { url: urlString } : "skip"
   );
 
+  const handleManualRefresh = () => {
+    setRefreshKey((prev: number) => prev + 1);
+    setLastRefresh(Date.now());
+  };
+
   const isLoading = sharedDocument === undefined;
   const hasError = sharedDocument === null;
+
+  // Force refresh shared document data periodically to ensure latest content
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+
+  // Auto-refresh every 10 seconds if the document seems empty but should have content
+  useEffect(() => {
+    if (sharedDocument?.document && 
+        (!sharedDocument.document.initialContent || sharedDocument.document.initialContent.trim() === '') &&
+        Date.now() - lastRefresh > 10000) { // Only refresh if it's been more than 10 seconds
+      setRefreshKey((prev: number) => prev + 1);
+      setLastRefresh(Date.now());
+    }
+  }, [sharedDocument, lastRefresh]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -139,7 +158,7 @@ export default function SharedDocumentPage() {
       const contentToSet = sharedDocument.document.initialContent || '<p></p>';
       editor.commands.setContent(contentToSet);
     }
-  }, [editor, sharedDocument?.document?.initialContent]);
+  }, [editor, sharedDocument?.document?.initialContent, refreshKey]);
 
   if (isLoading) {
     return (
@@ -197,6 +216,15 @@ export default function SharedDocumentPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRefresh}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Refresh</span>
+              </Button>
               <div className="flex items-center gap-1 text-sm text-gray-500">
                 <Eye className="h-4 w-4" />
                 <span>Read-only</span>

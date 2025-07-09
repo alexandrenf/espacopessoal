@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { ConvexError } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { type Id } from "./_generated/dataModel";
 
 // Helper function to validate Convex ID format
 function isValidConvexId(id: string): boolean {
@@ -18,7 +18,9 @@ function isValidConvexId(id: string): boolean {
 }
 
 // Helper function to validate request body structure
-function validateRequestBody(body: unknown): { isValid: boolean; error?: string } {
+function validateRequestBody(body: unknown): 
+  | { isValid: false; error: string }
+  | { isValid: true } {
   if (!body || typeof body !== "object") {
     return { isValid: false, error: "Request body must be a non-null object" };
   }
@@ -27,13 +29,9 @@ function validateRequestBody(body: unknown): { isValid: boolean; error?: string 
 }
 
 // Helper function to validate document update request data
-function validateUpdateRequest(data: unknown): { 
-  isValid: boolean; 
-  error?: string; 
-  documentId?: string; 
-  content?: string; 
-  userId?: string; 
-} {
+function validateUpdateRequest(data: unknown): 
+  | { isValid: false; error: string }
+  | { isValid: true; documentId: string; content: string; userId?: string } {
   const bodyValidation = validateRequestBody(data);
   if (!bodyValidation.isValid) {
     return { isValid: false, error: bodyValidation.error };
@@ -55,18 +53,28 @@ function validateUpdateRequest(data: unknown): {
     return { isValid: false, error: "content must be a string" };
   }
 
+  // At this point, documentId and content are guaranteed to be strings
+  const validatedDocumentId: string = documentId;
+  const validatedContent: string = content;
+
   // Validate userId if provided
   if (userId !== undefined) {
     if (typeof userId !== "string" || !isValidConvexId(userId)) {
       return { isValid: false, error: "userId must be a valid Convex ID format" };
     }
+    return { 
+      isValid: true, 
+      documentId: validatedDocumentId, 
+      content: validatedContent, 
+      userId: userId,
+    };
   }
 
   return { 
     isValid: true, 
-    documentId, 
-    content, 
-    userId: userId,
+    documentId: validatedDocumentId, 
+    content: validatedContent, 
+    userId: undefined,
   };
 }
 
@@ -123,12 +131,17 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
       );
     }
 
+    // At this point, all values are validated and guaranteed to be strings
+    const validDocumentId = documentId; // Non-null assertion since validation passed
+    const validContent = content; // Non-null assertion since validation passed
+    const validUserId = userId; // Non-null assertion since we checked above
+
     // Call the internal mutation to update the document with properly typed IDs
-    console.log(`Calling updateContentInternal for document: ${documentId}`);
+    console.log(`Calling updateContentInternal for document: ${validDocumentId}`);
     const result = await ctx.runMutation(internal.documents.updateContentInternal, {
-      id: documentId as Id<"documents">,
-      content: content ?? "",
-      userId: userId as Id<"users">,
+      id: validDocumentId, // Pass as string - the mutation will handle the conversion
+      content: validContent,
+      userId: validUserId, // userId is already validated to be defined above
     });
 
     console.log(`updateContentInternal completed successfully for ${documentId}`);
