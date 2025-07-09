@@ -534,11 +534,13 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       switchTimeoutRef.current = null;
     }
     
-    // Debounce rapid switches
+    // Debounce rapid switches with longer delay for stability
     switchTimeoutRef.current = setTimeout(() => {
       isSwitchingRef.current = true;
       setIsLoadingDocument(true);
       setDocumentError(null);
+      
+      console.log('🔄 Switching from document:', currentDocumentId, 'to:', newDocumentId);
       
       try {
         // Update the document ID state - this will trigger the useEffect to handle Y.js document switching
@@ -555,18 +557,21 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         setDocumentError(errorMessage);
         toast.error(errorMessage);
       } finally {
-        setIsLoadingDocument(false);
-        isSwitchingRef.current = false;
-        
-        // Check if there's a pending switch
-        if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
-          const pendingId = pendingDocumentIdRef.current;
-          pendingDocumentIdRef.current = null;
-          // Execute the pending switch
-          void handleDocumentSwitch(pendingId);
-        }
+        // Use a longer timeout to ensure the switch completes
+        setTimeout(() => {
+          setIsLoadingDocument(false);
+          isSwitchingRef.current = false;
+          
+          // Check if there's a pending switch
+          if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
+            const pendingId = pendingDocumentIdRef.current;
+            pendingDocumentIdRef.current = null;
+            // Execute the pending switch
+            void handleDocumentSwitch(pendingId);
+          }
+        }, 500); // Give more time for the switch to complete
       }
-    }, 100); // 100ms debounce
+    }, 200); // Increased debounce time for stability
   }, [currentDocumentId]);
 
   // Handle browser back/forward navigation
@@ -662,29 +667,29 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     const docName = currentDocumentId;
     let ydoc = documentInstances.current.get(docName);
     
-    if (!ydoc) {
-      ydoc = new Y.Doc();
-      documentInstances.current.set(docName, ydoc);
-      documentAccessOrder.current.push(docName);
-      console.log('📄 Y.js document created for:', docName);
-      
-      // Clean up old documents after creating a new one
-      cleanupOldDocuments();
-    } else {
-      // Move to the end of the access order (most recently used)
-      const index = documentAccessOrder.current.indexOf(docName);
-      if (index > -1) {
-        documentAccessOrder.current.splice(index, 1);
-      }
-      documentAccessOrder.current.push(docName);
-      console.log('📄 Y.js document reused for:', docName);
+    // Always create a fresh Y.js document for each switch to avoid confusion
+    // This prevents content from one document appearing in another
+    if (ydoc) {
+      console.log('📄 Destroying existing Y.js document for clean switch:', docName);
+      ydoc.destroy();
+      documentInstances.current.delete(docName);
     }
+    
+    // Create new Y.js document
+    ydoc = new Y.Doc();
+    documentInstances.current.set(docName, ydoc);
+    documentAccessOrder.current.push(docName);
+    console.log('📄 Fresh Y.js document created for:', docName);
+    
+    // Clean up old documents after creating a new one
+    cleanupOldDocuments();
     
     ydocRef.current = ydoc;
     
-    // Clean up previous provider only
+    // Clean up previous provider immediately for clean switches
     if (providerRef.current) {
-      console.log('🔌 Disconnecting previous WebSocket provider');
+      console.log('🔌 Disconnecting previous WebSocket provider for:', providerRef.current.configuration.name);
+      providerRef.current.disconnect();
       providerRef.current.destroy();
       providerRef.current = null;
     }
@@ -735,7 +740,13 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
 
     newProvider.on('status', (event: { status: string }) => {
-      console.log('📡 Provider status:', event.status);
+      // Verify this event is for the current document
+      if (newProvider.configuration.name !== currentDocumentId) {
+        console.log('📡 Ignoring status event for old document:', newProvider.configuration.name);
+        return;
+      }
+      
+      console.log('📡 Provider status for', docName, ':', event.status);
       const validStatuses = ['connecting', 'connected', 'disconnected', 'error'] as const;
       const statusValue = (validStatuses as readonly string[]).includes(event.status) 
         ? (event.status as typeof validStatuses[number])
@@ -749,7 +760,13 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     });
 
     newProvider.on('connect', () => {
-      console.log('✅ WebSocket connected successfully!');
+      // Verify this event is for the current document
+      if (newProvider.configuration.name !== currentDocumentId) {
+        console.log('✅ Ignoring connect event for old document:', newProvider.configuration.name);
+        return;
+      }
+      
+      console.log('✅ WebSocket connected successfully for:', docName);
       setStatus('connected');
     });
 
