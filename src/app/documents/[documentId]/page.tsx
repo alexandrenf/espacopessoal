@@ -31,7 +31,8 @@ export default function DocumentPage() {
   // Validate documentId before using it
   const validatedDocumentId = isValidConvexId(documentId) ? documentId as Id<"documents"> : null;
   
-  const document = useQuery(
+  // Only fetch the initial document to pass to DocumentEditor
+  const initialDocument = useQuery(
     api.documents.getById, 
     !isUserLoading && validatedDocumentId && userIdString ? { id: validatedDocumentId, userId: userIdString } : "skip"
   );
@@ -115,7 +116,8 @@ export default function DocumentPage() {
     );
   }
 
-  if (document === undefined) {
+  // Show loading while initial document loads
+  if (initialDocument === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader className="animate-spin h-8 w-8 text-muted-foreground" />
@@ -123,7 +125,8 @@ export default function DocumentPage() {
     );
   }
 
-  if (document === null) {
+  // Show error if initial document doesn't exist
+  if (initialDocument === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -140,5 +143,6 @@ export default function DocumentPage() {
     );
   }
 
-  return <DocumentEditor document={document} />;
+  // Pass the initial document to DocumentEditor - it will handle all document switching internally
+  return <DocumentEditor document={initialDocument} />;
 } 

@@ -5,10 +5,14 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { useEffect, useState } from 'react';
+import Collaboration from '@tiptap/extension-collaboration';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, AlertCircle, Eye, Share2, RefreshCw } from 'lucide-react';
 import { Button } from "../../../../components_new/ui/button";
+import * as Y from 'yjs';
+import { IndexeddbPersistence } from 'y-indexeddb';
+import { HocuspocusProvider } from '@hocuspocus/provider';
 
 // TipTap Extensions for read-only viewing
 import { FontSizeExtension } from "../../../../extensions/font-size";
@@ -59,17 +63,59 @@ export default function SharedDocumentPage() {
     }
   }, [sharedDocument, isInitialLoad]);
 
-  // Auto-refresh every 10 seconds if the document seems empty but should have content
-  // Only refresh during initial load phase, not for intentionally blank documents
+  // Real-time collaboration setup for shared documents
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const providerRef = useRef<HocuspocusProvider | null>(null);
+  const [isYdocReady, setIsYdocReady] = useState(false);
+  const [collaborativeContent, setCollaborativeContent] = useState<string | null>(null);
+
+  // Initialize Y.js document for real-time collaboration
   useEffect(() => {
-    if (sharedDocument?.document && 
-        isInitialLoad && // Only refresh during initial load
-        (!sharedDocument.document.initialContent || sharedDocument.document.initialContent.trim() === '') &&
-        Date.now() - lastRefresh > 10000) { // Only refresh if it's been more than 10 seconds
-      setRefreshKey((prev: number) => prev + 1);
-      setLastRefresh(Date.now());
+    if (sharedDocument?.document && !ydocRef.current) {
+      ydocRef.current = new Y.Doc();
+      setIsYdocReady(true);
+      
+      // Connect to collaborative server in read-only mode
+      const documentId = sharedDocument.document._id;
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+      
+      if (wsUrl) {
+        const persistence = new IndexeddbPersistence(documentId, ydocRef.current);
+        
+        const provider = new HocuspocusProvider({
+          url: wsUrl,
+          name: documentId,
+          document: ydocRef.current,
+        });
+        
+        providerRef.current = provider;
+        
+        // Listen for document updates
+        const updateContent = () => {
+          if (ydocRef.current) {
+            const prosemirrorState = ydocRef.current.getMap('prosemirror');
+            const content = prosemirrorState.get('content');
+            if (typeof content === 'string' && content) {
+              setCollaborativeContent(content);
+            }
+          }
+        };
+        
+        provider.on('status', (event: { status: string }) => {
+          if (event.status === 'connected') {
+            updateContent();
+          }
+        });
+        
+        ydocRef.current.on('update', updateContent);
+        
+        return () => {
+          provider.destroy();
+          ydocRef.current?.destroy();
+        };
+      }
     }
-  }, [sharedDocument, lastRefresh, isInitialLoad]);
+  }, [sharedDocument?.document]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -77,9 +123,42 @@ export default function SharedDocumentPage() {
       StarterKit.configure({
         history: false,
         heading: false,
+        // Explicitly ensure list extensions are enabled
+        bulletList: {
+          HTMLAttributes: {
+            class: 'bullet-list',
+          },
+        },
+        orderedList: {
+          HTMLAttributes: {
+            class: 'ordered-list',
+          },
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: 'list-item',
+          },
+        },
       }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
+      // Add Heading extension after StarterKit to ensure it works properly
+      Heading.configure({
+        levels: [1, 2, 3, 4, 5, 6],
+        HTMLAttributes: {
+          class: 'heading',
+        },
+      }),
+      // Add TaskList and TaskItem extensions
+      TaskList.configure({
+        HTMLAttributes: {
+          class: 'task-list',
+        },
+      }),
+      TaskItem.configure({ 
+        nested: true,
+        HTMLAttributes: {
+          class: 'task-item',
+        },
+      }),
       Table.configure({
         resizable: false,
         handleWidth: 5,
@@ -104,12 +183,6 @@ export default function SharedDocumentPage() {
       Underline,
       FontFamily,
       TextStyle,
-      Heading.configure({
-        levels: [1, 2, 3, 4, 5, 6],
-        HTMLAttributes: {
-          class: 'heading',
-        },
-      }),
       Highlight.configure({ 
         multicolor: true,
         HTMLAttributes: {
@@ -149,26 +222,33 @@ export default function SharedDocumentPage() {
       }),
       FontSizeExtension,
       LineHeightExtension,
+      // Add collaboration extension for real-time content
+      ...(isYdocReady && ydocRef.current ? [
+        Collaboration.configure({
+          document: ydocRef.current,
+        }),
+      ] : []),
     ],
     editable: false, // Make editor read-only for shared documents
-    content: sharedDocument?.document?.initialContent !== undefined 
-      ? (sharedDocument.document.initialContent || '<p></p>') 
-      : '<p>Loading document...</p>',
+    content: '<p>Loading document...</p>',
     editorProps: {
       attributes: {
         class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
       },
     },
-  });
+  }, [isYdocReady]);
 
-  // Update content when shared document loads
+  // Update content when shared document loads or collaborative content changes
   useEffect(() => {
-    if (editor && sharedDocument?.document?.initialContent !== undefined) {
-      // Set content even if it's an empty string - this ensures blank documents display correctly
-      const contentToSet = sharedDocument.document.initialContent || '<p></p>';
+    if (editor && sharedDocument?.document) {
+      // Use collaborative content if available, otherwise fall back to initialContent
+      const contentToSet = collaborativeContent ?? 
+                          sharedDocument.document.initialContent ?? 
+                          '<p>This document appears to be empty.</p>';
+      
       editor.commands.setContent(contentToSet);
     }
-  }, [editor, sharedDocument?.document?.initialContent, refreshKey]);
+  }, [editor, sharedDocument?.document, collaborativeContent, refreshKey]);
 
   if (isLoading) {
     return (
@@ -245,9 +325,11 @@ export default function SharedDocumentPage() {
       </header>
 
       {/* Document Content */}
-      <div className="size-full overflow-x-auto bg-[#F9FBFD] px-4 print:p-0 print:bg-white print:overflow-visible">
-        <div className="min-w-max flex justify-center w-[816px] py-4 print:py-0 mx-auto print:w-full print:min-w-0">
-          <EditorContent editor={editor} />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-[816px] mx-auto py-4">
+          <div className="min-w-max flex justify-center">
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
     </div>

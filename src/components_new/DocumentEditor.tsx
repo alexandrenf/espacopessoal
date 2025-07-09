@@ -109,12 +109,33 @@ interface EditorProps {
   isReadOnly?: boolean;
 }
 
-export function DocumentEditor({ document: doc, initialContent, isReadOnly }: EditorProps) {
+export function DocumentEditor({ document: initialDocument, initialContent, isReadOnly }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   const mutation = useMutation(api.documents.updateById);
   const updateDocument = useMutation(api.documents.updateById);
   const create = useMutation(api.documents.create);
+  
+  // New state management for document switching
+  const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(initialDocument._id);
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  
+  // Get authenticated user with proper error handling
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const userIdString = convexUserId;
+  
+  // Query for current document
+  const currentDocument = useQuery(
+    api.documents.getById,
+    !isUserLoading && userIdString && currentDocumentId
+      ? { id: currentDocumentId, userId: userIdString }
+      : "skip"
+  );
+
+  // Fallback to initial document if query is loading
+  const doc = currentDocument ?? initialDocument;
+  
   const [documentTitle, setDocumentTitle] = useState(doc.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [leftMargin, setLeftMargin] = useState(LEFT_MARGIN_DEFAULT);
@@ -139,19 +160,54 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const undoManagerRef = useRef<UndoManager | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
-
-  // Get authenticated user with proper error handling
-  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId;
-  
-  // Convert Convex user ID to string for current API compatibility
-  // const userIdString = convexUserId ? String(convexUserId) : undefined;
+  const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
   
   // Use Convex API for dictionary functionality with real user authentication
   const dictionary = useQuery(
     api.dictionary.getDictionary, 
     userIdString ? { userId: userIdString } : "skip"
   ) ?? [];
+
+  // Update document title when document changes
+  useEffect(() => {
+    if (doc && doc.title !== documentTitle) {
+      setDocumentTitle(doc.title);
+    }
+  }, [doc?.title]);
+
+  // Handle document query errors
+  useEffect(() => {
+    if (currentDocument === null && currentDocumentId !== initialDocument._id) {
+      setDocumentError("Document not found");
+      toast.error("Document not found. Switching back to original document.");
+      setCurrentDocumentId(initialDocument._id);
+    }
+  }, [currentDocument, currentDocumentId, initialDocument._id]);
+
+  // Update URL when document changes without navigation
+  useEffect(() => {
+    if (currentDocumentId !== initialDocument._id && isMounted) {
+      const newUrl = `/documents/${currentDocumentId}`;
+      window.history.pushState({ documentId: currentDocumentId }, '', newUrl);
+    }
+    currentDocumentIdRef.current = currentDocumentId;
+  }, [currentDocumentId, initialDocument._id, isMounted]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && typeof event.state === 'object' && 'documentId' in event.state) {
+        const state = event.state as { documentId: unknown };
+        const documentId = state.documentId;
+        if (typeof documentId === 'string') {
+          setCurrentDocumentId(documentId as Id<"documents">);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Set mounted state to handle router mounting
   useEffect(() => {
@@ -233,9 +289,42 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     StarterKit.configure({
       history: false,
       heading: false,
+      // Explicitly ensure list extensions are enabled
+      bulletList: {
+        HTMLAttributes: {
+          class: 'bullet-list',
+        },
+      },
+      orderedList: {
+        HTMLAttributes: {
+          class: 'ordered-list',
+        },
+      },
+      listItem: {
+        HTMLAttributes: {
+          class: 'list-item',
+        },
+      },
     }),
-    TaskList,
-    TaskItem.configure({ nested: true }),
+    // Add Heading extension after StarterKit to ensure it works properly
+    Heading.configure({
+      levels: [1, 2, 3, 4, 5, 6],
+      HTMLAttributes: {
+        class: 'heading',
+      },
+    }),
+    // Add TaskList and TaskItem extensions
+    TaskList.configure({
+      HTMLAttributes: {
+        class: 'task-list',
+      },
+    }),
+    TaskItem.configure({ 
+      nested: true,
+      HTMLAttributes: {
+        class: 'task-item',
+      },
+    }),
     Table.configure({
       resizable: true,
       handleWidth: 5,
@@ -260,12 +349,6 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     Underline,
     FontFamily,
     TextStyle,
-    Heading.configure({
-      levels: [1, 2, 3, 4, 5, 6],
-      HTMLAttributes: {
-        class: 'heading',
-      },
-    }),
     Highlight.configure({ 
       multicolor: true,
       HTMLAttributes: {
@@ -373,7 +456,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
         }),
       ] : []),
     ],
-  }, [isYdocReady, leftMargin, rightMargin, isReadOnly]);
+  }, [isYdocReady, leftMargin, rightMargin, isReadOnly, currentDocumentId]);
 
   // Functions that use editor - must be defined after editor is declared
   const rejectReplacement = useCallback(() => {
@@ -388,6 +471,31 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       suggestionTimeoutRef.current = null;
     }
   }, [replacementSuggestion]);
+
+  // Efficient document switching function
+  const handleDocumentSwitch = useCallback(async (newDocumentId: Id<"documents">) => {
+    if (newDocumentId === currentDocumentId) return;
+    
+    setIsLoadingDocument(true);
+    setDocumentError(null);
+    
+    try {
+      // Update the document ID state - this will trigger the useEffect to handle Y.js document switching
+      setCurrentDocumentId(newDocumentId);
+      
+      toast.success("Document switched successfully");
+    } catch (error) {
+      console.error('Error switching document:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
+      setDocumentError(errorMessage);
+      toast.error(errorMessage);
+      
+      // Revert to previous document on error
+      setCurrentDocumentId(currentDocumentId);
+    } finally {
+      setIsLoadingDocument(false);
+    }
+  }, [currentDocumentId]);
 
   const acceptReplacement = useCallback(() => {
     if (!editor || !replacementSuggestion) return;
@@ -443,11 +551,19 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   }, [editor, dictionary, recentlyRejected, acceptReplacement]);
 
   useEffect(() => {
-    // Initialize Y.js document once in useEffect to prevent memory leaks
-    ydocRef.current ??= new Y.Doc();
+    // Clean up previous Y.js document and provider
+    if (ydocRef.current) {
+      ydocRef.current.destroy();
+    }
+    if (providerRef.current) {
+      providerRef.current.destroy();
+    }
     
-    const ydoc = ydocRef.current;
-    const documentName = doc._id;
+    // Create new Y.js document for current document
+    const ydoc = new Y.Doc();
+    ydocRef.current = ydoc;
+    
+    const documentName = currentDocumentId;
     
     // Ensure WebSocket URL is properly configured - no fallback for production safety
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
@@ -455,6 +571,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     if (!wsUrl) {
       console.error('WebSocket URL not configured. Please set NEXT_PUBLIC_WS_URL environment variable.');
       toast.error('WebSocket configuration missing. Real-time collaboration unavailable.');
+      setIsYdocReady(true); // Still allow editor to work without collaboration
       return;
     }
     
@@ -517,6 +634,8 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
       toast.error("Connection error occurred");
     });
 
+    setIsYdocReady(true);
+
     return () => {
       console.log('🧹 Cleaning up editor and connections');
       
@@ -528,7 +647,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
         ydoc.destroy();
       }
     };
-  }, [doc._id, doc.initialContent, initialContent]);
+  }, [currentDocumentId]);
 
   // Separate useEffect to handle initial content setting when editor becomes ready
   useEffect(() => {
@@ -645,22 +764,28 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
     setShowSidebar(!showSidebar);
   };
 
-  // Safe router navigation functions
+  // Safe router navigation functions - modified to use document switching
   const safeNavigate = (path: string) => {
-    if (isMounted && router) {
-      try {
-        void router.push(path);
-      } catch (error) {
-        console.error('Router navigation failed:', error);
-        // Fallback to window.location if router fails
+    if (path.startsWith('/documents/')) {
+      const documentId = path.split('/documents/')[1];
+      if (documentId && documentId !== currentDocumentId) {
+        void handleDocumentSwitch(documentId as Id<"documents">);
+      }
+    } else {
+      // For non-document paths, use normal navigation
+      if (isMounted && router) {
+        try {
+          void router.push(path);
+        } catch (error) {
+          console.error('Router navigation failed:', error);
+          if (typeof window !== 'undefined') {
+            window.location.href = path;
+          }
+        }
+      } else {
         if (typeof window !== 'undefined') {
           window.location.href = path;
         }
-      }
-    } else {
-      // Fallback for unmounted router
-      if (typeof window !== 'undefined') {
-        window.location.href = path;
       }
     }
   };
@@ -670,7 +795,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
-    safeNavigate(`/documents/${documentId}`);
+    void handleDocumentSwitch(documentId);
   };
 
   const getStatusIcon = () => {
@@ -718,6 +843,18 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
 
   return (
     <div className="min-h-screen bg-[#F9FBFD] flex">
+      {/* Loading overlay for document switching */}
+      {isLoadingDocument && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">
+              Loading document...
+            </p>
+          </div>
+        </div>
+      )}
+      
       {/* Sidebar */}
       {showSidebar && (
         <div className={`${isMobile ? 'fixed inset-0 z-50 bg-white' : 'w-80 border-r bg-white'}`}>
@@ -757,7 +894,7 @@ export function DocumentEditor({ document: doc, initialContent, isReadOnly }: Ed
                     type="text"
                     value={documentTitle}
                     onChange={(e) => setDocumentTitle(e.target.value)}
-                    onBlur={handleTitleSubmit}
+                    onBlur={() => void handleTitleSubmit()}
                     onKeyDown={handleTitleKeyDown}
                     className="text-lg font-semibold bg-transparent border-none outline-none focus:bg-gray-50 px-2 py-1 rounded"
                     autoFocus
