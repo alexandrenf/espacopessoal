@@ -6,15 +6,21 @@ import { type Id } from "./_generated/dataModel";
 
 // Helper function to validate Convex ID format
 function isValidConvexId(id: string): boolean {
-  // Convex IDs should be non-empty strings with RFC 4648 base32hex encoding
-  if (!id || typeof id !== "string") return false;
+  // Convex IDs should be non-empty strings with at least 20 characters
+  if (!id || typeof id !== "string" || id.length < 20) return false;
   
   // Check for whitespace
   if (id.includes(" ") || id.trim() !== id) return false;
   
-  // Check for valid characters (RFC 4648 base32hex: A-V and 0-9 only)
-  const validIdPattern = /^[A-V0-9]+$/;
+  // Check for valid characters (base64url: A-Z, a-z, 0-9, hyphens, and underscores)
+  const validIdPattern = /^[A-Za-z0-9_-]{20,}$/;
   return validIdPattern.test(id);
+}
+
+// Helper function to check if a userId is a server userId (trusted source)
+function isServerUserId(userId: string): boolean {
+  return userId === 'hocus-pocus-server' || 
+         (process.env.SERVER_USER_ID !== undefined && userId === process.env.SERVER_USER_ID);
 }
 
 // Helper function to validate request body structure
@@ -59,9 +65,15 @@ function validateUpdateRequest(data: unknown):
 
   // Validate userId if provided
   if (userId !== undefined) {
-    if (typeof userId !== "string" || !isValidConvexId(userId)) {
+    if (typeof userId !== "string") {
+      return { isValid: false, error: "userId must be a string" };
+    }
+    
+    // Allow server userIds or valid Convex IDs
+    if (!isServerUserId(userId) && !isValidConvexId(userId)) {
       return { isValid: false, error: "userId must be a valid Convex ID format" };
     }
+    
     return { 
       isValid: true, 
       documentId: validatedDocumentId, 
@@ -80,7 +92,7 @@ function validateUpdateRequest(data: unknown):
 
 // Helper function to validate that userId is required and valid for update operations
 function validateRequiredUserId(userId: string | undefined): userId is string {
-  return userId !== undefined && typeof userId === "string" && isValidConvexId(userId);
+  return userId !== undefined && typeof userId === "string" && (isServerUserId(userId) || isValidConvexId(userId));
 }
 
 const updateDocumentContent = httpAction(async (ctx, request) => {
@@ -121,8 +133,7 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
     console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}, userId: ${userId}`);
 
     // Check if this is a server update (trusted source)
-    const isServerUpdate = userId === 'hocus-pocus-server' || 
-                          (process.env.SERVER_USER_ID && userId === process.env.SERVER_USER_ID);
+    const isServerUpdate = userId ? isServerUserId(userId) : false;
 
     // Require authentication for non-server updates
     if (!isServerUpdate && !userId) {

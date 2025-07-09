@@ -297,12 +297,54 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
 
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
-    // Extract 'content' string exclusively from 'prosemirror' map to align with onLoadDocument storage format
     const prosemirrorMap = ydoc.getMap('prosemirror');
+    
+    // First, try to get content as a simple string (from onLoadDocument)
     if (prosemirrorMap?.has('content')) {
       const content = prosemirrorMap.get('content');
       if (typeof content === 'string' && content.length > 0) {
+        console.log('📄 Found string content in prosemirror map');
         return content;
+      }
+    }
+    
+    // If no string content, try to extract from Y.js native format (TipTap collaborative editing)
+    // TipTap stores content in YXmlFragment format in the 'default' key
+    if (prosemirrorMap?.has('default')) {
+      const fragment = prosemirrorMap.get('default');
+      if (fragment && typeof fragment === 'object' && 'toJSON' in fragment) {
+        // Convert YXmlFragment to JSON and then to HTML
+        try {
+          const json = (fragment as any).toJSON();
+          if (json && typeof json === 'object') {
+            // Convert ProseMirror JSON to HTML
+            const html = convertProseMirrorToHtml(json);
+            if (html && html.length > 0) {
+              console.log('📄 Extracted content from Y.js native format');
+              return html;
+            }
+          }
+        } catch (fragmentError) {
+          console.warn('Error converting YXmlFragment to HTML:', fragmentError);
+        }
+      }
+    }
+    
+    // Try to extract from any other keys that might contain content
+    for (const [key, value] of prosemirrorMap.entries()) {
+      if (key !== 'content' && value && typeof value === 'object' && 'toJSON' in value) {
+        try {
+          const json = (value as any).toJSON();
+          if (json && typeof json === 'object') {
+            const html = convertProseMirrorToHtml(json);
+            if (html && html.length > 0) {
+              console.log(`📄 Extracted content from Y.js key: ${key}`);
+              return html;
+            }
+          }
+        } catch (keyError) {
+          console.warn(`Error converting content from key ${key}:`, keyError);
+        }
       }
     }
     
@@ -315,6 +357,98 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   } catch (error) {
     console.error('Error extracting document content:', error);
     return '<p>Error extracting content</p>';
+  }
+};
+
+// Helper function to convert ProseMirror JSON to HTML
+const convertProseMirrorToHtml = (json: any): string => {
+  try {
+    if (!json || typeof json !== 'object') return '';
+    
+    // If it's a document node, extract content from it
+    if (json.type === 'doc' && json.content && Array.isArray(json.content)) {
+      return json.content.map((node: any) => convertNodeToHtml(node)).join('');
+    }
+    
+    // If it's a single node, convert it
+    return convertNodeToHtml(json);
+    
+  } catch (error) {
+    console.error('Error converting ProseMirror JSON to HTML:', error);
+    return '';
+  }
+};
+
+// Helper function to convert a ProseMirror node to HTML
+const convertNodeToHtml = (node: any): string => {
+  if (!node || typeof node !== 'object') return '';
+  
+  switch (node.type) {
+    case 'paragraph':
+      const content = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<p>${content}</p>`;
+    
+    case 'text':
+      let text = node.text || '';
+      // Apply marks (bold, italic, etc.)
+      if (node.marks && Array.isArray(node.marks)) {
+        for (const mark of node.marks) {
+          switch (mark.type) {
+            case 'bold':
+              text = `<strong>${text}</strong>`;
+              break;
+            case 'italic':
+              text = `<em>${text}</em>`;
+              break;
+            case 'underline':
+              text = `<u>${text}</u>`;
+              break;
+            case 'code':
+              text = `<code>${text}</code>`;
+              break;
+            // Add more marks as needed
+          }
+        }
+      }
+      return text;
+    
+    case 'heading':
+      const level = node.attrs?.level || 1;
+      const headingContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<h${level}>${headingContent}</h${level}>`;
+    
+    case 'bulletList':
+      const listItems = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<ul>${listItems}</ul>`;
+    
+    case 'orderedList':
+      const orderedItems = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<ol>${orderedItems}</ol>`;
+    
+    case 'listItem':
+      const itemContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<li>${itemContent}</li>`;
+    
+    case 'blockquote':
+      const quoteContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<blockquote>${quoteContent}</blockquote>`;
+    
+    case 'codeBlock':
+      const codeContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      return `<pre><code>${codeContent}</code></pre>`;
+    
+    case 'hardBreak':
+      return '<br>';
+    
+    case 'horizontalRule':
+      return '<hr>';
+    
+    default:
+      // For unknown node types, try to extract content
+      if (node.content && Array.isArray(node.content)) {
+        return node.content.map((child: any) => convertNodeToHtml(child)).join('');
+      }
+      return '';
   }
 };
 
