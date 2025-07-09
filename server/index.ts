@@ -312,7 +312,7 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           try {
             const xmlContent = sharedType.toString();
             console.log(`🔍 XML toString from ${typeName}:`, xmlContent);
-            if (xmlContent && xmlContent.length > 0 && xmlContent !== '') {
+            if (xmlContent && xmlContent.length > 0 && xmlContent !== '' && xmlContent !== '[object Object]') {
               console.log(`📄 Extracted content from AbstractType toString in ${typeName}`);
               return xmlContent;
             }
