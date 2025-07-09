@@ -154,13 +154,15 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   const [isDictionaryOpen, setIsDictionaryOpen] = useState(false);
   
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const undoManagerRef = useRef<UndoManager | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const currentDocumentIdRef = useRef<Id<"documents">>(currentDocumentId);
   const documentInstances = useRef<Map<string, Y.Doc>>(new Map());
+  
+  // Initialize Y.js document immediately - CRITICAL for collaboration
+  const ydocRef = useRef<Y.Doc>(new Y.Doc());
   
   // Add a limit to cached documents to prevent memory leaks
   const MAX_CACHED_DOCUMENTS = 5;
@@ -315,12 +317,9 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     };
   }, []);
 
-  // Initialize Y.js document first
+  // Set Y.js ready state immediately since document is pre-initialized
   useEffect(() => {
-    if (!ydocRef.current) {
-      ydocRef.current = new Y.Doc();
-      console.log('📄 Y.js document initialized');
-    }
+    console.log('📄 Y.js document ready for collaboration');
     setIsYdocReady(true);
   }, []);
 
@@ -510,14 +509,14 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     LineHeightExtension,
   ], []); // Empty dependency array since these are static configurations
 
-  // Enhanced WebSocket and Y.js integration - always create editor with basic extensions
+  // Enhanced WebSocket and Y.js integration - create editor with Collaboration from start
   const editor = useEditor({
     autofocus: !isReadOnly,
     immediatelyRender: false,
     editable: !isReadOnly,
     onCreate({ editor }) {
       setEditor(editor);
-      console.log('📝 Editor created for document:', currentDocumentId);
+      console.log('📝 Editor created with collaboration for document:', currentDocumentId);
     },
     onDestroy() {
       setEditor(null);
@@ -527,6 +526,21 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       setEditor(editor);
       if (transaction.docChanged) {
         console.log('📝 Document content changed - server will handle saving');
+        
+        // Debug Y.js document state on frontend
+        if (ydocRef.current) {
+          const fragment = ydocRef.current.getXmlFragment('default');
+          console.log('📝 Frontend Y.js default fragment length:', fragment.length);
+          console.log('📝 Frontend Y.js shared types:', Array.from(ydocRef.current.share.keys()));
+          
+          if (fragment.length > 0) {
+            console.log('📝 Frontend has content in Y.js fragment!');
+          } else {
+            console.log('📝 Frontend Y.js fragment is empty - this is the problem!');
+            console.log('📝 Editor HTML content:', editor.getHTML());
+            console.log('📝 Editor JSON content:', JSON.stringify(editor.getJSON(), null, 2));
+          }
+        }
       }
     },
     onSelectionUpdate({ editor }) {
@@ -553,14 +567,13 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     },
     extensions: useMemo(() => [
       ...baseExtensions,
-      // Only add Collaboration when Y.js document is ready
-      ...(isYdocReady && ydocRef.current ? [
-        Collaboration.configure({
-          document: ydocRef.current,
-        }),
-      ] : []),
-    ], [baseExtensions, isYdocReady]),
-  }, [isYdocReady, leftMargin, rightMargin, isReadOnly, currentDocumentId]);
+      // CRITICAL: Always include Collaboration extension with Y.js document
+      // The document is pre-initialized and ready for immediate synchronization
+      Collaboration.configure({
+        document: ydocRef.current,
+      }),
+    ], [baseExtensions]),
+  }, [leftMargin, rightMargin, isReadOnly, currentDocumentId]);
 
   // Functions that use editor - must be defined after editor is declared
   const rejectReplacement = useCallback(() => {
@@ -667,23 +680,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       providerRef.current = null;
     }
     
-    // Always create fresh Y.js document to prevent content mixing
-    let ydoc = documentInstances.current.get(docName);
-    if (ydoc) {
-      console.log('📄 Destroying existing Y.js document for:', docName);
-      try {
-        ydoc.destroy();
-      } catch (error) {
-        console.error('Error destroying Y.js document:', error);
-      }
-    }
-    
-    // Create completely fresh Y.js document
-    ydoc = new Y.Doc();
-    documentInstances.current.set(docName, ydoc);
-    ydocRef.current = ydoc;
-    
-    console.log('📄 Fresh Y.js document created for:', docName);
+    console.log('📄 Y.js document ready for collaboration with:', docName);
     
     // Clean up old cached documents
     cleanupOldDocuments();
@@ -703,8 +700,8 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     setIsPersistenceReady(false);
     setStatus('connecting');
     
-    // Initialize IndexedDB persistence
-    const persistence = new IndexeddbPersistence(docName, ydoc);
+    // Initialize IndexedDB persistence with the global Y.js document
+    const persistence = new IndexeddbPersistence(docName, ydocRef.current);
     
     persistence.on('synced', () => {
       console.log('📦 IndexedDB synchronized for:', docName);
@@ -713,12 +710,12 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       }
     });
     
-    // Create new WebSocket provider
+    // Create new WebSocket provider with the global Y.js document
     console.log('🔗 Creating WebSocket provider for:', docName);
     const newProvider = new HocuspocusProvider({
       url: wsUrl,
       name: docName,
-      document: ydoc,
+      document: ydocRef.current,
     });
     
     providerRef.current = newProvider;
@@ -765,8 +762,8 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     newProvider.on('disconnect', handleDisconnected);
     newProvider.on('error', handleError);
     
-    // Initialize undo manager
-    const undoManager = new UndoManager(ydoc.getXmlFragment('default'), {
+    // Initialize undo manager with the global Y.js document
+    const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
       captureTimeout: 1000,
     });
     undoManagerRef.current = undoManager;
@@ -901,232 +898,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
   }, [editor, dictionary, recentlyRejected, acceptReplacement]);
 
-  useEffect(() => {
-    // Get or create Y.js document for this specific document ID
-    const docName = currentDocumentId;
-    
-    // CRITICAL: Cleanup any existing provider connection FIRST to prevent connection leaks
-    if (providerRef.current) {
-      console.log('🧹 Force cleanup existing provider before creating new one:', providerRef.current.configuration.name);
-      try {
-        providerRef.current.disconnect();
-        providerRef.current.destroy();
-      } catch (error) {
-        console.error('Error during forced provider cleanup:', error);
-      }
-      providerRef.current = null;
-    }
-    
-    let ydoc = documentInstances.current.get(docName);
-    
-    // Always create a fresh Y.js document for each switch to avoid confusion
-    // This prevents content from one document appearing in another
-    if (ydoc) {
-      console.log('📄 Destroying existing Y.js document for clean switch:', docName);
-      try {
-        ydoc.destroy();
-      } catch (error) {
-        console.error('Error destroying Y.js document:', error);
-      }
-      documentInstances.current.delete(docName);
-    }
-    
-    // Create new Y.js document
-    ydoc = new Y.Doc();
-    documentInstances.current.set(docName, ydoc);
-    documentAccessOrder.current.push(docName);
-    console.log('📄 Fresh Y.js document created for:', docName);
-    
-    // Clean up old documents after creating a new one
-    cleanupOldDocuments();
-    
-    ydocRef.current = ydoc;
-    
-    // Ensure WebSocket URL is properly configured - no fallback for production safety
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-    
-    if (!wsUrl) {
-      console.error('WebSocket URL not configured. Please set NEXT_PUBLIC_WS_URL environment variable.');
-      toast.error('WebSocket configuration missing. Real-time collaboration unavailable.');
-      setIsYdocReady(true); // Still allow editor to work without collaboration
-      return;
-    }
-    
-    console.log('🔗 Connecting to WebSocket:', wsUrl);
-    console.log('📄 Document ID:', docName);
-    
-    // Reset persistence ready state for new document
-    setIsPersistenceReady(false);
-    
-    const persistence = new IndexeddbPersistence(docName, ydocRef.current);
-    
-    persistence.on('update', () => {
-      console.log('📦 Document loaded from IndexedDB');
-    });
-    
-    // Wait for IndexedDB to fully load before allowing initial content setting
-    persistence.on('synced', () => {
-      console.log('📦 IndexedDB fully synchronized for:', docName);
-      // Only set persistence ready if this is still the current document
-      if (currentDocumentIdRef.current === docName) {
-        setIsPersistenceReady(true);
-      }
-    });
-
-    // Ensure no existing provider before creating new one
-    if (providerRef.current) {
-      const existingProvider = providerRef.current;
-      const providerName = (existingProvider as { configuration?: { name?: string } }).configuration?.name ?? 'unknown';
-      console.error('🚨 Provider already exists! This should not happen:', providerName);
-              try {
-          // TypeScript workaround: HocuspocusProvider methods not properly typed
-          const provider = existingProvider as { disconnect(): void; destroy(): void };
-          provider.disconnect();
-          provider.destroy();
-        } catch (error) {
-          console.error('Error cleaning up unexpected existing provider:', error);
-        }
-      providerRef.current = null;
-    }
-
-    console.log('🔗 Creating new WebSocket provider for:', docName);
-    const newProvider = new HocuspocusProvider({
-      url: wsUrl,
-      name: docName,
-      document: ydocRef.current,
-    });
-
-    providerRef.current = newProvider;
-    console.log('🔗 Provider created and assigned for:', docName);
-
-    // Initialize undo manager with fresh document reference
-    const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
-      captureTimeout: 1000,
-    });
-    undoManagerRef.current = undoManager;
-    setUndoManager(undoManager);
-
-    newProvider.on('status', (event: { status: string }) => {
-      // Verify this event is for the current document
-      if (newProvider.configuration.name !== currentDocumentId) {
-        console.log('📡 Ignoring status event for old document:', newProvider.configuration.name);
-        return;
-      }
-      
-      console.log('📡 Provider status for', docName, ':', event.status);
-      const validStatuses = ['connecting', 'connected', 'disconnected', 'error'] as const;
-      const statusValue = (validStatuses as readonly string[]).includes(event.status) 
-        ? (event.status as typeof validStatuses[number])
-        : 'disconnected';
-      setStatus(statusValue);
-      
-      if (event.status === 'connected') {
-        // Mark document switching as complete if we were switching
-        if (isSwitchingRef.current || isLoadingDocument) {
-          // Only show success message if we're actively switching documents
-          if (isLoadingDocument) {
-            toast.success("Connected to real-time collaboration");
-          }
-          
-          setTimeout(() => {
-            console.log('🔄 Connection successful, resetting switching state');
-            isSwitchingRef.current = false;
-            setIsLoadingDocument(false);
-            
-            // Check if there's a pending switch to execute
-            if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== docName) {
-              const pendingId = pendingDocumentIdRef.current;
-              pendingDocumentIdRef.current = null;
-              console.log('🔄 Executing timeout-queued document switch to:', pendingId);
-              void handleDocumentSwitch(pendingId);
-            }
-          }, 100);
-        }
-      }
-    });
-
-    newProvider.on('connect', () => {
-      // Verify this event is for the current document
-      if (newProvider.configuration.name !== currentDocumentId) {
-        console.log('✅ Ignoring connect event for old document:', newProvider.configuration.name);
-        return;
-      }
-      
-      console.log('✅ WebSocket connected successfully for:', docName);
-      setStatus('connected');
-    });
-
-    newProvider.on('disconnect', ({ event }: { event: CloseEvent }) => {
-      console.log('❌ WebSocket disconnected:', event.code, event.reason);
-      setStatus('disconnected');
-      
-      // Only show error for unexpected disconnections
-      if (event.code === 1006) {
-        console.log("Connection lost, provider will attempt to reconnect automatically");
-      }
-    });
-
-    newProvider.on('close', ({ event }: { event: CloseEvent }) => {
-      console.log('🔒 WebSocket closed:', event.code, event.reason);
-      setStatus('disconnected');
-    });
-
-    newProvider.on('error', (error: Error) => {
-      console.error('💥 WebSocket error occurred:', error);
-      setStatus('error');
-      // Don't show error toast for every error, let the status indicator handle it
-    });
-
-    // Add reconnection handler
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
-    
-    newProvider.on('reconnect', () => {
-      reconnectAttempts++;
-      console.log(`🔄 Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
-      
-      if (reconnectAttempts === maxReconnectAttempts) {
-        toast.error("Unable to establish connection. Please check your internet connection and refresh the page.");
-      }
-    });
-    
-    newProvider.on('reconnected', () => {
-      reconnectAttempts = 0;
-      console.log('🔄 Reconnected successfully!');
-      toast.success("Reconnected to collaboration server");
-    });
-
-    setIsYdocReady(true);
-
-    return () => {
-      console.log('🧹 Cleaning up provider connection for document:', docName);
-      
-      // Reset persistence ready state when cleaning up
-      setIsPersistenceReady(false);
-      
-      // Always destroy the provider for this document when cleaning up
-      if (providerRef.current) {
-        const currentProvider = providerRef.current;
-        const currentProviderDocName = (currentProvider as { configuration?: { name?: string } }).configuration?.name;
-        
-        // Only destroy if this cleanup is for the current provider's document
-        if (currentProviderDocName === docName) {
-          console.log('🧹 Destroying provider for document:', docName);
-          try {
-            // TypeScript workaround: HocuspocusProvider methods not properly typed
-            const provider = currentProvider as { disconnect(): void; destroy(): void };
-            provider.disconnect();
-            provider.destroy();
-          } catch (error) {
-            console.error('Error during provider cleanup:', error);
-          }
-          providerRef.current = null;
-        } else {
-          console.log('🧹 Skipping provider destruction - belongs to different document:', currentProviderDocName);
-        }
-      }
-    };
-  }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument, handleDocumentSwitch]);
+  // This useEffect has been replaced by the enhanced document switching logic above
 
   // Optimized content setting with debounced retries and proper cleanup
   const debouncedSetContent = useCallback(

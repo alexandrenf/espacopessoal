@@ -25,8 +25,6 @@ const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://ardent-dolphin-1
 // Server user ID configuration
 const SERVER_USER_ID = process.env.SERVER_USER_ID ?? 'hocus-pocus-server';
 
-
-
 // Retry configuration for network requests
 const MAX_RETRY_ATTEMPTS = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
@@ -49,6 +47,25 @@ interface SaveResult {
   type: 'success' | 'not_found' | 'error';
 }
 
+// TypeScript interfaces for ProseMirror content
+interface ProseMirrorMark {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+
+interface ProseMirrorNode {
+  type: string;
+  content?: ProseMirrorNode[];
+  text?: string;
+  marks?: ProseMirrorMark[];
+  attrs?: Record<string, unknown>;
+}
+
+interface ProseMirrorDocument {
+  type: 'doc';
+  content: ProseMirrorNode[];
+}
+
 class DocumentNotFoundError extends Error {
   constructor(documentName: string) {
     super(`Document ${documentName} not found`);
@@ -60,8 +77,6 @@ const documentStates = new Map<string, DocumentState>();
 
 // Global document instances tracking for proper shutdown handling
 const documentInstances = new Map<string, Y.Doc>();
-
-
 
 // Helper function for delay with jitter to prevent thundering herd
 const delay = (ms: number): Promise<void> => {
@@ -304,145 +319,205 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   }
 };
 
-// Type definitions for Y.js structures
-interface YXmlElement {
-  nodeName: string;
-  length: number;
-  get(index: number): YXmlElement | YXmlText | null;
-  getAttributes(): Record<string, unknown>;
-  toString(): string;
-}
-
-interface YXmlText {
-  toString(): string;
-  length: number;
-}
-
-interface YXmlFragment {
-  length: number;
-  get(index: number): YXmlElement | YXmlText | null;
-}
-
-// Type for delta operations
-interface DeltaOperation {
-  insert?: string;
-  attributes?: Record<string, unknown>;
-}
-
-// Helper function to safely check if an object is a YXmlElement
-const isYXmlElement = (obj: unknown): obj is YXmlElement => {
-  return obj !== null && 
-         typeof obj === 'object' && 
-         'nodeName' in obj && 
-         'length' in obj && 
-         'get' in obj &&
-         typeof (obj as { get: unknown }).get === 'function';
-};
-
-// Helper function to safely check if an object is a YXmlText
-const isYXmlText = (obj: unknown): obj is YXmlText => {
-  return obj !== null && 
-         typeof obj === 'object' && 
-         'toString' in obj &&
-         typeof (obj as { toString: unknown }).toString === 'function' &&
-         !('nodeName' in obj); // YXmlText doesn't have nodeName
-};
-
+// Enhanced function to extract document content from Y.js document
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
-    console.log('🔍 Starting content extraction...');
+    console.log('🔍 Starting enhanced content extraction...');
     
-    const defaultFragment = ydoc.getXmlFragment('default');
-    if (defaultFragment && defaultFragment.length > 0) {
-      console.log(`🔍 Found default fragment with ${defaultFragment.length} children`);
-      
-      let html = '';
-      
-      for (let i = 0; i < defaultFragment.length; i++) {
-        const child = defaultFragment.get(i);
-        if (!child) continue;
-        
-        console.log(`🔍 Processing child ${i}:`, child.constructor?.name ?? typeof child);
-        
-        // Use safe property access without strict typing
-        const childObj = child as Record<string, unknown>;
-        
-        if (childObj.nodeName && typeof childObj.nodeName === 'string') {
-          const nodeName = childObj.nodeName;
-          console.log(`🔍 YXmlElement: ${nodeName}`);
+    // Get all shared types in the document
+    const sharedTypes = Array.from(ydoc.share.keys());
+    console.log('🔍 Y.js shared types:', sharedTypes);
+    
+    // Try multiple fragment names that TipTap might use
+    const fragmentNames = ['default', 'prosemirror', 'document', 'content', 'editor'];
+    
+    for (const fragmentName of fragmentNames) {
+      try {
+        const fragment = ydoc.getXmlFragment(fragmentName);
+        if (fragment) {
+          console.log(`🔍 Found fragment '${fragmentName}' with ${fragment.length} children`);
           
-          let innerContent = '';
-          
-          // Try to extract text content using various methods
-          if (typeof childObj.length === 'number' && childObj.length > 0 && typeof childObj.get === 'function') {
-            for (let j = 0; j < childObj.length; j++) {
-              try {
-                const grandChild = (childObj.get as (index: number) => unknown)(j);
-                if (grandChild && typeof grandChild === 'object') {
-                  const grandChildObj = grandChild as Record<string, unknown>;
-                  
-                  // Check if it's a text node (no nodeName means it's likely text)
-                  if (!grandChildObj.nodeName && typeof grandChildObj.toString === 'function') {
-                    const textContent = String((grandChildObj.toString as () => unknown)());
-                    console.log(`🔍 Found text content: "${textContent}"`);
-                    if (textContent && textContent !== '[object Object]') {
-                      innerContent += textContent;
-                    }
-                  }
-                }
-              } catch (error) {
-                console.log(`🔍 Error processing grandchild ${j}:`, error);
-              }
+          if (fragment.length > 0) {
+            const content = convertXmlFragmentToHtml(fragment);
+            if (content && content !== '<p></p>') {
+              console.log(`✅ Successfully extracted content from fragment '${fragmentName}':`, content);
+              return content;
             }
           }
           
-          console.log(`🔍 Extracted inner content: "${innerContent}"`);
-          
-          // Convert to HTML
-          if (nodeName === 'paragraph') {
-            html += `<p>${innerContent}</p>`;
-          } else if (nodeName === 'heading') {
-            html += `<h1>${innerContent}</h1>`;
-          } else {
-            html += `<${nodeName}>${innerContent}</${nodeName}>`;
-          }
-        } else if (typeof childObj.toString === 'function' && !childObj.nodeName) {
-          // Direct text node
+          // Also try to get the fragment's internal content
           try {
-            const textContent = String((childObj.toString as () => unknown)());
-            console.log(`🔍 Found direct text: "${textContent}"`);
-            if (textContent && textContent !== '[object Object]') {
-              html += `<p>${textContent}</p>`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fragmentChildren = (fragment as any)._start;
+            if (fragmentChildren) {
+              console.log(`🔍 Fragment '${fragmentName}' has internal children`);
             }
           } catch (error) {
-            console.log('🔍 Error extracting direct text:', error);
+            console.log(`🔍 Could not access internal children of fragment '${fragmentName}':`, error);
           }
         }
-      }
-      
-      if (html && html.trim()) {
-        console.log('📄 Successfully extracted content:', html);
-        return html;
+      } catch (error) {
+        console.warn(`🔍 Could not access fragment '${fragmentName}':`, error);
       }
     }
     
-    console.log('📄 No content found, returning empty document');
-    return '<p></p>';
+    // Try to access Y.js shared types directly
+    for (const typeName of sharedTypes) {
+      try {
+        const sharedType = ydoc.get(typeName);
+        console.log(`🔍 Examining shared type '${typeName}':`, typeof sharedType);
+        
+        if (sharedType instanceof Y.XmlFragment) {
+          console.log(`🔍 Shared type '${typeName}' is XmlFragment with ${sharedType.length} children`);
+          if (sharedType.length > 0) {
+            const content = convertXmlFragmentToHtml(sharedType);
+            if (content && content !== '<p></p>') {
+              console.log(`✅ Successfully extracted content from shared type '${typeName}':`, content);
+              return content;
+            }
+          }
+        } else if (sharedType instanceof Y.XmlElement) {
+          console.log(`🔍 Shared type '${typeName}' is XmlElement`);
+          const content = convertXmlElementToHtml(sharedType);
+          if (content && content !== '<p></p>') {
+            console.log(`✅ Successfully extracted content from XmlElement '${typeName}':`, content);
+            return content;
+          }
+        } else if (sharedType instanceof Y.Map) {
+          console.log(`🔍 Shared type '${typeName}' is Map with keys:`, Array.from(sharedType.keys()));
+        } else if (sharedType instanceof Y.Array) {
+          console.log(`🔍 Shared type '${typeName}' is Array with ${sharedType.length} items`);
+        } else if (sharedType instanceof Y.Text) {
+          console.log(`🔍 Shared type '${typeName}' is Text:`, sharedType.toString());
+          const textContent = sharedType.toString();
+          if (textContent) {
+            return `<p>${textContent}</p>`;
+          }
+        }
+      } catch (error) {
+        console.warn(`🔍 Error examining shared type '${typeName}':`, error);
+      }
+    }
     
+    console.log('📄 No collaborative content found, returning empty document');
+    return '<p></p>';
   } catch (error) {
-    console.error('Error extracting document content:', error);
+    console.error('💥 Error extracting document content:', error);
     return '<p>Error extracting content</p>';
   }
 };
 
+// Helper function to convert Y.js XMLFragment to HTML
+const convertXmlFragmentToHtml = (fragment: Y.XmlFragment): string => {
+  let html = '';
+
+  try {
+    fragment.forEach((child, index) => {
+      if (!child) return;
+
+      console.log(`🔍 Processing child ${index}:`, child.constructor.name);
+
+      if (child instanceof Y.XmlElement) {
+        html += convertXmlElementToHtml(child);
+      } else if (child instanceof Y.XmlText) {
+        console.log(`🔍 Processing direct text node at index ${index}:`, child.toString());
+        const textContent = child.toString();
+        if (textContent.trim()) {
+          html += `<p>${textContent}</p>`;
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error processing XML fragment:', error);
+  }
+
+  if (!html.trim()) {
+    html = '<p></p>';
+  }
+
+  console.log('📄 Fragment HTML result:', html);
+  return html;
+};
+
+// Helper function to convert Y.js XMLElement to HTML
+const convertXmlElementToHtml = (element: Y.XmlElement): string => {
+  const nodeName = element.nodeName;
+  console.log(`🔍 Processing YXmlElement: ${nodeName}`);
+
+  let innerContent = '';
+  
+  try {
+    element.forEach((child) => {
+      if (child instanceof Y.XmlText) {
+        innerContent += child.toString();
+      } else if (child instanceof Y.XmlElement) {
+        innerContent += convertXmlElementToHtml(child);
+      }
+    });
+  } catch (error) {
+    console.error(`Error processing XML element ${nodeName}:`, error);
+  }
+
+  // Map common TipTap/ProseMirror node types to HTML
+  switch (nodeName) {
+    case 'paragraph':
+    case 'p':
+      return `<p>${innerContent}</p>`;
+    case 'heading':
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      const level = element.getAttribute('level') ?? nodeName.charAt(1) ?? '1';
+      return `<h${level}>${innerContent}</h${level}>`;
+    case 'bulletList':
+    case 'ul':
+      return `<ul>${innerContent}</ul>`;
+    case 'orderedList':
+    case 'ol':
+      return `<ol>${innerContent}</ol>`;
+    case 'listItem':
+    case 'li':
+      return `<li>${innerContent}</li>`;
+    case 'blockquote':
+      return `<blockquote>${innerContent}</blockquote>`;
+    case 'codeBlock':
+    case 'pre':
+      return `<pre><code>${innerContent}</code></pre>`;
+    case 'hardBreak':
+    case 'br':
+      return '<br>';
+    case 'horizontalRule':
+    case 'hr':
+      return '<hr>';
+    case 'strong':
+    case 'b':
+      return `<strong>${innerContent}</strong>`;
+    case 'em':
+    case 'i':
+      return `<em>${innerContent}</em>`;
+    case 'u':
+      return `<u>${innerContent}</u>`;
+    case 'code':
+      return `<code>${innerContent}</code>`;
+    case 'text':
+      return innerContent;
+    default:
+      console.log(`🔍 Unknown element type: ${nodeName}, treating as div`);
+      return innerContent ? `<div>${innerContent}</div>` : '';
+  }
+};
+
 // Helper function to convert ProseMirror JSON to HTML
-const convertProseMirrorToHtml = (json: any): string => {
+const convertProseMirrorToHtml = (json: ProseMirrorDocument | ProseMirrorNode): string => {
   try {
     if (!json || typeof json !== 'object') return '';
     
     // If it's a document node, extract content from it
     if (json.type === 'doc' && json.content && Array.isArray(json.content)) {
-      return json.content.map((node: any) => convertNodeToHtml(node)).join('');
+      return json.content.map((node: ProseMirrorNode) => convertNodeToHtml(node)).join('');
     }
     
     // If it's a single node, convert it
@@ -455,16 +530,16 @@ const convertProseMirrorToHtml = (json: any): string => {
 };
 
 // Helper function to convert a ProseMirror node to HTML
-const convertNodeToHtml = (node: any): string => {
+const convertNodeToHtml = (node: ProseMirrorNode): string => {
   if (!node || typeof node !== 'object') return '';
   
   switch (node.type) {
     case 'paragraph':
-      const content = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const content = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<p>${content}</p>`;
     
     case 'text':
-      let text = node.text || '';
+      let text = node.text ?? '';
       // Apply marks (bold, italic, etc.)
       if (node.marks && Array.isArray(node.marks)) {
         for (const mark of node.marks) {
@@ -488,28 +563,28 @@ const convertNodeToHtml = (node: any): string => {
       return text;
     
     case 'heading':
-      const level = node.attrs?.level || 1;
-      const headingContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const level = node.attrs?.level ?? 1;
+      const headingContent = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<h${level}>${headingContent}</h${level}>`;
     
     case 'bulletList':
-      const listItems = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const listItems = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<ul>${listItems}</ul>`;
     
     case 'orderedList':
-      const orderedItems = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const orderedItems = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<ol>${orderedItems}</ol>`;
     
     case 'listItem':
-      const itemContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const itemContent = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<li>${itemContent}</li>`;
     
     case 'blockquote':
-      const quoteContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const quoteContent = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<blockquote>${quoteContent}</blockquote>`;
     
     case 'codeBlock':
-      const codeContent = node.content ? node.content.map((child: any) => convertNodeToHtml(child)).join('') : '';
+      const codeContent = node.content ? node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('') : '';
       return `<pre><code>${codeContent}</code></pre>`;
     
     case 'hardBreak':
@@ -521,7 +596,7 @@ const convertNodeToHtml = (node: any): string => {
     default:
       // For unknown node types, try to extract content
       if (node.content && Array.isArray(node.content)) {
-        return node.content.map((child: any) => convertNodeToHtml(child)).join('');
+        return node.content.map((child: ProseMirrorNode) => convertNodeToHtml(child)).join('');
       }
       return '';
   }
@@ -584,13 +659,6 @@ const server = new Server({
   port: PORT,
   timeout: TIMEOUT,
   name: SERVER_NAME,
-  
-  // Add extensions here for persistence (e.g., database)
-  // extensions: [
-  //   new Database({
-  //     // ... database options
-  //   }),
-  // ],
   
   // Enhanced CORS configuration
   async onRequest(data: onRequestPayload) {
@@ -741,8 +809,33 @@ const server = new Server({
     // Initialize document state atomically to prevent race conditions
     initializeDocumentStateIfNeeded(documentName);
     
-    // Log the change for debugging
-    console.log(`[${new Date().toISOString()}] Document ${documentName} changed, scheduling save`);
+    // Enhanced debugging - log actual Y.js document state
+    console.log(`[${new Date().toISOString()}] 📝 Document ${documentName} changed`);
+    
+    // Debug Y.js document structure
+    try {
+      const sharedTypes = Array.from(document.share.keys());
+      console.log(`[${new Date().toISOString()}] 🔍 Shared types in onChange:`, sharedTypes);
+      
+      // Check default fragment specifically
+      const defaultFragment = document.getXmlFragment('default');
+      console.log(`[${new Date().toISOString()}] 🔍 Default fragment children:`, defaultFragment.length);
+      
+      if (defaultFragment.length > 0) {
+        console.log(`[${new Date().toISOString()}] ✅ Found content in default fragment!`);
+        defaultFragment.forEach((child, index) => {
+          if (child instanceof Y.XmlElement) {
+            console.log(`[${new Date().toISOString()}] 📄 Child ${index}: ${child.nodeName}`);
+          } else if (child instanceof Y.XmlText) {
+            console.log(`[${new Date().toISOString()}] 📄 Text ${index}: "${child.toString()}"`);
+          }
+        });
+      } else {
+        console.log(`[${new Date().toISOString()}] ⚠️ Default fragment is empty in onChange`);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error debugging Y.js document:`, error);
+    }
     
     // Schedule save after 2 seconds of inactivity (consistent with frontend expectations)
     scheduleDocumentSave(documentName, document);
