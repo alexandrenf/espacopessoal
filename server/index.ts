@@ -2,6 +2,8 @@
 import { Server } from '@hocuspocus/server';
 import type { onConnectPayload, onDisconnectPayload, onListenPayload, onRequestPayload, onLoadDocumentPayload, onStoreDocumentPayload, onDestroyPayload, onChangePayload } from '@hocuspocus/server';
 import * as Y from 'yjs';
+import Redis from 'ioredis';
+import { createHash } from 'crypto';
 
 // Helper function to safely parse integers with defaults
 const safeParseInt = (value: string | undefined, defaultValue: number): number => {
@@ -24,6 +26,26 @@ const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL ?? 'https://ardent-dolphin-1
 
 // Server user ID configuration
 const SERVER_USER_ID = process.env.SERVER_USER_ID ?? 'hocus-pocus-server';
+
+// Redis configuration
+const REDIS_URL = process.env.REDIS_URL;
+let redis: Redis | null = null;
+
+// Initialize Redis connection if URL is provided
+if (REDIS_URL) {
+  try {
+    redis = new Redis(REDIS_URL, {
+      enableReadyCheck: false,
+      maxRetriesPerRequest: 3,
+    });
+    console.log(`[${new Date().toISOString()}] Redis connection initialized`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Failed to initialize Redis:`, error);
+    redis = null;
+  }
+} else {
+  console.log(`[${new Date().toISOString()}] No REDIS_URL provided, caching disabled`);
+}
 
 // Retry configuration for network requests
 const MAX_RETRY_ATTEMPTS = 3;
@@ -58,6 +80,74 @@ const documentStates = new Map<string, DocumentState>();
 
 // Global document instances tracking for proper shutdown handling
 const documentInstances = new Map<string, Y.Doc>();
+
+// Redis caching functions
+const CACHE_TTL = 300; // 5 minutes
+
+const createContentHash = (content: string): string => {
+  return createHash('sha256').update(content).digest('hex');
+};
+
+const cacheDocumentContent = async (documentId: string, content: string): Promise<void> => {
+  if (!redis) return;
+  
+  try {
+    const contentHash = createContentHash(content);
+    const cacheData = {
+      content,
+      hash: contentHash,
+      timestamp: Date.now(),
+    };
+    
+    await redis.setex(`doc:${documentId}`, CACHE_TTL, JSON.stringify(cacheData));
+    console.log(`[${new Date().toISOString()}] Cached content for document ${documentId} (hash: ${contentHash.substring(0, 8)}...)`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error caching document ${documentId}:`, error);
+  }
+};
+
+const getCachedDocumentData = async (documentId: string): Promise<{ content: string; hash: string; timestamp: number } | null> => {
+  if (!redis) return null;
+  
+  try {
+    const cached = await redis.get(`doc:${documentId}`);
+    if (cached) {
+      const data = JSON.parse(cached);
+      console.log(`[${new Date().toISOString()}] Retrieved cached data for document ${documentId} (hash: ${data.hash?.substring(0, 8)}...)`);
+      return data;
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error retrieving cached document ${documentId}:`, error);
+  }
+  
+  return null;
+};
+
+const shouldSaveToConvex = async (documentId: string, newContent: string): Promise<boolean> => {
+  if (!redis) return true; // Always save if no Redis
+  
+  const cachedData = await getCachedDocumentData(documentId);
+  if (cachedData) {
+    const newHash = createContentHash(newContent);
+    const contentChanged = cachedData.hash !== newHash;
+    
+    if (!contentChanged) {
+      console.log(`[${new Date().toISOString()}] Content unchanged for document ${documentId}, skipping Convex save`);
+      // Update cache TTL to keep it fresh
+      await cacheDocumentContent(documentId, newContent);
+      return false;
+    }
+    
+    console.log(`[${new Date().toISOString()}] Content changed for document ${documentId} (${cachedData.hash.substring(0, 8)}... -> ${newHash.substring(0, 8)}...)`);
+  }
+  
+  return true;
+};
+
+const getCachedDocumentContent = async (documentId: string): Promise<string | null> => {
+  const cachedData = await getCachedDocumentData(documentId);
+  return cachedData?.content || null;
+};
 
 // Helper function for delay with jitter to prevent thundering herd
 const delay = (ms: number): Promise<void> => {
@@ -209,6 +299,13 @@ const saveDocumentToConvex = async (documentName: string, content: string): Prom
 };
 
 const loadDocumentFromConvex = async (documentName: string): Promise<string | null> => {
+  // First try to get from Redis cache
+  const cachedContent = await getCachedDocumentContent(documentName);
+  if (cachedContent) {
+    console.log(`[${new Date().toISOString()}] 📦 Loaded document ${documentName} from Redis cache (${cachedContent.length} chars)`);
+    return cachedContent;
+  }
+
   const url = `${CONVEX_SITE_URL}/getDocumentContent?documentId=${encodeURIComponent(documentName)}`;
   
   console.log(`[${new Date().toISOString()}] 🔍 Attempting to load from: ${url}`);
@@ -235,8 +332,16 @@ const loadDocumentFromConvex = async (documentName: string): Promise<string | nu
     }
 
     const result = await response.json() as { success: boolean; document: { content: string } };
-    console.log(`[${new Date().toISOString()}] Successfully loaded document ${documentName} from Convex (${result.document?.content?.length || 0} chars)`);
-    return result.document?.content || null;
+    const content = result.document?.content || null;
+    
+    console.log(`[${new Date().toISOString()}] Successfully loaded document ${documentName} from Convex (${content?.length || 0} chars)`);
+    
+    // Cache the content for future requests
+    if (content) {
+      await cacheDocumentContent(documentName, content);
+    }
+    
+    return content;
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error loading document ${documentName} from Convex:`, error);
     return null;
@@ -258,10 +363,10 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
     return;
   }
 
-  // Schedule save after 2 seconds of inactivity (fixed to match comment)
+  // Schedule save after 30 seconds of inactivity (optimized for Redis caching)
   state.saveTimeout = setTimeout(() => {
     void performDocumentSave(documentName, document);
-  }, 2000);
+  }, 30000);
 
   state.lastActivity = Date.now();
 };
@@ -277,6 +382,14 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     const content = extractDocumentContent(document);
     console.log(`[${new Date().toISOString()}] Saving document ${documentName} (${content.length} chars)`);
     
+    // Check if content actually changed using Redis cache
+    const shouldSave = await shouldSaveToConvex(documentName, content);
+    
+    if (!shouldSave) {
+      console.log(`[${new Date().toISOString()}] Skipped Convex save for ${documentName} - content unchanged`);
+      return;
+    }
+    
     const result = await saveDocumentToConvex(documentName, content);
     
     if (!result.success) {
@@ -285,6 +398,9 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
       } else {
         console.error(`[${new Date().toISOString()}] Failed to save document ${documentName}: ${result.error}`);
       }
+    } else {
+      // Cache the content after successful save
+      await cacheDocumentContent(documentName, content);
     }
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error during document save for ${documentName}:`, error);
@@ -668,6 +784,7 @@ const server = new Server({
     console.log(`[${new Date().toISOString()}] 🌐 Convex Site URL: ${CONVEX_SITE_URL}`);
     console.log(`[${new Date().toISOString()}] 📡 HTTP Save endpoint: ${CONVEX_SITE_URL}/updateDocumentContent`);
     console.log(`[${new Date().toISOString()}] 📡 HTTP Load endpoint: ${CONVEX_SITE_URL}/getDocumentContent`);
+    console.log(`[${new Date().toISOString()}] 📦 Redis caching: ${redis ? 'ENABLED' : 'DISABLED'}`);
     console.log(`[${new Date().toISOString()}] Allowed origins: ${allowedOrigins.join(', ')}`);
   },
   
@@ -702,6 +819,16 @@ const server = new Server({
     
     documentStates.clear();
     documentInstances.clear();
+    
+    // Close Redis connection
+    if (redis) {
+      try {
+        redis.disconnect();
+        console.log(`[${new Date().toISOString()}] Redis connection closed`);
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error closing Redis connection:`, error);
+      }
+    }
   },
   
   async onLoadDocument(data: onLoadDocumentPayload) {
