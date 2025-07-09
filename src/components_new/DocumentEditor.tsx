@@ -576,7 +576,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     }
   }, [replacementSuggestion]);
 
-  // Enhanced document switching function with proper synchronization
+  // Enhanced document switching with proper synchronization
   const handleDocumentSwitch = useCallback(async (newDocumentId: Id<"documents">) => {
     // Prevent switching to the same document
     if (newDocumentId === currentDocumentId) {
@@ -584,96 +584,234 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       return;
     }
     
-    // Prevent multiple simultaneous switches
+    // Prevent multiple simultaneous switches with atomic flag
     if (isSwitchingRef.current) {
-      console.log('🔄 Switch in progress, queuing:', newDocumentId);
-      // Queue the switch for later
-      pendingDocumentIdRef.current = newDocumentId;
+      console.log('🔄 Switch in progress, rejecting new switch request to:', newDocumentId);
+      return; // Don't queue, just reject to prevent buildup
+    }
+    
+    // Set switching flag immediately
+    isSwitchingRef.current = true;
+    setIsLoadingDocument(true);
+    pendingDocumentIdRef.current = null; // Clear any pending switches
+    
+    console.log('🔄 Starting atomic document switch from:', currentDocumentId, 'to:', newDocumentId);
+    
+    try {
+      // Step 1: Immediately disconnect current provider to prevent conflicts
+      if (providerRef.current) {
+        const currentProvider = providerRef.current;
+        const providerName = (currentProvider as { configuration?: { name?: string } }).configuration?.name ?? 'unknown';
+        console.log('🔄 Forcefully disconnecting provider:', providerName);
+        
+        // Synchronous cleanup
+        currentProvider.disconnect();
+        currentProvider.destroy();
+        providerRef.current = null;
+      }
+      
+      // Step 2: Clear editor content immediately
+      if (editor) {
+        console.log('🔄 Clearing editor content');
+        editor.commands.clearContent();
+      }
+      
+      // Step 3: Reset all Y.js states
+      setIsYdocReady(false);
+      setIsPersistenceReady(false);
+      setStatus('connecting');
+      
+      // Step 4: Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Step 5: Update document ID (this triggers the useEffect chain)
+      setCurrentDocumentId(newDocumentId);
+      
+      // Step 6: Update URL
+      const newUrl = `/documents/${newDocumentId}`;
+      window.history.pushState({ documentId: newDocumentId }, '', newUrl);
+      
+      console.log('🔄 Document switch initiated successfully');
+      
+    } catch (error) {
+      console.error('🔄 Critical error during document switch:', error);
+      // Reset states on error
+      isSwitchingRef.current = false;
+      setIsLoadingDocument(false);
+      toast.error("Failed to switch document");
+    }
+  }, [currentDocumentId, editor]);
+
+  // Simplified and more robust Y.js document management
+  useEffect(() => {
+    // Only proceed if we're in a valid switching state
+    if (!isSwitchingRef.current && currentDocumentId === initialDocument._id) {
+      // This is the initial load, not a switch
+      console.log('📄 Initial document load for:', currentDocumentId);
+    }
+    
+    const docName = currentDocumentId;
+    console.log('📄 Setting up Y.js document for:', docName);
+    
+    // Force cleanup any existing provider connection
+    if (providerRef.current) {
+      const existingProvider = providerRef.current;
+      const providerName = (existingProvider as { configuration?: { name?: string } }).configuration?.name ?? 'unknown';
+      console.log('🧹 Forcing cleanup of existing provider:', providerName);
+      try {
+        existingProvider.disconnect();
+        existingProvider.destroy();
+      } catch (error) {
+        console.error('Error during forced cleanup:', error);
+      }
+      providerRef.current = null;
+    }
+    
+    // Always create fresh Y.js document to prevent content mixing
+    let ydoc = documentInstances.current.get(docName);
+    if (ydoc) {
+      console.log('📄 Destroying existing Y.js document for:', docName);
+      try {
+        ydoc.destroy();
+      } catch (error) {
+        console.error('Error destroying Y.js document:', error);
+      }
+    }
+    
+    // Create completely fresh Y.js document
+    ydoc = new Y.Doc();
+    documentInstances.current.set(docName, ydoc);
+    ydocRef.current = ydoc;
+    
+    console.log('📄 Fresh Y.js document created for:', docName);
+    
+    // Clean up old cached documents
+    cleanupOldDocuments();
+    
+    // WebSocket configuration
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      console.error('WebSocket URL not configured');
+      toast.error('WebSocket configuration missing');
+      setIsYdocReady(true);
       return;
     }
     
-    // Clear any pending switch timeout
-    if (switchTimeoutRef.current) {
-      clearTimeout(switchTimeoutRef.current);
-      switchTimeoutRef.current = null;
-    }
+    console.log('🔗 Initializing WebSocket connection for:', docName);
     
-    // Debounce rapid switches with longer delay for stability
-    switchTimeoutRef.current = setTimeout(() => {
-      void (async () => {
-        isSwitchingRef.current = true;
-        setIsLoadingDocument(true);
+    // Reset states
+    setIsPersistenceReady(false);
+    setStatus('connecting');
+    
+    // Initialize IndexedDB persistence
+    const persistence = new IndexeddbPersistence(docName, ydoc);
+    
+    persistence.on('synced', () => {
+      console.log('📦 IndexedDB synchronized for:', docName);
+      if (currentDocumentIdRef.current === docName) {
+        setIsPersistenceReady(true);
+      }
+    });
+    
+    // Create new WebSocket provider
+    console.log('🔗 Creating WebSocket provider for:', docName);
+    const newProvider = new HocuspocusProvider({
+      url: wsUrl,
+      name: docName,
+      document: ydoc,
+    });
+    
+    providerRef.current = newProvider;
+    
+    // Enhanced connection event handlers
+    const handleConnected = () => {
+      console.log('✅ WebSocket connected for:', docName);
+      if (currentDocumentIdRef.current === docName) {
+        setStatus('connected');
         
-        console.log('🔄 Starting document switch from:', currentDocumentId, 'to:', newDocumentId);
-        
-        try {
-          // Step 1: Clean up current editor state
-          if (editor) {
-            console.log('🔄 Clearing editor content for clean switch');
-            editor.commands.clearContent();
-          }
-          
-          // Step 2: Clean up current provider connection immediately
-          if (providerRef.current) {
-            console.log('🔄 Disconnecting current provider:', providerRef.current.configuration.name);
-            await new Promise<void>((resolve) => {
-              const currentProvider = providerRef.current;
-              if (currentProvider) {
-                currentProvider.disconnect();
-                // Wait for disconnect to complete
-                setTimeout(() => {
-                  currentProvider.destroy();
-                  resolve();
-                }, 100);
-              } else {
-                resolve();
-              }
-            });
-            providerRef.current = null;
-          }
-          
-          // Step 3: Reset Y.js document ready state
-          setIsYdocReady(false);
-          setIsPersistenceReady(false);
-          
-          // Step 4: Update the document ID state - this will trigger the useEffect to handle Y.js document switching
-          setCurrentDocumentId(newDocumentId);
-          
-          // Step 5: Update browser URL without causing navigation
-          const newUrl = `/documents/${newDocumentId}`;
-          window.history.pushState({ documentId: newDocumentId }, '', newUrl);
-          
-          console.log('🔄 Document switch state updated, waiting for Y.js connection...');
-          
-        } catch (error) {
-          console.error('🔄 Error during document switch:', error);
-          const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
-          toast.error(errorMessage);
-          
-          // Reset switching state on error
+        // Complete the document switch
+        if (isSwitchingRef.current) {
+          console.log('🔄 Document switch completed successfully');
           isSwitchingRef.current = false;
           setIsLoadingDocument(false);
+          toast.success("Document loaded successfully");
         }
+      }
+    };
+    
+    const handleDisconnected = ({ event }: { event: CloseEvent }) => {
+      console.log('❌ WebSocket disconnected for:', docName, event.code);
+      if (currentDocumentIdRef.current === docName) {
+        setStatus('disconnected');
+      }
+    };
+    
+    const handleError = (error: Error) => {
+      console.error('💥 WebSocket error for:', docName, error);
+      if (currentDocumentIdRef.current === docName) {
+        setStatus('error');
         
-        // Always reset switching state after a reasonable timeout to prevent permanent blocking
-        setTimeout(() => {
-          if (isSwitchingRef.current) {
-            console.log('🔄 Timeout reached, resetting switching state');
-            isSwitchingRef.current = false;
-            setIsLoadingDocument(false);
-            
-            // Check if there's a pending switch to execute
-            if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== newDocumentId) {
-              const pendingId = pendingDocumentIdRef.current;
-              pendingDocumentIdRef.current = null;
-              console.log('🔄 Executing timeout-queued document switch to:', pendingId);
-              void handleDocumentSwitch(pendingId);
-            }
-          }
-        }, 5000); // 5 second timeout
-      })();
-    }, 200); // Debounce time for stability
-  }, [currentDocumentId, editor]);
+        // Reset switching state on connection error
+        if (isSwitchingRef.current) {
+          isSwitchingRef.current = false;
+          setIsLoadingDocument(false);
+          toast.error("Connection failed");
+        }
+      }
+    };
+    
+    // Attach event listeners
+    newProvider.on('connect', handleConnected);
+    newProvider.on('disconnect', handleDisconnected);
+    newProvider.on('error', handleError);
+    
+    // Initialize undo manager
+    const undoManager = new UndoManager(ydoc.getXmlFragment('default'), {
+      captureTimeout: 1000,
+    });
+    undoManagerRef.current = undoManager;
+    setUndoManager(undoManager);
+    
+    setIsYdocReady(true);
+    
+    // Enhanced cleanup
+    return () => {
+      console.log('🧹 Cleaning up document setup for:', docName);
+      
+      setIsPersistenceReady(false);
+      
+      // Remove event listeners
+      newProvider.off('connect', handleConnected);
+      newProvider.off('disconnect', handleDisconnected);
+      newProvider.off('error', handleError);
+      
+      // Only destroy if this is the current provider
+      if (providerRef.current === newProvider) {
+        console.log('🧹 Destroying current provider for:', docName);
+        try {
+          newProvider.disconnect();
+          newProvider.destroy();
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+        }
+        providerRef.current = null;
+      }
+    };
+  }, [currentDocumentId, cleanupOldDocuments, initialDocument._id]);
+
+  // Safety timeout to prevent permanent stuck states
+  useEffect(() => {
+    if (isSwitchingRef.current) {
+      const timeout = setTimeout(() => {
+        console.warn('🔄 Document switch timeout reached, forcing reset');
+        isSwitchingRef.current = false;
+        setIsLoadingDocument(false);
+        toast.error("Document switch timed out");
+      }, 10000); // 10 second timeout
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [currentDocumentId]);
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -766,13 +904,30 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   useEffect(() => {
     // Get or create Y.js document for this specific document ID
     const docName = currentDocumentId;
+    
+    // CRITICAL: Cleanup any existing provider connection FIRST to prevent connection leaks
+    if (providerRef.current) {
+      console.log('🧹 Force cleanup existing provider before creating new one:', providerRef.current.configuration.name);
+      try {
+        providerRef.current.disconnect();
+        providerRef.current.destroy();
+      } catch (error) {
+        console.error('Error during forced provider cleanup:', error);
+      }
+      providerRef.current = null;
+    }
+    
     let ydoc = documentInstances.current.get(docName);
     
     // Always create a fresh Y.js document for each switch to avoid confusion
     // This prevents content from one document appearing in another
     if (ydoc) {
       console.log('📄 Destroying existing Y.js document for clean switch:', docName);
-      ydoc.destroy();
+      try {
+        ydoc.destroy();
+      } catch (error) {
+        console.error('Error destroying Y.js document:', error);
+      }
       documentInstances.current.delete(docName);
     }
     
@@ -818,6 +973,23 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       }
     });
 
+    // Ensure no existing provider before creating new one
+    if (providerRef.current) {
+      const existingProvider = providerRef.current;
+      const providerName = (existingProvider as { configuration?: { name?: string } }).configuration?.name ?? 'unknown';
+      console.error('🚨 Provider already exists! This should not happen:', providerName);
+              try {
+          // TypeScript workaround: HocuspocusProvider methods not properly typed
+          const provider = existingProvider as { disconnect(): void; destroy(): void };
+          provider.disconnect();
+          provider.destroy();
+        } catch (error) {
+          console.error('Error cleaning up unexpected existing provider:', error);
+        }
+      providerRef.current = null;
+    }
+
+    console.log('🔗 Creating new WebSocket provider for:', docName);
     const newProvider = new HocuspocusProvider({
       url: wsUrl,
       name: docName,
@@ -825,6 +997,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
     });
 
     providerRef.current = newProvider;
+    console.log('🔗 Provider created and assigned for:', docName);
 
     // Initialize undo manager with fresh document reference
     const undoManager = new UndoManager(ydocRef.current.getXmlFragment('default'), {
@@ -860,11 +1033,11 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
             isSwitchingRef.current = false;
             setIsLoadingDocument(false);
             
-            // Check if there's a pending switch
+            // Check if there's a pending switch to execute
             if (pendingDocumentIdRef.current && pendingDocumentIdRef.current !== docName) {
               const pendingId = pendingDocumentIdRef.current;
               pendingDocumentIdRef.current = null;
-              console.log('🔄 Executing pending document switch to:', pendingId);
+              console.log('🔄 Executing timeout-queued document switch to:', pendingId);
               void handleDocumentSwitch(pendingId);
             }
           }, 100);
@@ -931,11 +1104,26 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       // Reset persistence ready state when cleaning up
       setIsPersistenceReady(false);
       
-      // Immediately destroy the provider if we're switching to a different document
-      if (providerRef.current && currentDocumentIdRef.current !== docName) {
-        console.log('🧹 Destroying provider for old document:', docName);
-        providerRef.current.disconnect();
-        providerRef.current.destroy();
+      // Always destroy the provider for this document when cleaning up
+      if (providerRef.current) {
+        const currentProvider = providerRef.current;
+        const currentProviderDocName = (currentProvider as { configuration?: { name?: string } }).configuration?.name;
+        
+        // Only destroy if this cleanup is for the current provider's document
+        if (currentProviderDocName === docName) {
+          console.log('🧹 Destroying provider for document:', docName);
+          try {
+            // TypeScript workaround: HocuspocusProvider methods not properly typed
+            const provider = currentProvider as { disconnect(): void; destroy(): void };
+            provider.disconnect();
+            provider.destroy();
+          } catch (error) {
+            console.error('Error during provider cleanup:', error);
+          }
+          providerRef.current = null;
+        } else {
+          console.log('🧹 Skipping provider destruction - belongs to different document:', currentProviderDocName);
+        }
       }
     };
   }, [currentDocumentId, cleanupOldDocuments, isLoadingDocument, handleDocumentSwitch]);

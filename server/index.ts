@@ -618,7 +618,7 @@ const server = new Server({
     return Promise.resolve();
   },
 
-  // Enhanced connection handling with origin validation
+  // Enhanced connection handling with origin validation and connection limits
   async onConnect(data: onConnectPayload) {
     const { request, socketId, documentName } = data;
     const origin = request.headers.origin!;
@@ -637,7 +637,16 @@ const server = new Server({
     const state = documentStates.get(documentName)!;
     state.connectedUsers.add(socketId);
     
-    console.log(`[${new Date().toISOString()}] Document ${documentName} now has ${state.connectedUsers.size} connected users`);
+    const connectionCount = state.connectedUsers.size;
+    console.log(`[${new Date().toISOString()}] Document ${documentName} now has ${connectionCount} connected users`);
+    
+    // Enhanced connection monitoring and limits
+    if (connectionCount > 10) {
+      console.error(`[${new Date().toISOString()}] 🚨 CRITICAL: Too many connections for document ${documentName}: ${connectionCount} users. Rejecting connection to prevent server overload.`);
+      throw new Error('Too many connections for this document');
+    } else if (connectionCount > 5) {
+      console.warn(`[${new Date().toISOString()}] ⚠️  High connection count for document ${documentName}: ${connectionCount} users. This may indicate connection leaks.`);
+    }
   },
   
   async onDisconnect(data: onDisconnectPayload) {
