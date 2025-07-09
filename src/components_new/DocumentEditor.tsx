@@ -802,14 +802,24 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
 
   // Separate useEffect to handle initial content setting when editor becomes ready
   useEffect(() => {
-    if (!editor || !isYdocReady) return;
+    if (!editor || !isYdocReady || !ydocRef.current) return;
     
     const contentToSet = doc.initialContent ?? initialContent;
     if (!contentToSet) return;
 
+    // Check if the Y.js document already has content from collaboration
+    const fragment = ydocRef.current.getXmlFragment('default');
+    const hasCollaborativeContent = fragment.length > 0;
+    
+    if (hasCollaborativeContent) {
+      console.log('📄 Document already has collaborative content, skipping initial content setting');
+      return;
+    }
+
     // Use editor state to determine when it's truly ready
     const checkEditorReady = () => {
       if (editor.isEmpty && editor.isEditable) {
+        console.log('📄 Setting initial content from database:', contentToSet.substring(0, 100) + '...');
         editor.commands.setContent(contentToSet);
         return true;
       }

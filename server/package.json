@@ -17,9 +17,6 @@
   "dependencies": {
     "@hocuspocus/server": "^3.1.9",
     "y-protocols": "^1.0.6",
-    "yjs": "^13.6.27",
-    "@tiptap/core": "^2.1.13",
-    "@tiptap/pm": "^2.1.13",
-    "y-prosemirror": "^1.2.1"
+    "yjs": "^13.6.27"
   }
 }

@@ -708,29 +708,9 @@ const server = new Server({
     const { documentName } = data;
     console.log(`[${new Date().toISOString()}] Loading document: ${documentName}`);
     
-    // Try to load from Convex
-    const content = await loadDocumentFromConvex(documentName);
-    
-    if (content && content.trim() !== '' && content !== '<p></p>') {
-      // Create Y.js document with the loaded content
-      const ydoc = new Y.Doc();
-      
-      try {
-        // For TipTap collaboration, we store content in the prosemirror map
-        // This matches the structure expected by TipTap's Collaboration extension
-        const prosemirrorMap = ydoc.getMap('prosemirror');
-        prosemirrorMap.set('content', content);
-        
-        console.log(`[${new Date().toISOString()}] Loaded ${content.length} characters for document ${documentName}`);
-        return ydoc;
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error applying content to Y.js document:`, error);
-      }
-    }
-    
-    // Return null to let Hocuspocus create a new document
-    // This will start with empty content and get populated by the editor
-    console.log(`[${new Date().toISOString()}] No content found for document ${documentName}, starting with empty document`);
+    // For now, let the client handle initial content loading to avoid sync conflicts
+    // The server will focus on saving content changes made through collaboration
+    console.log(`[${new Date().toISOString()}] Letting client handle initial content for document ${documentName}`);
     return null;
   },
   
