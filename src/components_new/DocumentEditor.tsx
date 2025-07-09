@@ -940,20 +940,37 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       return;
     }
 
-    // Check if the Y.js document already has content from collaboration/IndexedDB
+    // Enhanced collision detection: check both Y.js document and editor content
     const fragment = ydocRef.current.getXmlFragment('default');
     const hasCollaborativeContent = fragment.length > 0;
+    const editorHasContent = !editor.isEmpty;
     
-    if (hasCollaborativeContent) {
-      console.log('📄 Document already has collaborative content, skipping initial content setting for:', currentDocumentId);
+    if (hasCollaborativeContent || editorHasContent) {
+      console.log('📄 Document already has content (Y.js:', hasCollaborativeContent, ', Editor:', editorHasContent, '), skipping initial content setting for:', currentDocumentId);
       return;
     }
 
-    // Use debounced content setting to prevent excessive retries
-    debouncedSetContent(contentToSet);
+    // Additional check: wait a bit longer for server-loaded content to propagate
+    // This gives the server's onLoadDocument more time to populate the Y.js document
+    const checkDelay = setTimeout(() => {
+      // Re-check after delay
+      const fragmentAfterDelay = ydocRef.current?.getXmlFragment('default');
+      const hasContentAfterDelay = fragmentAfterDelay && fragmentAfterDelay.length > 0;
+      const editorHasContentAfterDelay = editor && !editor.isEmpty;
+      
+      if (hasContentAfterDelay || editorHasContentAfterDelay) {
+        console.log('📄 Content detected after delay, skipping frontend content setting for:', currentDocumentId);
+        return;
+      }
+      
+      console.log('📄 No content detected after delay, proceeding with frontend content setting for:', currentDocumentId);
+      // Use debounced content setting to prevent excessive retries
+      debouncedSetContent(contentToSet);
+    }, 500); // Wait 500ms for server content to load
     
-    // Cleanup function to cancel pending debounced calls
+    // Cleanup function to cancel pending debounced calls and timeout
     return () => {
+      clearTimeout(checkDelay);
       debouncedSetContent.cancel();
     };
   }, [editor, isYdocReady, isPersistenceReady, doc.initialContent, initialContent, currentDocumentId, debouncedSetContent]);

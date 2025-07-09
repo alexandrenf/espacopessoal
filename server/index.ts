@@ -444,43 +444,46 @@ const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment):
   try {
     console.log(`[${new Date().toISOString()}] Converting HTML to Y.js fragment:`, htmlContent.substring(0, 200));
     
-    // Simple HTML to Y.js conversion - handles basic ProseMirror structure
-    // This is a basic implementation that can be expanded for more complex HTML
-    
-    // Remove outer tags and clean up the content
+    // Enhanced HTML to Y.js conversion - handles headings, formatting, and structure
     const content = htmlContent.trim();
     
-    // Handle paragraph tags
-    if (content.includes('<p>')) {
-      const paragraphs = content.split(/<\/?p>/g).filter(p => p.trim());
-      
-      for (const paragraphText of paragraphs) {
-        if (paragraphText.trim()) {
-          const paragraph = new Y.XmlElement('paragraph');
-          
-          // Handle simple text content (can be expanded for formatting)
-          if (paragraphText.includes('<')) {
-            // Has HTML formatting - basic handling
-            const cleanText = paragraphText.replace(/<[^>]*>/g, ''); // Strip HTML for now
-            if (cleanText.trim()) {
-              paragraph.insert(0, [new Y.XmlText(cleanText.trim())]);
-            }
-          } else {
-            // Plain text
-            paragraph.insert(0, [new Y.XmlText(paragraphText.trim())]);
-          }
-          
-          fragment.insert(fragment.length, [paragraph]);
+    // Split content into blocks while preserving HTML structure
+    const blockRegex = /<(h[1-6]|p|ul|ol|li|blockquote)[^>]*>.*?<\/\1>|<(h[1-6]|p)[^>]*>.*?(?=<(?:h[1-6]|p|ul|ol|blockquote)|$)/gs;
+    const blocks = content.match(blockRegex) ?? [];
+    
+    if (blocks.length === 0) {
+      // Fallback: treat entire content as single block
+      const element = parseHtmlBlock(content);
+      if (element) {
+        fragment.insert(fragment.length, [element]);
+      }
+      return;
+    }
+    
+    let hasNonEmptyContent = false;
+    
+    for (const block of blocks) {
+      const element = parseHtmlBlock(block.trim(), !hasNonEmptyContent);
+      if (element) {
+        fragment.insert(fragment.length, [element]);
+        // Mark that we've found non-empty content
+        if (!hasNonEmptyContent && elementHasContent(element)) {
+          hasNonEmptyContent = true;
         }
       }
-    } else {
-      // No paragraph tags - treat as single paragraph
-      const paragraph = new Y.XmlElement('paragraph');
-      const cleanText = content.replace(/<[^>]*>/g, ''); // Strip any HTML tags
-      if (cleanText.trim()) {
-        paragraph.insert(0, [new Y.XmlText(cleanText.trim())]);
+    }
+    
+    // Final cleanup: remove any leading empty paragraphs that might have slipped through
+    while (fragment.length > 0) {
+      const firstElement = fragment.get(0);
+      if (firstElement instanceof Y.XmlElement && 
+          firstElement.nodeName === 'paragraph' && 
+          !elementHasContent(firstElement)) {
+        console.log(`[${new Date().toISOString()}] Removing leading empty paragraph to prevent blank line at start`);
+        fragment.delete(0, 1);
+      } else {
+        break; // Stop once we find non-empty content
       }
-      fragment.insert(0, [paragraph]);
     }
     
     console.log(`[${new Date().toISOString()}] Successfully converted HTML to Y.js fragment with ${fragment.length} elements`);
@@ -494,6 +497,192 @@ const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment):
       paragraph.insert(0, [new Y.XmlText(cleanText)]);
       fragment.insert(0, [paragraph]);
     }
+  }
+};
+
+// Helper function to check if an element has actual content
+const elementHasContent = (element: Y.XmlElement): boolean => {
+  if (element.length === 0) return false;
+  
+  // Check if any child has content
+  let hasContent = false;
+  element.forEach((child) => {
+    if (child instanceof Y.XmlText && child.toString().trim()) {
+      hasContent = true;
+    } else if (child instanceof Y.XmlElement && elementHasContent(child)) {
+      hasContent = true;
+    }
+  });
+  
+  return hasContent;
+};
+
+// Helper function to parse individual HTML blocks into Y.js elements
+const parseHtmlBlock = (blockHtml: string, skipEmptyParagraphs = false): Y.XmlElement | null => {
+  try {
+    const trimmed = blockHtml.trim();
+    if (!trimmed) return null;
+    
+    // Handle headings
+    const headingMatch = trimmed.match(/^<h([1-6])[^>]*>(.*?)<\/h[1-6]>$/s);
+    if (headingMatch && headingMatch[1] && headingMatch[2] !== undefined) {
+      const level = headingMatch[1];
+      const content = headingMatch[2];
+      
+      // Skip empty headings
+      if (!content.trim()) {
+        return null;
+      }
+      
+      const heading = new Y.XmlElement('heading');
+      heading.setAttribute('level', level);
+      
+      const textContent = parseTextWithFormatting(content);
+      if (textContent.length > 0) {
+        heading.insert(0, textContent);
+        return heading;
+      }
+      
+      return null; // Don't create empty headings
+    }
+    
+    // Handle paragraphs
+    const paragraphMatch = trimmed.match(/^<p[^>]*>(.*?)<\/p>$/s) ?? trimmed.match(/^<p[^>]*>(.*?)$/s);
+    if (paragraphMatch?.[1] !== undefined) {
+      const content = paragraphMatch[1];
+      
+      // Only skip empty paragraphs at the beginning of the document
+      if (!content.trim() && skipEmptyParagraphs) {
+        return null;
+      }
+      
+      const paragraph = new Y.XmlElement('paragraph');
+      const textContent = parseTextWithFormatting(content);
+      
+      // For empty paragraphs after content has started, create an empty paragraph
+      if (textContent.length === 0 && !skipEmptyParagraphs) {
+        // Create an empty paragraph (intentional spacing)
+        return paragraph;
+      } else if (textContent.length > 0) {
+        paragraph.insert(0, textContent);
+        return paragraph;
+      }
+      
+      return null; // Don't create empty paragraphs at the beginning
+    }
+    
+    // Handle blockquotes
+    const blockquoteMatch = trimmed.match(/^<blockquote[^>]*>(.*?)<\/blockquote>$/s);
+    if (blockquoteMatch && blockquoteMatch[1] !== undefined) {
+      const content = blockquoteMatch[1];
+      
+      // Skip empty blockquotes
+      if (!content.trim()) {
+        return null;
+      }
+      
+      const blockquote = new Y.XmlElement('blockquote');
+      const textContent = parseTextWithFormatting(content);
+      
+      if (textContent.length > 0) {
+        blockquote.insert(0, textContent);
+        return blockquote;
+      }
+      
+      return null; // Don't create empty blockquotes
+    }
+    
+    // Default: treat as paragraph, but only if it has content
+    const cleanedContent = trimmed.replace(/^<[^>]*>|<\/[^>]*>$/g, '').trim();
+    if (!cleanedContent) {
+      return null; // Don't create paragraphs for empty content
+    }
+    
+    const paragraph = new Y.XmlElement('paragraph');
+    const textContent = parseTextWithFormatting(cleanedContent);
+    
+    if (textContent.length > 0) {
+      paragraph.insert(0, textContent);
+      return paragraph;
+    }
+    
+    return null; // Don't create empty paragraphs
+    
+  } catch (error) {
+    console.error('Error parsing HTML block:', error);
+    return null;
+  }
+};
+
+// Helper function to parse text with inline formatting (bold, italic, etc.)
+const parseTextWithFormatting = (html: string): (Y.XmlText | Y.XmlElement)[] => {
+  try {
+    const result: (Y.XmlText | Y.XmlElement)[] = [];
+    
+    // Simple approach: split by formatting tags and rebuild
+    // This handles basic bold, italic, underline formatting
+    let remaining = html;
+    
+    while (remaining) {
+      // Find the next formatting tag
+      const formatMatch = remaining.match(/^(.*?)<(strong|b|em|i|u|code|mark)[^>]*>(.*?)<\/\2>(.*)$/s);
+      
+      if (formatMatch && formatMatch[1] !== undefined && formatMatch[2] && formatMatch[3] !== undefined && formatMatch[4] !== undefined) {
+        const [, before, tag, content, after] = formatMatch;
+        
+        // Add text before the formatting
+        if (before) {
+          result.push(new Y.XmlText(before));
+        }
+        
+        // Create formatted element
+        const formattedElement = new Y.XmlElement(getYjsElementName(tag));
+        if (content) {
+          // Recursively handle nested formatting
+          const nestedContent = parseTextWithFormatting(content);
+          formattedElement.insert(0, nestedContent);
+        }
+        result.push(formattedElement);
+        
+        remaining = after;
+      } else {
+        // No more formatting tags, add remaining text
+        if (remaining.trim()) {
+          const cleanText = remaining.replace(/<[^>]*>/g, ''); // Strip any remaining HTML
+          if (cleanText) {
+            result.push(new Y.XmlText(cleanText));
+          }
+        }
+        break;
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error parsing text with formatting:', error);
+    // Fallback: return plain text
+    const cleanText = html.replace(/<[^>]*>/g, '').trim();
+    return cleanText ? [new Y.XmlText(cleanText)] : [];
+  }
+};
+
+// Helper function to map HTML tags to Y.js element names
+const getYjsElementName = (htmlTag: string): string => {
+  switch (htmlTag.toLowerCase()) {
+    case 'strong':
+    case 'b':
+      return 'strong';
+    case 'em':
+    case 'i':
+      return 'em';
+    case 'u':
+      return 'underline';
+    case 'code':
+      return 'code';
+    case 'mark':
+      return 'highlight';
+    default:
+      return htmlTag;
   }
 };
 
