@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Button } from "../components_new/ui/button";  
-import { ArrowLeft, FolderPlus, FilePlus, X } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus, X, FileText } from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
 import Tree from 'rc-tree';
 import {
@@ -20,6 +20,7 @@ import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
 import { useConvexUser } from "../hooks/use-convex-user";
 import { DocumentWithTreeProps } from "../types/document";
+import "./DocumentSidebar.css";
 
 // Extend DataNode to include level
 interface CustomDataNode {
@@ -588,20 +589,21 @@ const DocumentSidebar = memo(({
   }
 
   return (
-    <section className={`w-full h-full md:h-screen flex flex-col bg-white ${isMobile ? 'fixed top-16 left-0 right-0 bottom-0 z-50' : ''}`}>
-      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200 bg-white/80 backdrop-blur-md">
+    <section className={`w-full h-full md:h-screen flex flex-col bg-white border-r border-gray-200 ${isMobile ? 'fixed top-0 left-0 right-0 bottom-0 z-50 shadow-xl sidebar-fade-in' : ''}`}>
+      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
         <div className="flex items-center gap-3">
           {onToggleSidebar && showSidebar && (
             <Button
               onClick={onToggleSidebar}
               variant="ghost"
               size="icon"
-              className="md:hidden hover:bg-gray-100"
+              className="md:hidden hover:bg-blue-100 transition-colors"
             >
-              {isMobile ? <X className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
+              {isMobile ? <X className="h-5 w-5 text-gray-600" /> : <ArrowLeft className="h-5 w-5 text-gray-600" />}
             </Button>
           )}
-          <h1 className="text-xl font-semibold text-gray-800">
+          <h1 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
             Documents {isUserLoading && <span className="text-sm text-gray-500">(Loading user...)</span>}
           </h1>
         </div>
@@ -612,7 +614,7 @@ const DocumentSidebar = memo(({
                 disabled={isCreating}
                 variant="outline"
                 size="icon"
-                className="bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700"
+                className="bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border-blue-200 hover:border-blue-300 text-blue-700 transition-all duration-200 hover:scale-105"
               >
                 {isCreating ? (
                   <ImSpinner8 className="h-4 w-4 animate-spin" />
@@ -635,15 +637,17 @@ const DocumentSidebar = memo(({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {isUserLoading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          <div className="flex flex-col justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3"></div>
+            <p className="text-sm text-gray-500">Loading documents...</p>
           </div>
         ) : documents.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>No documents found</p>
-            <p className="text-sm mt-2">Create your first document using the + button above</p>
+          <div className="text-center py-12 px-4">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">No documents found</p>
+            <p className="text-sm text-gray-500 mt-2">Create your first document using the + button above</p>
           </div>
         ) : (
           <Tree
@@ -659,8 +663,11 @@ const DocumentSidebar = memo(({
                     console.log('📁 Sidebar selecting document:', selectedDoc._id, 'title:', selectedDoc.title);
                     lastSelectedIdRef.current = selectedDoc._id;
                     setCurrentDocumentId(selectedDoc._id);
+                    // Add smooth transition for mobile
                     if (isMobile && onToggleSidebar) {
-                      onToggleSidebar();
+                      setTimeout(() => {
+                        onToggleSidebar();
+                      }, 150); // Small delay for visual feedback
                     }
                   } else {
                     console.log('📁 Ignoring duplicate selection for document:', selectedDoc._id);
@@ -673,7 +680,7 @@ const DocumentSidebar = memo(({
             onExpand={(expanded) => setExpandedKeys(expanded as string[])}
             motion={false}
             prefixCls="custom-tree"
-            className={`custom-tree-container ${isMobile ? 'px-2' : ''}`}
+            className={`custom-tree-container ${isMobile ? 'px-2' : 'px-3'}`}
             defaultExpandAll={false}
             defaultExpandedKeys={[]}
             // Add these props for better selection behavior

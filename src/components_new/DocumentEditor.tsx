@@ -1431,8 +1431,23 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
             onRightMarginChange={setRightMargin}
           />
           <div className="min-w-max flex justify-center w-[816px] py-4 print:py-0 mx-auto print:w-full print:min-w-0">
+            {/* Loading overlay for document switching */}
+            {(isLoadingDocument || (status === 'connecting' && isSwitchingRef.current)) && (
+              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-20 transition-opacity duration-300">
+                <div className="text-center document-switching">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-sm font-medium text-blue-600 mb-1">
+                    Switching document...
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Loading {doc.title}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {/* Loading overlay for connection issues */}
-            {status !== 'connected' && status !== 'connecting' && (
+            {status !== 'connected' && status !== 'connecting' && !isLoadingDocument && (
               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
                 <div className="text-center">
                   <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />

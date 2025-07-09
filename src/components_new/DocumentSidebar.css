@@ -1,0 +1,142 @@
+/* Custom Tree Styling for DocumentSidebar */
+.custom-tree-container {
+  padding: 8px 0;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper {
+  transition: all 0.2s ease-in-out;
+  border-radius: 8px;
+  margin: 2px 0;
+}
+
+.custom-tree-container .rc-tree-node-content-wrapper:hover {
+  background: transparent;
+}
+
+.custom-tree-container .rc-tree-node-selected .rc-tree-node-content-wrapper {
+  background: transparent;
+}
+
+.custom-tree-container .rc-tree-switcher {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  margin-right: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
+}
+
+.custom-tree-container .rc-tree-switcher:hover {
+  background-color: #f3f4f6;
+}
+
+.custom-tree-container .rc-tree-switcher-icon {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.custom-tree-container .rc-tree-indent {
+  width: 16px;
+}
+
+.custom-tree-container .rc-tree-indent-unit {
+  width: 16px;
+}
+
+/* Loading states */
+.document-item-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.document-item-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Smooth transitions for mobile */
+@media (max-width: 768px) {
+  .custom-tree-container {
+    padding: 16px 0;
+  }
+  
+  .custom-tree-container .rc-tree-node-content-wrapper {
+    margin: 4px 0;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Fade-in animation for sidebar */
+.sidebar-fade-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Document switching animation */
+.document-switching {
+  position: relative;
+  overflow: hidden;
+}
+
+.document-switching::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  animation: switchingWave 1s ease-in-out;
+}
+
+@keyframes switchingWave {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
