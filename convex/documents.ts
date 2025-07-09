@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
-import { type Id } from "./_generated/dataModel";
+import { type Id, type Doc } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 import { nanoid } from "nanoid";
 
@@ -68,7 +68,7 @@ export const create = mutation({
           .withIndex("by_parent_and_order", (q) => q.eq("parentId", args.parentId))
           .order("desc")
           .first();
-        order = (lastSibling?.order || -1) + 1;
+        order = (lastSibling?.order ?? -1) + 1;
       } else {
         // Get the highest order in the root level - optimized with limit
         const lastSibling = await ctx.db
@@ -77,7 +77,7 @@ export const create = mutation({
           .filter((q) => q.eq(q.field("ownerId"), userId))
           .order("desc")
           .first();
-        order = (lastSibling?.order || -1) + 1;
+        order = (lastSibling?.order ?? -1) + 1;
       }
       
       // Insert the document atomically within the same transaction
@@ -171,7 +171,7 @@ export const getAllForTree = query({
     
     return {
       documents,
-      nextCursor: documents.length === documentLimit ? documents[documents.length - 1]._id : null,
+      nextCursor: documents.length === documentLimit ? documents[documents.length - 1]?._id ?? null : null,
       hasMore: documents.length === documentLimit
     };
   },
@@ -271,7 +271,7 @@ export const updateStructure = mutation({
     
     // Store original states for rollback mechanism
     const originalStates = new Map<string, { parentId: Id<"documents"> | undefined; order: number }>();
-    const documentsToUpdate = new Map<string, any>();
+    const documentsToUpdate = new Map<string, Doc<"documents">>();
     
     try {
       // First pass: Batch fetch all documents to validate
@@ -285,8 +285,8 @@ export const updateStructure = mutation({
         const document = documents[i];
         const update = updates[i];
         
-        if (!document || document.ownerId !== userId) {
-          throw new ConvexError(`Document ${update.id} not found or access denied`);
+        if (!document || !update || document.ownerId !== userId) {
+          throw new ConvexError(`Document ${update?.id ?? 'unknown'} not found or access denied`);
         }
         
         // Store original state for potential rollback

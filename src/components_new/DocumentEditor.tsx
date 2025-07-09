@@ -6,7 +6,7 @@ import Collaboration from '@tiptap/extension-collaboration';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { Id } from '../../convex/_generated/dataModel';
+import type { Id } from '../../convex/_generated/dataModel';
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { HocuspocusProvider } from '@hocuspocus/provider';
@@ -115,7 +115,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   // New state management for document switching
   const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(initialDocument._id);
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
-  const [documentError, setDocumentError] = useState<string | null>(null);
   
   // Add refs to track switching state and prevent race conditions
   const isSwitchingRef = useRef(false);
@@ -208,28 +207,27 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
   }, [currentDocumentId]);
   
   // Use Convex API for dictionary functionality with real user authentication
-  const dictionary = useQuery(
+  const dictionaryQuery = useQuery(
     api.dictionary.getDictionary, 
     userIdString ? { userId: userIdString } : "skip"
-  ) ?? [];
+  );
+  const dictionary = useMemo(() => dictionaryQuery ?? [], [dictionaryQuery]);
 
   // Update document title when document changes
   useEffect(() => {
     if (doc && doc.title !== documentTitle) {
       setDocumentTitle(doc.title);
     }
-  }, [doc?.title]);
+  }, [doc, documentTitle]);
 
   // Handle document query errors
   useEffect(() => {
     if (currentDocument === null && currentDocumentId !== initialDocument._id) {
-      setDocumentError("Document not found");
       toast.error("Document not found. Switching back to original document.");
       setCurrentDocumentId(initialDocument._id);
     } else if (currentDocument && isLoadingDocument) {
       // Document loaded successfully
       setIsLoadingDocument(false);
-      setDocumentError(null);
       toast.success("Document loaded successfully");
     }
   }, [currentDocument, currentDocumentId, initialDocument._id, isLoadingDocument]);
@@ -543,7 +541,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
           document: ydocRef.current,
         }),
       ] : []),
-    ], [baseExtensions, isYdocReady, ydocRef.current]),
+    ], [baseExtensions, isYdocReady]),
   }, [isYdocReady, leftMargin, rightMargin, isReadOnly, currentDocumentId]);
 
   // Functions that use editor - must be defined after editor is declared
@@ -587,7 +585,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
       void (async () => {
         isSwitchingRef.current = true;
         setIsLoadingDocument(true);
-        setDocumentError(null);
         
         console.log('🔄 Starting document switch from:', currentDocumentId, 'to:', newDocumentId);
         
@@ -633,7 +630,6 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
         } catch (error) {
           console.error('🔄 Error during document switch:', error);
           const errorMessage = error instanceof Error ? error.message : "Failed to switch document";
-          setDocumentError(errorMessage);
           toast.error(errorMessage);
           
           // Reset switching state on error
@@ -1017,7 +1013,7 @@ export function DocumentEditor({ document: initialDocument, initialContent, isRe
           userId: userIdString
         });
         toast.success("Document title updated!");
-      } catch (error) {
+      } catch {
         toast.error("Failed to update title");
         setDocumentTitle(doc.title);
       }
