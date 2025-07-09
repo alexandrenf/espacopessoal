@@ -9,7 +9,11 @@ import * as Y from 'yjs'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 
-const Editor = () => {
+interface EditorProps {
+  documentId?: string
+}
+
+const Editor = ({ documentId }: EditorProps) => {
   const [status, setStatus] = useState('connecting')
   const editorRef = useRef<TiptapEditor | null>(null)
   const [editorReady, setEditorReady] = useState(false)
@@ -19,7 +23,7 @@ const Editor = () => {
 
   useEffect(() => {
     const newYdoc = new Y.Doc()
-    const documentName = process.env.NEXT_PUBLIC_DOCUMENT_NAME ?? 'example-document'
+    const documentName = documentId ?? process.env.NEXT_PUBLIC_DOCUMENT_NAME ?? 'example-document'
     
     // Get WebSocket URL from environment or create secure fallback
     const wsPort = process.env.NEXT_PUBLIC_WS_PORT ?? '6001'
@@ -29,6 +33,7 @@ const Editor = () => {
     if (process.env.NODE_ENV === 'development') {
       console.log('🔗 WebSocket URL:', wsUrl)
       console.log('📡 Environment WS URL:', process.env.NEXT_PUBLIC_WS_URL)
+      console.log('📄 Document Name:', documentName)
     }
     
     const persistence = new IndexeddbPersistence(documentName, newYdoc)
@@ -124,7 +129,7 @@ const Editor = () => {
         editorRef.current.destroy()
       }
     }
-  }, [])
+  }, [documentId])
 
   if (!editorReady || !editorRef.current) {
     return (

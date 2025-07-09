@@ -68,54 +68,96 @@ export default function SharedDocumentPage() {
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
   const [collaborativeContent, setCollaborativeContent] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Initialize Y.js document for real-time collaboration
   useEffect(() => {
-    if (sharedDocument?.document && !ydocRef.current) {
+    if (!sharedDocument?.document) return;
+    
+    // Initialize Y.js document only once
+    if (!ydocRef.current) {
       ydocRef.current = new Y.Doc();
       setIsYdocReady(true);
-      
-      // Connect to collaborative server in read-only mode
-      const documentId = sharedDocument.document._id;
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-      
-      if (wsUrl) {
-        const persistence = new IndexeddbPersistence(documentId, ydocRef.current);
-        
-        const provider = new HocuspocusProvider({
-          url: wsUrl,
-          name: documentId,
-          document: ydocRef.current,
-        });
-        
-        providerRef.current = provider;
-        
-        // Listen for document updates
-        const updateContent = () => {
-          if (ydocRef.current) {
-            const prosemirrorState = ydocRef.current.getMap('prosemirror');
-            const content = prosemirrorState.get('content');
-            if (typeof content === 'string' && content) {
-              setCollaborativeContent(content);
-            }
-          }
-        };
-        
-        provider.on('status', (event: { status: string }) => {
-          if (event.status === 'connected') {
-            updateContent();
-          }
-        });
-        
-        ydocRef.current.on('update', updateContent);
-        
-        return () => {
-          provider.destroy();
-          ydocRef.current?.destroy();
-        };
-      }
     }
-  }, [sharedDocument?.document]);
+    
+    // Clean up previous provider if exists
+    if (providerRef.current) {
+      providerRef.current.destroy();
+    }
+    
+    // Connect to collaborative server in read-only mode
+    const documentId = sharedDocument.document._id;
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    
+    if (wsUrl && ydocRef.current) {
+      setConnectionStatus('connecting');
+      
+      const persistence = new IndexeddbPersistence(documentId, ydocRef.current);
+      
+      const provider = new HocuspocusProvider({
+        url: wsUrl,
+        name: documentId,
+        document: ydocRef.current,
+      });
+      
+      providerRef.current = provider;
+      
+      // Listen for document updates
+      const updateContent = () => {
+        if (ydocRef.current) {
+          const prosemirrorState = ydocRef.current.getMap('prosemirror');
+          const content = prosemirrorState.get('content');
+          if (typeof content === 'string' && content) {
+            setCollaborativeContent(content);
+          }
+        }
+      };
+      
+      provider.on('status', (event: { status: string }) => {
+        if (event.status === 'connected') {
+          setConnectionStatus('connected');
+          updateContent();
+        } else if (event.status === 'connecting') {
+          setConnectionStatus('connecting');
+        } else {
+          setConnectionStatus('disconnected');
+        }
+      });
+      
+      provider.on('connect', () => {
+        setConnectionStatus('connected');
+        updateContent();
+      });
+      
+      provider.on('disconnect', () => {
+        setConnectionStatus('disconnected');
+      });
+      
+      provider.on('error', (error: Error) => {
+        console.error('WebSocket error in shared document:', error);
+        setConnectionStatus('disconnected');
+      });
+      
+      ydocRef.current.on('update', updateContent);
+      
+      return () => {
+        provider.destroy();
+        setConnectionStatus('disconnected');
+      };
+    }
+  }, [sharedDocument?.document._id]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (providerRef.current) {
+        providerRef.current.destroy();
+      }
+      if (ydocRef.current) {
+        ydocRef.current.destroy();
+      }
+    };
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -241,14 +283,24 @@ export default function SharedDocumentPage() {
   // Update content when shared document loads or collaborative content changes
   useEffect(() => {
     if (editor && sharedDocument?.document) {
-      // Use collaborative content if available, otherwise fall back to initialContent
-      const contentToSet = collaborativeContent ?? 
-                          sharedDocument.document.initialContent ?? 
-                          '<p>This document appears to be empty.</p>';
+      // Prioritize collaborative content if available and connected
+      let contentToSet: string;
       
-      editor.commands.setContent(contentToSet);
+      if (collaborativeContent && connectionStatus === 'connected') {
+        contentToSet = collaborativeContent;
+      } else if (sharedDocument.document.initialContent) {
+        contentToSet = sharedDocument.document.initialContent;
+      } else {
+        contentToSet = '<p>This document appears to be empty.</p>';
+      }
+      
+      // Only update if content actually changed to avoid unnecessary re-renders
+      const currentContent = editor.getHTML();
+      if (currentContent !== contentToSet) {
+        editor.commands.setContent(contentToSet);
+      }
     }
-  }, [editor, sharedDocument?.document, collaborativeContent, refreshKey]);
+  }, [editor, sharedDocument?.document, collaborativeContent, connectionStatus, refreshKey]);
 
   if (isLoading) {
     return (
@@ -315,6 +367,33 @@ export default function SharedDocumentPage() {
                 <RefreshCw className="h-4 w-4" />
                 <span>Refresh</span>
               </Button>
+              
+              {/* Connection Status */}
+              <div className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-100 text-green-700' 
+                  : connectionStatus === 'connecting'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {connectionStatus === 'connected' ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Live</span>
+                  </>
+                ) : connectionStatus === 'connecting' ? (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span>Offline</span>
+                  </>
+                )}
+              </div>
+              
               <div className="flex items-center gap-1 text-sm text-gray-500">
                 <Eye className="h-4 w-4" />
                 <span>Read-only</span>

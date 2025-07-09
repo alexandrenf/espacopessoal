@@ -100,6 +100,16 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
           <div className="flex justify-center items-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
+        ) : data === null ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">
+              Erro ao carregar informações do documento. Tente novamente.
+            </p>
+          </div>
+        ) : !isOwner ? (
+          <p className="text-sm text-muted-foreground">
+            Apenas o criador do documento pode compartilhá-lo.
+          </p>
         ) : existingSharedDocument ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
@@ -131,38 +141,25 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
                 )}
               </Button>
             </div>
-            {isOwner && (
-              <Button
-                onClick={handleDelete}
-                variant="destructive"
-                disabled={isDeleting}
-                className="w-full"
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Removendo link...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remover link de compartilhamento
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              onClick={handleDelete}
+              variant="destructive"
+              disabled={isDeleting}
+              className="w-full"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removendo link...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remover link de compartilhamento
+                </>
+              )}
+            </Button>
           </div>
-        ) : !userId ? (
-          <p className="text-sm text-muted-foreground">
-            Você precisa estar logado para compartilhar documentos.
-            <Link href="/api/auth/signin" className="ml-1 text-blue-500 hover:underline">
-              Fazer login
-            </Link>
-          </p>
-        ) : !isOwner ? (
-          <p className="text-sm text-muted-foreground">
-            Apenas o criador do documento pode compartilhá-lo.
-          </p>
         ) : (
           <div>
             <p className="text-sm text-muted-foreground">

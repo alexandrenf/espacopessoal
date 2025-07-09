@@ -74,7 +74,7 @@ export default defineSchema({
 
   // Shared documents for public links
   sharedDocuments: defineTable({
-    url: v.string(), // Unique 8-character URL
+    url: v.string(), // Unique 12-character URL (generated with nanoid)
     documentId: v.id("documents"),
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -518,6 +518,11 @@ export const createSharedDocument = mutation({
     userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
   },
   handler: async (ctx, args) => {
+    // Validate input
+    if (!args.documentId || !args.userId) {
+      throw new ConvexError("Invalid input: documentId and userId are required");
+    }
+    
     // Check if document exists and user owns it
     const document = await ctx.db.get(args.documentId);
     if (!document) {
@@ -526,6 +531,22 @@ export const createSharedDocument = mutation({
     
     if (document.ownerId !== args.userId) {
       throw new ConvexError("You don't have permission to share this document");
+    }
+    
+    // Check if document is a folder
+    if (document.isFolder) {
+      throw new ConvexError("Cannot share folders, only documents can be shared");
+    }
+    
+    // Check if a shared document already exists for this document
+    const existingSharedDoc = await ctx.db
+      .query("sharedDocuments")
+      .withIndex("by_document_id", (q) => q.eq("documentId", args.documentId))
+      .first();
+    
+    if (existingSharedDoc) {
+      logger.debug(`Shared document already exists for ${args.documentId}, returning existing`);
+      return existingSharedDoc;
     }
     
     // Generate unique URL with retry limit to prevent infinite loops
@@ -568,9 +589,20 @@ export const getSharedDocument = query({
     url: v.string(),
   },
   handler: async (ctx, args) => {
+    // Validate URL format
+    if (!args.url || typeof args.url !== "string" || args.url.length < 8) {
+      throw new ConvexError("Invalid shared document URL format");
+    }
+    
+    // Sanitize URL to prevent injection attacks
+    const sanitizedUrl = args.url.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (sanitizedUrl !== args.url) {
+      throw new ConvexError("Invalid characters in shared document URL");
+    }
+    
     const sharedDoc = await ctx.db
       .query("sharedDocuments")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .withIndex("by_url", (q) => q.eq("url", sanitizedUrl))
       .first();
       
     if (!sharedDoc) {
@@ -579,7 +611,14 @@ export const getSharedDocument = query({
     
     const document = await ctx.db.get(sharedDoc.documentId);
     if (!document) {
+      // Log orphaned shared document for cleanup
+      logger.warn(`Orphaned shared document found: ${sharedDoc._id} (URL: ${sharedDoc.url})`);
       throw new ConvexError("Document not found");
+    }
+    
+    // Don't share folders
+    if (document.isFolder) {
+      throw new ConvexError("Cannot access shared folders");
     }
     
     // Since ownerId is a string (not a Convex ID), we cannot look up user details
@@ -635,9 +674,25 @@ export const deleteSharedDocument = mutation({
     userId: v.string(), // TODO: Change to v.id("users") after auth migration
   },
   handler: async (ctx, args) => {
+    // Validate input
+    if (!args.url || !args.userId) {
+      throw new ConvexError("Invalid input: url and userId are required");
+    }
+    
+    // Validate URL format
+    if (typeof args.url !== "string" || args.url.length < 8) {
+      throw new ConvexError("Invalid shared document URL format");
+    }
+    
+    // Sanitize URL to prevent injection attacks
+    const sanitizedUrl = args.url.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (sanitizedUrl !== args.url) {
+      throw new ConvexError("Invalid characters in shared document URL");
+    }
+    
     const sharedDoc = await ctx.db
       .query("sharedDocuments")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .withIndex("by_url", (q) => q.eq("url", sanitizedUrl))
       .first();
       
     if (!sharedDoc) {
@@ -646,6 +701,8 @@ export const deleteSharedDocument = mutation({
     
     const document = await ctx.db.get(sharedDoc.documentId);
     if (!document) {
+      // If document doesn't exist, clean up the shared document anyway
+      await ctx.db.delete(sharedDoc._id);
       throw new ConvexError("Document not found");
     }
     
