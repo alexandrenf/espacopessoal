@@ -6,7 +6,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 export const notebooksRouter = createTRPCRouter({
   // Create a new notebook
@@ -27,6 +27,13 @@ export const notebooksRouter = createTRPCRouter({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be logged in to create a notebook",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
         });
       }
 
@@ -58,6 +65,13 @@ export const notebooksRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
@@ -101,6 +115,13 @@ export const notebooksRouter = createTRPCRouter({
         });
       }
 
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         return await ctx.convex.query(api.notebooks.getByOwner, {
           userId: ctx.session.user.id,
@@ -129,6 +150,13 @@ export const notebooksRouter = createTRPCRouter({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be logged in to update a notebook",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
         });
       }
 
@@ -166,6 +194,13 @@ export const notebooksRouter = createTRPCRouter({
         });
       }
 
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         await ctx.convex.mutation(api.notebooks.remove, {
           id: input.id as Id<"notebooks">,
@@ -196,6 +231,13 @@ export const notebooksRouter = createTRPCRouter({
         });
       }
 
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         return await ctx.convex.query(api.notebooks.checkUrlAvailability, {
           url: input.url,
@@ -216,6 +258,13 @@ export const notebooksRouter = createTRPCRouter({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "You must be logged in to create a default notebook",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
         });
       }
 
@@ -242,6 +291,13 @@ export const notebooksRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const result = await ctx.convex.mutation(api.notebooks.validatePassword, {
           url: input.url,

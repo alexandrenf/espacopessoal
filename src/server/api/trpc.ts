@@ -15,8 +15,6 @@ import { ConvexHttpClient } from "convex/browser";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
-const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
-
 /**
  * 1. CONTEXT
  *
@@ -31,6 +29,11 @@ const convex = new ConvexHttpClient(process.env.CONVEX_URL!);
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
+  
+  // Create Convex client only if URL is available
+  const convex = process.env.CONVEX_URL 
+    ? new ConvexHttpClient(process.env.CONVEX_URL)
+    : null;
 
   return {
     db,
