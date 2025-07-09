@@ -36,20 +36,20 @@ export function SearchInput({ search, setSearch }: SearchInputProps) {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="relative max-w-[720px] w-full">
+    <div className="flex flex-1 items-center justify-center">
+      <form onSubmit={handleSubmit} className="relative w-full max-w-[720px]">
         <Input
           ref={inputRef}
           value={value}
           onChange={handleChange}
           placeholder="Search"
-          className="md:text-base placeholder:text-neutral-800 px-14 w-full border-none focus-visible:shadow-[0_1px_1px_0_rgba(65,69,73,.3),0_1px_3px_1px_rgba(65,69,73,.15)] bg-[#F0F4F8] rounded-full h-[48px] focus-visible:ring-0 focus:bg-white"
+          className="h-[48px] w-full rounded-full border-none bg-[#F0F4F8] px-14 placeholder:text-neutral-800 focus:bg-white focus-visible:shadow-[0_1px_1px_0_rgba(65,69,73,.3),0_1px_3px_1px_rgba(65,69,73,.15)] focus-visible:ring-0 md:text-base"
         />
         <Button
           type="submit"
           variant="ghost"
           size="icon"
-          className="absolute left-3 top-1/2 -translate-y-1/2 [&_svg]:size-5 rounded-full"
+          className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full [&_svg]:size-5"
         >
           <Search />
         </Button>
@@ -59,7 +59,7 @@ export function SearchInput({ search, setSearch }: SearchInputProps) {
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute right-3 top-1/2 -translate-y-1/2 [&_svg]:size-5 rounded-full"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full [&_svg]:size-5"
           >
             <X />
           </Button>
@@ -67,4 +67,4 @@ export function SearchInput({ search, setSearch }: SearchInputProps) {
       </form>
     </div>
   );
-} 
+}

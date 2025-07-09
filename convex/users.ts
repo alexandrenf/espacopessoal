@@ -1,5 +1,10 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 
 // Shared email validation utility function
@@ -12,7 +17,7 @@ const validateEmail = (email: string): void => {
 
 // Get user by ID
 export const getById = query({
-  args: { 
+  args: {
     id: v.id("users"),
   },
   handler: async (ctx, { id }) => {
@@ -22,7 +27,7 @@ export const getById = query({
 
 // Get user by email
 export const getByEmail = query({
-  args: { 
+  args: {
     email: v.string(),
   },
   handler: async (ctx, { email }) => {
@@ -35,15 +40,15 @@ export const getByEmail = query({
 
 // Get user by external provider ID
 export const getByExternalId = query({
-  args: { 
+  args: {
     externalId: v.string(),
     provider: v.string(),
   },
   handler: async (ctx, { externalId, provider }) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_external_id", (q) => 
-        q.eq("externalId", externalId).eq("provider", provider)
+      .withIndex("by_external_id", (q) =>
+        q.eq("externalId", externalId).eq("provider", provider),
       )
       .first();
   },
@@ -60,20 +65,20 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // Validate email format
     validateEmail(args.email);
-    
+
     // Check if user already exists
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
-    
+
     if (existingUser) {
       throw new ConvexError("User with this email already exists");
     }
-    
+
     return await ctx.db.insert("users", {
       name: args.name,
       email: args.email,
@@ -99,30 +104,30 @@ export const update = mutation({
     if (!user) {
       throw new ConvexError("User not found!");
     }
-    
+
     // If email is being updated, validate format and check for duplicates
     if (args.email !== undefined) {
       validateEmail(args.email);
-      
+
       // Check if any other user has this email
       const existingUser = await ctx.db
         .query("users")
         .withIndex("by_email", (q) => q.eq("email", args.email!))
         .first();
-      
+
       if (existingUser && existingUser._id !== args.id) {
         throw new ConvexError("Email already in use by another user");
       }
     }
-    
+
     const updates: Partial<typeof user> = {
       updatedAt: Date.now(),
     };
-    
+
     if (args.name !== undefined) updates.name = args.name;
     if (args.email !== undefined) updates.email = args.email;
     if (args.image !== undefined) updates.image = args.image;
-    
+
     return await ctx.db.patch(args.id, updates);
   },
 });
@@ -139,19 +144,19 @@ export const createInternal = internalMutation({
   handler: async (ctx, args) => {
     // Validate email format
     validateEmail(args.email);
-    
+
     // Check for existing user with the same email to prevent duplicates
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
-    
+
     if (existingUser) {
       throw new ConvexError(`User with email ${args.email} already exists`);
     }
-    
+
     const now = Date.now();
-    
+
     return await ctx.db.insert("users", {
       name: args.name,
       email: args.email,
@@ -182,18 +187,19 @@ export const updateInternal = internalMutation({
     } = {
       updatedAt: Date.now(),
     };
-    
+
     if (args.name !== undefined) updates.name = args.name;
     if (args.email !== undefined) updates.email = args.email;
     if (args.image !== undefined) updates.image = args.image;
-    if (args.emailVerified !== undefined) updates.emailVerified = args.emailVerified;
-    
+    if (args.emailVerified !== undefined)
+      updates.emailVerified = args.emailVerified;
+
     return await ctx.db.patch(args.id, updates);
   },
 });
 
 export const getByEmailInternal = internalQuery({
-  args: { 
+  args: {
     email: v.string(),
   },
   handler: async (ctx, { email }) => {
@@ -205,15 +211,15 @@ export const getByEmailInternal = internalQuery({
 });
 
 export const getByExternalIdInternal = internalQuery({
-  args: { 
+  args: {
     externalId: v.string(),
     provider: v.string(),
   },
   handler: async (ctx, { externalId, provider }) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_external_id", (q) => 
-        q.eq("externalId", externalId).eq("provider", provider)
+      .withIndex("by_external_id", (q) =>
+        q.eq("externalId", externalId).eq("provider", provider),
       )
       .first();
   },
@@ -228,17 +234,19 @@ export const createSession = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // Check if session with this token already exists
     const existingSession = await ctx.db
       .query("sessions")
-      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .withIndex("by_session_token", (q) =>
+        q.eq("sessionToken", args.sessionToken),
+      )
       .first();
-    
+
     if (existingSession) {
       throw new ConvexError(`Session with token already exists`);
     }
-    
+
     return await ctx.db.insert("sessions", {
       userId: args.userId,
       sessionToken: args.sessionToken,
@@ -249,7 +257,7 @@ export const createSession = internalMutation({
 });
 
 export const getSession = internalQuery({
-  args: { 
+  args: {
     sessionToken: v.string(),
   },
   handler: async (ctx, { sessionToken }) => {
@@ -257,22 +265,22 @@ export const getSession = internalQuery({
       .query("sessions")
       .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
       .first();
-    
+
     if (!session) {
       return null;
     }
-    
+
     // Check if session is expired
     if (session.expires < Date.now()) {
       return null;
     }
-    
+
     // Get the associated user
     const user = await ctx.db.get(session.userId);
     if (!user) {
       return null;
     }
-    
+
     return {
       session,
       user,
@@ -281,7 +289,7 @@ export const getSession = internalQuery({
 });
 
 export const deleteSession = internalMutation({
-  args: { 
+  args: {
     sessionToken: v.string(),
   },
   handler: async (ctx, { sessionToken }) => {
@@ -289,7 +297,7 @@ export const deleteSession = internalMutation({
       .query("sessions")
       .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
       .first();
-    
+
     if (session) {
       await ctx.db.delete(session._id);
     }
@@ -304,16 +312,18 @@ export const updateSession = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("sessions")
-      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .withIndex("by_session_token", (q) =>
+        q.eq("sessionToken", args.sessionToken),
+      )
       .first();
-    
+
     if (session) {
       await ctx.db.patch(session._id, {
         expires: args.expires,
       });
     }
   },
-}); 
+});
 
 // Sync NextAuth user with Convex users table
 export const syncNextAuthUser = mutation({
@@ -326,22 +336,22 @@ export const syncNextAuthUser = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // Check if user already exists by email or externalId
     const existingByEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
-      
+
     const existingByExternalId = await ctx.db
       .query("users")
-      .withIndex("by_external_id", (q) => 
-        q.eq("externalId", args.externalId).eq("provider", "nextauth")
+      .withIndex("by_external_id", (q) =>
+        q.eq("externalId", args.externalId).eq("provider", "nextauth"),
       )
       .first();
-    
+
     const existing = existingByEmail ?? existingByExternalId;
-    
+
     if (existing) {
       // Update existing user
       await ctx.db.patch(existing._id, {
@@ -369,15 +379,15 @@ export const syncNextAuthUser = mutation({
 
 // Get Convex user by NextAuth external ID
 export const getByNextAuthId = query({
-  args: { 
+  args: {
     nextAuthId: v.string(),
   },
   handler: async (ctx, { nextAuthId }) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_external_id", (q) => 
-        q.eq("externalId", nextAuthId).eq("provider", "nextauth")
+      .withIndex("by_external_id", (q) =>
+        q.eq("externalId", nextAuthId).eq("provider", "nextauth"),
       )
       .first();
   },
-}); 
+});

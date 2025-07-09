@@ -17,28 +17,21 @@ interface DeleteConfirmationModalProps {
   isDeleting: boolean;
 }
 
-export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  noteTitle,
-  isDeleting,
-}) => {
+export const DeleteConfirmationModal: React.FC<
+  DeleteConfirmationModalProps
+> = ({ isOpen, onClose, onConfirm, noteTitle, isDeleting }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Excluir Nota</DialogTitle>
           <DialogDescription>
-            Tem certeza que deseja excluir &quot;{noteTitle}&quot;? Esta ação não pode ser desfeita.
+            Tem certeza que deseja excluir &quot;{noteTitle}&quot;? Esta ação
+            não pode ser desfeita.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isDeleting}
-          >
+          <Button variant="outline" onClick={onClose} disabled={isDeleting}>
             Cancelar
           </Button>
           <Button

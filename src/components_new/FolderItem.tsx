@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Folder, FolderOpen, ChevronRight, ChevronDown, MoreHorizontal, Trash, Edit } from "lucide-react";
+import {
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
+  Trash,
+  Edit,
+} from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -40,11 +48,11 @@ const FolderItem: React.FC<FolderItemProps> = ({
   const [folderTitle, setFolderTitle] = useState(folder.title);
   const [isUpdating, setIsUpdating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId;
   const updateDocument = useMutation(api.documents.updateById);
-  
+
   // Focus input when entering rename mode
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -52,7 +60,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
       inputRef.current.select();
     }
   }, [isRenaming]);
-  
+
   // Update local title when folder prop changes
   useEffect(() => {
     setFolderTitle(folder.title);
@@ -74,31 +82,31 @@ const FolderItem: React.FC<FolderItemProps> = ({
     e.stopPropagation();
     onDelete(e, folder._id);
   };
-  
+
   const handleRename = (e: React.MouseEvent<Element>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsRenaming(true);
     setFolderTitle(folder.title);
   };
-  
+
   const handleRenameSubmit = async () => {
     if (!folderTitle.trim() || folderTitle.trim() === folder.title) {
       setIsRenaming(false);
       setFolderTitle(folder.title);
       return;
     }
-    
+
     if (isUserLoading) {
       toast.error("Please wait for authentication to complete");
       return;
     }
-    
+
     if (!userIdString) {
       toast.error("User authentication required to rename folders");
       return;
     }
-    
+
     setIsUpdating(true);
     try {
       await updateDocument({
@@ -106,7 +114,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
         title: folderTitle.trim(),
         userId: userIdString,
       });
-      
+
       toast.success("Folder renamed successfully!");
       setIsRenaming(false);
     } catch (error) {
@@ -117,17 +125,17 @@ const FolderItem: React.FC<FolderItemProps> = ({
       setIsUpdating(false);
     }
   };
-  
+
   const handleRenameCancel = () => {
     setIsRenaming(false);
     setFolderTitle(folder.title);
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       void handleRenameSubmit();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       handleRenameCancel();
     }
@@ -135,12 +143,12 @@ const FolderItem: React.FC<FolderItemProps> = ({
 
   return (
     <div
-      className={`
-        group flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors
-        ${isActive ? 'bg-blue-100 text-blue-900' : 'hover:bg-gray-100'}
-      `}
+      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 transition-colors ${isActive ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"} `}
     >
-      <div className="flex items-center gap-1 flex-1 min-w-0" onClick={handleFolderClick}>
+      <div
+        className="flex min-w-0 flex-1 items-center gap-1"
+        onClick={handleFolderClick}
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -153,13 +161,13 @@ const FolderItem: React.FC<FolderItemProps> = ({
             <ChevronRight className="h-3 w-3" />
           )}
         </Button>
-        
+
         {expanded ? (
-          <FolderOpen className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+          <FolderOpen className="h-4 w-4 flex-shrink-0 text-yellow-600" />
         ) : (
-          <Folder className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+          <Folder className="h-4 w-4 flex-shrink-0 text-yellow-600" />
         )}
-        
+
         {isRenaming ? (
           <input
             ref={inputRef}
@@ -168,13 +176,11 @@ const FolderItem: React.FC<FolderItemProps> = ({
             onChange={(e) => setFolderTitle(e.target.value)}
             onBlur={() => void handleRenameSubmit()}
             onKeyDown={handleKeyDown}
-            className="text-sm font-medium bg-white border border-blue-300 rounded px-2 py-1 flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isUpdating}
           />
         ) : (
-          <span className="text-sm font-medium truncate">
-            {folder.title}
-          </span>
+          <span className="truncate text-sm font-medium">{folder.title}</span>
         )}
       </div>
 
@@ -183,7 +189,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -193,18 +199,15 @@ const FolderItem: React.FC<FolderItemProps> = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem
-            onClick={handleRename}
-            className="focus:bg-blue-50"
-          >
-            <Edit className="h-3 w-3 mr-2" />
+          <DropdownMenuItem onClick={handleRename} className="focus:bg-blue-50">
+            <Edit className="mr-2 h-3 w-3" />
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleDelete}
-            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+            className="text-red-600 focus:bg-red-50 focus:text-red-600"
           >
-            <Trash className="h-3 w-3 mr-2" />
+            <Trash className="mr-2 h-3 w-3" />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -213,4 +216,4 @@ const FolderItem: React.FC<FolderItemProps> = ({
   );
 };
 
-export default FolderItem; 
+export default FolderItem;

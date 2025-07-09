@@ -32,11 +32,11 @@ interface TaskDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function TaskDialog({ 
-  boardId, 
-  taskId, 
-  open, 
-  onOpenChange 
+export function TaskDialog({
+  boardId,
+  taskId,
+  open,
+  onOpenChange,
 }: TaskDialogProps) {
   const utils = api.useUtils();
   const [name, setName] = useState("");
@@ -47,18 +47,19 @@ export function TaskDialog({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDateTime, setReminderDateTime] = useState<Date | undefined>();
-  const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>("ONCE");
+  const [reminderFrequency, setReminderFrequency] =
+    useState<ReminderFrequency>("ONCE");
 
   const isEditMode = !!taskId;
 
   // Query hooks
   const { data: task, isLoading } = api.task.getTask.useQuery(
     { taskId: taskId! },
-    { 
+    {
       enabled: !!taskId,
       staleTime: 0,
-      gcTime: 0
-    }
+      gcTime: 0,
+    },
   );
 
   // Prevent modal from opening until data is loaded
@@ -69,61 +70,70 @@ export function TaskDialog({
   }, [isEditMode, task, isLoading, onOpenChange]);
 
   // Mutation hooks
-  const { mutate: createTask, isPending: isCreating } = api.board.createTask.useMutation({
-    onSuccess: async () => {
-      try {
-        await utils.board.getBoards.invalidate();
-        onOpenChange(false);
-      } catch (error) {
-        console.error("Failed to invalidate cache:", error instanceof Error ? error.message : String(error));
-      }
-    },
-    onError: (error) => {
-      console.error("Failed to create task:", error);
-      if (error instanceof Error) {
-        console.error(error.message);
-      } else if (typeof error === 'object' && error !== null) {
-        console.error(JSON.stringify(error));
-      } else {
-        console.error(String(error));
-      }
-    }
-  });
+  const { mutate: createTask, isPending: isCreating } =
+    api.board.createTask.useMutation({
+      onSuccess: async () => {
+        try {
+          await utils.board.getBoards.invalidate();
+          onOpenChange(false);
+        } catch (error) {
+          console.error(
+            "Failed to invalidate cache:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to create task:", error);
+        if (error instanceof Error) {
+          console.error(error.message);
+        } else if (typeof error === "object" && error !== null) {
+          console.error(JSON.stringify(error));
+        } else {
+          console.error(String(error));
+        }
+      },
+    });
 
-  const { mutate: updateTask, isPending: isUpdating } = api.task.updateTask.useMutation({
-    onSuccess: async () => {
-      try {
-        await utils.board.getBoards.invalidate();
-        onOpenChange(false);
-      } catch (error) {
-        console.error("Failed to invalidate cache:", error instanceof Error ? error.message : String(error));
-      }
-    },
-    onError: (error) => {
-      console.error("Failed to update task:", error);
-      if (error instanceof Error) {
-        console.error(error.message);
-      } else if (typeof error === 'object' && error !== null) {
-        console.error(JSON.stringify(error));
-      } else {
-        console.error(String(error));
-      }
-    }
-  });
+  const { mutate: updateTask, isPending: isUpdating } =
+    api.task.updateTask.useMutation({
+      onSuccess: async () => {
+        try {
+          await utils.board.getBoards.invalidate();
+          onOpenChange(false);
+        } catch (error) {
+          console.error(
+            "Failed to invalidate cache:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to update task:", error);
+        if (error instanceof Error) {
+          console.error(error.message);
+        } else if (typeof error === "object" && error !== null) {
+          console.error(JSON.stringify(error));
+        } else {
+          console.error(String(error));
+        }
+      },
+    });
 
-  const { mutate: deleteTask, isPending: isDeleting } = api.task.deleteTask.useMutation({
-    onSuccess: async () => {
-      try {
-        await utils.board.getBoards.invalidate();
-        onOpenChange(false);
-      } catch (error) {
-        console.error("Failed to invalidate cache:", error);
-      }
-    },
-    onError: (error) => {
-      console.error("Failed to delete task:", error);
-    }
-  });
+  const { mutate: deleteTask, isPending: isDeleting } =
+    api.task.deleteTask.useMutation({
+      onSuccess: async () => {
+        try {
+          await utils.board.getBoards.invalidate();
+          onOpenChange(false);
+        } catch (error) {
+          console.error("Failed to invalidate cache:", error);
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to delete task:", error);
+      },
+    });
 
   useEffect(() => {
     // Only update form state if we have task data or we're creating a new task
@@ -152,21 +162,21 @@ export function TaskDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setValidationError(null);
-    
+
     if (reminderEnabled) {
       if (!reminderDateTime) {
         setValidationError("Please select a reminder date and time");
         return;
       }
-      
+
       if (reminderDateTime < new Date()) {
         setValidationError("Reminder date must be in the future");
         return;
       }
     }
-    
+
     const taskData = {
       boardId,
       name,
@@ -196,13 +206,15 @@ export function TaskDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? "Edit Task" : "Create New Task"}</DialogTitle>
+            <DialogTitle>
+              {isEditMode ? "Edit Task" : "Create New Task"}
+            </DialogTitle>
           </DialogHeader>
           {isEditMode && isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
@@ -233,13 +245,20 @@ export function TaskDialog({
                   {isEditMode && (
                     <div className="space-y-2">
                       <Label htmlFor="status">Status</Label>
-                      <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
+                      <Select
+                        value={status}
+                        onValueChange={(value) =>
+                          setStatus(value as TaskStatus)
+                        }
+                      >
                         <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="TODO">To Do</SelectItem>
-                          <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                          <SelectItem value="IN_PROGRESS">
+                            In Progress
+                          </SelectItem>
                           <SelectItem value="DONE">Done</SelectItem>
                         </SelectContent>
                       </Select>
@@ -248,10 +267,7 @@ export function TaskDialog({
 
                   <div className="space-y-2">
                     <Label htmlFor="dueDate">Due Date</Label>
-                    <DateTimePicker
-                      value={dueDate}
-                      onChange={setDueDate}
-                    />
+                    <DateTimePicker value={dueDate} onChange={setDueDate} />
                   </div>
 
                   <div className="space-y-4">
@@ -267,7 +283,9 @@ export function TaskDialog({
                     {reminderEnabled && (
                       <>
                         <div className="space-y-2">
-                          <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
+                          <Label htmlFor="reminderDateTime">
+                            Reminder Date & Time
+                          </Label>
                           <DateTimePicker
                             value={reminderDateTime}
                             onChange={setReminderDateTime}
@@ -278,7 +296,9 @@ export function TaskDialog({
                           <Label htmlFor="reminderFrequency">Repeat</Label>
                           <Select
                             value={reminderFrequency}
-                            onValueChange={(value) => setReminderFrequency(value as ReminderFrequency)}
+                            onValueChange={(value) =>
+                              setReminderFrequency(value as ReminderFrequency)
+                            }
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue />
@@ -298,12 +318,12 @@ export function TaskDialog({
               </div>
 
               {validationError && (
-                <p className="text-sm text-destructive px-6 pb-2">
+                <p className="px-6 pb-2 text-sm text-destructive">
                   {validationError}
                 </p>
               )}
 
-              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
+              <DialogFooter className="sticky bottom-0 border-t bg-background pt-4">
                 {isEditMode && (
                   <Button
                     type="button"
@@ -322,17 +342,23 @@ export function TaskDialog({
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={
-                    isPending || 
+                    isPending ||
                     (reminderEnabled && !reminderDateTime) ||
-                    (reminderEnabled && reminderDateTime && reminderDateTime < new Date())
+                    (reminderEnabled &&
+                      reminderDateTime &&
+                      reminderDateTime < new Date())
                   }
                 >
                   {isPending
-                    ? (isEditMode ? "Saving..." : "Creating...")
-                    : (isEditMode ? "Save Changes" : "Create Task")}
+                    ? isEditMode
+                      ? "Saving..."
+                      : "Creating..."
+                    : isEditMode
+                      ? "Save Changes"
+                      : "Create Task"}
                 </Button>
               </DialogFooter>
             </form>

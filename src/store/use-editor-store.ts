@@ -14,4 +14,4 @@ export const useEditorStore = create<EditorState>((set) => ({
   undoManager: null,
   setEditor: (editor) => set({ editor }),
   setUndoManager: (undoManager) => set({ undoManager }),
-})); 
+}));

@@ -23,8 +23,10 @@ const openai = new OpenAI({
 export async function handler(req: Request): Promise<Response> {
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
-  
-  console.log(`[${new Date().toISOString()}] ${requestId} - Processing spellcheck request`);
+
+  console.log(
+    `[${new Date().toISOString()}] ${requestId} - Processing spellcheck request`,
+  );
 
   // Set CORS headers
   const headers = new Headers({
@@ -33,21 +35,25 @@ export async function handler(req: Request): Promise<Response> {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400", // Cache preflight requests for 24 hours
     "Content-Type": "application/json",
-    "X-Request-ID": requestId
+    "X-Request-ID": requestId,
   });
 
   // Handle OPTIONS requests for CORS
   if (req.method === "OPTIONS") {
-    console.log(`[${new Date().toISOString()}] ${requestId} - Handling OPTIONS request`);
-    return new Response(null, { 
+    console.log(
+      `[${new Date().toISOString()}] ${requestId} - Handling OPTIONS request`,
+    );
+    return new Response(null, {
       status: 204, // No content
-      headers 
+      headers,
     });
   }
 
   // Only allow POST requests
   if (req.method !== "POST") {
-    console.warn(`[${new Date().toISOString()}] ${requestId} - Method not allowed: ${req.method}`);
+    console.warn(
+      `[${new Date().toISOString()}] ${requestId} - Method not allowed: ${req.method}`,
+    );
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers,
@@ -56,17 +62,24 @@ export async function handler(req: Request): Promise<Response> {
 
   try {
     // Parse request body
-    const { text } = await req.json() as { text: string };
-    
+    const { text } = (await req.json()) as { text: string };
+
     if (!text || typeof text !== "string") {
-      console.warn(`[${new Date().toISOString()}] ${requestId} - Invalid request: missing or invalid text`);
-      return new Response(JSON.stringify({ error: "Invalid request: missing or invalid text" }), {
-        status: 400,
-        headers,
-      });
+      console.warn(
+        `[${new Date().toISOString()}] ${requestId} - Invalid request: missing or invalid text`,
+      );
+      return new Response(
+        JSON.stringify({ error: "Invalid request: missing or invalid text" }),
+        {
+          status: 400,
+          headers,
+        },
+      );
     }
 
-    console.log(`[${new Date().toISOString()}] ${requestId} - Sending request to OpenRouter API`);
+    console.log(
+      `[${new Date().toISOString()}] ${requestId} - Sending request to OpenRouter API`,
+    );
 
     // Define the prompt for the AI
     const prompt = `
@@ -129,22 +142,37 @@ export async function handler(req: Request): Promise<Response> {
     try {
       spellCheckResults = JSON.parse(cleanedResponse) as SpellCheckResult;
     } catch (parseError) {
-      console.error(`[${new Date().toISOString()}] ${requestId} - Failed to parse JSON response:`, parseError);
-      console.error(`[${new Date().toISOString()}] ${requestId} - Raw response received:`, cleanedResponse);
+      console.error(
+        `[${new Date().toISOString()}] ${requestId} - Failed to parse JSON response:`,
+        parseError,
+      );
+      console.error(
+        `[${new Date().toISOString()}] ${requestId} - Raw response received:`,
+        cleanedResponse,
+      );
       throw new Error("Invalid JSON response from AI");
     }
 
     // Ensure diffs array exists
     if (!Array.isArray(spellCheckResults.diffs)) {
-      console.warn(`[${new Date().toISOString()}] ${requestId} - AI response did not contain a valid 'diffs' array. Raw response:`, cleanedResponse);
+      console.warn(
+        `[${new Date().toISOString()}] ${requestId} - AI response did not contain a valid 'diffs' array. Raw response:`,
+        cleanedResponse,
+      );
       spellCheckResults.diffs = []; // Default to empty array if missing or invalid
     }
 
     // Filter out invalid diffs
     spellCheckResults.diffs = spellCheckResults.diffs.filter((diff) => {
       // Basic validation of diff content
-      if (typeof diff.original !== 'string' || typeof diff.suggestion !== 'string') {
-        console.warn(`[${new Date().toISOString()}] ${requestId} - Skipping invalid diff item:`, diff);
+      if (
+        typeof diff.original !== "string" ||
+        typeof diff.suggestion !== "string"
+      ) {
+        console.warn(
+          `[${new Date().toISOString()}] ${requestId} - Skipping invalid diff item:`,
+          diff,
+        );
         return false;
       }
       // Skip if original and suggestion are identical
@@ -160,7 +188,7 @@ export async function handler(req: Request): Promise<Response> {
     let searchStartIndex = 0;
     spellCheckResults.diffs.forEach((diff) => {
       // Ensure original is valid before searching
-      if (typeof diff.original === 'string' && diff.original.length > 0) {
+      if (typeof diff.original === "string" && diff.original.length > 0) {
         const index = text.indexOf(diff.original, searchStartIndex);
         if (index !== -1) {
           diff.start = index;
@@ -170,7 +198,9 @@ export async function handler(req: Request): Promise<Response> {
           searchStartIndex = index + diff.original.length;
         } else {
           // Original text segment not found in the source text
-          console.warn(`[${new Date().toISOString()}] ${requestId} - Could not find original text "${diff.original}" in source text starting from index ${searchStartIndex}`);
+          console.warn(
+            `[${new Date().toISOString()}] ${requestId} - Could not find original text "${diff.original}" in source text starting from index ${searchStartIndex}`,
+          );
           diff.start = -1;
           diff.end = -1;
         }
@@ -182,19 +212,28 @@ export async function handler(req: Request): Promise<Response> {
     });
 
     const duration = Date.now() - startTime;
-    console.log(`[${new Date().toISOString()}] ${requestId} - Spellcheck completed in ${duration}ms with ${spellCheckResults.diffs.length} diffs`);
+    console.log(
+      `[${new Date().toISOString()}] ${requestId} - Spellcheck completed in ${duration}ms with ${spellCheckResults.diffs.length} diffs`,
+    );
 
     return new Response(JSON.stringify(spellCheckResults), {
       headers,
       status: 200,
     });
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] ${requestId} - Spellcheck error:`, error);
+    console.error(
+      `[${new Date().toISOString()}] ${requestId} - Spellcheck error:`,
+      error,
+    );
     // Provide a more informative error message if possible
-    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
     return new Response(
-      JSON.stringify({ error: `Spell check failed: ${errorMessage}`, diffs: [] }),
-      { status: 500, headers }
+      JSON.stringify({
+        error: `Spell check failed: ${errorMessage}`,
+        diffs: [],
+      }),
+      { status: 500, headers },
     );
   }
-} 
+}

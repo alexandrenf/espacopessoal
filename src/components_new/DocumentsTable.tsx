@@ -34,11 +34,11 @@ interface DocumentsTableProps {
 function OwnerCell({ ownerId }: { ownerId: string }) {
   const owner = useQuery(
     api.users.getByNextAuthId,
-    ownerId && ownerId !== "demo-user" ? { nextAuthId: ownerId } : "skip"
+    ownerId && ownerId !== "demo-user" ? { nextAuthId: ownerId } : "skip",
   );
 
   if (ownerId === "demo-user") {
-    return <span className="text-muted-foreground text-xs">Demo User</span>;
+    return <span className="text-xs text-muted-foreground">Demo User</span>;
   }
 
   if (owner === undefined) {
@@ -46,7 +46,7 @@ function OwnerCell({ ownerId }: { ownerId: string }) {
   }
 
   return (
-    <span className="text-muted-foreground text-xs">
+    <span className="text-xs text-muted-foreground">
       {owner?.name ?? "Unknown owner"}
     </span>
   );
@@ -73,20 +73,18 @@ export function DocumentsTable({
 
   return (
     <>
-      <div className="max-w-screen-xl mx-auto px-16 py-6 flex flex-col gap-5">
+      <div className="mx-auto flex max-w-screen-xl flex-col gap-5 px-16 py-6">
         {documents === undefined ? (
-          <div className="flex justify-center items-center h-24">
+          <div className="flex h-24 items-center justify-center">
             <Loader className="animate-spin text-muted-foreground" />
           </div>
         ) : (
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent border-none">
+              <TableRow className="border-none hover:bg-transparent">
                 <TableHead>Name</TableHead>
                 <TableHead className="w-12">&nbsp;</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  Owner
-                </TableHead>
+                <TableHead className="hidden md:table-cell">Owner</TableHead>
                 <TableHead className="hidden md:table-cell">Created</TableHead>
               </TableRow>
             </TableHeader>
@@ -104,7 +102,10 @@ export function DocumentsTable({
             ) : (
               <TableBody>
                 {documents.map((doc) => (
-                  <TableRow key={doc._id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow
+                    key={doc._id}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell className="font-medium md:w-[45%]">
                       <Link
                         href={`/documents/${doc._id}`}
@@ -114,15 +115,15 @@ export function DocumentsTable({
                       </Link>
                     </TableCell>
                     <TableCell className="w-12">
-                      <DocumentActionsMenu 
-                        document={doc} 
+                      <DocumentActionsMenu
+                        document={doc}
                         onRename={handleRename}
                       />
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <OwnerCell ownerId={doc.ownerId} />
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
+                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
                       {formatDate(doc.createdAt)}
                     </TableCell>
                   </TableRow>
@@ -150,4 +151,4 @@ export function DocumentsTable({
       />
     </>
   );
-} 
+}

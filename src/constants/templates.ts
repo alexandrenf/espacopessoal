@@ -115,4 +115,4 @@ export const templates = [
       <p>Notable achievements or professional certifications.</p>
     `,
   },
-]; 
+];

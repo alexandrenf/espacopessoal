@@ -16,7 +16,7 @@ const getStoredPasswords = (): Record<string, string> => {
   try {
     if (!stored) return {};
     const parsed = JSON.parse(stored) as Record<string, string>;
-    if (typeof parsed === 'object' && parsed !== null) {
+    if (typeof parsed === "object" && parsed !== null) {
       return parsed;
     }
     return {};
@@ -34,15 +34,16 @@ const storePassword = (url: string, password: string) => {
 export default function NotepadPage() {
   const { url } = useParams();
   const [password, setPassword] = useState<string | null>(null);
-  
+
   // Normalize URL for consistent storage
-  const normalizedUrl = typeof url === 'string' ? url : '';
-  
+  const normalizedUrl = typeof url === "string" ? url : "";
+
   // Load stored password on mount
   useEffect(() => {
     const passwords = getStoredPasswords();
     // Try both original case and lowercase for backward compatibility
-    const storedPassword = passwords[normalizedUrl] ?? passwords[normalizedUrl.toLowerCase()];
+    const storedPassword =
+      passwords[normalizedUrl] ?? passwords[normalizedUrl.toLowerCase()];
     if (storedPassword) {
       setPassword(storedPassword);
     }
@@ -50,14 +51,14 @@ export default function NotepadPage() {
 
   // Try to fetch notes
   const { isLoading, error } = api.notes.fetchNotesPublic.useQuery(
-    { 
+    {
       url: normalizedUrl,
-      password: password ?? undefined
+      password: password ?? undefined,
     },
     {
       enabled: !!normalizedUrl,
-      retry: false
-    }
+      retry: false,
+    },
   );
 
   // Handle unauthorized error
@@ -72,8 +73,8 @@ export default function NotepadPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-grow flex items-center justify-center">
+      <div className="flex min-h-screen flex-col">
+        <div className="flex flex-grow items-center justify-center">
           <LoadingSpinner className="h-8 w-8" />
         </div>
       </div>
@@ -83,14 +84,14 @@ export default function NotepadPage() {
   // If unauthorized and no password set, show auth form
   if (error?.data?.code === "UNAUTHORIZED" && !password) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="flex min-h-screen flex-col">
         <div className="flex-grow">
-          <NotepadPasswordAuth 
-            url={url as string} 
+          <NotepadPasswordAuth
+            url={url as string}
             onAuthenticated={(pwd) => {
               setPassword(pwd);
               storePassword(url as string, pwd);
-            }} 
+            }}
           />
         </div>
       </div>
@@ -100,8 +101,8 @@ export default function NotepadPage() {
   // Handle other errors
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-grow flex items-center justify-center">
+      <div className="flex min-h-screen flex-col">
+        <div className="flex flex-grow items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-red-600">Error</h2>
             <p className="mt-2 text-gray-600">{error.message}</p>
@@ -113,7 +114,7 @@ export default function NotepadPage() {
 
   // Render notes
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <div className="flex-grow">
         <App password={password} />
       </div>

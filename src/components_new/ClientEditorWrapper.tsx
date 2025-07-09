@@ -1,12 +1,11 @@
+"use client";
 
-'use client'
+import dynamic from "next/dynamic";
 
-import dynamic from 'next/dynamic'
-
-const Editor = dynamic(() => import('./Editor'), { ssr: false })
+const Editor = dynamic(() => import("./Editor"), { ssr: false });
 
 const ClientEditorWrapper = () => {
-  return <Editor />
-}
+  return <Editor />;
+};
 
-export default ClientEditorWrapper
+export default ClientEditorWrapper;

@@ -16,14 +16,14 @@ interface LineHeightOptions {
 
 export const LineHeightExtension = Extension.create<LineHeightOptions>({
   name: "lineHeight",
-  
+
   addOptions() {
     return {
       types: ["heading", "paragraph"],
       defaultLineHeight: "normal",
     };
   },
-  
+
   addGlobalAttributes() {
     return [
       {
@@ -45,7 +45,7 @@ export const LineHeightExtension = Extension.create<LineHeightOptions>({
       },
     ];
   },
-  
+
   addCommands() {
     return {
       setLineHeight:
@@ -54,7 +54,7 @@ export const LineHeightExtension = Extension.create<LineHeightOptions>({
           const { selection } = state;
           tr = tr.setSelection(selection);
           const { from, to } = selection;
-          
+
           state.doc.nodesBetween(from, to, (node, pos) => {
             if (this.options.types.includes(node.type.name)) {
               tr = tr.setNodeMarkup(pos, undefined, {
@@ -63,7 +63,7 @@ export const LineHeightExtension = Extension.create<LineHeightOptions>({
               });
             }
           });
-          
+
           if (dispatch) dispatch(tr);
           return true;
         },
@@ -73,7 +73,7 @@ export const LineHeightExtension = Extension.create<LineHeightOptions>({
           const { selection } = state;
           tr = tr.setSelection(selection);
           const { from, to } = selection;
-          
+
           state.doc.nodesBetween(from, to, (node, pos) => {
             if (this.options.types.includes(node.type.name)) {
               tr = tr.setNodeMarkup(pos, undefined, {
@@ -82,10 +82,10 @@ export const LineHeightExtension = Extension.create<LineHeightOptions>({
               });
             }
           });
-          
+
           if (dispatch) dispatch(tr);
           return true;
         },
     };
   },
-}); 
+});

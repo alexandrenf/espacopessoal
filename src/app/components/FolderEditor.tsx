@@ -28,17 +28,25 @@ interface FolderEditorProps {
   isSaving: boolean;
 }
 
-export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEditorProps) {
+export default function FolderEditor({
+  folder,
+  onUpdate,
+  isSaving,
+}: FolderEditorProps) {
   const [title, setTitle] = useState("");
-  const [selectedColor, setSelectedColor] = useState(PASTEL_COLORS[0]?.hex ?? "#FFB3BA");
+  const [selectedColor, setSelectedColor] = useState(
+    PASTEL_COLORS[0]?.hex ?? "#FFB3BA",
+  );
 
   useEffect(() => {
     // Parse the folder content to get title and color
     const lines = folder.content.split("\n");
     const firstLine = lines[0]?.trim() ?? "Untitled Folder";
-    const colorLine = lines.find(line => line.startsWith("!color:"));
-    const color = colorLine ? colorLine.replace("!color:", "").trim() : PASTEL_COLORS[0]?.hex;
-    
+    const colorLine = lines.find((line) => line.startsWith("!color:"));
+    const color = colorLine
+      ? colorLine.replace("!color:", "").trim()
+      : PASTEL_COLORS[0]?.hex;
+
     setTitle(firstLine);
     setSelectedColor(color ?? PASTEL_COLORS[0]?.hex ?? "#FFB3BA");
   }, [folder.content]);
@@ -46,17 +54,17 @@ export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEdito
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    
+
     // Update the folder content with new title but keep the color
     const lines = folder.content.split("\n");
-    const colorLine = lines.find(line => line.startsWith("!color:"));
+    const colorLine = lines.find((line) => line.startsWith("!color:"));
     const newContent = [newTitle, colorLine].filter(Boolean).join("\n");
     onUpdate(newContent);
   };
 
   const handleColorChange = (color: string) => {
     setSelectedColor(color);
-    
+
     // Update the folder content with new color but keep the title
     const lines = folder.content.split("\n");
     const titleLine = lines[0];
@@ -68,7 +76,10 @@ export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEdito
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-4">
         <div className="relative">
-          <Folder className="h-8 w-8 transition-colors duration-200 text-gray-600" style={{ color: selectedColor }} />
+          <Folder
+            className="h-8 w-8 text-gray-600 transition-colors duration-200"
+            style={{ color: selectedColor }}
+          />
         </div>
         <div className="flex-1">
           <Label htmlFor="title" className="text-sm font-medium text-gray-700">
@@ -86,19 +97,21 @@ export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEdito
           </div>
         </div>
         {isSaving && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full shadow-sm"
+            className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 shadow-sm"
           >
-            <Save className="h-4 w-4 text-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-600">Salvando...</span>
+            <Save className="h-4 w-4 animate-pulse text-green-500" />
+            <span className="text-sm font-medium text-green-600">
+              Salvando...
+            </span>
           </motion.div>
         )}
       </div>
 
       <div>
-        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+        <Label className="mb-2 block text-sm font-medium text-gray-700">
           Folder Color
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -109,8 +122,9 @@ export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEdito
               className={cn(
                 "relative h-8 w-8 rounded-full transition-all duration-200",
                 "hover:scale-110 hover:shadow-md",
-                "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
-                selectedColor === color.hex && "ring-2 ring-offset-2 ring-blue-500"
+                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                selectedColor === color.hex &&
+                  "ring-2 ring-blue-500 ring-offset-2",
               )}
               style={{ backgroundColor: color.hex }}
               title={color.name}
@@ -124,4 +138,4 @@ export default function FolderEditor({ folder, onUpdate, isSaving }: FolderEdito
       </div>
     </div>
   );
-} 
+}

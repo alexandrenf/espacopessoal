@@ -40,11 +40,11 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   const [documentTitle, setDocumentTitle] = useState(document.title);
   const [isUpdating, setIsUpdating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId;
   const updateDocument = useMutation(api.documents.updateById);
-  
+
   // Focus input when entering rename mode
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -52,7 +52,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
       inputRef.current.select();
     }
   }, [isRenaming]);
-  
+
   // Update local title when document prop changes
   useEffect(() => {
     setDocumentTitle(document.title);
@@ -71,7 +71,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
     e.stopPropagation();
     onDelete(e, document._id);
   };
-  
+
   const handleRename = (e: React.MouseEvent<Element>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -79,24 +79,24 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
     setIsRenaming(true);
     setDocumentTitle(document.title);
   };
-  
+
   const handleRenameSubmit = async () => {
     if (!documentTitle.trim() || documentTitle.trim() === document.title) {
       setIsRenaming(false);
       setDocumentTitle(document.title);
       return;
     }
-    
+
     if (isUserLoading) {
       toast.error("Please wait for authentication to complete");
       return;
     }
-    
+
     if (!userIdString) {
       toast.error("User authentication required to rename documents");
       return;
     }
-    
+
     setIsUpdating(true);
     try {
       await updateDocument({
@@ -104,7 +104,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
         title: documentTitle.trim(),
         userId: userIdString,
       });
-      
+
       toast.success("Document renamed successfully!");
       setIsRenaming(false);
     } catch (error) {
@@ -115,17 +115,17 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
       setIsUpdating(false);
     }
   };
-  
+
   const handleRenameCancel = () => {
     setIsRenaming(false);
     setDocumentTitle(document.title);
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       void handleRenameSubmit();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       handleRenameCancel();
     }
@@ -133,24 +133,21 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   return (
     <div
-      className={`
-        group flex items-center justify-between p-2 rounded-md cursor-pointer transition-all duration-150
-        ${selected ? 'bg-blue-100 text-blue-900 shadow-sm' : 'hover:bg-gray-100'}
-        ${isNested ? 'ml-4' : ''}
-        ${isDeleting ? 'opacity-50 pointer-events-none' : ''}
-      `}
+      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
       onClick={handleClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();
         }
       }}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <FileText className={`h-4 w-4 flex-shrink-0 ${selected ? 'text-blue-600' : 'text-gray-600'}`} />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <FileText
+          className={`h-4 w-4 flex-shrink-0 ${selected ? "text-blue-600" : "text-gray-600"}`}
+        />
         {isRenaming ? (
           <input
             ref={inputRef}
@@ -159,11 +156,13 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             onChange={(e) => setDocumentTitle(e.target.value)}
             onBlur={() => void handleRenameSubmit()}
             onKeyDown={handleKeyDown}
-            className="text-sm font-medium bg-white border border-blue-300 rounded px-2 py-1 flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isUpdating}
           />
         ) : (
-          <span className={`text-sm font-medium truncate transition-colors ${selected ? 'font-semibold text-blue-900' : 'text-gray-800'}`}>
+          <span
+            className={`truncate text-sm font-medium transition-colors ${selected ? "font-semibold text-blue-900" : "text-gray-800"}`}
+          >
             {document.title}
           </span>
         )}
@@ -174,7 +173,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -189,16 +188,16 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             className="focus:bg-blue-50"
             disabled={isDeleting || isRenaming}
           >
-            <Edit className="h-3 w-3 mr-2" />
+            <Edit className="mr-2 h-3 w-3" />
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleDelete}
-            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+            className="text-red-600 focus:bg-red-50 focus:text-red-600"
             disabled={isDeleting}
           >
-            <Trash className="h-3 w-3 mr-2" />
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            <Trash className="mr-2 h-3 w-3" />
+            {isDeleting ? "Deleting..." : "Delete"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -206,4 +205,4 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   );
 };
 
-export default DocumentItem; 
+export default DocumentItem;

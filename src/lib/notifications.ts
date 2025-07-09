@@ -15,16 +15,18 @@ export function useNotifications() {
         if (payload.notification?.title) {
           try {
             new Notification(payload.notification.title, {
-              body: payload.notification?.body ?? '',
-              icon: '/favicon.ico',
-              tag: 'notification-' + Date.now(),
+              body: payload.notification?.body ?? "",
+              icon: "/favicon.ico",
+              tag: "notification-" + Date.now(),
             });
           } catch (error) {
-            console.error('Failed to show notification:', error);
+            console.error("Failed to show notification:", error);
           }
         }
       })
-      .catch(err => console.error('Failed to setup foreground notification handler:', err));
+      .catch((err) =>
+        console.error("Failed to setup foreground notification handler:", err),
+      );
 
     return () => {
       void unsubscribePromise;
@@ -34,19 +36,19 @@ export function useNotifications() {
   const initializeNotifications = async () => {
     setIsInitializing(true);
     try {
-      if (!('Notification' in window)) {
-        throw new Error('This browser does not support notifications');
+      if (!("Notification" in window)) {
+        throw new Error("This browser does not support notifications");
       }
 
       const token = await requestNotificationPermission();
       if (!token) {
-        throw new Error('Failed to obtain notification token');
+        throw new Error("Failed to obtain notification token");
       }
 
       await saveToken.mutateAsync({ token });
       return true;
     } catch (error) {
-      console.error('Error initializing notifications:', error);
+      console.error("Error initializing notifications:", error);
       return false;
     } finally {
       setIsInitializing(false);
@@ -57,7 +59,7 @@ export function useNotifications() {
     userId: string,
     title: string,
     body: string,
-    scheduledFor?: Date
+    scheduledFor?: Date,
   ): Promise<boolean> => {
     setIsSending(true);
     try {
@@ -69,7 +71,7 @@ export function useNotifications() {
       });
       return result.success;
     } catch (error) {
-      console.error('Failed to send notification:', error);
+      console.error("Failed to send notification:", error);
       throw error;
     } finally {
       setIsSending(false);
@@ -80,13 +82,14 @@ export function useNotifications() {
     initializeNotifications,
     notify,
     isInitializing,
-    isSending
+    isSending,
   };
 }
 
-export const checkPermissionStatus = async (): Promise<NotificationPermission> => {
-  if (!('Notification' in window)) {
-    return 'denied';
-  }
-  return Notification.permission;
-};
+export const checkPermissionStatus =
+  async (): Promise<NotificationPermission> => {
+    if (!("Notification" in window)) {
+      return "denied";
+    }
+    return Notification.permission;
+  };

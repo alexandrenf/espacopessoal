@@ -13,7 +13,7 @@ export function TemplatesGallery() {
   const router = useRouter();
   const create = useMutation(api.documents.create);
   const [isCreating, setIsCreating] = useState(false);
-  
+
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId;
@@ -23,12 +23,12 @@ export function TemplatesGallery() {
       toast.error("Please wait for authentication to complete");
       return;
     }
-    
+
     if (!userIdString) {
       toast.error("User authentication required to create documents");
       return;
     }
-    
+
     setIsCreating(true);
     create({ title, initialContent, userId: userIdString })
       .then((documentId) => {
@@ -43,15 +43,16 @@ export function TemplatesGallery() {
 
   return (
     <div className="bg-[#F1F3F4]">
-      <div className="max-w-screen-xl mx-auto px-16 py-6 flex flex-col gap-y-4">
+      <div className="mx-auto flex max-w-screen-xl flex-col gap-y-4 px-16 py-6">
         <h3 className="font-medium">Start a new document</h3>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {templates.map((template) => (
             <div
               key={template.id}
               className={cn(
-                "flex-shrink-0 w-32 aspect-[3/4] flex flex-col gap-y-2.5",
-                (isCreating || isUserLoading) && "pointer-events-none opacity-50"
+                "flex aspect-[3/4] w-32 flex-shrink-0 flex-col gap-y-2.5",
+                (isCreating || isUserLoading) &&
+                  "pointer-events-none opacity-50",
               )}
             >
               <button
@@ -66,15 +67,13 @@ export function TemplatesGallery() {
                   backgroundPosition: "center",
                   backgroundRepeat: "no-repeat",
                 }}
-                className="size-full hover:border-blue-500 rounded-sm border hover:bg-blue-50 transition flex flex-col items-center justify-center gap-y-4 bg-white"
+                className="flex size-full flex-col items-center justify-center gap-y-4 rounded-sm border bg-white transition hover:border-blue-500 hover:bg-blue-50"
               />
-              <p className="text-sm font-medium truncate">
-                {template.label}
-              </p>
+              <p className="truncate text-sm font-medium">{template.label}</p>
             </div>
           ))}
         </div>
       </div>
     </div>
   );
-} 
+}

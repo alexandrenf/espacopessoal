@@ -10,12 +10,7 @@ import { api } from "../../convex/_generated/api";
 import { type Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import Link from "next/link";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -24,13 +19,18 @@ interface ShareModalProps {
   userId: string; // Current user ID
 }
 
-export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalProps) {
+export function ShareModal({
+  isOpen,
+  onClose,
+  documentId,
+  userId,
+}: ShareModalProps) {
   const [copied, setCopied] = useState(false);
 
-  const data = useQuery(
-    api.documents.getSharedDocumentByDocumentId,
-    { documentId, userId }
-  );
+  const data = useQuery(api.documents.getSharedDocumentByDocumentId, {
+    documentId,
+    userId,
+  });
 
   const createSharedDocument = useMutation(api.documents.createSharedDocument);
   const deleteSharedDocument = useMutation(api.documents.deleteSharedDocument);
@@ -54,7 +54,9 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
       setCopied(true);
       toast.success("Link copiado para a área de transferência!");
     } catch (error) {
-      toast.error("Erro ao copiar o link. Tente selecionar e copiar manualmente.");
+      toast.error(
+        "Erro ao copiar o link. Tente selecionar e copiar manualmente.",
+      );
     }
     setTimeout(() => setCopied(false), 2000);
   };
@@ -97,11 +99,11 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex justify-center items-center py-8">
+          <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
         ) : data === null ? (
-          <div className="text-center py-8">
+          <div className="py-8 text-center">
             <p className="text-sm text-muted-foreground">
               Erro ao carregar informações do documento. Tente novamente.
             </p>
@@ -113,7 +115,8 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
         ) : existingSharedDocument ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              Link de visualização do documento. Qualquer pessoa com este link poderá visualizar o conteúdo.
+              Link de visualização do documento. Qualquer pessoa com este link
+              poderá visualizar o conteúdo.
             </p>
             <div className="flex items-center gap-2">
               <Input
@@ -163,7 +166,8 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
         ) : (
           <div>
             <p className="text-sm text-muted-foreground">
-              Crie um link de visualização para compartilhar seu documento. Qualquer pessoa com acesso ao link poderá ler o conteúdo.
+              Crie um link de visualização para compartilhar seu documento.
+              Qualquer pessoa com acesso ao link poderá ler o conteúdo.
             </p>
             <Button
               onClick={handleCreate}
@@ -187,4 +191,4 @@ export function ShareModal({ isOpen, onClose, documentId, userId }: ShareModalPr
       </DialogContent>
     </Dialog>
   );
-} 
+}

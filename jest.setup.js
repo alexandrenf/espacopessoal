@@ -1,7 +1,7 @@
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
+jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: jest.fn(),
     back: jest.fn(),
@@ -12,11 +12,11 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => ({
     get: jest.fn(),
   }),
-  usePathname: () => '/test',
+  usePathname: () => "/test",
 }));
 
 // Mock next/dynamic
-jest.mock('next/dynamic', () => (fn) => {
+jest.mock("next/dynamic", () => (fn) => {
   const Component = fn();
   return Component;
 });
@@ -24,7 +24,7 @@ jest.mock('next/dynamic', () => (fn) => {
 // Note: rc-tree mock removed to allow real drag-and-drop testing
 
 // Mock framer-motion
-jest.mock('framer-motion', () => ({
+jest.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }) => <div {...props}>{children}</div>,
   },
@@ -32,12 +32,12 @@ jest.mock('framer-motion', () => ({
 }));
 
 // Mock react-icons
-jest.mock('react-icons/im', () => ({
+jest.mock("react-icons/im", () => ({
   ImSpinner8: () => <div data-testid="spinner">Loading...</div>,
 }));
 
 // Mock lucide-react
-jest.mock('lucide-react', () => ({
+jest.mock("lucide-react", () => ({
   ArrowLeft: () => <div data-testid="arrow-left">←</div>,
   X: () => <div data-testid="x">×</div>,
   FilePlus: () => <div data-testid="file-plus">+</div>,
@@ -50,14 +50,14 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock Convex
-jest.mock('convex/react', () => ({
+jest.mock("convex/react", () => ({
   useQuery: jest.fn(() => []),
   useMutation: jest.fn(() => jest.fn()),
   useConvexAuth: jest.fn(() => ({ isAuthenticated: true, isLoading: false })),
 }));
 
 // Mock toast
-jest.mock('sonner', () => ({
+jest.mock("sonner", () => ({
   toast: {
     error: jest.fn(),
     success: jest.fn(),
@@ -72,9 +72,9 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 }));
 
 // Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -91,4 +91,4 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
-})); 
+}));

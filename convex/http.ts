@@ -8,10 +8,10 @@ import { type Id } from "./_generated/dataModel";
 function isValidConvexId(id: string): boolean {
   // Convex IDs should be non-empty strings with at least 20 characters
   if (!id || typeof id !== "string" || id.length < 20) return false;
-  
+
   // Check for whitespace
   if (id.includes(" ") || id.trim() !== id) return false;
-  
+
   // Check for valid characters (base64url: A-Z, a-z, 0-9, hyphens, and underscores)
   const validIdPattern = /^[A-Za-z0-9_-]{20,}$/;
   return validIdPattern.test(id);
@@ -19,23 +19,28 @@ function isValidConvexId(id: string): boolean {
 
 // Helper function to check if a userId is a server userId (trusted source)
 function isServerUserId(userId: string): boolean {
-  return userId === 'hocus-pocus-server' || 
-         (process.env.SERVER_USER_ID !== undefined && userId === process.env.SERVER_USER_ID);
+  return (
+    userId === "hocus-pocus-server" ||
+    (process.env.SERVER_USER_ID !== undefined &&
+      userId === process.env.SERVER_USER_ID)
+  );
 }
 
 // Helper function to validate request body structure
-function validateRequestBody(body: unknown): 
-  | { isValid: false; error: string }
-  | { isValid: true } {
+function validateRequestBody(
+  body: unknown,
+): { isValid: false; error: string } | { isValid: true } {
   if (!body || typeof body !== "object") {
     return { isValid: false, error: "Request body must be a non-null object" };
   }
-  
+
   return { isValid: true };
 }
 
 // Helper function to validate document update request data
-function validateUpdateRequest(data: unknown): 
+function validateUpdateRequest(
+  data: unknown,
+):
   | { isValid: false; error: string }
   | { isValid: true; documentId: string; content: string; userId?: string } {
   const bodyValidation = validateRequestBody(data);
@@ -43,13 +48,17 @@ function validateUpdateRequest(data: unknown):
     return { isValid: false, error: bodyValidation.error };
   }
 
-  const { documentId, content, userId } = data as { documentId: unknown; content: unknown; userId?: unknown };
+  const { documentId, content, userId } = data as {
+    documentId: unknown;
+    content: unknown;
+    userId?: unknown;
+  };
 
   // Validate documentId
   if (!documentId || typeof documentId !== "string") {
     return { isValid: false, error: "documentId must be a non-empty string" };
   }
-  
+
   if (!isValidConvexId(documentId)) {
     return { isValid: false, error: "documentId has invalid format" };
   }
@@ -68,31 +77,38 @@ function validateUpdateRequest(data: unknown):
     if (typeof userId !== "string") {
       return { isValid: false, error: "userId must be a string" };
     }
-    
+
     // Allow server userIds or valid Convex IDs
     if (!isServerUserId(userId) && !isValidConvexId(userId)) {
-      return { isValid: false, error: "userId must be a valid Convex ID format" };
+      return {
+        isValid: false,
+        error: "userId must be a valid Convex ID format",
+      };
     }
-    
-    return { 
-      isValid: true, 
-      documentId: validatedDocumentId, 
-      content: validatedContent, 
+
+    return {
+      isValid: true,
+      documentId: validatedDocumentId,
+      content: validatedContent,
       userId: userId,
     };
   }
 
-  return { 
-    isValid: true, 
-    documentId: validatedDocumentId, 
-    content: validatedContent, 
+  return {
+    isValid: true,
+    documentId: validatedDocumentId,
+    content: validatedContent,
     userId: undefined,
   };
 }
 
 // Helper function to validate that userId is required and valid for update operations
 function validateRequiredUserId(userId: string | undefined): userId is string {
-  return userId !== undefined && typeof userId === "string" && (isServerUserId(userId) || isValidConvexId(userId));
+  return (
+    userId !== undefined &&
+    typeof userId === "string" &&
+    (isServerUserId(userId) || isValidConvexId(userId))
+  );
 }
 
 const updateDocumentContent = httpAction(async (ctx, request) => {
@@ -104,14 +120,14 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
   let body: unknown;
   try {
     // Parse the request body
-    body = await request.json() as unknown;
+    body = (await request.json()) as unknown;
   } catch (parseError) {
     return new Response(
       JSON.stringify({ error: "Invalid JSON in request body" }),
-      { 
+      {
         status: 400,
-        headers: { "Content-Type": "application/json" }
-      }
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 
@@ -119,18 +135,17 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
     // Validate request body and extract data
     const validation = validateUpdateRequest(body);
     if (!validation.isValid) {
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { 
-          status: 400,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const { documentId, content, userId } = validation;
 
-    console.log(`HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}, userId: ${userId}`);
+    console.log(
+      `HTTP updateDocumentContent called with documentId: ${documentId}, content length: ${content?.length ?? 0}, userId: ${userId}`,
+    );
 
     // Check if this is a server update (trusted source)
     const isServerUpdate = userId ? isServerUserId(userId) : false;
@@ -138,11 +153,13 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
     // Require authentication for non-server updates
     if (!isServerUpdate && !userId) {
       return new Response(
-        JSON.stringify({ error: "Authentication required. Please provide a valid userId." }),
-        { 
+        JSON.stringify({
+          error: "Authentication required. Please provide a valid userId.",
+        }),
+        {
           status: 401,
-          headers: { "Content-Type": "application/json" }
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -152,43 +169,46 @@ const updateDocumentContent = httpAction(async (ctx, request) => {
     const validUserId = userId; // Non-null assertion since we checked above
 
     // Call the internal mutation to update the document with properly typed IDs
-    console.log(`Calling updateContentInternal for document: ${validDocumentId}`);
-    const result = await ctx.runMutation(internal.documents.updateContentInternal, {
-      id: validDocumentId, // Pass as string - the mutation will handle the conversion
-      content: validContent,
-      userId: validUserId, // userId is already validated to be defined above
-    });
-
-    console.log(`updateContentInternal completed successfully for ${documentId}`);
-
-    return new Response(
-      JSON.stringify({ success: true, message: "Document updated successfully" }),
-      { 
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
+    console.log(
+      `Calling updateContentInternal for document: ${validDocumentId}`,
+    );
+    const result = await ctx.runMutation(
+      internal.documents.updateContentInternal,
+      {
+        id: validDocumentId, // Pass as string - the mutation will handle the conversion
+        content: validContent,
+        userId: validUserId, // userId is already validated to be defined above
+      },
     );
 
+    console.log(
+      `updateContentInternal completed successfully for ${documentId}`,
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Document updated successfully",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("Error updating document:", error);
-    
+
     if (error instanceof ConvexError) {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { 
-          status: 400,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { 
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 
@@ -201,15 +221,17 @@ const getDocumentContent = httpAction(async (ctx, request) => {
     const url = new URL(request.url);
     const documentId = url.searchParams.get("documentId");
 
-    console.log(`HTTP getDocumentContent called with documentId: ${documentId}`);
+    console.log(
+      `HTTP getDocumentContent called with documentId: ${documentId}`,
+    );
 
     if (!documentId) {
       return new Response(
         JSON.stringify({ error: "Missing documentId parameter" }),
-        { 
+        {
           status: 400,
-          headers: { "Content-Type": "application/json" }
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -217,10 +239,10 @@ const getDocumentContent = httpAction(async (ctx, request) => {
     if (!isValidConvexId(documentId)) {
       return new Response(
         JSON.stringify({ error: "Invalid documentId format" }),
-        { 
+        {
           status: 400,
-          headers: { "Content-Type": "application/json" }
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -229,46 +251,42 @@ const getDocumentContent = httpAction(async (ctx, request) => {
     const document = await ctx.runQuery(internal.documents.getByIdInternal, {
       id: documentId, // getByIdInternal accepts string IDs and handles conversion internally
     });
-    
-    console.log(`getByIdInternal result for ${documentId}:`, document ? `Found document "${document.title}"` : 'Document not found');
+
+    console.log(
+      `getByIdInternal result for ${documentId}:`,
+      document ? `Found document "${document.title}"` : "Document not found",
+    );
 
     if (!document) {
       console.log(`Document ${documentId} not found, returning 404`);
-      return new Response(
-        JSON.stringify({ error: "Document not found" }),
-        { 
-          status: 404,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+      return new Response(JSON.stringify({ error: "Document not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         document: {
           id: document._id,
           title: document.title,
           content: document.initialContent ?? "",
-          updatedAt: document.updatedAt
-        }
+          updatedAt: document.updatedAt,
+        },
       }),
-      { 
+      {
         status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
+        headers: { "Content-Type": "application/json" },
+      },
     );
-
   } catch (error) {
     console.error("Error fetching document:", error);
-    
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { 
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 
@@ -282,7 +300,7 @@ http.route({
 
 http.route({
   path: "/getDocumentContent",
-  method: "GET", 
+  method: "GET",
   handler: getDocumentContent,
 });
 

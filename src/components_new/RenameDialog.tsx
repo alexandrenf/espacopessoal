@@ -24,14 +24,18 @@ interface RenameDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps) {
+export function RenameDialog({
+  document,
+  open,
+  onOpenChange,
+}: RenameDialogProps) {
   const [title, setTitle] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
-  
+
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId ? String(convexUserId) : null;
-  
+
   const updateDocument = useMutation(api.documents.updateById);
 
   useEffect(() => {
@@ -42,10 +46,10 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!document || !title.trim()) return;
 
-        if (title.trim() === document.title) {
+    if (title.trim() === document.title) {
       onOpenChange(false);
       return;
     }
@@ -67,7 +71,7 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
         title: title.trim(),
         userId: userIdString,
       });
-      
+
       toast.success("Document renamed successfully!");
       onOpenChange(false);
     } catch (error) {
@@ -77,8 +81,6 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
       setIsRenaming(false);
     }
   };
-
-
 
   if (!document) return null;
 
@@ -110,8 +112,8 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isRenaming || isUserLoading || !title.trim()}
             >
               {isRenaming ? "Renaming..." : "Rename"}
@@ -121,4 +123,4 @@ export function RenameDialog({ document, open, onOpenChange }: RenameDialogProps
       </DialogContent>
     </Dialog>
   );
-} 
+}

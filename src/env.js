@@ -3,15 +3,16 @@ import { z } from "zod";
 
 // Set DATABASE_URL and NEXTAUTH_URL based on NODE_ENV before env validation
 
-process.env.NEXTAUTH_URL ??= process.env.NODE_ENV === "production"
-  ? process.env.NEXTAUTH_URL_PRODUCTION
-  : process.env.NEXTAUTH_URL_DEVELOPMENT;
+process.env.NEXTAUTH_URL ??=
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXTAUTH_URL_PRODUCTION
+    : process.env.NEXTAUTH_URL_DEVELOPMENT;
 
 export const env = createEnv({
   /**
    * Specify your server-side environment variables schema here. This way you can ensure the app
    * isn't built with invalid env vars.
-   */ 
+   */
   server: {
     AUTH_SECRET:
       process.env.NODE_ENV === "production"
@@ -38,7 +39,6 @@ export const env = createEnv({
     DENO_API_URL: z.string().url(),
     OPENROUTER_API_KEY: z.string(),
   },
-
 
   /**
    * Specify your client-side environment variables schema here. This way you can ensure the app

@@ -15,12 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
-import { 
-  MoreHorizontal, 
-  Edit, 
-  Copy, 
-  Trash2 
-} from "lucide-react";
+import { MoreHorizontal, Edit, Copy, Trash2 } from "lucide-react";
 import { type Document } from "../types/document";
 
 interface DocumentActionsMenuProps {
@@ -28,15 +23,18 @@ interface DocumentActionsMenuProps {
   onRename?: (document: Document) => void;
 }
 
-export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuProps) {
+export function DocumentActionsMenu({
+  document,
+  onRename,
+}: DocumentActionsMenuProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
-  
+
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const userIdString = convexUserId ? String(convexUserId) : null;
-  
+
   const deleteDocument = useMutation(api.documents.removeById);
   const createDocument = useMutation(api.documents.create);
 
@@ -45,12 +43,12 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
       toast.error("Please wait for authentication to complete");
       return;
     }
-    
+
     if (!userIdString) {
       toast.error("User authentication required to duplicate documents");
       return;
     }
-    
+
     setIsDuplicating(true);
     try {
       const newDocumentId = await createDocument({
@@ -58,7 +56,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
         userId: userIdString,
         initialContent: document.initialContent ?? "",
       });
-      
+
       toast.success("Document duplicated successfully!");
       router.refresh();
     } catch (error) {
@@ -73,13 +71,17 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
       toast.error("Please wait for authentication to complete");
       return;
     }
-    
+
     if (!userIdString) {
       toast.error("User authentication required to delete documents");
       return;
     }
-    
-    if (!confirm(`Are you sure you want to delete "${document.title}"? This action cannot be undone.`)) {
+
+    if (
+      !confirm(
+        `Are you sure you want to delete "${document.title}"? This action cannot be undone.`,
+      )
+    ) {
       return;
     }
 
@@ -118,7 +120,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
           <Edit className="mr-2 h-4 w-4" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={handleDuplicate}
           disabled={isDuplicating || isUserLoading}
         >
@@ -126,7 +128,7 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
           {isDuplicating ? "Duplicating..." : "Duplicate"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={handleDelete}
           disabled={isDeleting || isUserLoading}
           className="text-red-600 focus:text-red-600"
@@ -137,4 +139,4 @@ export function DocumentActionsMenu({ document, onRename }: DocumentActionsMenuP
       </DropdownMenuContent>
     </DropdownMenu>
   );
-} 
+}

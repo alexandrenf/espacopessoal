@@ -11,22 +11,26 @@ import { ProfileTour } from "~/app/components/profile/ProfileTour";
 async function ProfileContent() {
   const [userData, noteSettings] = await Promise.all([
     api.userUpdate.getUserProfile(),
-    api.userSettings.getNoteSettings()
+    api.userSettings.getNoteSettings(),
   ]);
 
   return (
     <>
-      <div className="bg-white shadow rounded-lg mb-8 p-6 profile-dashboard">
+      <div className="profile-dashboard mb-8 rounded-lg bg-white p-6 shadow">
         <ProfileDashboard user={userData} />
       </div>
-      
-      <div className="bg-white shadow rounded-lg p-6 notepad-settings">
-        <h2 className="text-xl font-semibold mb-6">Configurações do Bloco de Notas</h2>
-        <NotepadSettingsForm initialSettings={{
-          notePadUrl: noteSettings.notePadUrl,
-          privateOrPublicUrl: noteSettings.privateOrPublicUrl ?? true,
-          password: noteSettings.password
-        }} />
+
+      <div className="notepad-settings rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-6 text-xl font-semibold">
+          Configurações do Bloco de Notas
+        </h2>
+        <NotepadSettingsForm
+          initialSettings={{
+            notePadUrl: noteSettings.notePadUrl,
+            privateOrPublicUrl: noteSettings.privateOrPublicUrl ?? true,
+            password: noteSettings.password,
+          }}
+        />
       </div>
     </>
   );
@@ -37,15 +41,19 @@ export default async function ProfilePage() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="flex min-h-screen flex-col">
         <Header />
-        <div className="flex-grow flex items-center justify-center bg-gray-100">
-          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Acesso Negado</h2>
-            <p className="text-gray-600 mb-6">Por favor, faça login para visualizar seu perfil.</p>
+        <div className="flex flex-grow items-center justify-center bg-gray-100">
+          <div className="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-md">
+            <h2 className="mb-4 text-2xl font-bold text-gray-800">
+              Acesso Negado
+            </h2>
+            <p className="mb-6 text-gray-600">
+              Por favor, faça login para visualizar seu perfil.
+            </p>
             <Link
               href="/api/auth/signin"
-              className="inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+              className="inline-block rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
             >
               Entrar
             </Link>
@@ -57,27 +65,33 @@ export default async function ProfilePage() {
 
   return (
     <HydrateClient>
-      <div className="min-h-screen flex flex-col">
+      <div className="flex min-h-screen flex-col">
         <Header />
-        <div className="flex-grow container mx-auto max-w-2xl p-4">
-          <h1 className="mb-8 text-2xl font-bold profile-header">Painel de Perfil</h1>
-          <Suspense fallback={<div className="animate-pulse">
-            <div className="bg-white shadow rounded-lg mb-8 p-6">
-              <div className="space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        <div className="container mx-auto max-w-2xl flex-grow p-4">
+          <h1 className="profile-header mb-8 text-2xl font-bold">
+            Painel de Perfil
+          </h1>
+          <Suspense
+            fallback={
+              <div className="animate-pulse">
+                <div className="mb-8 rounded-lg bg-white p-6 shadow">
+                  <div className="space-y-4">
+                    <div className="h-4 w-3/4 rounded bg-gray-200"></div>
+                    <div className="h-4 w-1/2 rounded bg-gray-200"></div>
+                    <div className="h-4 w-2/3 rounded bg-gray-200"></div>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-white p-6 shadow">
+                  <div className="mb-6 h-6 w-2/3 rounded bg-gray-200"></div>
+                  <div className="space-y-4">
+                    <div className="h-4 w-full rounded bg-gray-200"></div>
+                    <div className="h-4 w-5/6 rounded bg-gray-200"></div>
+                    <div className="h-4 w-4/6 rounded bg-gray-200"></div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="h-6 bg-gray-200 rounded w-2/3 mb-6"></div>
-              <div className="space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-full"></div>
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                <div className="h-4 bg-gray-200 rounded w-4/6"></div>
-              </div>
-            </div>
-          </div>}>
+            }
+          >
             <ProfileContent />
           </Suspense>
         </div>

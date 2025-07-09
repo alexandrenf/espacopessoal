@@ -16,4 +16,4 @@ export type DocumentWithTreeProps = Document & {
   parentId?: Id<"documents">;
   order: number;
   isFolder: boolean;
-}; 
+};

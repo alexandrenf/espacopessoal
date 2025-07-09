@@ -11,8 +11,8 @@ interface NavbarProps {
 
 export function Navbar({ search, setSearch }: NavbarProps) {
   return (
-    <nav className="flex items-center justify-between h-full w-full gap-6">
-      <div className="flex gap-3 items-center shrink-0">
+    <nav className="flex h-full w-full items-center justify-between gap-6">
+      <div className="flex shrink-0 items-center gap-3">
         <Link href="/">
           <div className="relative size-8">
             <Image src="/icons/icon-96x96.png" alt="Espaco Pessoal Logo" fill />
@@ -21,12 +21,12 @@ export function Navbar({ search, setSearch }: NavbarProps) {
         <h3 className="text-xl">Docs</h3>
       </div>
       <SearchInput search={search} setSearch={setSearch} />
-      <div className="flex gap-3 items-center">
+      <div className="flex items-center gap-3">
         {/* User actions will go here when we add auth later */}
-        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm text-white">
           D
         </div>
       </div>
     </nav>
   );
-} 
+}

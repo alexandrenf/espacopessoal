@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Loader2, Trash2, Plus, Pencil, Search, ArrowRight, X } from "lucide-react";
+import {
+  Loader2,
+  Trash2,
+  Plus,
+  Pencil,
+  Search,
+  ArrowRight,
+  X,
+} from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { type Id, type Doc } from "../../convex/_generated/dataModel";
@@ -50,21 +58,24 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   // Always call both hooks unconditionally, use skip to control execution
   const publicDictionary = useQuery(
     api.dictionary.getPublicDictionary,
-    !isPrivate && session?.user?.id ? {
-      createdById,
-    } : "skip"
+    !isPrivate && session?.user?.id
+      ? {
+          createdById,
+        }
+      : "skip",
   );
 
   const privateDictionary = useQuery(
     api.dictionary.getDictionary,
-    isPrivate && session?.user?.id ? { userId: session.user.id } : "skip"
+    isPrivate && session?.user?.id ? { userId: session.user.id } : "skip",
   );
 
   // Use the appropriate dictionary based on isPrivate with proper type safety
-  const dictionary: DictionaryEntry[] = isPrivate 
-    ? (privateDictionary ?? []) 
+  const dictionary: DictionaryEntry[] = isPrivate
+    ? (privateDictionary ?? [])
     : (publicDictionary ?? []);
-  const isLoadingDictionary = (isPrivate ? privateDictionary : publicDictionary) === undefined;
+  const isLoadingDictionary =
+    (isPrivate ? privateDictionary : publicDictionary) === undefined;
 
   const createEntry = useMutation(api.dictionary.create);
   const updateEntryMutation = useMutation(api.dictionary.update);
@@ -80,7 +91,11 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     if (!trimmedFrom || !trimmedTo || !session?.user?.id) return;
     setIsCreating(true);
     try {
-      await createEntry({ from: trimmedFrom, to: trimmedTo, userId: session.user.id });
+      await createEntry({
+        from: trimmedFrom,
+        to: trimmedTo,
+        userId: session.user.id,
+      });
       setNewFrom("");
       setNewTo("");
       toast.success("Entrada criada");
@@ -101,7 +116,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         id,
         from: trimmedFrom,
         to: trimmedTo,
-        userId: session.user.id
+        userId: session.user.id,
       });
       setEditingId(null);
       setNewFrom("");
@@ -140,26 +155,30 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
   };
 
   // Filter dictionary based on search query with proper type safety
-  const filteredDictionary = Array.isArray(dictionary) 
-    ? dictionary.filter(entry => 
-        entry.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.to.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDictionary = Array.isArray(dictionary)
+    ? dictionary.filter(
+        (entry) =>
+          entry.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          entry.to.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : [];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="flex h-[85vh] flex-col gap-0 p-0 sm:max-w-[600px]">
         <div className="p-6 pb-4">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Dicionário de Substituição</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">
+              Dicionário de Substituição
+            </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Gerencie suas substituições de texto. Use @ antes de uma palavra para forçar a substituição.
+              Gerencie suas substituições de texto. Use @ antes de uma palavra
+              para forçar a substituição.
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="px-6 space-y-4 flex-shrink-0">
+        <div className="flex-shrink-0 space-y-4 px-6">
           {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
@@ -167,13 +186,13 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
               placeholder="Buscar substituições..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-50 transition-all focus:bg-white"
+              className="bg-gray-50 pl-9 transition-all focus:bg-white"
             />
             {searchQuery && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 p-0"
                 onClick={() => setSearchQuery("")}
                 title="Limpar busca"
               >
@@ -185,8 +204,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
           {/* Add/Edit Form */}
           {session?.user && (
             <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                {editingId ? "Editar substituição" : "Adicionar nova substituição"}
+              <h3 className="mb-1 text-sm font-medium text-muted-foreground">
+                {editingId
+                  ? "Editar substituição"
+                  : "Adicionar nova substituição"}
               </h3>
               <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
                 <Input
@@ -205,30 +226,32 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                   className="text-sm"
                 />
               </div>
-              <div className="flex justify-end gap-2 mt-1">
+              <div className="mt-1 flex justify-end gap-2">
                 {editingId && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleCancelEdit}
-                    className="text-xs h-8"
+                    className="h-8 text-xs"
                   >
-                    <X className="h-3.5 w-3.5 mr-1" />
+                    <X className="mr-1 h-3.5 w-3.5" />
                     Cancelar
                   </Button>
                 )}
                 <Button
-                  onClick={() => editingId ? handleUpdate(editingId) : handleCreate()}
+                  onClick={() =>
+                    editingId ? handleUpdate(editingId) : handleCreate()
+                  }
                   disabled={isCreating || isUpdating || !newFrom || !newTo}
                   size="sm"
-                  className="text-xs h-8"
+                  className="h-8 text-xs"
                 >
-                  {(isCreating || isUpdating) ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  {isCreating || isUpdating ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   ) : editingId ? (
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
                   ) : (
-                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    <Plus className="mr-1 h-3.5 w-3.5" />
                   )}
                   {editingId ? "Atualizar" : "Adicionar"}
                 </Button>
@@ -240,18 +263,18 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
           {isLoadingDictionary && (
             <div className="space-y-2">
               {[1, 2, 3, 4].map((i) => (
-                <div 
+                <div
                   key={i}
-                  className="flex items-center justify-between rounded-md border bg-background p-2 animate-pulse"
+                  className="flex animate-pulse items-center justify-between rounded-md border bg-background p-2"
                 >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="h-6 w-16 bg-gray-200 rounded-full" />
-                    <div className="h-3 w-3 bg-gray-200 rounded-full" />
-                    <div className="h-5 w-32 bg-gray-200 rounded-md" />
+                  <div className="flex flex-1 items-center gap-3">
+                    <div className="h-6 w-16 rounded-full bg-gray-200" />
+                    <div className="h-3 w-3 rounded-full bg-gray-200" />
+                    <div className="h-5 w-32 rounded-md bg-gray-200" />
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <div className="h-8 w-8 bg-gray-200 rounded-md" />
-                    <div className="h-8 w-8 bg-gray-200 rounded-md" />
+                  <div className="ml-2 flex items-center gap-1">
+                    <div className="h-8 w-8 rounded-md bg-gray-200" />
+                    <div className="h-8 w-8 rounded-md bg-gray-200" />
                   </div>
                 </div>
               ))}
@@ -262,23 +285,27 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
           {!isLoadingDictionary && filteredDictionary.length > 0 && (
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-medium">
-                Substituições 
-                <Badge variant="outline" className="ml-2 bg-primary/10 hover:bg-primary/20">
+                Substituições
+                <Badge
+                  variant="outline"
+                  className="ml-2 bg-primary/10 hover:bg-primary/20"
+                >
                   {filteredDictionary.length}
                 </Badge>
               </h3>
               {dictionary.length > 5 && (
                 <p className="text-xs text-muted-foreground">
-                  Mostrando {Math.min(filteredDictionary.length, dictionary.length)} de {dictionary.length}
+                  Mostrando{" "}
+                  {Math.min(filteredDictionary.length, dictionary.length)} de{" "}
+                  {dictionary.length}
                 </p>
               )}
             </div>
           )}
-
         </div>
 
         {/* Dictionary List - ScrollArea as main container */}
-        <div className="flex-1 min-h-0">
+        <div className="min-h-0 flex-1">
           <ScrollArea className="h-full px-6 pb-6">
             {!isLoadingDictionary && (
               <div className="space-y-1">
@@ -294,20 +321,23 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         className="group flex items-center justify-between rounded-md border bg-background p-2 hover:bg-accent/50"
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <Badge variant="outline" className="font-mono text-xs px-2 py-0 h-6 min-w-8 flex items-center justify-center bg-primary/5">
+                          <Badge
+                            variant="outline"
+                            className="flex h-6 min-w-8 items-center justify-center bg-primary/5 px-2 py-0 font-mono text-xs"
+                          >
                             {entry.from}
                           </Badge>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm truncate">{entry.to}</span>
+                          <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                          <span className="truncate text-sm">{entry.to}</span>
                         </div>
                         {session?.user && (
-                          <div className="flex items-center gap-1 ml-2">
+                          <div className="ml-2 flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEdit(entry)}
                               disabled={isDeleting}
-                              className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                              className="h-8 w-8 p-0 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                               title="Editar"
                             >
                               <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -317,7 +347,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                               size="sm"
                               onClick={() => deleteEntry(entry._id)}
                               disabled={isDeleting}
-                              className="h-8 w-8 p-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 p-0 transition-opacity hover:bg-red-50 hover:text-red-600 md:opacity-0 md:group-hover:opacity-100"
                               title="Excluir"
                             >
                               <Trash2 className="h-4 w-4" />

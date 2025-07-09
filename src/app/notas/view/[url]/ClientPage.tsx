@@ -29,67 +29,96 @@ interface SharedNotePageProps {
   initialNotes?: NoteWithUser[];
 }
 
-export default function SharedNotePageClient({ 
-  url, 
+export default function SharedNotePageClient({
+  url,
   initialNotes,
 }: SharedNotePageProps) {
   const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
-  
+
   const { data: notes } = api.notes.fetchNotesPublic.useQuery<NoteWithUser[]>(
     { url },
     {
       staleTime: 30 * 1000,
       refetchOnWindowFocus: false,
       initialData: initialNotes,
-      enabled: !initialNotes
-    }
+      enabled: !initialNotes,
+    },
   );
 
   const note = notes?.[0];
-  
-  const converter = useMemo(() => new Converter({
-    tables: true,
-    simplifiedAutoLink: true,
-    strikethrough: true,
-    tasklists: true,
-  }), []);
+
+  const converter = useMemo(
+    () =>
+      new Converter({
+        tables: true,
+        simplifiedAutoLink: true,
+        strikethrough: true,
+        tasklists: true,
+      }),
+    [],
+  );
 
   useEffect(() => {
-    if (!note?.content || typeof window === 'undefined') return;
+    if (!note?.content || typeof window === "undefined") return;
 
-    const lines = note.content.split('\n');
-    const content = lines.slice(1).join('\n');
+    const lines = note.content.split("\n");
+    const content = lines.slice(1).join("\n");
     const html = converter.makeHtml(content);
-    
+
     const purify = DOMPurify as {
       sanitize: (dirty: string, config?: Config) => string;
     };
-    
+
     const sanitized = purify.sanitize(html, {
       ALLOWED_TAGS: [
-        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'ul', 'ol', 'li', 'a', 'strong', 'em',
-        'code', 'pre', 'blockquote', 'input'
+        "p",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "strong",
+        "em",
+        "code",
+        "pre",
+        "blockquote",
+        "input",
       ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'title', 'aria-label', 'class', 'type', 'checked']
+      ALLOWED_ATTR: [
+        "href",
+        "target",
+        "rel",
+        "title",
+        "aria-label",
+        "class",
+        "type",
+        "checked",
+      ],
     });
-    
+
     setSanitizedHtml(sanitized);
   }, [note?.content, converter]);
 
   if (!note) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="p-8 rounded-lg bg-card border border-border text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-2">Nota não encontrada</h2>
-          <p className="text-muted-foreground">A nota compartilhada não existe ou foi removida.</p>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <FileText className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <h2 className="mb-2 text-2xl font-bold">Nota não encontrada</h2>
+          <p className="text-muted-foreground">
+            A nota compartilhada não existe ou foi removida.
+          </p>
         </div>
       </div>
     );
   }
 
-  const lines = (note.content ?? '').split('\n');
+  const lines = (note.content ?? "").split("\n");
   const title = lines[0]?.trim() ?? "Untitled Note";
 
   return (
@@ -101,35 +130,29 @@ export default function SharedNotePageClient({
         className="min-h-screen bg-background"
       >
         <Header />
-        
-        <div className="max-w-4xl mx-auto px-4 py-8">
+
+        <div className="mx-auto max-w-4xl px-4 py-8">
           {/* Title and Metadata */}
           <div className="mb-8 space-y-4">
             <div className="flex items-start gap-4">
               <motion.div
                 whileHover={{ rotate: 15, scale: 1.1 }}
                 transition={{ type: "spring", stiffness: 400 }}
-                className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20"
+                className="rounded-lg bg-primary/10 p-2 dark:bg-primary/20"
               >
                 <FileText className="h-5 w-5 text-primary" />
               </motion.div>
-              <h1 className="text-3xl font-bold text-foreground">
-                {title}
-              </h1>
+              <h1 className="text-3xl font-bold text-foreground">{title}</h1>
             </div>
-            
+
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4" />
-                <span>
-                  Por {note.createdBy?.name ?? "Unknown"}
-                </span>
+                <span>Por {note.createdBy?.name ?? "Unknown"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                <span>
-                  {new Date(note.updatedAt).toLocaleDateString()}
-                </span>
+                <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
@@ -137,16 +160,7 @@ export default function SharedNotePageClient({
           {/* Content */}
           <div className="rounded-lg border border-border bg-card p-6">
             <div
-              className="prose prose-slate dark:prose-invert max-w-none
-                prose-headings:text-foreground
-                prose-p:text-muted-foreground
-                prose-a:text-primary
-                prose-strong:text-foreground
-                prose-code:text-muted-foreground
-                prose-pre:bg-muted
-                prose-blockquote:text-muted-foreground
-                prose-li:text-muted-foreground
-                [&_input[type=checkbox]]:accent-primary"
+              className="prose prose-slate max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-blockquote:text-muted-foreground prose-strong:text-foreground prose-code:text-muted-foreground prose-pre:bg-muted prose-li:text-muted-foreground [&_input[type=checkbox]]:accent-primary"
               dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
             />
           </div>

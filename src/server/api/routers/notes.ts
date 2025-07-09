@@ -5,7 +5,7 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
-import { nanoid } from 'nanoid';
+import { nanoid } from "nanoid";
 
 export const notesRouter = createTRPCRouter({
   verifyNotepadPassword: publicProcedure
@@ -17,11 +17,11 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { 
+        where: {
           notePadUrl: {
             equals: input.url,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         select: {
           id: true,
@@ -65,11 +65,11 @@ export const notesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       // First, get only the necessary fields from userThings
       const userThings = await ctx.db.userThings.findFirst({
-        where: { 
+        where: {
           notePadUrl: {
             equals: input.url,
-            mode: 'insensitive', // This makes the comparison case-insensitive
-          }
+            mode: "insensitive", // This makes the comparison case-insensitive
+          },
         },
         select: {
           ownedById: true,
@@ -110,11 +110,7 @@ export const notesRouter = createTRPCRouter({
           order: true,
           createdById: true,
         },
-        orderBy: [
-          { parentId: "asc" },
-          { order: "asc" },
-          { createdAt: "desc" }
-        ],
+        orderBy: [{ parentId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
       });
     }),
 
@@ -130,11 +126,11 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { 
+        where: {
           notePadUrl: {
             equals: input.url,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         select: {
           id: true,
@@ -175,7 +171,7 @@ export const notesRouter = createTRPCRouter({
           parentId: input.parentId ?? null,
         },
         orderBy: {
-          order: 'desc',
+          order: "desc",
         },
         select: {
           order: true,
@@ -216,11 +212,11 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { 
+        where: {
           notePadUrl: {
             equals: input.url,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         select: {
           id: true,
@@ -291,11 +287,11 @@ export const notesRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userThings = await ctx.db.userThings.findFirst({
-        where: { 
+        where: {
           notePadUrl: {
             equals: input.url,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         select: {
           id: true,
@@ -453,7 +449,9 @@ export const notesRouter = createTRPCRouter({
       const generateUniqueUrl = async () => {
         while (true) {
           const url = nanoid(8); // generates an 8-character URL-safe string
-          const existing = await ctx.db.sharedNote.findUnique({ where: { url } });
+          const existing = await ctx.db.sharedNote.findUnique({
+            where: { url },
+          });
           if (!existing) return url;
         }
       };
@@ -540,7 +538,7 @@ export const notesRouter = createTRPCRouter({
 
       // Get the shared note if it exists
       const sharedNote = await ctx.db.sharedNote.findFirst({
-        where: { 
+        where: {
           noteId: input.noteId,
         },
         include: {

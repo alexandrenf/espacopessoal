@@ -80,19 +80,19 @@ function LineHeightButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col gap-y-0.5 items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center gap-y-0.5 overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <ListCollapse className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+      <DropdownMenuContent className="flex flex-col gap-y-1 p-1">
         {lineHeights.map(({ label, value }) => (
           <button
             key={value}
             onClick={() => editor?.chain().focus().setLineHeight(value).run()}
             className={cn(
-              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+              "flex items-center gap-x-2 rounded-sm px-2 py-1 hover:bg-neutral-200/80",
               editor?.getAttributes("paragraph").lineHeight === value &&
-                "bg-neutral-200/80"
+                "bg-neutral-200/80",
             )}
           >
             <span className="text-sm">{label}</span>
@@ -107,7 +107,7 @@ function FontSizeButton() {
   const { editor } = useEditorStore();
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 72;
-  
+
   // Single source of truth: derive font size from editor state
   const currentFontSize = (() => {
     const fontSize = editor?.getAttributes("textStyle")?.fontSize as string;
@@ -116,7 +116,7 @@ function FontSizeButton() {
     const numeric = parseInt(fontSize.replace("px", ""));
     return isNaN(numeric) ? "16" : numeric.toString();
   })();
-  
+
   const [inputValue, setInputValue] = useState(currentFontSize);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -167,7 +167,7 @@ function FontSizeButton() {
     <div className="flex items-center gap-x-0.5">
       <button
         onClick={decrement}
-        className="h-7 w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm hover:bg-neutral-200/80"
       >
         <Minus className="size-4" />
       </button>
@@ -178,7 +178,7 @@ function FontSizeButton() {
           onChange={handleInputChange}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
-          className="h-7 w-10 shrink-0 text-center text-sm border border-neutral-400 rounded-sm bg-transparent focus:outline-none focus:ring-0"
+          className="h-7 w-10 shrink-0 rounded-sm border border-neutral-400 bg-transparent text-center text-sm focus:outline-none focus:ring-0"
         />
       ) : (
         <button
@@ -186,14 +186,14 @@ function FontSizeButton() {
             setIsEditing(true);
             setInputValue(currentFontSize);
           }}
-          className="h-7 w-10 shrink-0 text-center text-sm border border-neutral-400 rounded-sm hover:bg-neutral-200/80"
+          className="h-7 w-10 shrink-0 rounded-sm border border-neutral-400 text-center text-sm hover:bg-neutral-200/80"
         >
           {currentFontSize}
         </button>
       )}
       <button
         onClick={increment}
-        className="h-7 w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm hover:bg-neutral-200/80"
       >
         <Plus className="size-4" />
       </button>
@@ -221,18 +221,18 @@ function ListButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col gap-y-0.5 items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center gap-y-0.5 overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <List className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+      <DropdownMenuContent className="flex flex-col gap-y-1 p-1">
         {lists.map(({ label, icon: Icon, onClick, isActive }) => (
           <button
             key={label}
             onClick={onClick}
             className={cn(
-              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
-              isActive && "bg-neutral-200/80"
+              "flex items-center gap-x-2 rounded-sm px-2 py-1 hover:bg-neutral-200/80",
+              isActive && "bg-neutral-200/80",
             )}
           >
             <Icon className="size-4" />
@@ -272,18 +272,18 @@ function AlignButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col gap-y-0.5 items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center gap-y-0.5 overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <AlignLeft className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+      <DropdownMenuContent className="flex flex-col gap-y-1 p-1">
         {alignments.map(({ label, value, icon: Icon }) => (
           <button
             key={value}
             onClick={() => editor?.chain().focus().setTextAlign(value).run()}
             className={cn(
-              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
-              editor?.isActive({ textAlign: value }) && "bg-neutral-200/80"
+              "flex items-center gap-x-2 rounded-sm px-2 py-1 hover:bg-neutral-200/80",
+              editor?.isActive({ textAlign: value }) && "bg-neutral-200/80",
             )}
           >
             <Icon className="size-4" />
@@ -318,11 +318,11 @@ function ImageButton() {
         if (currentObjectUrl) {
           URL.revokeObjectURL(currentObjectUrl);
         }
-        
+
         const imageUrl = URL.createObjectURL(file);
         setCurrentObjectUrl(imageUrl);
         onChange(imageUrl);
-        
+
         // Don't schedule automatic revocation - let it persist until:
         // 1. A new image is uploaded (handled above)
         // 2. Component unmounts (handled in useEffect cleanup)
@@ -349,7 +349,7 @@ function ImageButton() {
         URL.revokeObjectURL(currentObjectUrl);
         setCurrentObjectUrl(null);
       }
-      
+
       onChange(imageUrl);
       setImageUrl("");
       setIsDialogOpen(false);
@@ -360,17 +360,17 @@ function ImageButton() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="h-7 w-7 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+          <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
             <ImageIcon className="size-4" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={onUpload}>
-            <Upload className="size-4 mr-2" />
+            <Upload className="mr-2 size-4" />
             Upload
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
-            <Search className="size-4 mr-2" />
+            <Search className="mr-2 size-4" />
             Paste URL
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -413,11 +413,11 @@ function LinkButton() {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <Link2 className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-2.5 flex items-center gap-x-2">
+      <DropdownMenuContent className="flex items-center gap-x-2 p-2.5">
         <Input
           placeholder="https://example.com"
           value={value}
@@ -431,7 +431,8 @@ function LinkButton() {
 
 function HighlightColorButton() {
   const { editor } = useEditorStore();
-  const value = (editor?.getAttributes("highlight")?.color as string) ?? "#FFFFFF";
+  const value =
+    (editor?.getAttributes("highlight")?.color as string) ?? "#FFFFFF";
 
   const onChange = (color: ColorResult) => {
     editor?.chain().focus().setHighlight({ color: color.hex }).run();
@@ -440,7 +441,7 @@ function HighlightColorButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col gap-y-0.5 items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center gap-y-0.5 overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <Highlighter className="size-4" />
           <div className="h-0.5 w-full" style={{ backgroundColor: value }} />
         </button>
@@ -454,7 +455,8 @@ function HighlightColorButton() {
 
 function TextColorButton() {
   const { editor } = useEditorStore();
-  const value = (editor?.getAttributes("textStyle")?.color as string) ?? "#000000";
+  const value =
+    (editor?.getAttributes("textStyle")?.color as string) ?? "#000000";
 
   const onChange = (color: ColorResult) => {
     editor?.chain().focus().setColor(color.hex).run();
@@ -463,7 +465,7 @@ function TextColorButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-7 flex flex-col items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden shrink-0">
+        <button className="flex h-7 w-7 shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm px-1.5 hover:bg-neutral-200/80">
           <span className="text-xs">A</span>
           <div className="h-0.5 w-full" style={{ backgroundColor: value }} />
         </button>
@@ -512,7 +514,10 @@ function HeadingLevelButton() {
 
   const getCurrentHeading = () => {
     for (const heading of headings) {
-      if (heading.value > 0 && editor?.isActive("heading", { level: heading.value })) {
+      if (
+        heading.value > 0 &&
+        editor?.isActive("heading", { level: heading.value })
+      ) {
         return `Heading ${heading.value}`;
       }
     }
@@ -522,21 +527,21 @@ function HeadingLevelButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 min-w-7 shrink-0 flex items-center justify-center rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button className="flex h-7 min-w-7 shrink-0 items-center justify-center overflow-hidden rounded-sm px-1.5 text-sm hover:bg-neutral-200/80">
           <span className="truncate">{getCurrentHeading()}</span>
-          <ChevronDown className="size-4 ml-2 shrink-0" />
+          <ChevronDown className="ml-2 size-4 shrink-0" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+      <DropdownMenuContent className="flex flex-col gap-y-1 p-1">
         {headings.map(({ label, value, fontSize }) => (
           <button
             key={value}
             style={{ fontSize }}
             className={cn(
-              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+              "flex items-center gap-x-2 rounded-sm px-2 py-1 hover:bg-neutral-200/80",
               (value === 0 && !editor?.isActive("heading")) ||
                 (editor?.isActive("heading", { level: value }) &&
-                  "bg-neutral-200/80")
+                  "bg-neutral-200/80"),
             )}
             onClick={() => {
               if (value === 0) {
@@ -568,25 +573,26 @@ function FontFamilyButton() {
     { label: "Georgia", value: "Georgia" },
   ];
 
-  const currentFont = (editor?.getAttributes("textStyle")?.fontFamily as string) ?? "Arial";
+  const currentFont =
+    (editor?.getAttributes("textStyle")?.fontFamily as string) ?? "Arial";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-[120px] shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button className="flex h-7 w-[120px] shrink-0 items-center justify-between overflow-hidden rounded-sm px-1.5 text-sm hover:bg-neutral-200/80">
           <span className="truncate">{currentFont}</span>
-          <ChevronDown className="size-4 ml-2 shrink-0" />
+          <ChevronDown className="ml-2 size-4 shrink-0" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="p-1 flex flex-col gap-y-1">
+      <DropdownMenuContent className="flex flex-col gap-y-1 p-1">
         {fonts.map(({ label, value }) => (
           <button
             key={value}
             onClick={() => editor?.chain().focus().setFontFamily(value).run()}
             className={cn(
-              "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80 text-left",
+              "flex items-center gap-x-2 rounded-sm px-2 py-1 text-left hover:bg-neutral-200/80",
               editor?.getAttributes("textStyle")?.fontFamily === value &&
-                "bg-neutral-200/80"
+                "bg-neutral-200/80",
             )}
             style={{ fontFamily: value }}
           >
@@ -611,8 +617,8 @@ function ToolbarButton({
     <button
       onClick={onClick}
       className={cn(
-        "text-sm h-7 min-w-7 flex items-center justify-center rounded-sm hover:bg-neutral-200/80",
-        isActive && "bg-neutral-200/80"
+        "flex h-7 min-w-7 items-center justify-center rounded-sm text-sm hover:bg-neutral-200/80",
+        isActive && "bg-neutral-200/80",
       )}
     >
       <Icon className="size-4" />
@@ -691,7 +697,12 @@ export function Toolbar() {
       {
         label: "Insert Table",
         icon: Table,
-        onClick: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+        onClick: () =>
+          editor
+            ?.chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run(),
         isActive: editor?.isActive("table"),
       },
       {
@@ -703,7 +714,7 @@ export function Toolbar() {
   ];
 
   return (
-    <div className="bg-[#F1F4F9] px-2.5 py-0.5 rounded-sm border min-h-[40px] flex items-center gap-x-0.5 overflow-x-auto">
+    <div className="flex min-h-[40px] items-center gap-x-0.5 overflow-x-auto rounded-sm border bg-[#F1F4F9] px-2.5 py-0.5">
       {sections[0]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
@@ -730,4 +741,4 @@ export function Toolbar() {
       ))}
     </div>
   );
-} 
+}

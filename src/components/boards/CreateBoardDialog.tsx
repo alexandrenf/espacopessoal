@@ -38,7 +38,10 @@ const PASTEL_COLORS = [
   { hex: "#F0F8FF", name: "Light Sky Blue" },
 ];
 
-export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps) {
+export function CreateBoardDialog({
+  open,
+  onOpenChange,
+}: CreateBoardDialogProps) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(PASTEL_COLORS[0]?.hex ?? "#FFB3BA");
   const utils = api.useUtils();
@@ -69,7 +72,7 @@ export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps
                   tasks: [],
                   _count: { tasks: 0 },
                 };
-                
+
                 return {
                   ...page,
                   boards: [optimisticBoard, ...page.boards],
@@ -79,7 +82,7 @@ export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps
             }),
             pageParams: old.pageParams,
           };
-        }
+        },
       );
 
       onOpenChange(false);
@@ -89,7 +92,7 @@ export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps
       if (context?.prevData) {
         utils.board.getBoards.setInfiniteData(
           { limit: 10 },
-          () => context.prevData
+          () => context.prevData,
         );
       }
     },
@@ -123,9 +126,9 @@ export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps
                   type="button"
                   className={cn(
                     "h-8 w-8 rounded-full border-2 transition-all",
-                    color === pastelColor.hex 
-                      ? "border-gray-900 scale-110" 
-                      : "border-transparent hover:scale-105"
+                    color === pastelColor.hex
+                      ? "scale-110 border-gray-900"
+                      : "border-transparent hover:scale-105",
                   )}
                   style={{ backgroundColor: pastelColor.hex }}
                   onClick={() => setColor(pastelColor.hex)}

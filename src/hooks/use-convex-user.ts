@@ -21,21 +21,26 @@ export function useConvexUser(): ConvexUserData {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const lastConvexUser = useRef<typeof convexUser>(undefined);
-  
+
   const syncUser = useMutation(api.users.syncNextAuthUser);
   const convexUser = useQuery(
-    api.users.getByNextAuthId, 
-    session?.user?.id ? { nextAuthId: session.user.id } : "skip"
+    api.users.getByNextAuthId,
+    session?.user?.id ? { nextAuthId: session.user.id } : "skip",
   );
-  
+
   // Sync user when session becomes available
   useEffect(() => {
     const performSync = async () => {
       // Prevent multiple sync operations from running simultaneously
       if (isSyncing) return;
-      
+
       // Only sync if we have session data, no existing user, and convexUser is strictly undefined (not null)
-      if (session?.user?.id && session.user.email && convexUser === undefined && !isSyncing) {
+      if (
+        session?.user?.id &&
+        session.user.email &&
+        convexUser === undefined &&
+        !isSyncing
+      ) {
         setIsSyncing(true);
         try {
           await syncUser({
@@ -58,7 +63,7 @@ export function useConvexUser(): ConvexUserData {
     // Check if convexUser has changed using strict equality
     if (lastConvexUser.current !== convexUser) {
       lastConvexUser.current = convexUser;
-      
+
       if (status === "authenticated" && session?.user) {
         void performSync();
       }
@@ -68,7 +73,10 @@ export function useConvexUser(): ConvexUserData {
   return {
     convexUserId: convexUser?._id ?? null,
     // Only show loading when status is "loading" or when authenticated with undefined convexUser (not null) and no error
-    isLoading: status === "loading" || (status === "authenticated" && convexUser === undefined && !error) || isSyncing,
+    isLoading:
+      status === "loading" ||
+      (status === "authenticated" && convexUser === undefined && !error) ||
+      isSyncing,
     error,
   };
-} 
+}

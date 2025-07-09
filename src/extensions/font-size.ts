@@ -11,19 +11,20 @@ declare module "@tiptap/react" {
 
 // Sanitize font size values to prevent XSS
 const sanitizeFontSize = (fontSize: string): string | null => {
-  if (!fontSize || typeof fontSize !== 'string') return null;
-  
+  if (!fontSize || typeof fontSize !== "string") return null;
+
   // Allow only valid CSS font-size values
   // Valid units: px, em, rem, %, pt, pc, ex, ch, vw, vh, vmin, vmax
   // Valid keywords: xx-small, x-small, small, medium, large, x-large, xx-large, smaller, larger
-  const validFontSizeRegex = /^(xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger|(\d*\.?\d+)(px|em|rem|%|pt|pc|ex|ch|vw|vh|vmin|vmax))$/;
-  
+  const validFontSizeRegex =
+    /^(xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger|(\d*\.?\d+)(px|em|rem|%|pt|pc|ex|ch|vw|vh|vmin|vmax))$/;
+
   const trimmedFontSize = fontSize.trim();
-  
+
   if (validFontSizeRegex.test(trimmedFontSize)) {
     return trimmedFontSize;
   }
-  
+
   return null;
 };
 
@@ -33,13 +34,13 @@ interface FontSizeOptions {
 
 export const FontSizeExtension = Extension.create<FontSizeOptions>({
   name: "fontSize",
-  
+
   addOptions() {
     return {
       types: ["textStyle"],
     };
   },
-  
+
   addGlobalAttributes() {
     return [
       {
@@ -50,10 +51,12 @@ export const FontSizeExtension = Extension.create<FontSizeOptions>({
             parseHTML: (element) => element.style.fontSize,
             renderHTML: (attributes) => {
               if (!attributes.fontSize) return {};
-              
-              const sanitizedFontSize = sanitizeFontSize(String(attributes.fontSize));
+
+              const sanitizedFontSize = sanitizeFontSize(
+                String(attributes.fontSize),
+              );
               if (!sanitizedFontSize) return {};
-              
+
               return {
                 style: `font-size: ${sanitizedFontSize}`,
               };
@@ -63,7 +66,7 @@ export const FontSizeExtension = Extension.create<FontSizeOptions>({
       },
     ];
   },
-  
+
   addCommands() {
     return {
       setFontSize:
@@ -76,16 +79,16 @@ export const FontSizeExtension = Extension.create<FontSizeOptions>({
             console.warn(`Invalid font size value: ${fontSize}`);
             return false;
           }
-          
-          return chain().setMark("textStyle", { fontSize: sanitizedFontSize }).run();
+
+          return chain()
+            .setMark("textStyle", { fontSize: sanitizedFontSize })
+            .run();
         },
       unsetFontSize:
         () =>
         ({ chain }) => {
-          return chain()
-            .setMark("textStyle", { fontSize: null })
-            .run();
+          return chain().setMark("textStyle", { fontSize: null }).run();
         },
     };
   },
-}); 
+});

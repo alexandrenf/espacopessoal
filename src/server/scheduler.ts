@@ -1,11 +1,11 @@
-import { PrismaClient } from '@prisma/client';
-import admin from 'firebase-admin';
+import { PrismaClient } from "@prisma/client";
+import admin from "firebase-admin";
 
 const prisma = new PrismaClient();
 
 export async function processScheduledNotifications() {
   const now = new Date();
-  console.log('Processing scheduled notifications at:', now);
+  console.log("Processing scheduled notifications at:", now);
 
   try {
     const pendingNotifications = await prisma.scheduledNotification.findMany({
@@ -28,7 +28,7 @@ export async function processScheduledNotifications() {
               body: notification.body,
             },
             data: {
-              url: notification.url ?? '/',
+              url: notification.url ?? "/",
             },
             token: notification.fcmToken,
           });
@@ -42,21 +42,23 @@ export async function processScheduledNotifications() {
         } catch (error) {
           console.error(
             `Failed to send scheduled notification ${notification.id}:`,
-            error
+            error,
           );
           return { success: false, id: notification.id, error };
         }
-      })
+      }),
     );
 
     const successful = results.filter(
-      (r) => r.status === 'fulfilled' && r.value.success
+      (r) => r.status === "fulfilled" && r.value.success,
     ).length;
     const failed = results.filter(
-      (r) => r.status === 'rejected' || !r.value.success
+      (r) => r.status === "rejected" || !r.value.success,
     ).length;
 
-    console.log(`Processed ${successful} notifications successfully, ${failed} failed`);
+    console.log(
+      `Processed ${successful} notifications successfully, ${failed} failed`,
+    );
 
     return {
       total: pendingNotifications.length,
@@ -64,7 +66,7 @@ export async function processScheduledNotifications() {
       failed,
     };
   } catch (error) {
-    console.error('Failed to process scheduled notifications:', error);
+    console.error("Failed to process scheduled notifications:", error);
     throw error;
   }
 }

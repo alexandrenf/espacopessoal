@@ -3,16 +3,16 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
-import { EditorContent, useEditor } from '@tiptap/react';
-import { StarterKit } from '@tiptap/starter-kit';
-import Collaboration from '@tiptap/extension-collaboration';
-import { useEffect, useState, useRef } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, AlertCircle, Eye, Share2, RefreshCw } from 'lucide-react';
+import { EditorContent, useEditor } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
+import Collaboration from "@tiptap/extension-collaboration";
+import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
+import { ArrowLeft, AlertCircle, Eye, Share2, RefreshCw } from "lucide-react";
 import { Button } from "../../../../components_new/ui/button";
-import * as Y from 'yjs';
-import { IndexeddbPersistence } from 'y-indexeddb';
-import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from "yjs";
+import { IndexeddbPersistence } from "y-indexeddb";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 
 // TipTap Extensions for read-only viewing
 import { FontSizeExtension } from "../../../../extensions/font-size";
@@ -40,7 +40,7 @@ export default function SharedDocumentPage() {
 
   const sharedDocument = useQuery(
     api.documents.getSharedDocument,
-    urlString ? { url: urlString } : "skip"
+    urlString ? { url: urlString } : "skip",
   );
 
   const handleManualRefresh = () => {
@@ -68,19 +68,23 @@ export default function SharedDocumentPage() {
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const [isYdocReady, setIsYdocReady] = useState(false);
-  const [collaborativeContent, setCollaborativeContent] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [collaborativeContent, setCollaborativeContent] = useState<
+    string | null
+  >(null);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
 
   // Initialize Y.js document for real-time collaboration
   useEffect(() => {
     if (!sharedDocument?.document) return;
-    
+
     // Initialize Y.js document only once
     if (!ydocRef.current) {
       ydocRef.current = new Y.Doc();
       setIsYdocReady(true);
     }
-    
+
     // Clean up previous provider and persistence if exists
     if (providerRef.current) {
       providerRef.current.destroy();
@@ -88,67 +92,67 @@ export default function SharedDocumentPage() {
     if (persistenceRef.current) {
       void persistenceRef.current.destroy();
     }
-    
+
     // Connect to collaborative server in read-only mode
     const documentId = sharedDocument.document._id;
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-    
+
     if (wsUrl && ydocRef.current) {
-      setConnectionStatus('connecting');
-      
+      setConnectionStatus("connecting");
+
       const persistence = new IndexeddbPersistence(documentId, ydocRef.current);
       persistenceRef.current = persistence;
-      
+
       const provider = new HocuspocusProvider({
         url: wsUrl,
         name: documentId,
         document: ydocRef.current,
       });
-      
+
       providerRef.current = provider;
-      
+
       // Listen for document updates
       const updateContent = () => {
         if (ydocRef.current) {
-          const prosemirrorState = ydocRef.current.getMap('prosemirror');
-          const content = prosemirrorState.get('content');
-          if (typeof content === 'string' && content) {
+          const prosemirrorState = ydocRef.current.getMap("prosemirror");
+          const content = prosemirrorState.get("content");
+          if (typeof content === "string" && content) {
             setCollaborativeContent(content);
           }
         }
       };
-      
-      provider.on('status', (event: { status: string }) => {
-        if (event.status === 'connected') {
-          setConnectionStatus('connected');
+
+      provider.on("status", (event: { status: string }) => {
+        if (event.status === "connected") {
+          setConnectionStatus("connected");
           updateContent();
-        } else if (event.status === 'connecting') {
-          setConnectionStatus('connecting');
+        } else if (event.status === "connecting") {
+          setConnectionStatus("connecting");
         } else {
-          setConnectionStatus('disconnected');
+          setConnectionStatus("disconnected");
         }
       });
-      
-      provider.on('connect', () => {
-        setConnectionStatus('connected');
+
+      provider.on("connect", () => {
+        setConnectionStatus("connected");
         updateContent();
       });
-      
-      provider.on('disconnect', () => {
-        setConnectionStatus('disconnected');
+
+      provider.on("disconnect", () => {
+        setConnectionStatus("disconnected");
       });
-      
-      provider.on('error', (error: Error) => {
-        console.error('WebSocket error in shared document:', error);
-        setConnectionStatus('disconnected');
+
+      provider.on("error", (error: Error) => {
+        console.error("WebSocket error in shared document:", error);
+        setConnectionStatus("disconnected");
       });
-      
-      ydocRef.current.on('update', updateContent);
-      
+
+      ydocRef.current.on("update", updateContent);
+
       return () => {
         provider.destroy();
         void persistence.destroy();
-        setConnectionStatus('disconnected');
+        setConnectionStatus("disconnected");
       };
     }
   }, [sharedDocument?.document._id]);
@@ -168,154 +172,165 @@ export default function SharedDocumentPage() {
     };
   }, []);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        history: false,
-        heading: false,
-        // Explicitly ensure list extensions are enabled
-        bulletList: {
-          HTMLAttributes: {
-            class: 'bullet-list',
-          },
-        },
-        orderedList: {
-          HTMLAttributes: {
-            class: 'ordered-list',
-          },
-        },
-        listItem: {
-          HTMLAttributes: {
-            class: 'list-item',
-          },
-        },
-      }),
-      // Add Heading extension after StarterKit to ensure it works properly
-      Heading.configure({
-        levels: [1, 2, 3, 4, 5, 6],
-        HTMLAttributes: {
-          class: 'heading',
-        },
-      }),
-      // Add TaskList and TaskItem extensions
-      TaskList.configure({
-        HTMLAttributes: {
-          class: 'task-list',
-        },
-      }),
-      TaskItem.configure({ 
-        nested: true,
-        HTMLAttributes: {
-          class: 'task-item',
-        },
-      }),
-      Table.configure({
-        resizable: false,
-        handleWidth: 5,
-        cellMinWidth: 50,
-      }),
-      TableCell.configure({
-        HTMLAttributes: {
-          class: 'border border-gray-300 p-2',
-        },
-      }),
-      TableHeader.configure({
-        HTMLAttributes: {
-          class: 'border border-gray-300 p-2 bg-gray-100 font-bold',
-        },
-      }),
-      TableRow.configure({
-        HTMLAttributes: {
-          class: 'border-b border-gray-300',
-        },
-      }),
-      ImageResize,
-      Underline,
-      FontFamily,
-      TextStyle,
-      Highlight.configure({ 
-        multicolor: true,
-        HTMLAttributes: {
-          class: 'highlight',
-        },
-      }),
-      Color.configure({
-        types: ['textStyle'],
-      }),
-      LinkExtension.extend({
-        renderHTML({ HTMLAttributes }) {
-          const href = HTMLAttributes.href as string;
-          const safeHref = createSafeHref(href);
-          
-          return [
-            'a',
-            {
-              ...HTMLAttributes,
-              href: safeHref,
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      extensions: [
+        StarterKit.configure({
+          history: false,
+          heading: false,
+          // Explicitly ensure list extensions are enabled
+          bulletList: {
+            HTMLAttributes: {
+              class: "bullet-list",
             },
-            0,
-          ];
-        },
-      }).configure({
-        openOnClick: true,
-        autolink: true,
-        defaultProtocol: "https",
-        validate: (url: string) => Boolean(validateLinkUrl(url)),
-        HTMLAttributes: {
-          class: 'text-blue-600 underline cursor-pointer',
-          rel: 'noopener noreferrer',
-          target: '_blank',
-        },
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
-      FontSizeExtension,
-      LineHeightExtension,
-      // Add collaboration extension for real-time content
-      ...(isYdocReady && ydocRef.current ? [
-        Collaboration.configure({
-          document: ydocRef.current,
+          },
+          orderedList: {
+            HTMLAttributes: {
+              class: "ordered-list",
+            },
+          },
+          listItem: {
+            HTMLAttributes: {
+              class: "list-item",
+            },
+          },
         }),
-      ] : []),
-    ],
-    editable: false, // Make editor read-only for shared documents
-    content: '<p>Loading document...</p>',
-    editorProps: {
-      attributes: {
-        class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
+        // Add Heading extension after StarterKit to ensure it works properly
+        Heading.configure({
+          levels: [1, 2, 3, 4, 5, 6],
+          HTMLAttributes: {
+            class: "heading",
+          },
+        }),
+        // Add TaskList and TaskItem extensions
+        TaskList.configure({
+          HTMLAttributes: {
+            class: "task-list",
+          },
+        }),
+        TaskItem.configure({
+          nested: true,
+          HTMLAttributes: {
+            class: "task-item",
+          },
+        }),
+        Table.configure({
+          resizable: false,
+          handleWidth: 5,
+          cellMinWidth: 50,
+        }),
+        TableCell.configure({
+          HTMLAttributes: {
+            class: "border border-gray-300 p-2",
+          },
+        }),
+        TableHeader.configure({
+          HTMLAttributes: {
+            class: "border border-gray-300 p-2 bg-gray-100 font-bold",
+          },
+        }),
+        TableRow.configure({
+          HTMLAttributes: {
+            class: "border-b border-gray-300",
+          },
+        }),
+        ImageResize,
+        Underline,
+        FontFamily,
+        TextStyle,
+        Highlight.configure({
+          multicolor: true,
+          HTMLAttributes: {
+            class: "highlight",
+          },
+        }),
+        Color.configure({
+          types: ["textStyle"],
+        }),
+        LinkExtension.extend({
+          renderHTML({ HTMLAttributes }) {
+            const href = HTMLAttributes.href as string;
+            const safeHref = createSafeHref(href);
+
+            return [
+              "a",
+              {
+                ...HTMLAttributes,
+                href: safeHref,
+              },
+              0,
+            ];
+          },
+        }).configure({
+          openOnClick: true,
+          autolink: true,
+          defaultProtocol: "https",
+          validate: (url: string) => Boolean(validateLinkUrl(url)),
+          HTMLAttributes: {
+            class: "text-blue-600 underline cursor-pointer",
+            rel: "noopener noreferrer",
+            target: "_blank",
+          },
+        }),
+        TextAlign.configure({
+          types: ["heading", "paragraph"],
+        }),
+        FontSizeExtension,
+        LineHeightExtension,
+        // Add collaboration extension for real-time content
+        ...(isYdocReady && ydocRef.current
+          ? [
+              Collaboration.configure({
+                document: ydocRef.current,
+              }),
+            ]
+          : []),
+      ],
+      editable: false, // Make editor read-only for shared documents
+      content: "<p>Loading document...</p>",
+      editorProps: {
+        attributes: {
+          class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
+        },
       },
     },
-  }, [isYdocReady]);
+    [isYdocReady],
+  );
 
   // Update content when shared document loads or collaborative content changes
   useEffect(() => {
     if (editor && sharedDocument?.document) {
       // Prioritize collaborative content if available and connected
       let contentToSet: string;
-      
-      if (collaborativeContent && connectionStatus === 'connected') {
+
+      if (collaborativeContent && connectionStatus === "connected") {
         contentToSet = collaborativeContent;
       } else if (sharedDocument.document.initialContent) {
         contentToSet = sharedDocument.document.initialContent;
       } else {
-        contentToSet = '<p>This document appears to be empty.</p>';
+        contentToSet = "<p>This document appears to be empty.</p>";
       }
-      
+
       // Only update if content actually changed to avoid unnecessary re-renders
       const currentContent = editor.getHTML();
       if (currentContent !== contentToSet) {
         editor.commands.setContent(contentToSet);
       }
     }
-  }, [editor, sharedDocument?.document, collaborativeContent, connectionStatus, refreshKey]);
+  }, [
+    editor,
+    sharedDocument?.document,
+    collaborativeContent,
+    connectionStatus,
+    refreshKey,
+  ]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FBFD]">
+      <div className="flex min-h-screen items-center justify-center bg-[#F9FBFD]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
           <p className="text-muted-foreground">Loading shared document...</p>
         </div>
       </div>
@@ -324,16 +339,18 @@ export default function SharedDocumentPage() {
 
   if (hasError || !sharedDocument) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FBFD]">
-        <div className="text-center max-w-md mx-auto p-6">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Document Not Found</h1>
-          <p className="text-gray-600 mb-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#F9FBFD]">
+        <div className="mx-auto max-w-md p-6 text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">
+            Document Not Found
+          </h1>
+          <p className="mb-6 text-gray-600">
             This shared document doesn&apos;t exist or may have been removed.
           </p>
           <Link href="/">
             <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Go Home
             </Button>
           </Link>
@@ -346,7 +363,7 @@ export default function SharedDocumentPage() {
     <div className="min-h-screen bg-[#F9FBFD]">
       {/* Header */}
       <header className="border-b bg-white px-4 py-3 shadow-sm">
-        <div className="max-w-6xl mx-auto">
+        <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/">
@@ -361,7 +378,8 @@ export default function SharedDocumentPage() {
                     {sharedDocument.document.title}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    Shared by {sharedDocument.document.owner?.name ?? 'Unknown owner'}
+                    Shared by{" "}
+                    {sharedDocument.document.owner?.name ?? "Unknown owner"}
                   </p>
                 </div>
               </div>
@@ -376,33 +394,35 @@ export default function SharedDocumentPage() {
                 <RefreshCw className="h-4 w-4" />
                 <span>Refresh</span>
               </Button>
-              
+
               {/* Connection Status */}
-              <div className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full ${
-                connectionStatus === 'connected' 
-                  ? 'bg-green-100 text-green-700' 
-                  : connectionStatus === 'connecting'
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {connectionStatus === 'connected' ? (
+              <div
+                className={`flex items-center gap-1 rounded-full px-2 py-1 text-sm ${
+                  connectionStatus === "connected"
+                    ? "bg-green-100 text-green-700"
+                    : connectionStatus === "connecting"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {connectionStatus === "connected" ? (
                   <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-green-500"></div>
                     <span>Live</span>
                   </>
-                ) : connectionStatus === 'connecting' ? (
+                ) : connectionStatus === "connecting" ? (
                   <>
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-500"></div>
                     <span>Connecting...</span>
                   </>
                 ) : (
                   <>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className="h-2 w-2 rounded-full bg-gray-400"></div>
                     <span>Offline</span>
                   </>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-1 text-sm text-gray-500">
                 <Eye className="h-4 w-4" />
                 <span>Read-only</span>
@@ -414,12 +434,12 @@ export default function SharedDocumentPage() {
 
       {/* Document Content */}
       <div className="flex-1 overflow-auto">
-        <div className="max-w-[816px] mx-auto py-4">
-          <div className="min-w-max flex justify-center">
+        <div className="mx-auto max-w-[816px] py-4">
+          <div className="flex min-w-max justify-center">
             <EditorContent editor={editor} />
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

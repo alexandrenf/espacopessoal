@@ -103,10 +103,10 @@ const App = ({ password }: AppProps): JSX.Element => {
     debounce((text: string) => {
       setNotes((old) =>
         old.map((note) =>
-          note.id === currentNoteId ? { ...note, content: text } : note
-        )
+          note.id === currentNoteId ? { ...note, content: text } : note,
+        ),
       );
-    }, 1000)
+    }, 1000),
   );
 
   // ------------------------------
@@ -174,9 +174,7 @@ const App = ({ password }: AppProps): JSX.Element => {
       utils.notes.fetchNotesPublic.setData({ url }, (old) => {
         if (!old) return old;
         return old.map((note) =>
-          note.id === newNote.id
-            ? { ...note, content: newNote.content }
-            : note
+          note.id === newNote.id ? { ...note, content: newNote.content } : note,
         );
       });
 
@@ -207,22 +205,25 @@ const App = ({ password }: AppProps): JSX.Element => {
   // Helper function to handle notes with problematic orders
   const handleExistingNotesOrders = (currentNotes: Note[]) => {
     // Group notes by parent
-    const groupedNotes = currentNotes.reduce((acc, note) => {
-      const key = note.parentId?.toString() ?? "root";
-      acc[key] ??= [];
-      acc[key].push(note);
-      return acc;
-    }, {} as Record<string, Note[]>);
+    const groupedNotes = currentNotes.reduce(
+      (acc, note) => {
+        const key = note.parentId?.toString() ?? "root";
+        acc[key] ??= [];
+        acc[key].push(note);
+        return acc;
+      },
+      {} as Record<string, Note[]>,
+    );
 
     // Process each group independently
-    const updatedNotes = currentNotes.map(note => {
+    const updatedNotes = currentNotes.map((note) => {
       const groupKey = note.parentId?.toString() ?? "root";
       const group = groupedNotes[groupKey] ?? [];
-      const indexInGroup = group.findIndex(n => n.id === note.id);
-      
+      const indexInGroup = group.findIndex((n) => n.id === note.id);
+
       return {
         ...note,
-        order: indexInGroup + 1 // Start from 1
+        order: indexInGroup + 1, // Start from 1
       };
     });
 
@@ -250,11 +251,10 @@ const App = ({ password }: AppProps): JSX.Element => {
       }
 
       // Calculate initial order for the new note
-      const siblings = updatedNotes.filter(n => n.parentId === null);
-      const maxOrder = siblings.length > 0 
-        ? Math.max(...siblings.map(n => n.order))
-        : 0;
-      
+      const siblings = updatedNotes.filter((n) => n.parentId === null);
+      const maxOrder =
+        siblings.length > 0 ? Math.max(...siblings.map((n) => n.order)) : 0;
+
       const newNote: Note = {
         id: tempId,
         content: variables.content,
@@ -264,25 +264,26 @@ const App = ({ password }: AppProps): JSX.Element => {
         parentId: null,
         isFolder: variables.isFolder ?? false,
         order: maxOrder + 1,
-        createdById: '',
+        createdById: "",
       };
 
       // Optimistically update the cache
       utils.notes.fetchNotesPublic.setData({ url }, (old) => {
-        if (!old) return [
-          {
-            ...newNote,
-            createdById: '', // Add required createdById field
-            content: newNote.content ?? null, // Ensure content can be null
-          }
-        ];
+        if (!old)
+          return [
+            {
+              ...newNote,
+              createdById: "", // Add required createdById field
+              content: newNote.content ?? null, // Ensure content can be null
+            },
+          ];
         return [
           {
             ...newNote,
-            createdById: old[0]?.createdById ?? '', // Add required createdById field
+            createdById: old[0]?.createdById ?? "", // Add required createdById field
             content: newNote.content ?? null, // Ensure content can be null
           },
-          ...old
+          ...old,
         ];
       });
 
@@ -315,11 +316,10 @@ const App = ({ password }: AppProps): JSX.Element => {
     onSuccess: async (actualNote, variables, ctx) => {
       if (ctx?.optimisticNote) {
         // Calculate proper order for the new note
-        const siblings = notes.filter(n => n.parentId === null);
-        const maxOrder = siblings.length > 0 
-          ? Math.max(...siblings.map(n => n.order))
-          : 0;
-        
+        const siblings = notes.filter((n) => n.parentId === null);
+        const maxOrder =
+          siblings.length > 0 ? Math.max(...siblings.map((n) => n.order)) : 0;
+
         // Update the cache with the actual note
         utils.notes.fetchNotesPublic.setData({ url }, (old) => {
           if (!old) return old;
@@ -331,9 +331,9 @@ const App = ({ password }: AppProps): JSX.Element => {
                   parentId: null,
                   isFolder: variables.isFolder ?? false,
                   order: maxOrder + 1,
-                  createdById: old[0]?.createdById ?? '', // Add the missing createdById field
+                  createdById: old[0]?.createdById ?? "", // Add the missing createdById field
                 }
-              : note
+              : note,
           );
         });
 
@@ -347,7 +347,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                   isFolder: variables.isFolder ?? false,
                   order: maxOrder + 1,
                 } as Note)
-              : note
+              : note,
           ),
         );
         if (!variables.isFolder) {
@@ -438,21 +438,25 @@ const App = ({ password }: AppProps): JSX.Element => {
 
   const activeDebounce = useMemo(
     () =>
-      throttle(async () => {
-        if (!currentNoteId) return;
-        setIsSaving(true);
-        try {
-          await updateNoteRef.current({
-            id: currentNoteId,
-            content: latestContentRef.current,
-            url,
-            password: password ?? undefined,
-          });
-          setIsSaving(false);
-        } catch (err) {
-          handleError(err);
-        }
-      }, ACTIVE_WAIT, { leading: false, trailing: true }),
+      throttle(
+        async () => {
+          if (!currentNoteId) return;
+          setIsSaving(true);
+          try {
+            await updateNoteRef.current({
+              id: currentNoteId,
+              content: latestContentRef.current,
+              url,
+              password: password ?? undefined,
+            });
+            setIsSaving(false);
+          } catch (err) {
+            handleError(err);
+          }
+        },
+        ACTIVE_WAIT,
+        { leading: false, trailing: true },
+      ),
     [currentNoteId, url, password],
   );
 
@@ -534,19 +538,21 @@ const App = ({ password }: AppProps): JSX.Element => {
 
   function handleTextChange(text: string) {
     setLocalContent(text);
-    
+
     // Update latest content ref immediately
     latestContentRef.current = text;
-    
+
     // Find current note
     const currentNote = notes.find((n) => n.id === currentNoteId);
     if (!currentNote) return;
 
     // Immediately update the note in the notes array for UI purposes
-    setNotes(prevNotes => prevNotes.map(note => 
-      note.id === currentNoteId ? { ...note, content: text } : note
-    ));
-    
+    setNotes((prevNotes) =>
+      prevNotes.map((note) =>
+        note.id === currentNoteId ? { ...note, content: text } : note,
+      ),
+    );
+
     // Update last keystroke timestamp
     const now = Date.now();
     lastKeystrokeRef.current = now;
@@ -568,10 +574,10 @@ const App = ({ password }: AppProps): JSX.Element => {
     // Set up a new continuous typing timer
     continuousTypingTimerRef.current = setTimeout(() => {
       const currentTime = Date.now();
-      const timeSinceLastKeystroke = lastKeystrokeRef.current 
-        ? currentTime - lastKeystrokeRef.current 
+      const timeSinceLastKeystroke = lastKeystrokeRef.current
+        ? currentTime - lastKeystrokeRef.current
         : 0;
-      
+
       if (timeSinceLastKeystroke >= TYPING_TIMEOUT) {
         void activeDebounce.flush();
         lastKeystrokeRef.current = null;
@@ -593,7 +599,7 @@ const App = ({ password }: AppProps): JSX.Element => {
         const updated = prev.map((note) => {
           const structureItem = updates.find((s) => s.id === note.id);
           if (!structureItem) return note;
-          
+
           return {
             ...note,
             parentId: structureItem.parentId,
@@ -736,7 +742,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                     order: 0,
                     parentId: null,
                     isFolder: false,
-                    createdById: '',
+                    createdById: "",
                   }
                 }
                 setCurrentNoteId={handleSwitchNote}
@@ -773,7 +779,7 @@ const App = ({ password }: AppProps): JSX.Element => {
                     onClick={() => setShowSidebar(true)}
                     variant="ghost"
                     size="icon"
-                    className="md:hidden h-9 w-9 bg-white/80 backdrop-blur-md hover:bg-white/90 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.15)] border border-gray-100/50 rounded-xl transition-all duration-200"
+                    className="h-9 w-9 rounded-xl border border-gray-100/50 bg-white/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] backdrop-blur-md transition-all duration-200 hover:bg-white/90 hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.15)] md:hidden"
                   >
                     <Menu className="h-4 w-4 text-gray-500" />
                   </Button>

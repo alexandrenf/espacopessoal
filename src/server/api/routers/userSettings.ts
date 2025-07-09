@@ -7,10 +7,14 @@ import type { createTRPCContext } from "~/server/api/trpc";
 type Context = inferAsyncReturnType<typeof createTRPCContext>;
 
 const updateSettingsInput = z.object({
-  notePadUrl: z.string()
+  notePadUrl: z
+    .string()
     .min(3, "URL deve ter pelo menos 3 caracteres")
     .max(50, "URL não pode ter mais que 50 caracteres")
-    .regex(/^[a-zA-Z0-9-_]+$/, "URL pode conter apenas letras, números, hífen e underscore"),
+    .regex(
+      /^[a-zA-Z0-9-_]+$/,
+      "URL pode conter apenas letras, números, hífen e underscore",
+    ),
   privateOrPublicUrl: z.boolean(),
   password: z.string().nullable(),
 });
@@ -41,88 +45,86 @@ export const userSettingsRouter = createTRPCRouter({
 
   updateNoteSettings: protectedProcedure
     .input(updateSettingsInput)
-    .mutation(async ({ ctx, input }: { 
-      ctx: Context; 
-      input: UpdateSettingsInput;
-    }) => {
-      // Check if URL is already taken by another user (case-insensitive)
-      const existingUrl = await ctx.db.userThings.findFirst({
-        where: {
-          notePadUrl: {
-            equals: input.notePadUrl,
-            mode: 'insensitive', // Case-insensitive comparison
+    .mutation(
+      async ({ ctx, input }: { ctx: Context; input: UpdateSettingsInput }) => {
+        // Check if URL is already taken by another user (case-insensitive)
+        const existingUrl = await ctx.db.userThings.findFirst({
+          where: {
+            notePadUrl: {
+              equals: input.notePadUrl,
+              mode: "insensitive", // Case-insensitive comparison
+            },
+            ownedById: { not: ctx.session!.user.id },
           },
-          ownedById: { not: ctx.session!.user.id },
-        },
-      });
-  
-      if (existingUrl) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "Esta URL já está em uso",
         });
-      }
 
-      const result = await ctx.db.userThings.upsert({
-        where: {
-          ownedById: ctx.session!.user.id,
-        },
-        create: {
-          notePadUrl: input.notePadUrl,
-          privateOrPublicUrl: input.privateOrPublicUrl,
-          password: input.password,
-          ownedById: ctx.session!.user.id,
-        },
-        update: {
-          notePadUrl: input.notePadUrl,
-          privateOrPublicUrl: input.privateOrPublicUrl,
-          password: input.password,
-        },
-      });
-
-      // Return the result directly without attempting revalidation
-      // Revalidation should be handled on the client side using 
-      // appropriate TRPC utils.invalidate() calls
-      return result;
-    }),
-
-  getUserSettingsAndHealth: protectedProcedure
-    .query(async ({ ctx }) => {
-      const userData = await ctx.db.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: {
-          name: true,
-          email: true,
-          userThings: {
-            select: {
-              notePadUrl: true,
-              privateOrPublicUrl: true,
-              password: true,
-            }
-          }
+        if (existingUrl) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Esta URL já está em uso",
+          });
         }
-      });
 
-      if (!userData) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User not found"
+        const result = await ctx.db.userThings.upsert({
+          where: {
+            ownedById: ctx.session!.user.id,
+          },
+          create: {
+            notePadUrl: input.notePadUrl,
+            privateOrPublicUrl: input.privateOrPublicUrl,
+            password: input.password,
+            ownedById: ctx.session!.user.id,
+          },
+          update: {
+            notePadUrl: input.notePadUrl,
+            privateOrPublicUrl: input.privateOrPublicUrl,
+            password: input.password,
+          },
         });
-      }
 
-      return {
-        settings: {
-          notePadUrl: userData.userThings?.notePadUrl ?? "",
-          privateOrPublicUrl: userData.userThings?.privateOrPublicUrl ?? true,
-          password: userData.userThings?.password ?? null,
+        // Return the result directly without attempting revalidation
+        // Revalidation should be handled on the client side using
+        // appropriate TRPC utils.invalidate() calls
+        return result;
+      },
+    ),
+
+  getUserSettingsAndHealth: protectedProcedure.query(async ({ ctx }) => {
+    const userData = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: {
+        name: true,
+        email: true,
+        userThings: {
+          select: {
+            notePadUrl: true,
+            privateOrPublicUrl: true,
+            password: true,
+          },
         },
-        health: {
-          isHealthy: !!(
-            userData.name &&
-            userData.email &&
-            userData.userThings?.notePadUrl
-          ),
-        }
-      };
-    }),
+      },
+    });
+
+    if (!userData) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "User not found",
+      });
+    }
+
+    return {
+      settings: {
+        notePadUrl: userData.userThings?.notePadUrl ?? "",
+        privateOrPublicUrl: userData.userThings?.privateOrPublicUrl ?? true,
+        password: userData.userThings?.password ?? null,
+      },
+      health: {
+        isHealthy: !!(
+          userData.name &&
+          userData.email &&
+          userData.userThings?.notePadUrl
+        ),
+      },
+    };
+  }),
 });

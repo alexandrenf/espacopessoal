@@ -152,7 +152,7 @@ function SpellCheckDiffView({
           Aceitar todas
         </Button>
       </div>
-      <div className="hidden md:block bg-blue-50 p-3 text-sm text-blue-700 border-b">
+      <div className="hidden border-b bg-blue-50 p-3 text-sm text-blue-700 md:block">
         Retorne ao modo de escrita após finalizar as correções
       </div>
       <div className="flex-1 overflow-auto">
@@ -163,10 +163,7 @@ function SpellCheckDiffView({
               key={diff.id}
               onMouseEnter={() => onHoverDiff(diff.id ?? null)}
               onMouseLeave={() => onHoverDiff(null)}
-              className={`
-                border-b p-4 transition-colors 
-                ${isHovered ? "bg-blue-50" : "hover:bg-gray-50"}
-              `}
+              className={`border-b p-4 transition-colors ${isHovered ? "bg-blue-50" : "hover:bg-gray-50"} `}
             >
               <div className="mb-2 text-sm text-gray-500">
                 Encontrado:{" "}
@@ -178,14 +175,16 @@ function SpellCheckDiffView({
                   &ldquo;{diff.suggestion}&rdquo;
                 </span>
               </div>
-              <div className="mt-2 text-sm text-gray-600">
-                {diff.reason}
-              </div>
+              <div className="mt-2 text-sm text-gray-600">{diff.reason}</div>
               <div className="mt-3 flex gap-2">
                 <Button size="sm" onClick={() => onAccept(diff)}>
                   Aceitar
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => onReject(diff)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onReject(diff)}
+                >
                   Rejeitar
                 </Button>
               </div>
@@ -217,7 +216,7 @@ function ReplacementPopup({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="fixed left-1/2 top-[120px] z-30 -translate-x-1/2 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 shadow-lg border border-gray-200/50 backdrop-blur-md"
+      className="fixed left-1/2 top-[120px] z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md"
     >
       <div className="flex items-center gap-2 text-sm">
         <span className="text-red-500">{word}</span>
@@ -269,7 +268,9 @@ const Editor: React.FC<EditorProps> = ({
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isDictionaryModalOpen, setIsDictionaryModalOpen] = useState(false);
-  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>([]);
+  const [spellCheckResults, setSpellCheckResults] = useState<SpellCheckDiff[]>(
+    [],
+  );
   const [isSpellChecking, setIsSpellChecking] = useState(false);
   const [hoveredDiffId, setHoveredDiffId] = useState<string | null>(null);
   const [replacementSuggestion, setReplacementSuggestion] = useState<{
@@ -281,7 +282,7 @@ const Editor: React.FC<EditorProps> = ({
   } | null>(null);
   const [saveError, setSaveError] = useState(false);
   const [recentlyRejected, setRecentlyRejected] = useState<string | null>(null);
-  
+
   const suggestionTimeoutRef = useRef<NodeJS.Timeout>();
 
   const converter = useMemo(
@@ -300,10 +301,13 @@ const Editor: React.FC<EditorProps> = ({
   const sidebarOpen = spellCheckResults.length > 0;
 
   // Get dictionary data
-  const { data: dictionaryData = [] } = publicOrPrivate 
-    ? api.dictionary.getPublicDictionary.useQuery({ userId: session?.user?.id ?? "", createdById: currentNote.createdById })
+  const { data: dictionaryData = [] } = publicOrPrivate
+    ? api.dictionary.getPublicDictionary.useQuery({
+        userId: session?.user?.id ?? "",
+        createdById: currentNote.createdById,
+      })
     : api.dictionary.getDictionary.useQuery(undefined, {
-        enabled: !!session?.user
+        enabled: !!session?.user,
       });
 
   // Update content when currentNote changes
@@ -311,9 +315,9 @@ const Editor: React.FC<EditorProps> = ({
     if (currentNote) {
       // Only update if we're switching to a different note
       if (currentNoteIdRef.current !== currentNote.id) {
-        const lines = currentNote.content.split('\n');
-        setTitle(lines[0] ?? '');
-        setContent(lines.slice(1).join('\n'));
+        const lines = currentNote.content.split("\n");
+        setTitle(lines[0] ?? "");
+        setContent(lines.slice(1).join("\n"));
         currentNoteIdRef.current = currentNote.id;
       }
     }
@@ -329,41 +333,60 @@ const Editor: React.FC<EditorProps> = ({
   );
 
   // New function to find all possible replacements in text
-  const findReplacements = useCallback((text: string) => {
-    if (!dictionaryData) return [];
-    
-    const result = [];
-    for (const entry of dictionaryData) {
-      const regex = new RegExp(entry.from, 'g');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        result.push({
-          from: entry.from,
-          to: entry.to,
-          start: match.index,
-          end: match.index + entry.from.length
-        });
+  const findReplacements = useCallback(
+    (text: string) => {
+      if (!dictionaryData) return [];
+
+      const result = [];
+      for (const entry of dictionaryData) {
+        const regex = new RegExp(entry.from, "g");
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          result.push({
+            from: entry.from,
+            to: entry.to,
+            start: match.index,
+            end: match.index + entry.from.length,
+          });
+        }
       }
-    }
-    return result;
-  }, [dictionaryData]);
+      return result;
+    },
+    [dictionaryData],
+  );
 
   // New function to apply all replacements to text
-  const applyReplacements = useCallback((text: string, replacements: Array<{ from: string; to: string; start: number; end: number }>) => {
-    let result = text;
-    // Apply replacements from end to start to avoid index issues
-    for (let i = replacements.length - 1; i >= 0; i--) {
-      const replacement = replacements[i];
-      if (!replacement || typeof replacement.from !== 'string' || typeof replacement.to !== 'string' || 
-          typeof replacement.start !== 'number' || typeof replacement.end !== 'number') {
-        continue;
+  const applyReplacements = useCallback(
+    (
+      text: string,
+      replacements: Array<{
+        from: string;
+        to: string;
+        start: number;
+        end: number;
+      }>,
+    ) => {
+      let result = text;
+      // Apply replacements from end to start to avoid index issues
+      for (let i = replacements.length - 1; i >= 0; i--) {
+        const replacement = replacements[i];
+        if (
+          !replacement ||
+          typeof replacement.from !== "string" ||
+          typeof replacement.to !== "string" ||
+          typeof replacement.start !== "number" ||
+          typeof replacement.end !== "number"
+        ) {
+          continue;
+        }
+
+        const { from, to, start, end } = replacement;
+        result = result.slice(0, start) + to + result.slice(end);
       }
-      
-      const { from, to, start, end } = replacement;
-      result = result.slice(0, start) + to + result.slice(end);
-    }
-    return result;
-  }, []);
+      return result;
+    },
+    [],
+  );
 
   // Define rejectReplacement first since it's used by other functions
   const rejectReplacement = useCallback(() => {
@@ -376,13 +399,12 @@ const Editor: React.FC<EditorProps> = ({
   // Then define acceptReplacement which uses rejectReplacement
   const acceptReplacement = useCallback(() => {
     if (!replacementSuggestion) return;
-    
+
     // Apply only the specific replacement we accepted
     const { start, end, replacement } = replacementSuggestion;
-    const newContent = content.slice(0, start) + 
-                      replacement + 
-                      content.slice(end + 1);
-    
+    const newContent =
+      content.slice(0, start) + replacement + content.slice(end + 1);
+
     // Update content without triggering save
     setContent(newContent);
     setReplacementSuggestion(null);
@@ -395,17 +417,18 @@ const Editor: React.FC<EditorProps> = ({
 
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.slice(0, cursorPosition);
-    
+
     const regex = /\S+$/;
     const lastWordMatch = regex.exec(textBeforeCursor);
     if (!lastWordMatch) return;
-    
+
     const lastWord = lastWordMatch[0];
     const lastWordStart = textBeforeCursor.lastIndexOf(lastWord);
-    
-    const match = dictionaryData?.find(entry => 
-      entry.from === lastWord || 
-      (lastWord.startsWith('@') && entry.from === lastWord.slice(1))
+
+    const match = dictionaryData?.find(
+      (entry) =>
+        entry.from === lastWord ||
+        (lastWord.startsWith("@") && entry.from === lastWord.slice(1)),
     );
 
     if (match && lastWord !== recentlyRejected) {
@@ -414,7 +437,7 @@ const Editor: React.FC<EditorProps> = ({
         replacement: match.to,
         start: lastWordStart,
         end: lastWordStart + lastWord.length - 1,
-        position: { top: 0, left: 0 }
+        position: { top: 0, left: 0 },
       });
     }
   }, [content, dictionaryData, recentlyRejected]);
@@ -426,76 +449,98 @@ const Editor: React.FC<EditorProps> = ({
       if (!replacementSuggestion && !skipUpdate) {
         updateNote(`${title.trim()}\n${newContent}`);
       }
-      
+
       // Remove this block as it's causing the issue
       // if (replacementSuggestion && !newContent.endsWith(' ')) {
       //   acceptReplacement();
       // }
-      
+
       // Check for new replacements
       handleTextReplace();
     },
-    [title, updateNote, replacementSuggestion, acceptReplacement, handleTextReplace],
+    [
+      title,
+      updateNote,
+      replacementSuggestion,
+      acceptReplacement,
+      handleTextReplace,
+    ],
   );
 
-  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
-    const textarea = textAreaRef.current;
-    if (!textarea || !content || !dictionaryData) return;
+  const handleKeyUp = useCallback(
+    (e: React.KeyboardEvent) => {
+      const textarea = textAreaRef.current;
+      if (!textarea || !content || !dictionaryData) return;
 
-    // If there's a replacement suggestion and space is pressed, accept it
-    // Only if it wasn't recently rejected
-    if (replacementSuggestion && e.key === ' ' && 
-        replacementSuggestion.word !== recentlyRejected) {
-      acceptReplacement();
-      return;
-    }
-
-    // Reset rejected state when a new word starts
-    if (e.key === ' ') {
-      setRecentlyRejected(null);
-    }
-
-    const cursorPosition = textarea.selectionStart;
-    const textBeforeCursor = content.slice(0, cursorPosition);
-    
-    // Get the last word before the cursor
-    const words = textBeforeCursor.split(/\s+/);
-    const lastWord = words[words.length - 1]?.trim();
-    
-    if (!lastWord) return;
-
-    // Find matching dictionary entry - try exact match first, then with @ prefix
-    let match = dictionaryData.find((entry: DictionaryEntry) => entry.from === lastWord);
-    
-    // If no exact match found, try matching with @ prefix
-    if (!match && lastWord.startsWith('@')) {
-      const wordWithoutPrefix = lastWord.slice(1); // Remove @ prefix
-      match = dictionaryData.find((entry: DictionaryEntry) => entry.from === wordWithoutPrefix);
-    }
-    
-    if (match) {
-      // Calculate word position
-      const wordStart = textBeforeCursor.lastIndexOf(lastWord);
-      const wordEnd = wordStart + lastWord.length;
-
-      // Set the replacement suggestion without position
-      setReplacementSuggestion({
-        word: lastWord,
-        replacement: match.to,
-        start: wordStart,
-        end: wordEnd,
-        position: { top: 0, left: 0 }
-      });
-
-      // Auto-accept after 2 seconds
-      if (suggestionTimeoutRef.current) {
-        clearTimeout(suggestionTimeoutRef.current);
-      }
-      suggestionTimeoutRef.current = setTimeout(() => {
+      // If there's a replacement suggestion and space is pressed, accept it
+      // Only if it wasn't recently rejected
+      if (
+        replacementSuggestion &&
+        e.key === " " &&
+        replacementSuggestion.word !== recentlyRejected
+      ) {
         acceptReplacement();
-      }, 2000);
-    }
-  }, [content, dictionaryData, acceptReplacement, replacementSuggestion, recentlyRejected]);
+        return;
+      }
+
+      // Reset rejected state when a new word starts
+      if (e.key === " ") {
+        setRecentlyRejected(null);
+      }
+
+      const cursorPosition = textarea.selectionStart;
+      const textBeforeCursor = content.slice(0, cursorPosition);
+
+      // Get the last word before the cursor
+      const words = textBeforeCursor.split(/\s+/);
+      const lastWord = words[words.length - 1]?.trim();
+
+      if (!lastWord) return;
+
+      // Find matching dictionary entry - try exact match first, then with @ prefix
+      let match = dictionaryData.find(
+        (entry: DictionaryEntry) => entry.from === lastWord,
+      );
+
+      // If no exact match found, try matching with @ prefix
+      if (!match && lastWord.startsWith("@")) {
+        const wordWithoutPrefix = lastWord.slice(1); // Remove @ prefix
+        match = dictionaryData.find(
+          (entry: DictionaryEntry) => entry.from === wordWithoutPrefix,
+        );
+      }
+
+      if (match) {
+        // Calculate word position
+        const wordStart = textBeforeCursor.lastIndexOf(lastWord);
+        const wordEnd = wordStart + lastWord.length;
+
+        // Set the replacement suggestion without position
+        setReplacementSuggestion({
+          word: lastWord,
+          replacement: match.to,
+          start: wordStart,
+          end: wordEnd,
+          position: { top: 0, left: 0 },
+        });
+
+        // Auto-accept after 2 seconds
+        if (suggestionTimeoutRef.current) {
+          clearTimeout(suggestionTimeoutRef.current);
+        }
+        suggestionTimeoutRef.current = setTimeout(() => {
+          acceptReplacement();
+        }, 2000);
+      }
+    },
+    [
+      content,
+      dictionaryData,
+      acceptReplacement,
+      replacementSuggestion,
+      recentlyRejected,
+    ],
+  );
 
   //
   // --- Spell Check Logic ---
@@ -505,19 +550,20 @@ const Editor: React.FC<EditorProps> = ({
   const handleSpellCheck = async () => {
     try {
       setIsSpellChecking(true);
-      
+
       // Use the Deno Deploy API instead of the Vercel Edge Function
       // In production, use the production API URL, in development use the local API URL
-      const denoApiUrl = process.env.NEXT_PUBLIC_DENO_API_URL ?? 'http://localhost:8000';
-        
+      const denoApiUrl =
+        process.env.NEXT_PUBLIC_DENO_API_URL ?? "http://localhost:8000";
+
       console.log(`Using API URL: ${denoApiUrl}`);
-      
+
       const resp = await fetch(`${denoApiUrl}/api/spellcheck`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: content }),
       });
-      
+
       const data = (await resp.json()) as SpellCheckResponse;
 
       // Add IDs so we can map them more easily
@@ -527,14 +573,14 @@ const Editor: React.FC<EditorProps> = ({
       }));
 
       setSpellCheckResults(diffsWithIds);
-      
+
       if (diffsWithIds.length === 0) {
         // Show success animation
-        const button = document.querySelector('[data-spellcheck-button]');
+        const button = document.querySelector("[data-spellcheck-button]");
         if (button) {
-          button.classList.add('animate-success');
+          button.classList.add("animate-success");
           setTimeout(() => {
-            button.classList.remove('animate-success');
+            button.classList.remove("animate-success");
           }, 2000);
         }
       } else {
@@ -644,14 +690,14 @@ const Editor: React.FC<EditorProps> = ({
     if (!textAreaRef.current) return;
     const start = textAreaRef.current.selectionStart;
     const end = textAreaRef.current.selectionEnd;
-    
+
     // If no text is selected, convert entire content
     if (start === end) {
       const newContent = content.toUpperCase();
       handleContentChange(newContent);
       return;
     }
-    
+
     // If text is selected, convert only selection
     const beforeText = content.substring(0, start);
     const selectedText = content.substring(start, end).toUpperCase();
@@ -700,16 +746,21 @@ const Editor: React.FC<EditorProps> = ({
     if (diffs.length === 0) {
       const htmlContent = converter.makeHtml(text);
       const sanitizedHtml = DOMPurify.sanitize(htmlContent);
-      return <div className="prose prose-slate max-w-none" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
+      return (
+        <div
+          className="prose prose-slate max-w-none"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
+      );
     }
 
     // For spell check, we need to display the original text with highlighted errors
     // Update the diffs to ensure they have correct positions
     const updatedDiffs = recalcDiffPositions(text, diffs);
-    
+
     // Sort diffs by ascending start position
     const sortedDiffs = [...updatedDiffs].sort((a, b) => a.start - b.start);
-    
+
     // Create elements array to build our output
     const elements: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -718,18 +769,16 @@ const Editor: React.FC<EditorProps> = ({
     for (const diff of sortedDiffs) {
       // Skip invalid diffs
       if (diff.start < 0 || diff.start >= text.length || !diff.id) continue;
-      
+
       // Add text before the diff as a plain text node
       if (diff.start > lastIndex) {
         const beforeText = text.slice(lastIndex, diff.start);
         // Only add if there's text
         if (beforeText) {
-          elements.push(
-            <span key={`text-${lastIndex}`}>{beforeText}</span>
-          );
+          elements.push(<span key={`text-${lastIndex}`}>{beforeText}</span>);
         }
       }
-      
+
       // Add the highlighted diff text (not converted to HTML)
       const diffText = text.slice(diff.start, diff.end + 1);
       const isHovered = diff.id === hoveredId;
@@ -739,18 +788,17 @@ const Editor: React.FC<EditorProps> = ({
           key={diff.id}
           onMouseEnter={() => setHoveredDiffId(diff.id ?? null)}
           onMouseLeave={() => setHoveredDiffId(null)}
-          className={`
-            inline cursor-pointer transition-all duration-200
-            ${isHovered 
-              ? "bg-blue-100 text-blue-900 rounded px-0.5" 
-              : "bg-yellow-50 border-b-2 border-yellow-300"}
-          `}
+          className={`inline cursor-pointer transition-all duration-200 ${
+            isHovered
+              ? "rounded bg-blue-100 px-0.5 text-blue-900"
+              : "border-b-2 border-yellow-300 bg-yellow-50"
+          } `}
           onClick={() => handleAcceptDiff(diff)}
         >
           {diffText}
-        </span>
+        </span>,
       );
-      
+
       lastIndex = diff.end + 1;
     }
 
@@ -758,14 +806,16 @@ const Editor: React.FC<EditorProps> = ({
     if (lastIndex < text.length) {
       const afterText = text.slice(lastIndex);
       if (afterText) {
-        elements.push(
-          <span key={`text-end`}>{afterText}</span>
-        );
+        elements.push(<span key={`text-end`}>{afterText}</span>);
       }
     }
 
     // Wrap the elements. Revert to prose styling.
-    return <div className="prose prose-slate max-w-none whitespace-pre-wrap">{elements}</div>;
+    return (
+      <div className="prose prose-slate max-w-none whitespace-pre-wrap">
+        {elements}
+      </div>
+    );
   }
 
   //
@@ -774,14 +824,12 @@ const Editor: React.FC<EditorProps> = ({
   const renderContent = () => {
     if (selectedTab === "preview") {
       return (
-        <div
-          className="h-[calc(100vh-10rem)] w-full rounded-lg bg-white/50 p-6 shadow-sm backdrop-blur-sm overflow-y-auto"
-        >
+        <div className="h-[calc(100vh-10rem)] w-full overflow-y-auto rounded-lg bg-white/50 p-6 shadow-sm backdrop-blur-sm">
           {buildPreviewElements(
             content,
             spellCheckResults,
             hoveredDiffId,
-            converter
+            converter,
           )}
         </div>
       );
@@ -803,7 +851,7 @@ const Editor: React.FC<EditorProps> = ({
             {content.length} characters
           </div>
         </div>
-        
+
         {/* Replacement Popup - moved outside the textarea container */}
         <AnimatePresence>
           {replacementSuggestion && (
@@ -848,7 +896,7 @@ const Editor: React.FC<EditorProps> = ({
       />
 
       {/* Editor Column */}
-      <motion.div 
+      <motion.div
         layout
         className="flex-1 md:flex-1 md:[&[style*='margin-bottom']]:mb-0"
         animate={{
@@ -885,7 +933,11 @@ const Editor: React.FC<EditorProps> = ({
             )}
           </AnimatePresence>
 
-          <div className={isLoading ? "opacity-50 transition-all" : "transition-all"}>
+          <div
+            className={
+              isLoading ? "opacity-50 transition-all" : "transition-all"
+            }
+          >
             {/* ---------- HEADER BAR ---------- */}
             <div className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200/50 bg-white/70 p-4 shadow-sm backdrop-blur-md">
               {/* Title field */}
@@ -915,8 +967,8 @@ const Editor: React.FC<EditorProps> = ({
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`fixed md:relative top-20 right-4 md:top-auto md:right-auto flex items-center gap-2 rounded-full px-4 py-2 shadow-sm z-30 ${
-                      saveError ? 'bg-red-50' : 'bg-green-50'
+                    className={`fixed right-4 top-20 z-30 flex items-center gap-2 rounded-full px-4 py-2 shadow-sm md:relative md:right-auto md:top-auto ${
+                      saveError ? "bg-red-50" : "bg-green-50"
                     }`}
                   >
                     {saveError ? (
@@ -924,10 +976,12 @@ const Editor: React.FC<EditorProps> = ({
                     ) : (
                       <Save className="h-4 w-4 animate-pulse text-green-500" />
                     )}
-                    <span className={`text-sm font-medium hidden md:inline ${
-                      saveError ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {saveError ? 'Erro ao salvar' : 'Salvando...'}
+                    <span
+                      className={`hidden text-sm font-medium md:inline ${
+                        saveError ? "text-red-600" : "text-green-600"
+                      }`}
+                    >
+                      {saveError ? "Erro ao salvar" : "Salvando..."}
                     </span>
                   </motion.div>
                 )}
@@ -1072,9 +1126,7 @@ const Editor: React.FC<EditorProps> = ({
                 </div>
 
                 {/* Main editor content */}
-                <div className="relative">
-                  {renderContent()}
-                </div>
+                <div className="relative">{renderContent()}</div>
               </Tabs>
             </div>
           </div>
@@ -1088,13 +1140,7 @@ const Editor: React.FC<EditorProps> = ({
                 y: isToolbarVisible ? 0 : -20,
               }}
               transition={{ duration: 0.2 }}
-              className={`
-                fixed left-1/2 z-30 -translate-x-1/2 
-                max-w-[calc(100vw-2rem)] mx-auto
-                rounded-full border border-gray-200/50 bg-white/90 p-2 
-                shadow-lg backdrop-blur-md md:hidden
-                ${sidebarOpen && 'bottom-[45vh]'} // Move up when spell checker is open
-              `}
+              className={`fixed left-1/2 z-30 mx-auto max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full border border-gray-200/50 bg-white/90 p-2 shadow-lg backdrop-blur-md md:hidden ${sidebarOpen && "bottom-[45vh]"} // Move up when spell checker is open`}
             >
               <div className="flex items-center gap-2">
                 <Button
@@ -1146,11 +1192,7 @@ const Editor: React.FC<EditorProps> = ({
                 >
                   <Code className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={convertToUppercase}
-                >
+                <Button variant="ghost" size="sm" onClick={convertToUppercase}>
                   <ArrowUpRight className="h-4 w-4" />
                 </Button>
               </div>

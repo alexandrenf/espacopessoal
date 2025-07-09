@@ -15,4 +15,4 @@ export function Threads({ editor }: ThreadsProps) {
       {/* For now, this is just a placeholder */}
     </div>
   );
-} 
+}

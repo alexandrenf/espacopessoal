@@ -49,7 +49,7 @@ export default defineSchema({
       searchField: "title",
       filterFields: ["ownerId", "organizationId"],
     }),
-    
+
   documentPermissions: defineTable({
     documentId: v.id("documents"),
     userId: v.string(), // TODO: Change to v.id("users") after auth migration
@@ -81,4 +81,4 @@ export default defineSchema({
   })
     .index("by_url", ["url"])
     .index("by_document_id", ["documentId"]),
-}); 
+});

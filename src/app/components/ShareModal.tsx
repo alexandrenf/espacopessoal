@@ -43,53 +43,59 @@ interface SharedNote {
   };
 }
 
-
-export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps) {
+export function ShareModal({
+  isOpen,
+  onClose,
+  noteId,
+  session,
+}: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const utils = api.useUtils();
 
   const { data, isLoading } = api.notes.getSharedNoteByNoteId.useQuery(
     { noteId },
-    { enabled: isOpen }
+    { enabled: isOpen },
   );
 
   // Use the new response structure
   const isOwner = data?.isOwner ?? false;
   const existingSharedNote = data?.sharedNote;
 
-  const { mutate: createSharedNote, isPending: isCreating } = api.notes.createSharedNote.useMutation({
-    onSuccess: () => {
-      void utils.notes.getSharedNoteByNoteId.invalidate({ noteId });
-      toast({
-        title: "Link criado com sucesso!",
-        description: "Agora você pode compartilhar sua nota.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro ao criar link",
-        description: "Não foi possível criar o link de compartilhamento.",
-        variant: "destructive",
-      });
-    },
-  });
+  const { mutate: createSharedNote, isPending: isCreating } =
+    api.notes.createSharedNote.useMutation({
+      onSuccess: () => {
+        void utils.notes.getSharedNoteByNoteId.invalidate({ noteId });
+        toast({
+          title: "Link criado com sucesso!",
+          description: "Agora você pode compartilhar sua nota.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Erro ao criar link",
+          description: "Não foi possível criar o link de compartilhamento.",
+          variant: "destructive",
+        });
+      },
+    });
 
-  const { mutate: deleteSharedNote, isPending: isDeleting } = api.notes.deleteSharedNote.useMutation({
-    onSuccess: () => {
-      void utils.notes.getSharedNoteByNoteId.invalidate({ noteId });
-      toast({
-        title: "Link deletado",
-        description: "O link de compartilhamento foi removido.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro ao deletar link",
-        description: "Não foi possível remover o link de compartilhamento.",
-        variant: "destructive",
-      });
-    },
-  });
+  const { mutate: deleteSharedNote, isPending: isDeleting } =
+    api.notes.deleteSharedNote.useMutation({
+      onSuccess: () => {
+        void utils.notes.getSharedNoteByNoteId.invalidate({ noteId });
+        toast({
+          title: "Link deletado",
+          description: "O link de compartilhamento foi removido.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Erro ao deletar link",
+          description: "Não foi possível remover o link de compartilhamento.",
+          variant: "destructive",
+        });
+      },
+    });
 
   const getShareUrl = (note: SharedNote) => {
     return `${window.location.origin}/notas/view/${note.url}`;
@@ -108,7 +114,8 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
     } catch (error) {
       toast({
         title: "Erro ao copiar",
-        description: "Não foi possível copiar o link. Tente selecionar e copiar manualmente.",
+        description:
+          "Não foi possível copiar o link. Tente selecionar e copiar manualmente.",
         variant: "destructive",
       });
     }
@@ -135,7 +142,7 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex justify-center items-center py-8">
+          <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
         ) : existingSharedNote ? (
@@ -143,7 +150,8 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
             <p className="text-sm text-muted-foreground">
               Link de visualização da nota.
               <span className="mt-2 block">
-                Compartilhado por {existingSharedNote.note.createdBy.name ?? "você"}
+                Compartilhado por{" "}
+                {existingSharedNote.note.createdBy.name ?? "você"}
               </span>
             </p>
             <div className="flex items-center gap-2">
@@ -196,7 +204,10 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
         ) : !session ? (
           <p className="text-sm text-muted-foreground">
             Você precisa estar logado para compartilhar notas.
-            <Link href="/api/auth/signin" className="ml-1 text-blue-500 hover:underline">
+            <Link
+              href="/api/auth/signin"
+              className="ml-1 text-blue-500 hover:underline"
+            >
               Fazer login
             </Link>
           </p>
@@ -207,7 +218,8 @@ export function ShareModal({ isOpen, onClose, noteId, session }: ShareModalProps
         ) : (
           <div>
             <p className="text-sm text-muted-foreground">
-              Crie um link de visualização para compartilhar sua nota. Quem tiver acesso ao link poderá apenas ler o conteúdo.
+              Crie um link de visualização para compartilhar sua nota. Quem
+              tiver acesso ao link poderá apenas ler o conteúdo.
             </p>
             <Button
               onClick={handleCreate}
