@@ -31,7 +31,8 @@ describe('DocumentEditor', () => {
     isFolder: false,
   };
 
-  const mockMutation = jest.fn();
+  const mockMutation = jest.fn() as any;
+  mockMutation.withOptimisticUpdate = jest.fn().mockReturnValue(mockMutation);
 
   beforeEach(() => {
     jest.clearAllMocks();

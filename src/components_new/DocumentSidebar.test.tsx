@@ -289,9 +289,11 @@ describe('DocumentSidebar Drag and Drop', () => {
       const dropNode = treeNodes[0]; // Document 1
       
       // Simulate drag and drop to reorder
-      fireEvent(dragNode, createDragEvent('dragstart'));
-      fireEvent(dropNode, createDragEvent('dragover'));
-      fireEvent(dropNode, createDragEvent('drop'));
+      if (dragNode && dropNode) {
+        fireEvent(dragNode, createDragEvent('dragstart'));
+        fireEvent(dropNode, createDragEvent('dragover'));
+        fireEvent(dropNode, createDragEvent('drop'));
+      }
       
       // Verify structure update was called
       await waitFor(() => {
@@ -328,9 +330,11 @@ describe('DocumentSidebar Drag and Drop', () => {
       const dragNode = treeNodes[0];
       const dropNode = treeNodes[1];
       
-      fireEvent(dragNode, createDragEvent('dragstart'));
-      fireEvent(dropNode, createDragEvent('dragover'));
-      fireEvent(dropNode, createDragEvent('drop'));
+      if (dragNode && dropNode) {
+        fireEvent(dragNode, createDragEvent('dragstart'));
+        fireEvent(dropNode, createDragEvent('dragover'));
+        fireEvent(dropNode, createDragEvent('drop'));
+      }
       
       // Verify error handling
       await waitFor(() => {
@@ -372,8 +376,10 @@ describe('DocumentSidebar Drag and Drop', () => {
       const dragNode = treeNodes[0];
       const dropNode = treeNodes[1];
       
-      fireEvent(dragNode, createDragEvent('dragstart'));
-      fireEvent(dropNode, createDragEvent('drop'));
+      if (dragNode && dropNode) {
+        fireEvent(dragNode, createDragEvent('dragstart'));
+        fireEvent(dropNode, createDragEvent('drop'));
+      }
       
       // Should not call updateStructure for unauthenticated user
       await waitFor(() => {
@@ -401,8 +407,10 @@ describe('DocumentSidebar Drag and Drop', () => {
       const dragNode = treeNodes[0];
       const dropNode = treeNodes[1];
       
-      fireEvent(dragNode, createDragEvent('dragstart'));
-      fireEvent(dropNode, createDragEvent('drop'));
+      if (dragNode && dropNode) {
+        fireEvent(dragNode, createDragEvent('dragstart'));
+        fireEvent(dropNode, createDragEvent('drop'));
+      }
       
       // Verify that orders are normalized (sequential starting from 0)
       await waitFor(() => {
