@@ -191,7 +191,7 @@ const DocumentSidebar = memo(({
     rootDocuments.sort((a, b) => a.order - b.order);
     
     const makeTreeNode = (document: DocumentWithTreeProps, level = 0): CustomDataNode => {
-      const children = childrenMap.get(document._id) || [];
+      const children = childrenMap.get(document._id) ?? [];
       
       return {
         key: document._id.toString(),
@@ -420,7 +420,7 @@ const DocumentSidebar = memo(({
     });
     
     return documents.map((doc: DocumentWithTreeProps) => 
-      updated.get(doc._id) || doc
+      updated.get(doc._id) ?? doc
     );
   }, []);
 
@@ -443,7 +443,7 @@ const DocumentSidebar = memo(({
     });
     
     return documents.map((doc: DocumentWithTreeProps) => 
-      updated.get(doc._id) || doc
+      updated.get(doc._id) ?? doc
     );
   }, []);
 
