@@ -439,6 +439,64 @@ const convertXmlFragmentToHtml = (fragment: Y.XmlFragment): string => {
   return html;
 };
 
+// Helper function to convert HTML back to Y.js fragment (reverse of conversion)
+const convertHtmlToYjsFragment = (htmlContent: string, fragment: Y.XmlFragment): void => {
+  try {
+    console.log(`[${new Date().toISOString()}] Converting HTML to Y.js fragment:`, htmlContent.substring(0, 200));
+    
+    // Simple HTML to Y.js conversion - handles basic ProseMirror structure
+    // This is a basic implementation that can be expanded for more complex HTML
+    
+    // Remove outer tags and clean up the content
+    const content = htmlContent.trim();
+    
+    // Handle paragraph tags
+    if (content.includes('<p>')) {
+      const paragraphs = content.split(/<\/?p>/g).filter(p => p.trim());
+      
+      for (const paragraphText of paragraphs) {
+        if (paragraphText.trim()) {
+          const paragraph = new Y.XmlElement('paragraph');
+          
+          // Handle simple text content (can be expanded for formatting)
+          if (paragraphText.includes('<')) {
+            // Has HTML formatting - basic handling
+            const cleanText = paragraphText.replace(/<[^>]*>/g, ''); // Strip HTML for now
+            if (cleanText.trim()) {
+              paragraph.insert(0, [new Y.XmlText(cleanText.trim())]);
+            }
+          } else {
+            // Plain text
+            paragraph.insert(0, [new Y.XmlText(paragraphText.trim())]);
+          }
+          
+          fragment.insert(fragment.length, [paragraph]);
+        }
+      }
+    } else {
+      // No paragraph tags - treat as single paragraph
+      const paragraph = new Y.XmlElement('paragraph');
+      const cleanText = content.replace(/<[^>]*>/g, ''); // Strip any HTML tags
+      if (cleanText.trim()) {
+        paragraph.insert(0, [new Y.XmlText(cleanText.trim())]);
+      }
+      fragment.insert(0, [paragraph]);
+    }
+    
+    console.log(`[${new Date().toISOString()}] Successfully converted HTML to Y.js fragment with ${fragment.length} elements`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Error converting HTML to Y.js fragment:`, error);
+    
+    // Fallback: create a simple paragraph with the content as text
+    const paragraph = new Y.XmlElement('paragraph');
+    const cleanText = htmlContent.replace(/<[^>]*>/g, '').trim();
+    if (cleanText) {
+      paragraph.insert(0, [new Y.XmlText(cleanText)]);
+      fragment.insert(0, [paragraph]);
+    }
+  }
+};
+
 // Helper function to convert Y.js XMLElement to HTML
 const convertXmlElementToHtml = (element: Y.XmlElement): string => {
   const nodeName = element.nodeName;
@@ -791,13 +849,50 @@ const server = new Server({
   },
   
   async onLoadDocument(data: onLoadDocumentPayload) {
-    const { documentName } = data;
+    const { documentName, document } = data;
     console.log(`[${new Date().toISOString()}] Loading document: ${documentName}`);
     
-    // For now, let the client handle initial content loading to avoid sync conflicts
-    // The server will focus on saving content changes made through collaboration
-    console.log(`[${new Date().toISOString()}] Letting client handle initial content for document ${documentName}`);
-    return null;
+    try {
+      // Load existing content from Convex database
+      const existingContent = await loadDocumentFromConvex(documentName);
+      
+      if (existingContent && existingContent.trim() && existingContent !== '<p></p>') {
+        console.log(`[${new Date().toISOString()}] Found existing content for ${documentName}, populating Y.js document`);
+        
+        // Convert HTML content to Y.js document structure
+        // We need to populate the 'default' fragment that TipTap uses
+        const fragment = document.getXmlFragment('default');
+        
+        // Clear any existing content
+        if (fragment.length > 0) {
+          fragment.delete(0, fragment.length);
+        }
+        
+        // Parse the HTML and convert to Y.js structure
+        // For now, we'll handle simple cases - this can be expanded for complex HTML
+        if (existingContent.includes('<')) {
+          // HTML content - convert to ProseMirror/Y.js structure
+          convertHtmlToYjsFragment(existingContent, fragment);
+        } else {
+          // Plain text content
+          const paragraph = new Y.XmlElement('paragraph');
+          if (existingContent.trim()) {
+            paragraph.insert(0, [new Y.XmlText(existingContent)]);
+          }
+          fragment.insert(0, [paragraph]);
+        }
+        
+        console.log(`[${new Date().toISOString()}] Successfully populated Y.js document for ${documentName} with ${fragment.length} elements`);
+        return document;
+      } else {
+        console.log(`[${new Date().toISOString()}] No existing content found for ${documentName}, starting with empty document`);
+        return document;
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error loading document ${documentName}:`, error);
+      // Return the document even if loading fails, so collaboration can still work
+      return document;
+    }
   },
   
   async onChange(data: onChangePayload) {
