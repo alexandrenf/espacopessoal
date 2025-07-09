@@ -297,6 +297,38 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
 
 const extractDocumentContent = (ydoc: Y.Doc): string => {
   try {
+    // Debug: Check what's in the root of the Y.js document
+    console.log('🔍 Y.js document structure:');
+    console.log('🔍 Document toString:', ydoc.toString());
+    
+    // Debug: Try to get all shared types from the document
+    console.log('🔍 Available shared types:');
+    const sharedTypes = ydoc.share;
+    console.log('🔍 Shared types:', Object.keys(sharedTypes));
+    
+    // Debug: Check specific common locations
+    const possibleKeys = ['prosemirror', 'default', 'doc', 'content', 'document'];
+    for (const key of possibleKeys) {
+      const map = ydoc.getMap(key);
+      if (map && map.size > 0) {
+        console.log(`🔍 Found non-empty map at key "${key}":`, Array.from(map.keys()));
+        for (const [mapKey, mapValue] of map.entries()) {
+          console.log(`🔍 ${key}.${mapKey}:`, typeof mapValue, mapValue);
+        }
+      }
+      
+      const array = ydoc.getArray(key);
+      if (array && array.length > 0) {
+        console.log(`🔍 Found non-empty array at key "${key}":`, array.length, 'items');
+        console.log(`🔍 Array content:`, array.toArray());
+      }
+      
+      const text = ydoc.getText(key);
+      if (text && text.length > 0) {
+        console.log(`🔍 Found non-empty text at key "${key}":`, text.toString());
+      }
+    }
+    
     const prosemirrorMap = ydoc.getMap('prosemirror');
     
     // Debug: Log all available keys in the prosemirror map
