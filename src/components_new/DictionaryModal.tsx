@@ -68,7 +68,9 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
 
   const privateDictionary = useQuery(
     api.dictionary.getDictionary,
-    isPrivate && session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip",
+    isPrivate && session?.user?.id
+      ? { userId: session.user.id as Id<"users"> }
+      : "skip",
   );
 
   // Use the appropriate dictionary based on isPrivate with proper type safety
@@ -136,7 +138,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     if (!session?.user?.id) return;
     setIsDeleting(true);
     try {
-      await deleteEntryMutation({ entryId: id, userId: session.user.id as Id<"users"> });
+      await deleteEntryMutation({
+        entryId: id,
+        userId: session.user.id as Id<"users">,
+      });
       toast.success("Entrada removida");
     } catch (error) {
       toast.error("Erro ao remover entrada");

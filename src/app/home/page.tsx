@@ -67,7 +67,8 @@ export default function HomePage() {
       setIsRedirecting(false);
       setHasError(true);
     }
-  }, [convexUserId, getOrCreateHomeDocument, safeNavigate, isRedirecting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convexUserId, getOrCreateHomeDocument, safeNavigate]);
 
   useEffect(() => {
     // If not authenticated, redirect to sign in
@@ -90,7 +91,7 @@ export default function HomePage() {
 
     // Create or get home document and redirect
     void createAndRedirect();
-  }, [status, isUserLoading, convexUserId, createAndRedirect]);
+  }, [status, isUserLoading, convexUserId, createAndRedirect, safeNavigate]);
 
   // Show error state if user data couldn't be loaded
   if (hasError) {

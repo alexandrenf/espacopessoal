@@ -42,26 +42,28 @@ export function CreateBoardDialog({
   const [color, setColor] = useState(PASTEL_COLORS[0]?.hex ?? "#FFB3BA");
   const utils = api.useUtils();
 
-  const { mutate: createBoard, isPending } = api.boards.createBoard.useMutation({
-    onMutate: async (_newBoard: CreateBoardInput) => {
-      await utils.boards.getBoards.cancel();
-      const prevData = utils.boards.getBoards.getInfiniteData({ limit: 10 });
-      onOpenChange(false);
-      return { prevData };
+  const { mutate: createBoard, isPending } = api.boards.createBoard.useMutation(
+    {
+      onMutate: async (_newBoard: CreateBoardInput) => {
+        await utils.boards.getBoards.cancel();
+        const prevData = utils.boards.getBoards.getInfiniteData({ limit: 10 });
+        onOpenChange(false);
+        return { prevData };
+      },
+      onError: (_error: unknown, _variables: unknown, context: unknown) => {
+        if (context && typeof context === "object" && "prevData" in context) {
+          utils.boards.getBoards.setInfiniteData(
+            { limit: 10 },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+            () => (context as any).prevData,
+          );
+        }
+      },
+      onSettled: () => {
+        void utils.boards.getBoards.invalidate();
+      },
     },
-    onError: (_error: unknown, _variables: unknown, context: unknown) => {
-      if (context && typeof context === 'object' && 'prevData' in context) {
-        utils.boards.getBoards.setInfiniteData(
-          { limit: 10 },
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-          () => (context as any).prevData,
-        );
-      }
-    },
-    onSettled: () => {
-      void utils.boards.getBoards.invalidate();
-    },
-  });
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

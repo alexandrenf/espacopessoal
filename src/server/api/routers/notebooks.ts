@@ -342,6 +342,250 @@ export const notebooksRouter = createTRPCRouter({
       }
     }),
 
+  // Get notebook with access control (public endpoint)
+  getWithAccess: publicProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+        password: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      try {
+        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+          url: input.url,
+          userId: ctx.session?.user?.id as Id<"users">,
+        });
+
+        // Determine access level based on isPrivate and password fields
+        let accessLevel: "public" | "password" | "private";
+        if (!notebook.isPrivate) {
+          accessLevel = "public";
+        } else if (notebook.password) {
+          accessLevel = "password";
+        } else {
+          accessLevel = "private";
+        }
+
+        // Check access permissions
+        const isOwner = ctx.session?.user?.id === notebook.ownerId;
+
+        if (accessLevel === "private" && !isOwner) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "This notebook is private",
+          });
+        }
+
+        if (accessLevel === "password" && !isOwner) {
+          if (!input.password) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Password required",
+            });
+          }
+
+          const validationResult = await ctx.convex.mutation(
+            api.notebooks.validatePassword,
+            {
+              url: input.url,
+              password: input.password,
+            },
+          );
+
+          if (!validationResult.valid) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Invalid password",
+            });
+          }
+        }
+
+        return {
+          ...notebook,
+          accessLevel,
+          hasAccess: true,
+          isOwner,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to fetch notebook",
+        });
+      }
+    }),
+
+  // Update notebook (public endpoint with access control)
+  updatePublic: publicProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+        password: z.string().optional(),
+        updates: z.object({
+          title: z.string().min(1).max(100).optional(),
+          description: z.string().max(500).optional(),
+          isPrivate: z.boolean().optional(),
+          password: z.string().optional(),
+        }),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      try {
+        // First get the notebook to check access
+        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+          url: input.url,
+          userId: ctx.session?.user?.id as Id<"users">,
+        });
+
+        // Determine access level
+        let accessLevel: "public" | "password" | "private";
+        if (!notebook.isPrivate) {
+          accessLevel = "public";
+        } else if (notebook.password) {
+          accessLevel = "password";
+        } else {
+          accessLevel = "private";
+        }
+
+        // Check access permissions
+        const isOwner = ctx.session?.user?.id === notebook.ownerId;
+
+        if (accessLevel === "private" && !isOwner) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "This notebook is private",
+          });
+        }
+
+        if (accessLevel === "password" && !isOwner) {
+          if (!input.password) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Password required",
+            });
+          }
+
+          const validationResult = await ctx.convex.mutation(
+            api.notebooks.validatePassword,
+            {
+              url: input.url,
+              password: input.password,
+            },
+          );
+
+          if (!validationResult.valid) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Invalid password",
+            });
+          }
+        }
+
+        // Update the notebook
+        await ctx.convex.mutation(api.notebooks.update, {
+          id: notebook._id as Id<"notebooks">,
+          title: input.updates.title,
+          description: input.updates.description,
+          isPrivate: input.updates.isPrivate,
+          password: input.updates.password,
+          userId: notebook.ownerId, // Use notebook owner ID
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to update notebook",
+        });
+      }
+    }),
+
+  // Delete notebook (restricted to authenticated users only)
+  deletePublic: publicProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+        password: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Notebook deletion is restricted to authenticated users only
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to delete a notebook",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      try {
+        // First get the notebook to check ownership
+        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+          url: input.url,
+          userId: ctx.session.user.id as Id<"users">,
+        });
+
+        // Only the owner can delete a notebook
+        const isOwner = ctx.session.user.id === notebook.ownerId;
+
+        if (!isOwner) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Only the notebook owner can delete it",
+          });
+        }
+
+        // Delete the notebook
+        await ctx.convex.mutation(api.notebooks.remove, {
+          id: notebook._id as Id<"notebooks">,
+          userId: notebook.ownerId, // Use notebook owner ID
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete notebook",
+        });
+      }
+    }),
+
   // Check if user has documents that need migration from DEFAULT_USER_ID
   checkMigrationNeeded: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session?.user?.id) {

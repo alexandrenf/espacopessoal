@@ -78,7 +78,10 @@ export function ShareModal({
     if (!existingSharedDocument) return;
     setIsDeleting(true);
     try {
-      await deleteSharedDocument({ url: existingSharedDocument.url, userId: userId as Id<"users"> });
+      await deleteSharedDocument({
+        url: existingSharedDocument.url,
+        userId: userId as Id<"users">,
+      });
       toast.success("Link de compartilhamento removido");
     } catch (error) {
       toast.error("Erro ao remover link de compartilhamento");

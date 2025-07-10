@@ -647,12 +647,9 @@ export const tasksConvexRouter = createTRPCRouter({
       }
 
       try {
-        const tasks = await ctx.convex.query(
-          api.tasks.getTasksWithReminders,
-          {
-            userId: user._id,
-          },
-        );
+        const tasks = await ctx.convex.query(api.tasks.getTasksWithReminders, {
+          userId: user._id,
+        });
 
         return tasks;
       } catch (error) {

@@ -146,8 +146,12 @@ export function TaskDialog({
       setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
       setStatus((task.status as TaskStatus) ?? "TODO");
       setReminderEnabled(task.reminderEnabled ?? false);
-      setReminderDateTime(task.reminderDateTime ? new Date(task.reminderDateTime) : undefined);
-      setReminderFrequency(task.reminderFrequency! as ReminderFrequency ?? "ONCE");
+      setReminderDateTime(
+        task.reminderDateTime ? new Date(task.reminderDateTime) : undefined,
+      );
+      setReminderFrequency(
+        (task.reminderFrequency! as ReminderFrequency) ?? "ONCE",
+      );
     } else if (!taskId) {
       // Only reset form when explicitly creating a new task
       setName("");
@@ -178,7 +182,7 @@ export function TaskDialog({
     }
 
     if (isEditMode && taskId) {
-      updateTask({ 
+      updateTask({
         taskId,
         status,
         description,
@@ -201,7 +205,8 @@ export function TaskDialog({
     }
   };
 
-  const isPending = (isCreating ?? false) || (isUpdating ?? false) || (isDeleting ?? false);
+  const isPending =
+    (isCreating ?? false) || (isUpdating ?? false) || (isDeleting ?? false);
 
   const handleDeleteConfirm = () => {
     if (!taskId) return;
@@ -352,10 +357,10 @@ export function TaskDialog({
                   type="submit"
                   disabled={Boolean(
                     isPending ??
-                    (reminderEnabled && !reminderDateTime) ??
-                    (reminderEnabled &&
-                      reminderDateTime &&
-                      reminderDateTime < new Date())
+                      (reminderEnabled && !reminderDateTime) ??
+                      (reminderEnabled &&
+                        reminderDateTime &&
+                        reminderDateTime < new Date()),
                   )}
                 >
                   {(isPending ?? false)

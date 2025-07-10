@@ -22,7 +22,7 @@ export const notificationsConvexRouter = createTRPCRouter({
       }
 
       try {
-        const { cursor, limit, includesSent } = input;
+        const { cursor, limit, includesSent: includeSent } = input;
 
         const result = await ctx.convex.query(
           api.scheduledNotifications.getScheduledNotifications,
@@ -32,7 +32,7 @@ export const notificationsConvexRouter = createTRPCRouter({
               ? (cursor as Id<"scheduledNotifications">)
               : undefined,
             limit,
-            includesSent,
+            includeSent,
           },
         );
 
@@ -511,13 +511,10 @@ export const notificationsConvexRouter = createTRPCRouter({
 
       try {
         // Update user's FCM token in user settings
-        const result = await ctx.convex.mutation(
-          api.userSettings.update,
-          {
-            userId: ctx.session.user.id as Id<"users">,
-            fcmToken: input.fcmToken,
-          },
-        );
+        const result = await ctx.convex.mutation(api.userSettings.update, {
+          userId: ctx.session.user.id as Id<"users">,
+          fcmToken: input.fcmToken,
+        });
 
         return result;
       } catch (error) {

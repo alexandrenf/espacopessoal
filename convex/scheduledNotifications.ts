@@ -14,7 +14,6 @@ export const createScheduledNotification = mutation({
     fcmToken: v.string(),
   },
   handler: async (ctx, args) => {
-
     // Validate title and body
     if (args.title.length < 1 || args.title.length > 200) {
       throw new Error(
@@ -61,11 +60,11 @@ export const getScheduledNotifications = query({
     userId: v.id("users"),
     cursor: v.optional(v.id("scheduledNotifications")),
     limit: v.optional(v.number()),
-    includesSent: v.optional(v.boolean()),
+    includeSent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 20;
-    const includeSent = args.includesSent ?? false;
+    const includeSent = args.includeSent ?? false;
 
     let query = ctx.db
       .query("scheduledNotifications")
@@ -98,6 +97,12 @@ export const getPendingNotifications = query({
     beforeTimestamp: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
     const timestamp = args.beforeTimestamp ?? Date.now();
 
     const notifications = await ctx.db
@@ -124,6 +129,12 @@ export const markNotificationAsSent = mutation({
     const notification = await ctx.db.get(args.notificationId);
     if (!notification) {
       throw new Error("Notification not found");
+    }
+
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
     }
 
     if (notification.userId !== args.userId) {
@@ -156,6 +167,12 @@ export const updateScheduledNotification = mutation({
     const notification = await ctx.db.get(args.notificationId);
     if (!notification) {
       throw new Error("Notification not found");
+    }
+
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
     }
 
     if (notification.userId !== args.userId) {
@@ -234,6 +251,12 @@ export const deleteScheduledNotification = mutation({
       throw new Error("Notification not found");
     }
 
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
     if (notification.userId !== args.userId) {
       throw new Error("You don't have permission to delete this notification");
     }
@@ -257,6 +280,12 @@ export const getNotification = query({
       throw new Error("Notification not found");
     }
 
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
     if (notification.userId !== args.userId) {
       throw new Error("You don't have permission to view this notification");
     }
@@ -276,6 +305,12 @@ export const createTaskReminderNotification = mutation({
     fcmToken: v.string(),
   },
   handler: async (ctx, args) => {
+    // Validate user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
     // Get task details
     const task = await ctx.db.get(args.taskId);
     if (!task) {

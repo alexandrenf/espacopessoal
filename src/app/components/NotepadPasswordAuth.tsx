@@ -23,7 +23,8 @@ export function NotepadPasswordAuth({
       onAuthenticated(password);
     },
     onError: (error: unknown) => {
-      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      const errorMessage =
+        error instanceof Error ? error.message : "An error occurred";
       toast.error("Error", {
         description: errorMessage,
       });

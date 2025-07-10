@@ -246,7 +246,7 @@ export default function DocumentPage() {
   // Pass the initial document to DocumentEditor - it will handle all document switching internally
   return (
     <ErrorBoundary>
-      <DocumentEditor document={initialDocument!} />
+      {initialDocument && <DocumentEditor document={initialDocument} />}
     </ErrorBoundary>
   );
 }

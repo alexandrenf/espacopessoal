@@ -12,17 +12,11 @@ import {
   Sparkles,
   Heart,
   Settings,
-  AlertCircle,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { api } from "~/trpc/react";
-// import { useQuery } from "convex/react";
-// import { api as convexApi } from "../../../convex/_generated/api";
 import { Button } from "~/components/ui/button";
-// import { type Id } from "../../../convex/_generated/dataModel";
 import { cn } from "~/lib/utils";
-import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
 import React from "react";
 
 interface FeatureCardProps {
@@ -245,86 +239,12 @@ export function UserDashboard() {
     }
   }, []);
 
-  // Use Convex query instead of tRPC (temporarily disabled until API is generated)
-  // const userSettings = useQuery(
-  //   convexApi.userSettings.getUserSettingsAndHealth,
-  //   status === "authenticated" && session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip"
-  // );
-
-  // Temporary fallback data until Convex API is properly generated
-  const userSettings = status === "authenticated" ? null : undefined;
-  const isLoading = userSettings === undefined && status === "authenticated";
-  const data = userSettings ?? {
-    settings: {
-      notePadUrl: "",
-      privateOrPublicUrl: true,
-      password: null,
-    },
-    health: {
-      isHealthy: false,
-    },
-  };
-
-  // Get user's notebooks
-  const { data: notebooks, isLoading: notebooksLoading } =
-    api.notebooks.getByOwner.useQuery(undefined, {
-      enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-      gcTime: 10 * 60 * 1000,
-    });
-
-  // Check if migration is needed
-  const migrationQuery = api.notebooks.checkMigrationNeeded.useQuery(
-    undefined,
-    {
-      enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000,
-    },
-  );
-
-  // Safely extract migration status, handling potential errors
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const migrationStatus = migrationQuery.error ? null : migrationQuery.data;
-
-  // Get the tRPC utils for invalidation
-  const utils = api.useUtils();
-
-  // Migration mutation
-  const migrateDocs = api.notebooks.migrateDocuments.useMutation({
-    onSuccess: () => {
-      // Refetch migration status to update UI
-      void utils.notebooks.checkMigrationNeeded.invalidate();
-      // Also refetch notebooks in case any were created during migration
-      void utils.notebooks.getByOwner.invalidate();
-    },
-  });
-
   // Show loading state while authentication is being checked
-  if (status === "loading" || isLoading || notebooksLoading) {
+  if (status === "loading") {
     return <LoadingState />;
   }
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "Usuário";
-  const hasNotebooks = Boolean(notebooks && notebooks.length > 0);
-  const notebookCount = notebooks?.length ?? 0;
-
-  // Type guard for migration status
-  const isValidMigrationStatus = (
-    status: unknown,
-  ): status is {
-    migrationNeeded: boolean;
-    defaultUserDocumentsCount: number;
-  } => {
-    return (
-      status !== null &&
-      typeof status === "object" &&
-      "migrationNeeded" in status &&
-      "defaultUserDocumentsCount" in status
-    );
-  };
-
-  const shouldShowMigration =
-    isValidMigrationStatus(migrationStatus) && migrationStatus.migrationNeeded;
 
   return (
     <main
@@ -508,55 +428,18 @@ export function UserDashboard() {
           </div>
         </motion.div>
 
-        {/* Migration Alert */}
-        {shouldShowMigration && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">
-                Documentos Encontrados
-              </AlertTitle>
-              <AlertDescription className="text-blue-700">
-                Encontramos{" "}
-                {isValidMigrationStatus(migrationStatus)
-                  ? migrationStatus.defaultUserDocumentsCount
-                  : 0}{" "}
-                documento(s) que precisam ser organizados.
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-2"
-                  onClick={() => migrateDocs.mutate()}
-                  disabled={migrateDocs.isPending}
-                >
-                  {migrateDocs.isPending ? "Organizando..." : "Organizar Agora"}
-                </Button>
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-
         {/* Enhanced Features Grid */}
         <div className="mb-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence>
-            {status === "authenticated" && !isLoading && !notebooksLoading && (
+            {status === "authenticated" && (
               <FeatureCard
                 key="notebooks"
                 index={0}
-                title="Meus Notebooks"
-                description={
-                  hasNotebooks
-                    ? `Gerencie seus ${notebookCount} notebook${notebookCount > 1 ? "s" : ""} com editor colaborativo avançado. Organize suas ideias em coleções temáticas.`
-                    : "Crie e organize suas ideias em notebooks temáticos com editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
-                }
+                title="Notebooks"
+                description="Crie e organize suas ideias em notebooks temáticos com editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
                 icon={<Notebook className="h-8 w-8" />}
-                href={hasNotebooks ? "/notebooks" : "/notebooks"}
+                href="/notas"
                 isActive={true}
-                status={hasNotebooks ? "configured" : "unconfigured"}
               />
             )}
 
@@ -667,13 +550,11 @@ export function UserDashboard() {
                         className="rounded-2xl border-2 border-blue-200 px-8 py-6 text-lg text-blue-700 shadow-lg transition-all duration-300 hover:border-blue-300 hover:bg-blue-50 hover:shadow-xl"
                       >
                         <Link
-                          href="/notebooks"
+                          href="/notas"
                           className="group flex items-center gap-3"
                         >
                           <Notebook className="h-6 w-6" />
-                          {hasNotebooks
-                            ? "Gerenciar Notebooks"
-                            : "Criar Primeiro Notebook"}
+                          Notebooks
                           <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                         </Link>
                       </Button>

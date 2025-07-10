@@ -253,7 +253,10 @@ export function DocumentEditor({
     api.dictionary.getDictionary,
     userIdString ? { userId: userIdString } : "skip",
   );
-  const dictionary = useMemo(() => dictionaryQuery?.entries ?? [], [dictionaryQuery]);
+  const dictionary = useMemo(
+    () => dictionaryQuery?.entries ?? [],
+    [dictionaryQuery],
+  );
 
   // Update document title when document changes (but not when user is editing)
   useEffect(() => {

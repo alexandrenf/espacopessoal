@@ -10,22 +10,44 @@ import { DocumentEditor } from "~/components_new/DocumentEditor";
 import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
-import { useRouter } from "next/navigation";
 import { useConvexUser } from "~/hooks/use-convex-user";
+import { useState, useEffect } from "react";
 
 function DocumentPageContent() {
-  const { url, documentId } = useParams();
+  const params = useParams<{ url: string; documentId: string }>();
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const router = useRouter();
+  const [password, setPassword] = useState<string | null>(null);
 
-  const normalizedUrl = typeof url === "string" ? url : "";
-  const normalizedDocumentId = typeof documentId === "string" ? documentId : "";
+  const normalizedUrl = typeof params.url === "string" ? params.url : "";
+  const normalizedDocumentId = typeof params.documentId === "string" ? params.documentId : "";
+  const isAuthenticated = status === "authenticated" && session;
 
-  // Get notebook information
+  // Get stored password for notebook access
+  useEffect(() => {
+    if (typeof window !== "undefined" && normalizedUrl) {
+      const stored = localStorage.getItem("notebook_passwords");
+      if (stored) {
+        try {
+          const parsed: unknown = JSON.parse(stored);
+          if (parsed && typeof parsed === "object" && parsed !== null) {
+            const passwords = parsed as Record<string, string>;
+            const storedPassword = passwords[normalizedUrl];
+            if (typeof storedPassword === "string") {
+              setPassword(storedPassword);
+            }
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+      }
+    }
+  }, [normalizedUrl]);
+
+  // Get notebook information using Convex
   const notebook = useQuery(
     convexApi.notebooks.getByUrl,
-    convexUserId
+    normalizedUrl.length > 0 && convexUserId
       ? {
           url: normalizedUrl,
           userId: convexUserId,
@@ -33,10 +55,10 @@ function DocumentPageContent() {
       : "skip",
   );
 
-  // Get document information
+  // Get document information using Convex
   const document = useQuery(
     convexApi.documents.getById,
-    convexUserId && normalizedDocumentId
+    notebook && normalizedDocumentId && convexUserId
       ? {
           id: normalizedDocumentId as Id<"documents">,
           userId: convexUserId,
@@ -44,19 +66,16 @@ function DocumentPageContent() {
       : "skip",
   );
 
-  // Check if user is authenticated
-  if (status === "loading" || isUserLoading) {
+  // Check if user is authenticated and user data is loading
+  if (status === "loading" || (isAuthenticated && isUserLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner className="h-8 w-8" />
-        <span className="ml-2 text-sm text-gray-600">Authenticating...</span>
+        <span className="ml-2 text-sm text-gray-600">
+          {status === "loading" ? "Authenticating..." : "Loading user data..."}
+        </span>
       </div>
     );
-  }
-
-  if (!session?.user?.id || !convexUserId) {
-    router.push("/api/auth/signin");
-    return null;
   }
 
   // Check if notebook is loading
@@ -69,14 +88,14 @@ function DocumentPageContent() {
     );
   }
 
-  // Check if notebook was not found
-  if (notebook === null) {
+  // Check if notebook access is denied or not found
+  if (!notebook) {
     return (
       <DocumentNotFound
         title="Notebook Not Found"
         message="The notebook you're looking for doesn't exist or you don't have permission to access it."
-        actionText="Go to Home"
-        actionHref="/"
+        actionText="Go to Notebooks"
+        actionHref="/notas"
       />
     );
   }
@@ -121,7 +140,7 @@ function DocumentPageContent() {
       <div className="flex-grow">
         <DocumentEditor
           document={document}
-          notebookId={notebook._id}
+          notebookId={notebook._id as Id<"notebooks">}
           notebookUrl={normalizedUrl}
           notebookTitle={notebook.title}
         />

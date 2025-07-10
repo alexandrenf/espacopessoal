@@ -19,7 +19,7 @@ export const getDictionary = query({
     const limit = args.limit ?? 20;
     const includePublic = args.includePublic ?? false;
 
-    let query = ctx.db
+    const query = ctx.db
       .query("dictionary")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", user._id))
       .order("desc");
@@ -186,7 +186,12 @@ export const updateDictionaryEntry = mutation({
       throw new Error("'To' text must be between 1 and 200 characters");
     }
 
-    const updates: any = {
+    const updates: {
+      updatedAt: number;
+      from?: string;
+      to?: string;
+      isPublic?: boolean;
+    } = {
       updatedAt: Date.now(),
     };
 
@@ -464,11 +469,15 @@ export const importDictionary = mutation({
 
     try {
       if (args.format === "json") {
-        const parsedData = JSON.parse(args.data);
+        const parsedData: unknown = JSON.parse(args.data);
         if (!Array.isArray(parsedData)) {
           throw new Error("JSON data must be an array");
         }
-        entries = parsedData;
+        entries = parsedData as Array<{
+          from: string;
+          to: string;
+          isPublic?: boolean;
+        }>;
       } else {
         // CSV format
         const lines = args.data.trim().split("\n");
@@ -493,7 +502,10 @@ export const importDictionary = mutation({
         }
       }
     } catch (error) {
-      throw new Error("Invalid format: " + (error instanceof Error ? error.message : "Unknown error"));
+      throw new Error(
+        "Invalid format: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
     }
 
     if (entries.length === 0) {

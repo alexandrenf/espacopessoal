@@ -256,9 +256,6 @@ export const updateTask = mutation({
     }
 
     if (args.reminderDateTime !== undefined) {
-      if (args.reminderDateTime <= Date.now()) {
-        throw new Error("Reminder date must be in the future");
-      }
       updates.reminderDateTime = args.reminderDateTime;
     }
 

@@ -648,7 +648,7 @@ export const checkUserHealth = query({
 
     // Check if user has all required fields
     const isHealthy = !!(user.name && user.email);
-    
+
     return { isHealthy };
   },
 });

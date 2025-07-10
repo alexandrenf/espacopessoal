@@ -30,7 +30,7 @@ interface SharedNotePageProps {
 
 export default function SharedNotePageClient({
   initialNotes,
-}: Omit<SharedNotePageProps, 'url'>) {
+}: Omit<SharedNotePageProps, "url">) {
   const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
 
   // Use the initialNotes passed from the server-side component
@@ -89,6 +89,7 @@ export default function SharedNotePageClient({
         "type",
         "checked",
       ],
+      SAFE_FOR_TEMPLATES: true,
     });
 
     setSanitizedHtml(sanitized);

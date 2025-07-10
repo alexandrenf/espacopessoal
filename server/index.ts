@@ -908,52 +908,67 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
   // Map common TipTap/ProseMirror node types to HTML
   switch (nodeName) {
     case "paragraph":
-    case "p":
+    case "p": {
       return `<p>${innerContent}</p>`;
+    }
     case "heading":
     case "h1":
     case "h2":
     case "h3":
     case "h4":
     case "h5":
-    case "h6":
+    case "h6": {
       const level = element.getAttribute("level") ?? nodeName.charAt(1) ?? "1";
       return `<h${level}>${innerContent}</h${level}>`;
+    }
     case "bulletList":
-    case "ul":
+    case "ul": {
       return `<ul>${innerContent}</ul>`;
+    }
     case "orderedList":
-    case "ol":
+    case "ol": {
       return `<ol>${innerContent}</ol>`;
+    }
     case "listItem":
-    case "li":
+    case "li": {
       return `<li>${innerContent}</li>`;
-    case "blockquote":
+    }
+    case "blockquote": {
       return `<blockquote>${innerContent}</blockquote>`;
+    }
     case "codeBlock":
-    case "pre":
+    case "pre": {
       return `<pre><code>${innerContent}</code></pre>`;
+    }
     case "hardBreak":
-    case "br":
+    case "br": {
       return "<br>";
+    }
     case "horizontalRule":
-    case "hr":
+    case "hr": {
       return "<hr>";
+    }
     case "strong":
-    case "b":
+    case "b": {
       return `<strong>${innerContent}</strong>`;
+    }
     case "em":
-    case "i":
+    case "i": {
       return `<em>${innerContent}</em>`;
-    case "u":
+    }
+    case "u": {
       return `<u>${innerContent}</u>`;
-    case "code":
+    }
+    case "code": {
       return `<code>${innerContent}</code>`;
-    case "text":
+    }
+    case "text": {
       return innerContent;
-    default:
+    }
+    default: {
       console.log(`🔍 Unknown element type: ${nodeName}, treating as div`);
       return innerContent ? `<div>${innerContent}</div>` : "";
+    }
   }
 };
 
@@ -982,17 +997,16 @@ const convertProseMirrorToHtml = (
 // Helper function to convert a ProseMirror node to HTML
 const convertNodeToHtml = (node: ProseMirrorNode): string => {
   if (!node || typeof node !== "object") return "";
-
   switch (node.type) {
-    case "paragraph":
+    case "paragraph": {
       const content = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<p>${content}</p>`;
-
-    case "text":
+    }
+    case "text": {
       let text = node.text ?? "";
       // Apply marks (bold, italic, etc.)
       if (node.marks && Array.isArray(node.marks)) {
@@ -1015,8 +1029,8 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
         }
       }
       return text;
-
-    case "heading":
+    }
+    case "heading": {
       const level = node.attrs?.level ?? 1;
       const headingContent = node.content
         ? node.content
@@ -1024,54 +1038,54 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
             .join("")
         : "";
       return `<h${level}>${headingContent}</h${level}>`;
-
-    case "bulletList":
+    }
+    case "bulletList": {
       const listItems = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<ul>${listItems}</ul>`;
-
-    case "orderedList":
+    }
+    case "orderedList": {
       const orderedItems = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<ol>${orderedItems}</ol>`;
-
-    case "listItem":
+    }
+    case "listItem": {
       const itemContent = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<li>${itemContent}</li>`;
-
-    case "blockquote":
+    }
+    case "blockquote": {
       const quoteContent = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<blockquote>${quoteContent}</blockquote>`;
-
-    case "codeBlock":
+    }
+    case "codeBlock": {
       const codeContent = node.content
         ? node.content
             .map((child: ProseMirrorNode) => convertNodeToHtml(child))
             .join("")
         : "";
       return `<pre><code>${codeContent}</code></pre>`;
-
-    case "hardBreak":
+    }
+    case "hardBreak": {
       return "<br>";
-
-    case "horizontalRule":
+    }
+    case "horizontalRule": {
       return "<hr>";
-
-    default:
+    }
+    default: {
       // For unknown node types, try to extract content
       if (node.content && Array.isArray(node.content)) {
         return node.content
@@ -1079,8 +1093,10 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
           .join("");
       }
       return "";
+    }
   }
 };
+// end convertNodeToHtml
 
 // Centralized function to atomically initialize document state
 // Prevents race conditions between onConnect and onChange

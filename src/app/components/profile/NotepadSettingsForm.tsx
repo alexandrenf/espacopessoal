@@ -156,7 +156,10 @@ export function NotepadSettingsForm({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateSettingsMutation.isPending ?? false}>
+            <Button
+              type="submit"
+              disabled={updateSettingsMutation.isPending ?? false}
+            >
               {(updateSettingsMutation.isPending ?? false)
                 ? "Salvando..."
                 : "Salvar Configurações"}

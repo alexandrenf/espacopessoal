@@ -5,8 +5,6 @@ import { TRPCError } from "@trpc/server";
 import { api } from "../../../../convex/_generated/api";
 import { type Id } from "../../../../convex/_generated/dataModel";
 
-
-
 const updateSettingsInput = z.object({
   notePadUrl: z
     .string()
@@ -19,8 +17,6 @@ const updateSettingsInput = z.object({
   privateOrPublicUrl: z.boolean(),
   password: z.string().nullable(),
 });
-
-
 
 export const userSettingsRouter = createTRPCRouter({
   getNoteSettings: protectedProcedure.query(async ({ ctx }) => {
@@ -62,40 +58,39 @@ export const userSettingsRouter = createTRPCRouter({
   updateNoteSettings: protectedProcedure
     .input(updateSettingsInput)
     .mutation(async ({ ctx, input }) => {
-        if (!ctx.convex) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Convex client not available",
-          });
-        }
-
-        // Check if URL is already taken by another user (case-insensitive)
-        const isAvailable = await ctx.convex.query(
-          api.userSettings.isNotePadUrlAvailable,
-          {
-            notePadUrl: input.notePadUrl,
-            excludeUserId: ctx.session.user.id as Id<"users">,
-          },
-        );
-
-        if (!isAvailable) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Este URL já está sendo usado por outro usuário",
-          });
-        }
-
-        // Update settings
-        await ctx.convex.mutation(api.userSettings.update, {
-          userId: ctx.session.user.id as Id<"users">,
-          notePadUrl: input.notePadUrl,
-          privateOrPublicUrl: input.privateOrPublicUrl,
-          password: input.password ?? undefined,
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
         });
+      }
 
-        return { success: true };
-      },
-    ),
+      // Check if URL is already taken by another user (case-insensitive)
+      const isAvailable = await ctx.convex.query(
+        api.userSettings.isNotePadUrlAvailable,
+        {
+          notePadUrl: input.notePadUrl,
+          excludeUserId: ctx.session.user.id as Id<"users">,
+        },
+      );
+
+      if (!isAvailable) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Este URL já está sendo usado por outro usuário",
+        });
+      }
+
+      // Update settings
+      await ctx.convex.mutation(api.userSettings.update, {
+        userId: ctx.session.user.id as Id<"users">,
+        notePadUrl: input.notePadUrl,
+        privateOrPublicUrl: input.privateOrPublicUrl,
+        password: input.password ?? undefined,
+      });
+
+      return { success: true };
+    }),
 
   getUserSettingsAndHealth: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.convex) {

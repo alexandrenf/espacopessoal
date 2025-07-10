@@ -149,7 +149,7 @@ export const get = query({
     if (!userId) {
       throw new ConvexError("User ID is required for authentication");
     }
-    
+
     const ownerId = userId;
 
     if (search) {
@@ -194,7 +194,7 @@ export const getHierarchical = query({
     if (!userId) {
       throw new ConvexError("User ID is required for authentication");
     }
-    
+
     const ownerId = userId;
 
     let query = ctx.db
@@ -224,7 +224,7 @@ export const getAllForTree = query({
     if (!userId) {
       throw new ConvexError("User ID is required for authentication");
     }
-    
+
     const ownerId = userId;
     const documentLimit = limit ?? 100; // Reduced default limit for better performance
 
@@ -267,7 +267,7 @@ export const getAllForTreeLegacy = query({
     if (!userId) {
       throw new ConvexError("User ID is required for authentication");
     }
-    
+
     const ownerId = userId;
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
@@ -1080,7 +1080,9 @@ export const migrateDefaultUserDocuments = mutation({
     // Find documents owned by DEFAULT_USER_ID
     const defaultUserDocuments = await ctx.db
       .query("documents")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID as Id<"users">))
+      .withIndex("by_owner_id", (q) =>
+        q.eq("ownerId", DEFAULT_USER_ID as Id<"users">),
+      )
       .collect();
 
     logger.log(
@@ -1126,7 +1128,9 @@ export const checkForMigrationNeeded = query({
     // Count documents owned by DEFAULT_USER_ID
     const defaultUserDocuments = await ctx.db
       .query("documents")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID as Id<"users">))
+      .withIndex("by_owner_id", (q) =>
+        q.eq("ownerId", DEFAULT_USER_ID as Id<"users">),
+      )
       .collect();
 
     // Count documents owned by the actual user

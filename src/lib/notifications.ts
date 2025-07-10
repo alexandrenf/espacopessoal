@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 export function useNotifications() {
   const saveToken = api.notifications.updateUserFcmToken.useMutation();
-  const createScheduledNotification = api.notifications.createScheduledNotification.useMutation();
+  const createScheduledNotification =
+    api.notifications.createScheduledNotification.useMutation();
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSending, setIsSending] = useState(false);
 

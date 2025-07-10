@@ -388,3 +388,86 @@ export const validatePassword = mutation({
     };
   },
 });
+
+// Get notebook metadata for access checking (without content access)
+export const getMetadataByUrl = query({
+  args: {
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate URL format
+    if (!validateNotebookUrl(args.url)) {
+      throw new ConvexError("Invalid notebook URL format");
+    }
+
+    const notebook = await ctx.db
+      .query("notebooks")
+      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .first();
+
+    if (!notebook) {
+      throw new ConvexError("Notebook not found");
+    }
+
+    // Return metadata without sensitive content
+    return {
+      _id: notebook._id,
+      title: notebook.title,
+      description: notebook.description,
+      url: notebook.url,
+      isPrivate: notebook.isPrivate,
+      hasPassword: !!notebook.password,
+      createdAt: notebook.createdAt,
+      updatedAt: notebook.updatedAt,
+      ownerId: notebook.ownerId,
+    };
+  },
+});
+
+// Get notebook with access check after password validation
+export const getByUrlWithPassword = query({
+  args: {
+    url: v.string(),
+    userId: v.optional(v.id("users")),
+    hasValidPassword: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    // Validate URL format
+    if (!validateNotebookUrl(args.url)) {
+      throw new ConvexError("Invalid notebook URL format");
+    }
+
+    const notebook = await ctx.db
+      .query("notebooks")
+      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .first();
+
+    if (!notebook) {
+      throw new ConvexError("Notebook not found");
+    }
+
+    // Check if user has access to this notebook
+    const userId = args.userId ?? DEFAULT_USER_ID;
+    const isOwner = notebook.ownerId === userId;
+
+    // If notebook is private and user is not the owner
+    if (notebook.isPrivate && !isOwner) {
+      // If it has a password and password was validated, allow access
+      if (notebook.password && args.hasValidPassword) {
+        return {
+          ...notebook,
+          isOwner: false,
+          password: undefined, // Don't return password
+        };
+      }
+      // Otherwise deny access
+      throw new ConvexError("Access denied");
+    }
+
+    return {
+      ...notebook,
+      isOwner,
+      password: undefined, // Don't return password in response
+    };
+  },
+});
