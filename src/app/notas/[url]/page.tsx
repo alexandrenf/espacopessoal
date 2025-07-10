@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQuery, useMutation } from "convex/react";
 import { api as convexApi } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
@@ -28,6 +28,7 @@ import {
   Globe,
 } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
+import { useConvexUser } from "~/hooks/use-convex-user";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { NotepadPasswordAuth } from "~/app/components/NotepadPasswordAuth";
 
@@ -59,6 +60,7 @@ function NotebookPageContent() {
   const { url } = useParams();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [password, setPassword] = useState<string | null>(null);
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
 
@@ -76,10 +78,10 @@ function NotebookPageContent() {
   // Get notebook information
   const notebook = useQuery(
     convexApi.notebooks.getByUrl,
-    session?.user?.id
+    convexUserId
       ? {
           url: normalizedUrl,
-          userId: session.user.id,
+          userId: convexUserId,
         }
       : "skip",
   );
@@ -87,9 +89,9 @@ function NotebookPageContent() {
   // Get documents in notebook
   const documents = useQuery(
     convexApi.documents.getHierarchical,
-    session?.user?.id && notebook?._id
+    convexUserId && notebook?._id
       ? {
-          userId: session.user.id,
+          userId: convexUserId,
           parentId: undefined, // Get root level documents
         }
       : "skip",
@@ -108,7 +110,7 @@ function NotebookPageContent() {
     );
   }
 
-  if (!session?.user?.id) {
+  if (!convexUserId) {
     router.push("/auth/signin");
     return null;
   }
@@ -157,14 +159,14 @@ function NotebookPageContent() {
 
   // Handle create document
   const handleCreateDocument = async () => {
-    if (!session?.user?.id || !notebook?._id) return;
+    if (!convexUserId || !notebook?._id) return;
 
     setIsCreatingDocument(true);
     try {
       const documentId = await createDocument({
         title: "Untitled Document",
         initialContent: "",
-        userId: session.user.id,
+        userId: convexUserId,
         notebookId: notebook._id,
         isFolder: false,
       });

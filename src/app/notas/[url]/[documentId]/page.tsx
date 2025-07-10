@@ -4,25 +4,19 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQuery } from "convex/react";
 import { api as convexApi } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 import { DocumentEditor } from "~/components_new/DocumentEditor";
 import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-interface DocumentPageProps {
-  params: {
-    url: string;
-    documentId: string;
-  };
-}
+import { useConvexUser } from "~/hooks/use-convex-user";
 
 function DocumentPageContent() {
   const { url, documentId } = useParams();
   const { data: session, status } = useSession();
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const router = useRouter();
 
   const normalizedUrl = typeof url === "string" ? url : "";
@@ -31,10 +25,10 @@ function DocumentPageContent() {
   // Get notebook information
   const notebook = useQuery(
     convexApi.notebooks.getByUrl,
-    session?.user?.id
+    convexUserId
       ? {
           url: normalizedUrl,
-          userId: session.user.id,
+          userId: convexUserId,
         }
       : "skip",
   );
@@ -42,16 +36,16 @@ function DocumentPageContent() {
   // Get document information
   const document = useQuery(
     convexApi.documents.getById,
-    session?.user?.id && normalizedDocumentId
+    convexUserId && normalizedDocumentId
       ? {
           id: normalizedDocumentId as Id<"documents">,
-          userId: session.user.id,
+          userId: convexUserId,
         }
       : "skip",
   );
 
   // Check if user is authenticated
-  if (status === "loading") {
+  if (status === "loading" || isUserLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner className="h-8 w-8" />
@@ -60,7 +54,7 @@ function DocumentPageContent() {
     );
   }
 
-  if (!session?.user?.id) {
+  if (!session?.user?.id || !convexUserId) {
     router.push("/api/auth/signin");
     return null;
   }
