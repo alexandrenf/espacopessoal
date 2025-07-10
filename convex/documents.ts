@@ -54,9 +54,11 @@ export const create = mutation({
   handler: async (ctx, args) => {
     // Require authentication - don't fall back to DEFAULT_USER_ID
     if (!args.userId) {
-      throw new ConvexError("Authentication required to create documents. Please log in and try again.");
+      throw new ConvexError(
+        "Authentication required to create documents. Please log in and try again.",
+      );
     }
-    
+
     const userId = args.userId;
     const now = Date.now();
     const isFolder = args.isFolder ?? false;
@@ -101,12 +103,14 @@ export const create = mutation({
           .query("documents")
           .withIndex("by_parent_and_order", (q) => q.eq("parentId", undefined))
           .filter((q) => q.eq(q.field("ownerId"), userId));
-        
+
         // Filter by notebook if provided
         if (args.notebookId) {
-          query = query.filter((q) => q.eq(q.field("notebookId"), args.notebookId));
+          query = query.filter((q) =>
+            q.eq(q.field("notebookId"), args.notebookId),
+          );
         }
-        
+
         const lastSibling = await query.order("desc").first();
         order = (lastSibling?.order ?? -1) + 1;
       }
@@ -153,7 +157,9 @@ export const get = query({
 
       // Filter by notebook if provided
       if (notebookId) {
-        searchQuery = searchQuery.filter((q) => q.eq(q.field("notebookId"), notebookId));
+        searchQuery = searchQuery.filter((q) =>
+          q.eq(q.field("notebookId"), notebookId),
+        );
       }
 
       return await searchQuery.paginate(paginationOpts);
@@ -987,7 +993,9 @@ export const getOrCreateHomeDocument = mutation({
 
     // Filter by notebook if provided
     if (args.notebookId) {
-      homeQuery = homeQuery.filter((q) => q.eq(q.field("notebookId"), args.notebookId));
+      homeQuery = homeQuery.filter((q) =>
+        q.eq(q.field("notebookId"), args.notebookId),
+      );
     }
 
     const homeDocument = await homeQuery.first();
@@ -1056,10 +1064,12 @@ export const migrateDefaultUserDocuments = mutation({
       .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID))
       .collect();
 
-    logger.log(`Found ${defaultUserDocuments.length} documents owned by DEFAULT_USER_ID`);
+    logger.log(
+      `Found ${defaultUserDocuments.length} documents owned by DEFAULT_USER_ID`,
+    );
 
     let migratedCount = 0;
-    
+
     for (const document of defaultUserDocuments) {
       try {
         // Update the document to have the correct owner
@@ -1068,14 +1078,18 @@ export const migrateDefaultUserDocuments = mutation({
           updatedAt: Date.now(),
         });
         migratedCount++;
-        logger.debug(`Migrated document ${document._id} to user ${args.userId}`);
+        logger.debug(
+          `Migrated document ${document._id} to user ${args.userId}`,
+        );
       } catch (error) {
         logger.error(`Failed to migrate document ${document._id}:`, error);
       }
     }
 
-    logger.log(`Successfully migrated ${migratedCount} documents to user ${args.userId}`);
-    
+    logger.log(
+      `Successfully migrated ${migratedCount} documents to user ${args.userId}`,
+    );
+
     return {
       totalFound: defaultUserDocuments.length,
       migratedCount,

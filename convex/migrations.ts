@@ -1,5 +1,10 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 
 // Production-ready logging utility
@@ -139,20 +144,22 @@ const dateToTimestamp = (date: Date | undefined | null): number => {
 
 export const migrateUsers = internalMutation({
   args: {
-    users: v.array(v.object({
-      id: v.string(),
-      name: v.optional(v.string()),
-      email: v.optional(v.string()),
-      emailVerified: v.optional(v.string()), // ISO string
-      image: v.optional(v.string()),
-      fcmToken: v.optional(v.string()),
-      createdAt: v.optional(v.string()),
-      updatedAt: v.optional(v.string()),
-    }))
+    users: v.array(
+      v.object({
+        id: v.string(),
+        name: v.optional(v.string()),
+        email: v.optional(v.string()),
+        emailVerified: v.optional(v.string()), // ISO string
+        image: v.optional(v.string()),
+        fcmToken: v.optional(v.string()),
+        createdAt: v.optional(v.string()),
+        updatedAt: v.optional(v.string()),
+      }),
+    ),
   },
   handler: async (ctx, { users }) => {
     const results = [];
-    
+
     for (const user of users) {
       try {
         // Check if user already exists
@@ -160,10 +167,14 @@ export const migrateUsers = internalMutation({
           .query("users")
           .withIndex("by_email", (q) => q.eq("email", user.email!))
           .first();
-          
+
         if (existing) {
           logger.log(`User ${user.email} already exists, skipping`);
-          results.push({ oldId: user.id, newId: existing._id, status: "exists" });
+          results.push({
+            oldId: user.id,
+            newId: existing._id,
+            status: "exists",
+          });
           continue;
         }
 
@@ -171,18 +182,33 @@ export const migrateUsers = internalMutation({
           name: user.name,
           email: user.email!,
           image: user.image,
-          emailVerified: user.emailVerified ? new Date(user.emailVerified).getTime() : undefined,
+          emailVerified: user.emailVerified
+            ? new Date(user.emailVerified).getTime()
+            : undefined,
           externalId: user.id,
           provider: "prisma", // Mark as migrated from Prisma
-          createdAt: user.createdAt ? new Date(user.createdAt).getTime() : Date.now(),
-          updatedAt: user.updatedAt ? new Date(user.updatedAt).getTime() : Date.now(),
+          createdAt: user.createdAt
+            ? new Date(user.createdAt).getTime()
+            : Date.now(),
+          updatedAt: user.updatedAt
+            ? new Date(user.updatedAt).getTime()
+            : Date.now(),
         });
 
-        results.push({ oldId: user.id, newId: convexUserId, status: "migrated" });
+        results.push({
+          oldId: user.id,
+          newId: convexUserId,
+          status: "migrated",
+        });
         logger.log(`Migrated user ${user.email}`);
       } catch (error) {
         logger.error(`Failed to migrate user ${user.email}:`, error);
-        results.push({ oldId: user.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: user.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -194,28 +220,32 @@ export const migrateUsers = internalMutation({
 
 export const migrateAccounts = internalMutation({
   args: {
-    accounts: v.array(v.object({
-      id: v.string(),
-      userId: v.string(),
-      type: v.string(),
-      provider: v.string(),
-      providerAccountId: v.string(),
-      refresh_token: v.optional(v.string()),
-      access_token: v.optional(v.string()),
-      expires_at: v.optional(v.number()),
-      token_type: v.optional(v.string()),
-      scope: v.optional(v.string()),
-      id_token: v.optional(v.string()),
-      session_state: v.optional(v.string()),
-      refresh_token_expires_in: v.optional(v.number()),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    accounts: v.array(
+      v.object({
+        id: v.string(),
+        userId: v.string(),
+        type: v.string(),
+        provider: v.string(),
+        providerAccountId: v.string(),
+        refresh_token: v.optional(v.string()),
+        access_token: v.optional(v.string()),
+        expires_at: v.optional(v.number()),
+        token_type: v.optional(v.string()),
+        scope: v.optional(v.string()),
+        id_token: v.optional(v.string()),
+        session_state: v.optional(v.string()),
+        refresh_token_expires_in: v.optional(v.number()),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { accounts, userMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
     const results = [];
 
     for (const account of accounts) {
@@ -223,7 +253,11 @@ export const migrateAccounts = internalMutation({
         const convexUserId = userMap.get(account.userId);
         if (!convexUserId) {
           logger.warn(`User not found for account ${account.id}, skipping`);
-          results.push({ oldId: account.id, newId: null, status: "user_not_found" });
+          results.push({
+            oldId: account.id,
+            newId: null,
+            status: "user_not_found",
+          });
           continue;
         }
 
@@ -242,11 +276,20 @@ export const migrateAccounts = internalMutation({
           refresh_token_expires_in: account.refresh_token_expires_in,
         });
 
-        results.push({ oldId: account.id, newId: convexAccountId, status: "migrated" });
+        results.push({
+          oldId: account.id,
+          newId: convexAccountId,
+          status: "migrated",
+        });
         logger.log(`Migrated account ${account.id}`);
       } catch (error) {
         logger.error(`Failed to migrate account ${account.id}:`, error);
-        results.push({ oldId: account.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: account.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -258,20 +301,24 @@ export const migrateAccounts = internalMutation({
 
 export const migrateUserSettings = internalMutation({
   args: {
-    userSettings: v.array(v.object({
-      id: v.string(),
-      notePadUrl: v.string(),
-      privateOrPublicUrl: v.optional(v.boolean()),
-      password: v.optional(v.string()),
-      ownedById: v.string(),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    userSettings: v.array(
+      v.object({
+        id: v.string(),
+        notePadUrl: v.string(),
+        privateOrPublicUrl: v.optional(v.boolean()),
+        password: v.optional(v.string()),
+        ownedById: v.string(),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { userSettings, userMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
     const results = [];
 
     for (const settings of userSettings) {
@@ -279,7 +326,11 @@ export const migrateUserSettings = internalMutation({
         const convexUserId = userMap.get(settings.ownedById);
         if (!convexUserId) {
           logger.warn(`User not found for settings ${settings.id}, skipping`);
-          results.push({ oldId: settings.id, newId: null, status: "user_not_found" });
+          results.push({
+            oldId: settings.id,
+            newId: null,
+            status: "user_not_found",
+          });
           continue;
         }
 
@@ -293,11 +344,20 @@ export const migrateUserSettings = internalMutation({
           updatedAt: Date.now(),
         });
 
-        results.push({ oldId: settings.id, newId: convexSettingsId, status: "migrated" });
+        results.push({
+          oldId: settings.id,
+          newId: convexSettingsId,
+          status: "migrated",
+        });
         logger.log(`Migrated user settings ${settings.id}`);
       } catch (error) {
         logger.error(`Failed to migrate user settings ${settings.id}:`, error);
-        results.push({ oldId: settings.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: settings.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -309,22 +369,26 @@ export const migrateUserSettings = internalMutation({
 
 export const migrateBoards = internalMutation({
   args: {
-    boards: v.array(v.object({
-      id: v.string(),
-      name: v.string(),
-      color: v.string(),
-      order: v.number(),
-      userId: v.string(),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    boards: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        color: v.string(),
+        order: v.number(),
+        userId: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { boards, userMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
     const results = [];
 
     for (const board of boards) {
@@ -332,7 +396,11 @@ export const migrateBoards = internalMutation({
         const convexUserId = userMap.get(board.userId);
         if (!convexUserId) {
           logger.warn(`User not found for board ${board.id}, skipping`);
-          results.push({ oldId: board.id, newId: null, status: "user_not_found" });
+          results.push({
+            oldId: board.id,
+            newId: null,
+            status: "user_not_found",
+          });
           continue;
         }
 
@@ -345,11 +413,20 @@ export const migrateBoards = internalMutation({
           updatedAt: new Date(board.updatedAt).getTime(),
         });
 
-        results.push({ oldId: board.id, newId: convexBoardId, status: "migrated" });
+        results.push({
+          oldId: board.id,
+          newId: convexBoardId,
+          status: "migrated",
+        });
         logger.log(`Migrated board ${board.name}`);
       } catch (error) {
         logger.error(`Failed to migrate board ${board.id}:`, error);
-        results.push({ oldId: board.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: board.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -361,48 +438,64 @@ export const migrateBoards = internalMutation({
 
 export const migrateTasks = internalMutation({
   args: {
-    tasks: v.array(v.object({
-      id: v.string(),
-      name: v.string(),
-      description: v.optional(v.string()),
-      status: v.union(v.literal("TODO"), v.literal("IN_PROGRESS"), v.literal("DONE")),
-      order: v.number(),
-      dueDate: v.optional(v.string()),
-      boardId: v.string(),
-      userId: v.string(),
-      reminderEnabled: v.boolean(),
-      reminderDateTime: v.optional(v.string()),
-      reminderFrequency: v.optional(v.union(
-        v.literal("ONCE"),
-        v.literal("DAILY"),
-        v.literal("WEEKLY"),
-        v.literal("MONTHLY")
-      )),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    })),
-    boardMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    tasks: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        description: v.optional(v.string()),
+        status: v.union(
+          v.literal("TODO"),
+          v.literal("IN_PROGRESS"),
+          v.literal("DONE"),
+        ),
+        order: v.number(),
+        dueDate: v.optional(v.string()),
+        boardId: v.string(),
+        userId: v.string(),
+        reminderEnabled: v.boolean(),
+        reminderDateTime: v.optional(v.string()),
+        reminderFrequency: v.optional(
+          v.union(
+            v.literal("ONCE"),
+            v.literal("DAILY"),
+            v.literal("WEEKLY"),
+            v.literal("MONTHLY"),
+          ),
+        ),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
+    boardMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { tasks, userMapping, boardMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
-    const boardMap = new Map(boardMapping.map(b => [b.oldId, b.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
+    const boardMap = new Map(boardMapping.map((b) => [b.oldId, b.newId]));
     const results = [];
 
     for (const task of tasks) {
       try {
         const convexUserId = userMap.get(task.userId);
         const convexBoardId = boardMap.get(task.boardId);
-        
+
         if (!convexUserId || !convexBoardId) {
           logger.warn(`User or board not found for task ${task.id}, skipping`);
-          results.push({ oldId: task.id, newId: null, status: "dependencies_not_found" });
+          results.push({
+            oldId: task.id,
+            newId: null,
+            status: "dependencies_not_found",
+          });
           continue;
         }
 
@@ -415,17 +508,28 @@ export const migrateTasks = internalMutation({
           boardId: convexBoardId as any,
           userId: convexUserId as any,
           reminderEnabled: task.reminderEnabled,
-          reminderDateTime: task.reminderDateTime ? new Date(task.reminderDateTime).getTime() : undefined,
+          reminderDateTime: task.reminderDateTime
+            ? new Date(task.reminderDateTime).getTime()
+            : undefined,
           reminderFrequency: task.reminderFrequency,
           createdAt: new Date(task.createdAt).getTime(),
           updatedAt: new Date(task.updatedAt).getTime(),
         });
 
-        results.push({ oldId: task.id, newId: convexTaskId, status: "migrated" });
+        results.push({
+          oldId: task.id,
+          newId: convexTaskId,
+          status: "migrated",
+        });
         logger.log(`Migrated task ${task.name}`);
       } catch (error) {
         logger.error(`Failed to migrate task ${task.id}:`, error);
-        results.push({ oldId: task.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: task.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -437,53 +541,78 @@ export const migrateTasks = internalMutation({
 
 export const migrateScheduledNotifications = internalMutation({
   args: {
-    notifications: v.array(v.object({
-      id: v.string(),
-      userId: v.string(),
-      title: v.string(),
-      body: v.string(),
-      url: v.optional(v.string()),
-      scheduledFor: v.string(),
-      fcmToken: v.string(),
-      sent: v.boolean(),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    notifications: v.array(
+      v.object({
+        id: v.string(),
+        userId: v.string(),
+        title: v.string(),
+        body: v.string(),
+        url: v.optional(v.string()),
+        scheduledFor: v.string(),
+        fcmToken: v.string(),
+        sent: v.boolean(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { notifications, userMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
     const results = [];
 
     for (const notification of notifications) {
       try {
         const convexUserId = userMap.get(notification.userId);
         if (!convexUserId) {
-          logger.warn(`User not found for notification ${notification.id}, skipping`);
-          results.push({ oldId: notification.id, newId: null, status: "user_not_found" });
+          logger.warn(
+            `User not found for notification ${notification.id}, skipping`,
+          );
+          results.push({
+            oldId: notification.id,
+            newId: null,
+            status: "user_not_found",
+          });
           continue;
         }
 
-        const convexNotificationId = await ctx.db.insert("scheduledNotifications", {
-          userId: convexUserId as any,
-          title: notification.title,
-          body: notification.body,
-          url: notification.url,
-          scheduledFor: new Date(notification.scheduledFor).getTime(),
-          fcmToken: notification.fcmToken,
-          sent: notification.sent,
-          createdAt: new Date(notification.createdAt).getTime(),
-          updatedAt: new Date(notification.updatedAt).getTime(),
-        });
+        const convexNotificationId = await ctx.db.insert(
+          "scheduledNotifications",
+          {
+            userId: convexUserId as any,
+            title: notification.title,
+            body: notification.body,
+            url: notification.url,
+            scheduledFor: new Date(notification.scheduledFor).getTime(),
+            fcmToken: notification.fcmToken,
+            sent: notification.sent,
+            createdAt: new Date(notification.createdAt).getTime(),
+            updatedAt: new Date(notification.updatedAt).getTime(),
+          },
+        );
 
-        results.push({ oldId: notification.id, newId: convexNotificationId, status: "migrated" });
+        results.push({
+          oldId: notification.id,
+          newId: convexNotificationId,
+          status: "migrated",
+        });
         logger.log(`Migrated scheduled notification ${notification.id}`);
       } catch (error) {
-        logger.error(`Failed to migrate notification ${notification.id}:`, error);
-        results.push({ oldId: notification.id, newId: null, status: "error", error: String(error) });
+        logger.error(
+          `Failed to migrate notification ${notification.id}:`,
+          error,
+        );
+        results.push({
+          oldId: notification.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -495,29 +624,39 @@ export const migrateScheduledNotifications = internalMutation({
 
 export const migrateDictionaries = internalMutation({
   args: {
-    dictionaries: v.array(v.object({
-      id: v.string(),
-      from: v.string(),
-      to: v.string(),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-      ownedById: v.string(),
-    })),
-    userMapping: v.array(v.object({
-      oldId: v.string(),
-      newId: v.string(),
-    }))
+    dictionaries: v.array(
+      v.object({
+        id: v.string(),
+        from: v.string(),
+        to: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+        ownedById: v.string(),
+      }),
+    ),
+    userMapping: v.array(
+      v.object({
+        oldId: v.string(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { dictionaries, userMapping }) => {
-    const userMap = new Map(userMapping.map(u => [u.oldId, u.newId]));
+    const userMap = new Map(userMapping.map((u) => [u.oldId, u.newId]));
     const results = [];
 
     for (const dictionary of dictionaries) {
       try {
         const convexUserId = userMap.get(dictionary.ownedById);
         if (!convexUserId) {
-          logger.warn(`User not found for dictionary ${dictionary.id}, skipping`);
-          results.push({ oldId: dictionary.id, newId: null, status: "user_not_found" });
+          logger.warn(
+            `User not found for dictionary ${dictionary.id}, skipping`,
+          );
+          results.push({
+            oldId: dictionary.id,
+            newId: null,
+            status: "user_not_found",
+          });
           continue;
         }
 
@@ -530,11 +669,20 @@ export const migrateDictionaries = internalMutation({
           updatedAt: new Date(dictionary.updatedAt).getTime(),
         });
 
-        results.push({ oldId: dictionary.id, newId: convexDictionaryId, status: "migrated" });
+        results.push({
+          oldId: dictionary.id,
+          newId: convexDictionaryId,
+          status: "migrated",
+        });
         logger.log(`Migrated dictionary entry ${dictionary.id}`);
       } catch (error) {
         logger.error(`Failed to migrate dictionary ${dictionary.id}:`, error);
-        results.push({ oldId: dictionary.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: dictionary.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -546,16 +694,18 @@ export const migrateDictionaries = internalMutation({
 
 export const migrateLegacyNotepads = internalMutation({
   args: {
-    notepads: v.array(v.object({
-      id: v.number(),
-      content: v.optional(v.string()),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-      createdById: v.string(),
-      parentId: v.optional(v.number()),
-      isFolder: v.boolean(),
-      order: v.number(),
-    }))
+    notepads: v.array(
+      v.object({
+        id: v.number(),
+        content: v.optional(v.string()),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+        createdById: v.string(),
+        parentId: v.optional(v.number()),
+        isFolder: v.boolean(),
+        order: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, { notepads }) => {
     const results = [];
@@ -574,8 +724,14 @@ export const migrateLegacyNotepads = internalMutation({
         if (notepad.parentId !== undefined) {
           parentConvexId = idMapping.get(notepad.parentId);
           if (!parentConvexId) {
-            logger.warn(`Parent notepad ${notepad.parentId} not found for notepad ${notepad.id}, skipping`);
-            results.push({ oldId: notepad.id, newId: null, status: "parent_not_found" });
+            logger.warn(
+              `Parent notepad ${notepad.parentId} not found for notepad ${notepad.id}, skipping`,
+            );
+            results.push({
+              oldId: notepad.id,
+              newId: null,
+              status: "parent_not_found",
+            });
             continue;
           }
         }
@@ -591,15 +747,31 @@ export const migrateLegacyNotepads = internalMutation({
         });
 
         idMapping.set(notepad.id, convexNotepadId);
-        results.push({ oldId: notepad.id, newId: convexNotepadId, status: "migrated" });
+        results.push({
+          oldId: notepad.id,
+          newId: convexNotepadId,
+          status: "migrated",
+        });
         logger.log(`Migrated legacy notepad ${notepad.id}`);
       } catch (error) {
         logger.error(`Failed to migrate notepad ${notepad.id}:`, error);
-        results.push({ oldId: notepad.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: notepad.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
-    return { total: notepads.length, results, idMapping: Array.from(idMapping.entries()).map(([oldId, newId]) => ({ oldId, newId })) };
+    return {
+      total: notepads.length,
+      results,
+      idMapping: Array.from(idMapping.entries()).map(([oldId, newId]) => ({
+        oldId,
+        newId,
+      })),
+    };
   },
 });
 
@@ -607,28 +779,38 @@ export const migrateLegacyNotepads = internalMutation({
 
 export const migrateLegacySharedNotes = internalMutation({
   args: {
-    sharedNotes: v.array(v.object({
-      id: v.string(),
-      url: v.string(),
-      createdAt: v.string(),
-      updatedAt: v.string(),
-      noteId: v.number(),
-    })),
-    notepadMapping: v.array(v.object({
-      oldId: v.number(),
-      newId: v.string(),
-    }))
+    sharedNotes: v.array(
+      v.object({
+        id: v.string(),
+        url: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+        noteId: v.number(),
+      }),
+    ),
+    notepadMapping: v.array(
+      v.object({
+        oldId: v.number(),
+        newId: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, { sharedNotes, notepadMapping }) => {
-    const notepadMap = new Map(notepadMapping.map(n => [n.oldId, n.newId]));
+    const notepadMap = new Map(notepadMapping.map((n) => [n.oldId, n.newId]));
     const results = [];
 
     for (const sharedNote of sharedNotes) {
       try {
         const convexNotepadId = notepadMap.get(sharedNote.noteId);
         if (!convexNotepadId) {
-          logger.warn(`Notepad not found for shared note ${sharedNote.id}, skipping`);
-          results.push({ oldId: sharedNote.id, newId: null, status: "notepad_not_found" });
+          logger.warn(
+            `Notepad not found for shared note ${sharedNote.id}, skipping`,
+          );
+          results.push({
+            oldId: sharedNote.id,
+            newId: null,
+            status: "notepad_not_found",
+          });
           continue;
         }
 
@@ -639,11 +821,20 @@ export const migrateLegacySharedNotes = internalMutation({
           updatedAt: new Date(sharedNote.updatedAt).getTime(),
         });
 
-        results.push({ oldId: sharedNote.id, newId: convexSharedNoteId, status: "migrated" });
+        results.push({
+          oldId: sharedNote.id,
+          newId: convexSharedNoteId,
+          status: "migrated",
+        });
         logger.log(`Migrated legacy shared note ${sharedNote.id}`);
       } catch (error) {
         logger.error(`Failed to migrate shared note ${sharedNote.id}:`, error);
-        results.push({ oldId: sharedNote.id, newId: null, status: "error", error: String(error) });
+        results.push({
+          oldId: sharedNote.id,
+          newId: null,
+          status: "error",
+          error: String(error),
+        });
       }
     }
 
@@ -666,11 +857,11 @@ export const runFullMigration = internalMutation({
       replaceDictionaries: v.array(v.any()),
       legacyNotepads: v.array(v.any()),
       legacySharedNotes: v.array(v.any()),
-    })
+    }),
   },
   handler: async (ctx, { dryRun = false, includeData }): Promise<any> => {
     logger.log(`Starting full migration (dryRun: ${dryRun})`);
-    
+
     if (dryRun) {
       return {
         success: true,
@@ -685,7 +876,7 @@ export const runFullMigration = internalMutation({
           replaceDictionaries: includeData.replaceDictionaries.length,
           legacyNotepads: includeData.legacyNotepads.length,
           legacySharedNotes: includeData.legacySharedNotes.length,
-        }
+        },
       };
     }
 
@@ -704,13 +895,18 @@ export const runFullMigration = internalMutation({
     try {
       // Step 1: Migrate users first (everything depends on users)
       logger.log("Step 1: Migrating users...");
-      const userResult: any = await ctx.runMutation(internal.migrations.migrateUsers, {
-        users: includeData.users
-      });
+      const userResult: any = await ctx.runMutation(
+        internal.migrations.migrateUsers,
+        {
+          users: includeData.users,
+        },
+      );
       migrationResults.users = {
         total: userResult.total,
-        migrated: userResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: userResult.results.filter((r: any) => r.status === "error").length,
+        migrated: userResult.results.filter((r: any) => r.status === "migrated")
+          .length,
+        errors: userResult.results.filter((r: any) => r.status === "error")
+          .length,
       };
       const userMapping: any = userResult.results
         .filter((r: any) => r.newId)
@@ -718,26 +914,38 @@ export const runFullMigration = internalMutation({
 
       // Step 2: Migrate user settings
       logger.log("Step 2: Migrating user settings...");
-      const settingsResult = await ctx.runMutation(internal.migrations.migrateUserSettings, {
-        userSettings: includeData.userSettings,
-        userMapping
-      });
+      const settingsResult = await ctx.runMutation(
+        internal.migrations.migrateUserSettings,
+        {
+          userSettings: includeData.userSettings,
+          userMapping,
+        },
+      );
       migrationResults.userSettings = {
         total: settingsResult.total,
-        migrated: settingsResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: settingsResult.results.filter((r: any) => r.status === "error").length,
+        migrated: settingsResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: settingsResult.results.filter((r: any) => r.status === "error")
+          .length,
       };
 
       // Step 3: Migrate boards
       logger.log("Step 3: Migrating boards...");
-      const boardResult: any = await ctx.runMutation(internal.migrations.migrateBoards, {
-        boards: includeData.boards,
-        userMapping
-      });
+      const boardResult: any = await ctx.runMutation(
+        internal.migrations.migrateBoards,
+        {
+          boards: includeData.boards,
+          userMapping,
+        },
+      );
       migrationResults.boards = {
         total: boardResult.total,
-        migrated: boardResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: boardResult.results.filter((r: any) => r.status === "error").length,
+        migrated: boardResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: boardResult.results.filter((r: any) => r.status === "error")
+          .length,
       };
       const boardMapping: any = boardResult.results
         .filter((r: any) => r.newId)
@@ -745,63 +953,96 @@ export const runFullMigration = internalMutation({
 
       // Step 4: Migrate tasks
       logger.log("Step 4: Migrating tasks...");
-      const taskResult = await ctx.runMutation(internal.migrations.migrateTasks, {
-        tasks: includeData.tasks,
-        userMapping,
-        boardMapping
-      });
+      const taskResult = await ctx.runMutation(
+        internal.migrations.migrateTasks,
+        {
+          tasks: includeData.tasks,
+          userMapping,
+          boardMapping,
+        },
+      );
       migrationResults.tasks = {
         total: taskResult.total,
-        migrated: taskResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: taskResult.results.filter((r: any) => r.status === "error").length,
+        migrated: taskResult.results.filter((r: any) => r.status === "migrated")
+          .length,
+        errors: taskResult.results.filter((r: any) => r.status === "error")
+          .length,
       };
 
       // Step 5: Migrate scheduled notifications
       logger.log("Step 5: Migrating scheduled notifications...");
-      const notificationResult: any = await ctx.runMutation(internal.migrations.migrateScheduledNotifications, {
-        notifications: includeData.scheduledNotifications,
-        userMapping
-      });
+      const notificationResult: any = await ctx.runMutation(
+        internal.migrations.migrateScheduledNotifications,
+        {
+          notifications: includeData.scheduledNotifications,
+          userMapping,
+        },
+      );
       migrationResults.scheduledNotifications = {
         total: notificationResult.total,
-        migrated: notificationResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: notificationResult.results.filter((r: any) => r.status === "error").length,
+        migrated: notificationResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: notificationResult.results.filter(
+          (r: any) => r.status === "error",
+        ).length,
       };
 
       // Step 6: Migrate dictionaries
       logger.log("Step 6: Migrating dictionaries...");
-      const dictionaryResult: any = await ctx.runMutation(internal.migrations.migrateDictionaries, {
-        dictionaries: includeData.replaceDictionaries,
-        userMapping
-      });
+      const dictionaryResult: any = await ctx.runMutation(
+        internal.migrations.migrateDictionaries,
+        {
+          dictionaries: includeData.replaceDictionaries,
+          userMapping,
+        },
+      );
       migrationResults.dictionaries = {
         total: dictionaryResult.total,
-        migrated: dictionaryResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: dictionaryResult.results.filter((r: any) => r.status === "error").length,
+        migrated: dictionaryResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: dictionaryResult.results.filter(
+          (r: any) => r.status === "error",
+        ).length,
       };
 
       // Step 7: Migrate legacy notepads
       logger.log("Step 7: Migrating legacy notepads...");
-      const legacyNotepadResult: any = await ctx.runMutation(internal.migrations.migrateLegacyNotepads, {
-        notepads: includeData.legacyNotepads
-      });
+      const legacyNotepadResult: any = await ctx.runMutation(
+        internal.migrations.migrateLegacyNotepads,
+        {
+          notepads: includeData.legacyNotepads,
+        },
+      );
       migrationResults.legacyNotepads = {
         total: legacyNotepadResult.total,
-        migrated: legacyNotepadResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: legacyNotepadResult.results.filter((r: any) => r.status === "error").length,
+        migrated: legacyNotepadResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: legacyNotepadResult.results.filter(
+          (r: any) => r.status === "error",
+        ).length,
       };
       const notepadMapping: any = legacyNotepadResult.idMapping;
 
       // Step 8: Migrate legacy shared notes
       logger.log("Step 8: Migrating legacy shared notes...");
-      const legacySharedNoteResult: any = await ctx.runMutation(internal.migrations.migrateLegacySharedNotes, {
-        sharedNotes: includeData.legacySharedNotes,
-        notepadMapping
-      });
+      const legacySharedNoteResult: any = await ctx.runMutation(
+        internal.migrations.migrateLegacySharedNotes,
+        {
+          sharedNotes: includeData.legacySharedNotes,
+          notepadMapping,
+        },
+      );
       migrationResults.legacySharedNotes = {
         total: legacySharedNoteResult.total,
-        migrated: legacySharedNoteResult.results.filter((r: any) => r.status === "migrated").length,
-        errors: legacySharedNoteResult.results.filter((r: any) => r.status === "error").length,
+        migrated: legacySharedNoteResult.results.filter(
+          (r: any) => r.status === "migrated",
+        ).length,
+        errors: legacySharedNoteResult.results.filter(
+          (r: any) => r.status === "error",
+        ).length,
       };
 
       logger.log("Full migration completed successfully!");
@@ -812,10 +1053,11 @@ export const runFullMigration = internalMutation({
         boardMapping,
         notepadMapping,
       };
-
     } catch (error) {
       logger.error("Migration failed:", error);
-      throw new ConvexError(`Migration failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new ConvexError(
+        `Migration failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   },
 });
@@ -835,7 +1077,7 @@ export const runMigrationFromScript = mutation({
       replaceDictionaries: v.array(v.any()),
       legacyNotepads: v.array(v.any()),
       legacySharedNotes: v.array(v.any()),
-    })
+    }),
   },
   handler: async (ctx, args): Promise<any> => {
     return await ctx.runMutation(internal.migrations.runFullMigration, args);
@@ -847,15 +1089,42 @@ export const runMigrationFromScript = mutation({
 export const validateMigration = query({
   handler: async (ctx) => {
     const stats = {
-      users: await ctx.db.query("users").collect().then(r => r.length),
-      accounts: await ctx.db.query("accounts").collect().then(r => r.length),
-      userSettings: await ctx.db.query("userSettings").collect().then(r => r.length),
-      boards: await ctx.db.query("boards").collect().then(r => r.length),
-      tasks: await ctx.db.query("tasks").collect().then(r => r.length),
-      scheduledNotifications: await ctx.db.query("scheduledNotifications").collect().then(r => r.length),
-      dictionary: await ctx.db.query("dictionary").collect().then(r => r.length),
-      legacyNotepads: await ctx.db.query("legacyNotepads").collect().then(r => r.length),
-      legacySharedNotes: await ctx.db.query("legacySharedNotes").collect().then(r => r.length),
+      users: await ctx.db
+        .query("users")
+        .collect()
+        .then((r) => r.length),
+      accounts: await ctx.db
+        .query("accounts")
+        .collect()
+        .then((r) => r.length),
+      userSettings: await ctx.db
+        .query("userSettings")
+        .collect()
+        .then((r) => r.length),
+      boards: await ctx.db
+        .query("boards")
+        .collect()
+        .then((r) => r.length),
+      tasks: await ctx.db
+        .query("tasks")
+        .collect()
+        .then((r) => r.length),
+      scheduledNotifications: await ctx.db
+        .query("scheduledNotifications")
+        .collect()
+        .then((r) => r.length),
+      dictionary: await ctx.db
+        .query("dictionary")
+        .collect()
+        .then((r) => r.length),
+      legacyNotepads: await ctx.db
+        .query("legacyNotepads")
+        .collect()
+        .then((r) => r.length),
+      legacySharedNotes: await ctx.db
+        .query("legacySharedNotes")
+        .collect()
+        .then((r) => r.length),
     };
 
     return {
@@ -866,8 +1135,9 @@ export const validateMigration = query({
         tasksHaveBoards: stats.tasks > 0 ? "✅" : "❌",
         notificationsHaveUsers: stats.scheduledNotifications > 0 ? "✅" : "❌",
         dictionariesExist: stats.dictionary >= 0 ? "✅" : "❌",
-        legacyDataMigrated: (stats.legacyNotepads + stats.legacySharedNotes) > 0 ? "✅" : "❌",
-      }
+        legacyDataMigrated:
+          stats.legacyNotepads + stats.legacySharedNotes > 0 ? "✅" : "❌",
+      },
     };
   },
 });
@@ -878,29 +1148,37 @@ export const rollbackMigration = internalMutation({
   args: {
     tables: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { tables = ["users", "accounts", "userSettings", "boards", "tasks"] }) => {
+  handler: async (
+    ctx,
+    { tables = ["users", "accounts", "userSettings", "boards", "tasks"] },
+  ) => {
     logger.warn("Rolling back migration...");
-    
+
     const results = [];
-    
+
     for (const table of tables) {
       try {
         // Get all documents from the table
         const documents = await ctx.db.query(table as any).collect();
-        
+
         // Delete each document
         for (const doc of documents) {
           await ctx.db.delete(doc._id);
         }
-        
+
         results.push({ table, deleted: documents.length, status: "success" });
         logger.log(`Rolled back ${documents.length} records from ${table}`);
       } catch (error) {
         logger.error(`Failed to rollback ${table}:`, error);
-        results.push({ table, deleted: 0, status: "error", error: String(error) });
+        results.push({
+          table,
+          deleted: 0,
+          status: "error",
+          error: String(error),
+        });
       }
     }
-    
+
     return { results };
   },
 });

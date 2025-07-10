@@ -67,7 +67,6 @@ const DocumentSidebar = memo(
     isMobile = false,
     onNavigateToHome,
     notebookId,
-    notebookUrl,
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -87,13 +86,13 @@ const DocumentSidebar = memo(
     }, [isUserLoading, userIdString]);
 
     // Optimized Convex queries with fallback
-    const documents =
-      useQuery(
-        api.documents.getAllForTreeLegacy,
-        !isUserLoading && userIdString
-          ? { userId: userIdString, limit: 200, notebookId }
-          : "skip",
-      ) ?? [];
+    const documentsQuery = useQuery(
+      api.documents.getAllForTreeLegacy,
+      !isUserLoading && userIdString
+        ? { userId: userIdString, limit: 200, notebookId }
+        : "skip",
+    );
+    const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
     const createDocument = useMutation(api.documents.create);
     const deleteDocument = useMutation(api.documents.removeById);
     const updateStructure = useMutation(api.documents.updateStructure);
@@ -101,8 +100,9 @@ const DocumentSidebar = memo(
     // Local state
     const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
     const [isCreating, setIsCreating] = useState(false);
-    const [isDeletingId, setIsDeletingId] = useState<Id<"documents">>();
-    const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+    const [isDeletingId, setIsDeletingId] = useState<
+      Id<"documents"> | undefined
+    >(undefined);
 
     // Add state to track the last selected document to prevent duplicate selections
     const lastSelectedIdRef = useRef<Id<"documents"> | undefined>(
@@ -304,7 +304,9 @@ const DocumentSidebar = memo(
 
       // Ensure user is authenticated before creating document
       if (!userIdString) {
-        toast.error("Please wait for authentication to complete before creating documents.");
+        toast.error(
+          "Please wait for authentication to complete before creating documents.",
+        );
         return;
       }
 
@@ -918,10 +920,7 @@ const DocumentSidebar = memo(
                 }
 
                 // Access dropNode key (the structure uses dropNode in allowDrop)
-                const infoTyped = info as unknown as {
-                  dropNode?: { key?: string };
-                };
-                const nodeKey = infoTyped.dropNode?.key;
+                const nodeKey = info.dropNode?.key;
                 if (!nodeKey) {
                   console.log("🖱️ AllowDrop: No dropNode key");
                   return false;
@@ -965,12 +964,10 @@ const DocumentSidebar = memo(
               }}
               onDragStart={(info) => {
                 if (info.node?.key) {
-                  setDraggedNodeId(info.node.key.toString());
                   console.log("🖱️ Drag started:", info.node.key);
                 }
               }}
               onDragEnd={() => {
-                setDraggedNodeId(null);
                 console.log("🖱️ Drag ended");
               }}
               onDragEnter={(info) => {

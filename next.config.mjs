@@ -5,7 +5,6 @@
  * for Docker builds.
  */
 import "./src/env.js";
-import withPWA from "next-pwa";
 
 /** @type {import("next").NextConfig} */
 const config = {
@@ -49,7 +48,4 @@ const config = {
   skipTrailingSlashRedirect: true,
 };
 
-// PWA disabled
-const nextConfig = config;
-
-export default nextConfig;
+export default config;

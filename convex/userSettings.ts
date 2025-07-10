@@ -26,7 +26,7 @@ export const upsert = mutation({
   handler: async (ctx, args) => {
     const { userId, ...settingsData } = args;
     const now = Date.now();
-    
+
     // Check if settings already exist
     const existingSettings = await ctx.db
       .query("userSettings")
@@ -42,12 +42,16 @@ export const upsert = mutation({
         password?: string;
         fcmToken?: string;
       } = { updatedAt: now };
-      
-      if (settingsData.notePadUrl !== undefined) updates.notePadUrl = settingsData.notePadUrl;
-      if (settingsData.privateOrPublicUrl !== undefined) updates.privateOrPublicUrl = settingsData.privateOrPublicUrl;
-      if (settingsData.password !== undefined) updates.password = settingsData.password;
-      if (settingsData.fcmToken !== undefined) updates.fcmToken = settingsData.fcmToken;
-      
+
+      if (settingsData.notePadUrl !== undefined)
+        updates.notePadUrl = settingsData.notePadUrl;
+      if (settingsData.privateOrPublicUrl !== undefined)
+        updates.privateOrPublicUrl = settingsData.privateOrPublicUrl;
+      if (settingsData.password !== undefined)
+        updates.password = settingsData.password;
+      if (settingsData.fcmToken !== undefined)
+        updates.fcmToken = settingsData.fcmToken;
+
       await ctx.db.patch(existingSettings._id, updates);
       return await ctx.db.get(existingSettings._id);
     } else {
@@ -76,7 +80,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, ...settingsData } = args;
-    
+
     const existingSettings = await ctx.db
       .query("userSettings")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
@@ -93,12 +97,16 @@ export const update = mutation({
       password?: string;
       fcmToken?: string;
     } = { updatedAt: Date.now() };
-    
-    if (settingsData.notePadUrl !== undefined) updates.notePadUrl = settingsData.notePadUrl;
-    if (settingsData.privateOrPublicUrl !== undefined) updates.privateOrPublicUrl = settingsData.privateOrPublicUrl;
-    if (settingsData.password !== undefined) updates.password = settingsData.password;
-    if (settingsData.fcmToken !== undefined) updates.fcmToken = settingsData.fcmToken;
-    
+
+    if (settingsData.notePadUrl !== undefined)
+      updates.notePadUrl = settingsData.notePadUrl;
+    if (settingsData.privateOrPublicUrl !== undefined)
+      updates.privateOrPublicUrl = settingsData.privateOrPublicUrl;
+    if (settingsData.password !== undefined)
+      updates.password = settingsData.password;
+    if (settingsData.fcmToken !== undefined)
+      updates.fcmToken = settingsData.fcmToken;
+
     await ctx.db.patch(existingSettings._id, updates);
     return await ctx.db.get(existingSettings._id);
   },
@@ -112,15 +120,16 @@ export const isNotePadUrlAvailable = query({
   },
   handler: async (ctx, { notePadUrl, excludeUserId }) => {
     const lowerUrl = notePadUrl.toLowerCase();
-    
+
     // Find all user settings to check for case-insensitive conflicts
     const allSettings = await ctx.db.query("userSettings").collect();
-    
-    const conflict = allSettings.find(settings => 
-      settings.notePadUrl?.toLowerCase() === lowerUrl && 
-      (!excludeUserId || settings.userId !== excludeUserId)
+
+    const conflict = allSettings.find(
+      (settings) =>
+        settings.notePadUrl?.toLowerCase() === lowerUrl &&
+        (!excludeUserId || settings.userId !== excludeUserId),
     );
-    
+
     return !conflict;
   },
 });
@@ -150,11 +159,7 @@ export const getUserSettingsAndHealth = query({
         password: userSettings?.password ?? null,
       },
       health: {
-        isHealthy: !!(
-          user.name &&
-          user.email &&
-          userSettings?.notePadUrl
-        ),
+        isHealthy: !!(user.name && user.email && userSettings?.notePadUrl),
       },
     };
   },

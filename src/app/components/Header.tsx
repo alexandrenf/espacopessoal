@@ -38,8 +38,8 @@ export default function Header() {
   //     : "skip"
   // );
 
-  const isLoadingSettings = userSettings === undefined && isAuthenticated;
-  
+  const isLoadingSettings = false;
+
   // Update to use the new notebooks route
   const notebooksUrl = useMemo(
     () => (isAuthenticated ? "/notebooks" : null),
@@ -332,4 +332,3 @@ export default function Header() {
     </header>
   );
 }
-

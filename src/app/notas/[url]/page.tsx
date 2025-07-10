@@ -10,8 +10,23 @@ import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Plus, FileText, Folder, Calendar, Edit, Trash2, Lock, Globe } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import {
+  Plus,
+  FileText,
+  Folder,
+  Calendar,
+  Edit,
+  Trash2,
+  Lock,
+  Globe,
+} from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { NotepadPasswordAuth } from "~/app/components/NotepadPasswordAuth";
@@ -62,22 +77,22 @@ function NotebookPageContent() {
   const notebook = useQuery(
     convexApi.notebooks.getByUrl,
     session?.user?.id
-      ? { 
-          url: normalizedUrl, 
-          userId: session.user.id 
+      ? {
+          url: normalizedUrl,
+          userId: session.user.id,
         }
-      : "skip"
+      : "skip",
   );
 
   // Get documents in notebook
   const documents = useQuery(
     convexApi.documents.getHierarchical,
     session?.user?.id && notebook?._id
-      ? { 
+      ? {
           userId: session.user.id,
-          parentId: undefined // Get root level documents
+          parentId: undefined, // Get root level documents
         }
-      : "skip"
+      : "skip",
   );
 
   // Create document mutation
@@ -109,7 +124,10 @@ function NotebookPageContent() {
   }
 
   // Handle private notebook authentication
-  if (notebook === null || (!notebook.isOwner && notebook.isPrivate && !password)) {
+  if (
+    notebook === null ||
+    (!notebook.isOwner && notebook.isPrivate && !password)
+  ) {
     return (
       <div className="flex min-h-screen flex-col">
         <div className="flex-grow">
@@ -189,14 +207,18 @@ function NotebookPageContent() {
                 <FileText className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">{notebook.title}</h1>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {notebook.title}
+                </h1>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   {notebook.isPrivate ? (
                     <Lock className="h-4 w-4" />
                   ) : (
                     <Globe className="h-4 w-4" />
                   )}
-                  <span>{notebook.isPrivate ? "Private" : "Public"} notebook</span>
+                  <span>
+                    {notebook.isPrivate ? "Private" : "Public"} notebook
+                  </span>
                   <span>•</span>
                   <span>Created {formatDate(notebook.createdAt)}</span>
                 </div>
@@ -227,14 +249,17 @@ function NotebookPageContent() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
             <div className="text-sm text-gray-500">
-              {documents?.length ?? 0} {documents?.length === 1 ? "document" : "documents"}
+              {documents?.length ?? 0}{" "}
+              {documents?.length === 1 ? "document" : "documents"}
             </div>
           </div>
 
           {documents === undefined ? (
             <div className="flex items-center justify-center py-12">
               <LoadingSpinner className="h-8 w-8" />
-              <span className="ml-2 text-sm text-gray-600">Loading documents...</span>
+              <span className="ml-2 text-sm text-gray-600">
+                Loading documents...
+              </span>
             </div>
           ) : documents && documents.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -252,7 +277,9 @@ function NotebookPageContent() {
                         ) : (
                           <FileText className="h-5 w-5 text-blue-500" />
                         )}
-                        <CardTitle className="text-lg">{document.title}</CardTitle>
+                        <CardTitle className="text-lg">
+                          {document.title}
+                        </CardTitle>
                       </div>
                       {document.isHome && (
                         <div className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
@@ -271,7 +298,10 @@ function NotebookPageContent() {
                       </div>
                       {document.initialContent && (
                         <p className="line-clamp-2 text-sm text-gray-600">
-                          {document.initialContent.replace(/<[^>]*>/g, "").slice(0, 120)}...
+                          {document.initialContent
+                            .replace(/<[^>]*>/g, "")
+                            .slice(0, 120)}
+                          ...
                         </p>
                       )}
                     </div>
@@ -287,7 +317,9 @@ function NotebookPageContent() {
                     <FileText className="h-8 w-8 text-gray-400" />
                   </div>
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">No documents yet</h3>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                  No documents yet
+                </h3>
                 <p className="mb-4 text-sm text-gray-600">
                   Start by creating your first document in this notebook.
                 </p>

@@ -53,18 +53,22 @@ export const create = mutation({
     // Validate URL format
     if (!validateNotebookUrl(args.url)) {
       throw new ConvexError(
-        "Invalid notebook URL. Must be 3-50 characters, alphanumeric, hyphens, and underscores only."
+        "Invalid notebook URL. Must be 3-50 characters, alphanumeric, hyphens, and underscores only.",
       );
     }
 
     // Check if URL is already taken by this user
     const existingNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) => q.eq("ownerId", userId).eq("url", args.url))
+      .withIndex("by_owner_and_url", (q) =>
+        q.eq("ownerId", userId).eq("url", args.url),
+      )
       .first();
 
     if (existingNotebook) {
-      throw new ConvexError("A notebook with this URL already exists in your account.");
+      throw new ConvexError(
+        "A notebook with this URL already exists in your account.",
+      );
     }
 
     // If password is provided, ensure notebook is private
@@ -155,14 +159,16 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
-    
+
     if (!notebook) {
       throw new ConvexError("Notebook not found");
     }
 
     // Verify ownership
     if (notebook.ownerId !== args.userId) {
-      throw new ConvexError("You don't have permission to update this notebook");
+      throw new ConvexError(
+        "You don't have permission to update this notebook",
+      );
     }
 
     // Validate password logic
@@ -170,8 +176,8 @@ export const update = mutation({
       throw new ConvexError("Password can only be set for private notebooks");
     }
 
-    const updateData: { 
-      updatedAt: number; 
+    const updateData: {
+      updatedAt: number;
       title?: string;
       description?: string;
       isPrivate?: boolean;
@@ -181,7 +187,8 @@ export const update = mutation({
     };
 
     if (args.title !== undefined) updateData.title = args.title;
-    if (args.description !== undefined) updateData.description = args.description;
+    if (args.description !== undefined)
+      updateData.description = args.description;
     if (args.isPrivate !== undefined) updateData.isPrivate = args.isPrivate;
     if (args.password !== undefined) updateData.password = args.password;
 
@@ -202,14 +209,16 @@ export const remove = mutation({
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
-    
+
     if (!notebook) {
       throw new ConvexError("Notebook not found");
     }
 
     // Verify ownership
     if (notebook.ownerId !== args.userId) {
-      throw new ConvexError("You don't have permission to delete this notebook");
+      throw new ConvexError(
+        "You don't have permission to delete this notebook",
+      );
     }
 
     // Check if notebook has documents
@@ -220,7 +229,7 @@ export const remove = mutation({
 
     if (documentsInNotebook) {
       throw new ConvexError(
-        "Cannot delete notebook with documents. Please move or delete all documents first."
+        "Cannot delete notebook with documents. Please move or delete all documents first.",
       );
     }
 
@@ -236,16 +245,18 @@ export const getById = query({
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
-    
+
     if (!notebook) {
       throw new ConvexError("Notebook not found");
     }
 
     // Verify ownership or access
     const isOwner = notebook.ownerId === args.userId;
-    
+
     if (notebook.isPrivate && !isOwner) {
-      throw new ConvexError("You don't have permission to access this notebook");
+      throw new ConvexError(
+        "You don't have permission to access this notebook",
+      );
     }
 
     return {
@@ -266,16 +277,19 @@ export const checkUrlAvailability = query({
     if (!validateNotebookUrl(args.url)) {
       return {
         available: false,
-        reason: "Invalid URL format. Must be 3-50 characters, alphanumeric, hyphens, and underscores only.",
+        reason:
+          "Invalid URL format. Must be 3-50 characters, alphanumeric, hyphens, and underscores only.",
       };
     }
 
     const userId = args.userId ?? DEFAULT_USER_ID;
-    
+
     // Check if URL is already taken by this user
     const existingNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) => q.eq("ownerId", userId).eq("url", args.url))
+      .withIndex("by_owner_and_url", (q) =>
+        q.eq("ownerId", userId).eq("url", args.url),
+      )
       .first();
 
     if (existingNotebook) {
@@ -299,11 +313,13 @@ export const getOrCreateDefault = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // First, try to find existing default notebook
     const existingNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) => q.eq("ownerId", args.userId).eq("url", "main"))
+      .withIndex("by_owner_and_url", (q) =>
+        q.eq("ownerId", args.userId).eq("url", "main"),
+      )
       .first();
 
     if (existingNotebook) {
@@ -313,7 +329,9 @@ export const getOrCreateDefault = mutation({
     // Check if "main" URL is available
     const mainNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) => q.eq("ownerId", args.userId).eq("url", "main"))
+      .withIndex("by_owner_and_url", (q) =>
+        q.eq("ownerId", args.userId).eq("url", "main"),
+      )
       .first();
 
     const defaultUrl = mainNotebook ? `main-${Date.now()}` : "main";
@@ -356,7 +374,7 @@ export const validatePassword = mutation({
     }
 
     const isValid = notebook.password === args.password;
-    
+
     if (!isValid) {
       throw new ConvexError("Invalid password");
     }

@@ -1,6 +1,6 @@
 /**
  * Convex Adapter for NextAuth.js
- * 
+ *
  * This adapter allows NextAuth.js to use Convex as the database backend
  * instead of Prisma/PostgreSQL.
  */
@@ -19,7 +19,9 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         name: user.name ?? undefined,
         email: user.email,
         image: user.image ?? undefined,
-        emailVerified: user.emailVerified ? user.emailVerified.getTime() : undefined,
+        emailVerified: user.emailVerified
+          ? user.emailVerified.getTime()
+          : undefined,
       });
 
       return {
@@ -32,7 +34,9 @@ export function ConvexAdapter(convexUrl: string): Adapter {
     },
 
     async getUser(id) {
-      const user = await convex.query(api.users.getById, { id: id as Id<"users"> });
+      const user = await convex.query(api.users.getById, {
+        id: id as Id<"users">,
+      });
       if (!user) return null;
 
       return {
@@ -62,10 +66,12 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         provider,
         providerAccountId,
       });
-      
+
       if (!account) return null;
 
-      const user = await convex.query(api.users.getById, { id: account.userId });
+      const user = await convex.query(api.users.getById, {
+        id: account.userId,
+      });
       if (!user) return null;
 
       return {
@@ -83,7 +89,9 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         name: user.name ?? undefined,
         email: user.email,
         image: user.image ?? undefined,
-        emailVerified: user.emailVerified ? user.emailVerified.getTime() : undefined,
+        emailVerified: user.emailVerified
+          ? user.emailVerified.getTime()
+          : undefined,
       });
 
       if (!updatedUser) {
@@ -95,7 +103,9 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         name: updatedUser.name,
         email: updatedUser.email,
         image: updatedUser.image,
-        emailVerified: updatedUser.emailVerified ? new Date(updatedUser.emailVerified) : null,
+        emailVerified: updatedUser.emailVerified
+          ? new Date(updatedUser.emailVerified)
+          : null,
       };
     },
 
@@ -112,7 +122,9 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         scope: account.scope,
         id_token: account.id_token,
         session_state: account.session_state as string | undefined,
-        refresh_token_expires_in: account.refresh_token_expires_in as number | undefined,
+        refresh_token_expires_in: account.refresh_token_expires_in as
+          | number
+          | undefined,
       });
 
       return account;
@@ -140,10 +152,14 @@ export function ConvexAdapter(convexUrl: string): Adapter {
     },
 
     async getSessionAndUser(sessionToken) {
-      const session = await convex.query(api.users.getSessionByToken, { sessionToken });
+      const session = await convex.query(api.users.getSessionByToken, {
+        sessionToken,
+      });
       if (!session) return null;
 
-      const user = await convex.query(api.users.getById, { id: session.userId });
+      const user = await convex.query(api.users.getById, {
+        id: session.userId,
+      });
       if (!user) return null;
 
       return {
@@ -157,16 +173,21 @@ export function ConvexAdapter(convexUrl: string): Adapter {
           name: user.name,
           email: user.email,
           image: user.image,
-          emailVerified: user.emailVerified ? new Date(user.emailVerified) : null,
+          emailVerified: user.emailVerified
+            ? new Date(user.emailVerified)
+            : null,
         },
       };
     },
 
     async updateSession({ sessionToken, ...session }) {
-      const updatedSession = await convex.mutation(api.users.updateAuthSession, {
-        sessionToken,
-        expires: session.expires?.getTime(),
-      });
+      const updatedSession = await convex.mutation(
+        api.users.updateAuthSession,
+        {
+          sessionToken,
+          expires: session.expires?.getTime(),
+        },
+      );
 
       if (!updatedSession) {
         throw new Error("Failed to update session");
@@ -198,10 +219,13 @@ export function ConvexAdapter(convexUrl: string): Adapter {
     },
 
     async useVerificationToken({ identifier, token }) {
-      const verificationToken = await convex.mutation(api.users.useVerificationToken, {
-        identifier,
-        token,
-      });
+      const verificationToken = await convex.mutation(
+        api.users.useVerificationToken,
+        {
+          identifier,
+          token,
+        },
+      );
 
       if (!verificationToken) return null;
 

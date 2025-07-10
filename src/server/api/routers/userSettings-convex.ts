@@ -59,10 +59,13 @@ export const userSettingsRouter = createTRPCRouter({
         }
 
         // Check if URL is already taken by another user (case-insensitive)
-        const isAvailable = await ctx.convex.query(api.userSettings.isNotePadUrlAvailable, {
-          notePadUrl: input.notePadUrl,
-          excludeUserId: ctx.session.user.id as Id<"users">,
-        });
+        const isAvailable = await ctx.convex.query(
+          api.userSettings.isNotePadUrlAvailable,
+          {
+            notePadUrl: input.notePadUrl,
+            excludeUserId: ctx.session.user.id as Id<"users">,
+          },
+        );
 
         if (!isAvailable) {
           throw new TRPCError({

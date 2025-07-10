@@ -89,12 +89,13 @@ export default function DocumentPage() {
   // Show loading screen immediately if we're waiting for user auth or document
   const isWaitingForAuth = Boolean(isUserLoading);
   const isWaitingForDocument = Boolean(
-    validatedDocumentId && userIdString && initialDocument === undefined
+    validatedDocumentId && userIdString && initialDocument === undefined,
   );
   const isWaitingForNotebook = Boolean(
-    initialDocument?.notebookId && notebook === undefined
+    initialDocument?.notebookId && notebook === undefined,
   );
-  const shouldShowLoading = isWaitingForAuth || isWaitingForDocument || isWaitingForNotebook;
+  const shouldShowLoading =
+    isWaitingForAuth || isWaitingForDocument || isWaitingForNotebook;
 
   // Show loading immediately to prevent blank screen
   if (shouldShowLoading) {
@@ -103,8 +104,8 @@ export default function DocumentPage() {
         <div className="text-center">
           <Loader className="mx-auto mb-4 h-8 w-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {isUserLoading 
-              ? "Authenticating..." 
+            {isUserLoading
+              ? "Authenticating..."
               : initialDocument?.notebookId && notebook === undefined
                 ? "Redirecting to notebook..."
                 : "Loading document..."}

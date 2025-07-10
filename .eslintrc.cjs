@@ -39,11 +39,9 @@ const config = {
   },
   ignorePatterns: [
     "tailwind.config.js",
-    "public/firebase-messaging-sw.js",
     "next.config.mjs",
     ".eslintrc.cjs",
     "deno/**/*",
-    "src/app/components/Sidebar.test.tsx",
     "src/components_new/DocumentSidebar.test.tsx",
     "jest.config.ts",
     "jest.setup.js",

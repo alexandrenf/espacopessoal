@@ -15,7 +15,13 @@ interface NavbarProps {
   documentTitle?: string;
 }
 
-export function Navbar({ search, setSearch, notebookUrl, notebookTitle, documentTitle }: NavbarProps) {
+export function Navbar({
+  search,
+  setSearch,
+  notebookUrl,
+  notebookTitle,
+  documentTitle,
+}: NavbarProps) {
   const { data: session } = useSession();
 
   return (
@@ -26,25 +32,25 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
             <Image src="/icons/icon-96x96.png" alt="Espaco Pessoal Logo" fill />
           </div>
         </Link>
-        
+
         {/* Breadcrumb navigation */}
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/notebooks" className="hover:text-gray-700">
             Notebooks
           </Link>
-          
+
           {notebookTitle && (
             <>
               <span>/</span>
-              <Link 
-                href={notebookUrl ? `/notas/${notebookUrl}` : "/notebooks"} 
+              <Link
+                href={notebookUrl ? `/notas/${notebookUrl}` : "/notebooks"}
                 className="hover:text-gray-700"
               >
                 {notebookTitle}
               </Link>
             </>
           )}
-          
+
           {documentTitle && (
             <>
               <span>/</span>
@@ -53,9 +59,9 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
           )}
         </div>
       </div>
-      
+
       <SearchInput search={search} setSearch={setSearch} />
-      
+
       <div className="flex items-center gap-3">
         {/* Quick actions */}
         <Link href="/notebooks">
@@ -64,7 +70,7 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
             Notebooks
           </Button>
         </Link>
-        
+
         {notebookUrl && (
           <Link href={`/notas/${notebookUrl}`}>
             <Button variant="ghost" size="sm" className="gap-2">
@@ -73,14 +79,14 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
             </Button>
           </Link>
         )}
-        
+
         <Link href="/">
           <Button variant="ghost" size="sm" className="gap-2">
             <Home className="h-4 w-4" />
             Home
           </Button>
         </Link>
-        
+
         {session && (
           <Link href="/profile">
             <Button variant="ghost" size="sm" className="gap-2">
@@ -89,7 +95,7 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
             </Button>
           </Link>
         )}
-        
+
         {/* User avatar or login */}
         {session ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm text-white">
@@ -97,9 +103,7 @@ export function Navbar({ search, setSearch, notebookUrl, notebookTitle, document
           </div>
         ) : (
           <Link href="/api/auth/signin">
-            <Button size="sm">
-              Entrar
-            </Button>
+            <Button size="sm">Entrar</Button>
           </Link>
         )}
       </div>

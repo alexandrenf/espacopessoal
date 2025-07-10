@@ -55,7 +55,7 @@ export const useSafeAsync = <T,>(
     } finally {
       setLoading(false);
     }
-  }, deps);
+  }, [asyncFn, onError]);
 
   useEffect(() => {
     void execute();

@@ -18,10 +18,22 @@ import {
 } from "lucide-react";
 import { api } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -37,7 +49,6 @@ interface CreateNotebookFormData {
   isPrivate: boolean;
   password: string;
 }
-
 
 const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
   const [open, setOpen] = useState(false);
@@ -68,7 +79,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
     {
       enabled: formData.url.length >= 3,
       retry: false,
-    }
+    },
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,7 +90,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
 
   const handleUrlChange = (value: string) => {
     const cleanValue = value.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-    setFormData(prev => ({ ...prev, url: cleanValue }));
+    setFormData((prev) => ({ ...prev, url: cleanValue }));
   };
 
   return (
@@ -109,8 +120,10 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                 maxLength={50}
                 className={cn(
                   "flex-1",
-                  checkUrlAvailability.data?.available === false && "border-red-500",
-                  checkUrlAvailability.data?.available === true && "border-green-500"
+                  checkUrlAvailability.data?.available === false &&
+                    "border-red-500",
+                  checkUrlAvailability.data?.available === true &&
+                    "border-green-500",
                 )}
               />
             </div>
@@ -127,7 +140,9 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, title: e.target.value }))
+              }
               placeholder="Meu Notebook Pessoal"
               required
               maxLength={100}
@@ -139,7 +154,12 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
               placeholder="Descreva o propósito deste notebook..."
               maxLength={500}
               rows={3}
@@ -150,8 +170,11 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
             <Checkbox
               id="isPrivate"
               checked={formData.isPrivate}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, isPrivate: checked as boolean }))
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  isPrivate: checked as boolean,
+                }))
               }
             />
             <Label htmlFor="isPrivate">Notebook privado</Label>
@@ -164,23 +187,32 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                 id="password"
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, password: e.target.value }))
+                }
                 placeholder="Digite uma senha para proteger este notebook"
               />
             </div>
           )}
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              disabled={createNotebook.isPending || !checkUrlAvailability.data?.available}
+            <Button
+              type="submit"
+              disabled={
+                createNotebook.isPending ||
+                !checkUrlAvailability.data?.available
+              }
             >
               {createNotebook.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Criando...
                 </>
               ) : (
@@ -197,13 +229,18 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
 export default function MigratePage() {
   const { status } = useSession();
   const router = useRouter();
-  const [migrationStep, setMigrationStep] = useState<"setup" | "organizing" | "complete">("setup");
+  const [migrationStep, setMigrationStep] = useState<
+    "setup" | "organizing" | "complete"
+  >("setup");
 
   // Get user's notebooks
-  const { data: notebooks, isLoading: notebooksLoading, refetch: refetchNotebooks } = 
-    api.notebooks.getByOwner.useQuery(undefined, {
-      enabled: status === "authenticated",
-    });
+  const {
+    data: notebooks,
+    isLoading: notebooksLoading,
+    refetch: refetchNotebooks,
+  } = api.notebooks.getByOwner.useQuery(undefined, {
+    enabled: status === "authenticated",
+  });
 
   // Get documents without notebooks (orphaned documents)
   // Note: This would need to be implemented in the backend
@@ -223,10 +260,12 @@ export default function MigratePage() {
 
   if (status === "loading" || notebooksLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando informações de migração...</p>
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">
+            Carregando informações de migração...
+          </p>
         </div>
       </div>
     );
@@ -240,30 +279,34 @@ export default function MigratePage() {
 
   if (migrationStep === "complete") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center max-w-md"
+          className="max-w-md text-center"
         >
           <div className="mb-6">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">
               Migração Concluída!
             </h1>
             <p className="text-gray-600">
-              Seus documentos foram organizados com sucesso. Agora você pode gerenciar seus notebooks.
+              Seus documentos foram organizados com sucesso. Agora você pode
+              gerenciar seus notebooks.
             </p>
           </div>
           <div className="space-y-3">
-            <Button onClick={() => router.push("/notebooks")} className="w-full">
+            <Button
+              onClick={() => router.push("/notebooks")}
+              className="w-full"
+            >
               Gerenciar Notebooks
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => router.push("/")} 
+            <Button
+              variant="outline"
+              onClick={() => router.push("/")}
               className="w-full"
             >
               Voltar ao Início
@@ -288,16 +331,17 @@ export default function MigratePage() {
               <Sparkles className="h-8 w-8 text-blue-600" />
             </div>
           </motion.div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="mb-2 text-4xl font-bold text-gray-900">
             Organizar em Notebooks
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Organize seus documentos em notebooks temáticos para melhor organização e acesso.
+          <p className="mx-auto max-w-2xl text-lg text-gray-600">
+            Organize seus documentos em notebooks temáticos para melhor
+            organização e acesso.
           </p>
         </div>
 
         {/* Migration Steps */}
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           {!hasNotebooks ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -310,15 +354,17 @@ export default function MigratePage() {
                     Primeiro Notebook
                   </CardTitle>
                   <CardDescription>
-                    Vamos criar seu primeiro notebook para organizar seus documentos
+                    Vamos criar seu primeiro notebook para organizar seus
+                    documentos
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Detectamos que você não possui notebooks ainda. Vamos criar um notebook padrão 
-                      para organizar seus documentos existentes.
+                      Detectamos que você não possui notebooks ainda. Vamos
+                      criar um notebook padrão para organizar seus documentos
+                      existentes.
                     </AlertDescription>
                   </Alert>
 
@@ -340,7 +386,7 @@ export default function MigratePage() {
                         </>
                       )}
                     </Button>
-                    
+
                     <CreateNotebookDialog onSuccess={refetchNotebooks} />
                   </div>
                 </CardContent>
@@ -362,18 +408,19 @@ export default function MigratePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <Notebook className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="rounded-lg bg-blue-50 p-4 text-center">
+                      <Notebook className="mx-auto mb-2 h-8 w-8 text-blue-600" />
                       <h3 className="font-semibold text-blue-900">
-                        {notebooks.length} Notebook{notebooks.length !== 1 ? 's' : ''}
+                        {notebooks.length} Notebook
+                        {notebooks.length !== 1 ? "s" : ""}
                       </h3>
                       <p className="text-sm text-blue-700">
                         Notebooks ativos no sistema
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <div className="rounded-lg bg-green-50 p-4 text-center">
+                      <FileText className="mx-auto mb-2 h-8 w-8 text-green-600" />
                       <h3 className="font-semibold text-green-900">
                         Sistema Organizado
                       </h3>
@@ -384,18 +431,21 @@ export default function MigratePage() {
                   </div>
 
                   <div className="flex justify-center space-x-4">
-                    <Button onClick={() => router.push("/notebooks")} className="gap-2">
+                    <Button
+                      onClick={() => router.push("/notebooks")}
+                      className="gap-2"
+                    >
                       <FolderOpen className="h-4 w-4" />
                       Gerenciar Notebooks
                     </Button>
-                    
+
                     <CreateNotebookDialog onSuccess={refetchNotebooks} />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Notebook List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {notebooks.map((notebook) => (
                   <motion.div
                     key={notebook._id}
@@ -411,32 +461,43 @@ export default function MigratePage() {
                               <Notebook className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{notebook.title}</CardTitle>
+                              <CardTitle className="text-lg">
+                                {notebook.title}
+                              </CardTitle>
                               <CardDescription>
                                 /notas/{notebook.url}
                               </CardDescription>
                             </div>
                           </div>
-                          <Badge variant={notebook.isPrivate ? "secondary" : "outline"}>
+                          <Badge
+                            variant={
+                              notebook.isPrivate ? "secondary" : "outline"
+                            }
+                          >
                             {notebook.isPrivate ? "Privado" : "Público"}
                           </Badge>
                         </div>
                       </CardHeader>
                       <CardContent>
                         {notebook.description && (
-                          <p className="text-sm text-muted-foreground mb-3">
+                          <p className="mb-3 text-sm text-muted-foreground">
                             {notebook.description}
                           </p>
                         )}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+                        <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
                           <span>
-                            Criado em {format(new Date(notebook.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            Criado em{" "}
+                            {format(
+                              new Date(notebook.createdAt),
+                              "dd/MM/yyyy",
+                              { locale: ptBR },
+                            )}
                           </span>
                         </div>
                         <Button asChild variant="outline" className="w-full">
                           <a href={`/notas/${notebook.url}`}>
                             Abrir Notebook
-                            <ArrowRight className="h-4 w-4 ml-2" />
+                            <ArrowRight className="ml-2 h-4 w-4" />
                           </a>
                         </Button>
                       </CardContent>

@@ -2,14 +2,14 @@
 
 /**
  * Migration script to transfer all data from Prisma/PostgreSQL to Convex
- * 
+ *
  * This script:
  * 1. Connects to the existing Prisma database
  * 2. Extracts all data from relevant tables
  * 3. Transforms the data to match Convex schema requirements
  * 4. Calls Convex migration functions to insert the data
  * 5. Validates the migration was successful
- * 
+ *
  * Usage:
  *   bun run scripts/migrate-to-convex.ts [--dry-run] [--tables table1,table2]
  */
@@ -25,8 +25,10 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 // Command line argument parsing
 const args = process.argv.slice(2);
 const isDryRun = args.includes("--dry-run");
-const tablesArg = args.find(arg => arg.startsWith("--tables="));
-const selectedTables = tablesArg ? tablesArg.split("=")[1]?.split(",") : undefined;
+const tablesArg = args.find((arg) => arg.startsWith("--tables="));
+const selectedTables = tablesArg
+  ? tablesArg.split("=")[1]?.split(",")
+  : undefined;
 
 // Logging utility
 const logger = {
@@ -142,9 +144,9 @@ interface ExtractedData {
 }
 
 // Data extraction functions
-async function extractUsers(): Promise<ExtractedData['users']> {
+async function extractUsers(): Promise<ExtractedData["users"]> {
   logger.info("Extracting users from Prisma...");
-  
+
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -153,10 +155,10 @@ async function extractUsers(): Promise<ExtractedData['users']> {
       emailVerified: true,
       image: true,
       fcmToken: true,
-    }
+    },
   });
 
-  return users.map(user => ({
+  return users.map((user) => ({
     id: user.id,
     name: user.name ?? undefined,
     email: user.email ?? undefined,
@@ -169,12 +171,12 @@ async function extractUsers(): Promise<ExtractedData['users']> {
   }));
 }
 
-async function extractAccounts(): Promise<ExtractedData['accounts']> {
+async function extractAccounts(): Promise<ExtractedData["accounts"]> {
   logger.info("Extracting accounts from Prisma...");
-  
+
   const accounts = await prisma.account.findMany();
-  
-  return accounts.map(account => ({
+
+  return accounts.map((account) => ({
     id: account.id,
     userId: account.userId,
     type: account.type,
@@ -191,9 +193,9 @@ async function extractAccounts(): Promise<ExtractedData['accounts']> {
   }));
 }
 
-async function extractUserSettings(): Promise<ExtractedData['userSettings']> {
+async function extractUserSettings(): Promise<ExtractedData["userSettings"]> {
   logger.info("Extracting user settings from Prisma...");
-  
+
   const userSettings = await prisma.userThings.findMany({
     select: {
       id: true,
@@ -201,10 +203,10 @@ async function extractUserSettings(): Promise<ExtractedData['userSettings']> {
       privateOrPublicUrl: true,
       password: true,
       ownedById: true,
-    }
+    },
   });
 
-  return userSettings.map(settings => ({
+  return userSettings.map((settings) => ({
     id: settings.id,
     notePadUrl: settings.notePadUrl,
     privateOrPublicUrl: settings.privateOrPublicUrl ?? undefined,
@@ -213,14 +215,14 @@ async function extractUserSettings(): Promise<ExtractedData['userSettings']> {
   }));
 }
 
-async function extractBoards(): Promise<ExtractedData['boards']> {
+async function extractBoards(): Promise<ExtractedData["boards"]> {
   logger.info("Extracting boards from Prisma...");
-  
+
   const boards = await prisma.board.findMany({
-    orderBy: { order: 'asc' }
+    orderBy: { order: "asc" },
   });
 
-  return boards.map(board => ({
+  return boards.map((board) => ({
     id: board.id,
     name: board.name,
     color: board.color,
@@ -231,14 +233,14 @@ async function extractBoards(): Promise<ExtractedData['boards']> {
   }));
 }
 
-async function extractTasks(): Promise<ExtractedData['tasks']> {
+async function extractTasks(): Promise<ExtractedData["tasks"]> {
   logger.info("Extracting tasks from Prisma...");
-  
+
   const tasks = await prisma.task.findMany({
-    orderBy: [{ boardId: 'asc' }, { order: 'asc' }]
+    orderBy: [{ boardId: "asc" }, { order: "asc" }],
   });
 
-  return tasks.map(task => ({
+  return tasks.map((task) => ({
     id: task.id,
     name: task.name,
     description: task.description ?? undefined,
@@ -249,20 +251,27 @@ async function extractTasks(): Promise<ExtractedData['tasks']> {
     userId: task.userId,
     reminderEnabled: task.reminderEnabled,
     reminderDateTime: task.reminderDateTime?.toISOString(),
-    reminderFrequency: task.reminderFrequency as "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | undefined,
+    reminderFrequency: task.reminderFrequency as
+      | "ONCE"
+      | "DAILY"
+      | "WEEKLY"
+      | "MONTHLY"
+      | undefined,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   }));
 }
 
-async function extractScheduledNotifications(): Promise<ExtractedData['scheduledNotifications']> {
+async function extractScheduledNotifications(): Promise<
+  ExtractedData["scheduledNotifications"]
+> {
   logger.info("Extracting scheduled notifications from Prisma...");
-  
+
   const notifications = await prisma.scheduledNotification.findMany({
-    orderBy: { scheduledFor: 'asc' }
+    orderBy: { scheduledFor: "asc" },
   });
 
-  return notifications.map(notification => ({
+  return notifications.map((notification) => ({
     id: notification.id,
     userId: notification.userId,
     title: notification.title,
@@ -276,12 +285,14 @@ async function extractScheduledNotifications(): Promise<ExtractedData['scheduled
   }));
 }
 
-async function extractReplaceDictionaries(): Promise<ExtractedData['replaceDictionaries']> {
+async function extractReplaceDictionaries(): Promise<
+  ExtractedData["replaceDictionaries"]
+> {
   logger.info("Extracting replace dictionaries from Prisma...");
-  
+
   const dictionaries = await prisma.replaceDictionary.findMany();
 
-  return dictionaries.map(dict => ({
+  return dictionaries.map((dict) => ({
     id: dict.id,
     from: dict.from,
     to: dict.to,
@@ -291,14 +302,16 @@ async function extractReplaceDictionaries(): Promise<ExtractedData['replaceDicti
   }));
 }
 
-async function extractLegacyNotepads(): Promise<ExtractedData['legacyNotepads']> {
+async function extractLegacyNotepads(): Promise<
+  ExtractedData["legacyNotepads"]
+> {
   logger.info("Extracting legacy notepads from Prisma...");
-  
+
   const notepads = await prisma.notepad.findMany({
-    orderBy: [{ parentId: 'asc' }, { order: 'asc' }]
+    orderBy: [{ parentId: "asc" }, { order: "asc" }],
   });
 
-  return notepads.map(notepad => ({
+  return notepads.map((notepad) => ({
     id: notepad.id,
     content: notepad.content ?? undefined,
     createdAt: notepad.createdAt.toISOString(),
@@ -310,12 +323,14 @@ async function extractLegacyNotepads(): Promise<ExtractedData['legacyNotepads']>
   }));
 }
 
-async function extractLegacySharedNotes(): Promise<ExtractedData['legacySharedNotes']> {
+async function extractLegacySharedNotes(): Promise<
+  ExtractedData["legacySharedNotes"]
+> {
   logger.info("Extracting legacy shared notes from Prisma...");
-  
+
   const sharedNotes = await prisma.sharedNote.findMany();
 
-  return sharedNotes.map(note => ({
+  return sharedNotes.map((note) => ({
     id: note.id,
     url: note.url,
     createdAt: note.createdAt.toISOString(),
@@ -327,21 +342,31 @@ async function extractLegacySharedNotes(): Promise<ExtractedData['legacySharedNo
 // Main extraction function
 async function extractAllData(): Promise<ExtractedData> {
   logger.info("Starting data extraction from Prisma...");
-  
+
   const shouldInclude = (tableName: string) => {
     return !selectedTables || selectedTables.includes(tableName);
   };
 
   const data: ExtractedData = {
-    users: shouldInclude('users') ? await extractUsers() : [],
-    accounts: shouldInclude('accounts') ? await extractAccounts() : [],
-    userSettings: shouldInclude('userSettings') ? await extractUserSettings() : [],
-    boards: shouldInclude('boards') ? await extractBoards() : [],
-    tasks: shouldInclude('tasks') ? await extractTasks() : [],
-    scheduledNotifications: shouldInclude('scheduledNotifications') ? await extractScheduledNotifications() : [],
-    replaceDictionaries: shouldInclude('replaceDictionaries') ? await extractReplaceDictionaries() : [],
-    legacyNotepads: shouldInclude('legacyNotepads') ? await extractLegacyNotepads() : [],
-    legacySharedNotes: shouldInclude('legacySharedNotes') ? await extractLegacySharedNotes() : [],
+    users: shouldInclude("users") ? await extractUsers() : [],
+    accounts: shouldInclude("accounts") ? await extractAccounts() : [],
+    userSettings: shouldInclude("userSettings")
+      ? await extractUserSettings()
+      : [],
+    boards: shouldInclude("boards") ? await extractBoards() : [],
+    tasks: shouldInclude("tasks") ? await extractTasks() : [],
+    scheduledNotifications: shouldInclude("scheduledNotifications")
+      ? await extractScheduledNotifications()
+      : [],
+    replaceDictionaries: shouldInclude("replaceDictionaries")
+      ? await extractReplaceDictionaries()
+      : [],
+    legacyNotepads: shouldInclude("legacyNotepads")
+      ? await extractLegacyNotepads()
+      : [],
+    legacySharedNotes: shouldInclude("legacySharedNotes")
+      ? await extractLegacySharedNotes()
+      : [],
   };
 
   logger.success("Data extraction completed!");
@@ -363,12 +388,15 @@ async function extractAllData(): Promise<ExtractedData> {
 // Migration execution function
 async function runMigration(data: ExtractedData) {
   logger.info(`Starting migration to Convex (dryRun: ${isDryRun})...`);
-  
+
   try {
-    const result = await convex.mutation(api.migrations.runMigrationFromScript, {
-      dryRun: isDryRun,
-      includeData: data,
-    });
+    const result = await convex.mutation(
+      api.migrations.runMigrationFromScript,
+      {
+        dryRun: isDryRun,
+        includeData: data,
+      },
+    );
 
     if (isDryRun) {
       logger.success("Dry run completed successfully!");
@@ -376,7 +404,7 @@ async function runMigration(data: ExtractedData) {
     } else {
       logger.success("Migration completed successfully!");
       logger.info("Migration results:", result.migrationResults);
-      
+
       // Validate the migration
       const validation = await convex.query(api.migrations.validateMigration);
       logger.info("Post-migration validation:", validation);
@@ -395,11 +423,11 @@ async function main() {
     logger.info("=".repeat(50));
     logger.info("PRISMA TO CONVEX MIGRATION SCRIPT");
     logger.info("=".repeat(50));
-    
+
     if (isDryRun) {
       logger.warn("DRY RUN MODE - No data will be actually migrated");
     }
-    
+
     if (selectedTables) {
       logger.info("Only migrating tables:", selectedTables);
     }
@@ -408,26 +436,28 @@ async function main() {
     logger.info("Testing database connections...");
     await prisma.$connect();
     logger.success("Prisma connection established");
-    
+
     // Test Convex connection by running a simple query
     try {
       await convex.query(api.migrations.validateMigration);
       logger.success("Convex connection established");
     } catch (error) {
       logger.error("Convex connection failed:", error);
-      throw new Error("Could not connect to Convex. Please check your NEXT_PUBLIC_CONVEX_URL environment variable.");
+      throw new Error(
+        "Could not connect to Convex. Please check your NEXT_PUBLIC_CONVEX_URL environment variable.",
+      );
     }
 
     // Step 2: Extract data from Prisma
     const extractedData = await extractAllData();
-    
+
     // Step 3: Run migration
     const migrationResult = await runMigration(extractedData);
-    
+
     logger.info("=".repeat(50));
     logger.success("MIGRATION SCRIPT COMPLETED SUCCESSFULLY!");
     logger.info("=".repeat(50));
-    
+
     if (!isDryRun) {
       logger.info("Next steps:");
       logger.info("1. Test your application with Convex data");
@@ -435,7 +465,6 @@ async function main() {
       logger.info("3. Remove Prisma dependencies when ready");
       logger.info("4. Update environment variables");
     }
-
   } catch (error) {
     logger.error("Migration script failed:", error);
     process.exit(1);
@@ -445,13 +474,13 @@ async function main() {
 }
 
 // Handle graceful shutdown
-process.on('SIGINT', async () => {
+process.on("SIGINT", async () => {
   logger.warn("Received SIGINT, shutting down gracefully...");
   await prisma.$disconnect();
   process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   logger.warn("Received SIGTERM, shutting down gracefully...");
   await prisma.$disconnect();
   process.exit(0);

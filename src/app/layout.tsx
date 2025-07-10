@@ -7,7 +7,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { TRPCReactProvider } from "~/trpc/react";
 import { Toaster } from "sonner";
 import { SessionProvider } from "~/components/SessionProvider";
-import { PWAProvider } from "~/components/PWAProvider";
+
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { Suspense } from "react";
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
@@ -95,19 +95,7 @@ export default function RootLayout({
       <body>
         <TRPCReactProvider>
           <SessionProvider>
-            <ConvexClientProvider>
-              <PWAProvider>
-                <Suspense
-                  fallback={
-                    <div className="flex min-h-screen items-center justify-center">
-                      <LoadingSpinner className="h-8 w-8" />
-                    </div>
-                  }
-                >
-                  {children}
-                </Suspense>
-              </PWAProvider>
-            </ConvexClientProvider>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
           </SessionProvider>
         </TRPCReactProvider>
         <Toaster />

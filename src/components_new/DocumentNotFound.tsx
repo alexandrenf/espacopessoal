@@ -27,4 +27,4 @@ export function DocumentNotFound({
       </div>
     </div>
   );
-} 
+}

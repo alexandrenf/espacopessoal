@@ -155,19 +155,25 @@ export default defineSchema({
   tasks: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
-    status: v.union(v.literal("TODO"), v.literal("IN_PROGRESS"), v.literal("DONE")),
+    status: v.union(
+      v.literal("TODO"),
+      v.literal("IN_PROGRESS"),
+      v.literal("DONE"),
+    ),
     order: v.number(),
     dueDate: v.optional(v.number()),
     boardId: v.id("boards"),
     userId: v.id("users"),
     reminderEnabled: v.boolean(),
     reminderDateTime: v.optional(v.number()),
-    reminderFrequency: v.optional(v.union(
-      v.literal("ONCE"),
-      v.literal("DAILY"),
-      v.literal("WEEKLY"),
-      v.literal("MONTHLY")
-    )),
+    reminderFrequency: v.optional(
+      v.union(
+        v.literal("ONCE"),
+        v.literal("DAILY"),
+        v.literal("WEEKLY"),
+        v.literal("MONTHLY"),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

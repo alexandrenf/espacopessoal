@@ -13,14 +13,19 @@ export const notebooksRouter = createTRPCRouter({
   create: protectedProcedure
     .input(
       z.object({
-        url: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_-]+$/, {
-          message: "URL must contain only letters, numbers, hyphens, and underscores"
-        }),
+        url: z
+          .string()
+          .min(3)
+          .max(50)
+          .regex(/^[a-zA-Z0-9_-]+$/, {
+            message:
+              "URL must contain only letters, numbers, hyphens, and underscores",
+          }),
         title: z.string().min(1).max(100),
         description: z.string().max(500).optional(),
         isPrivate: z.boolean().default(false),
         password: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.session?.user?.id) {
@@ -51,7 +56,10 @@ export const notebooksRouter = createTRPCRouter({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to create notebook",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to create notebook",
         });
       }
     }),
@@ -62,7 +70,7 @@ export const notebooksRouter = createTRPCRouter({
       z.object({
         url: z.string().min(1),
         password: z.string().optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       if (!ctx.convex) {
@@ -80,10 +88,13 @@ export const notebooksRouter = createTRPCRouter({
 
         // If notebook is private and password is provided, validate it
         if (notebook.isPrivate && input.password) {
-          const validationResult = await ctx.convex.mutation(api.notebooks.validatePassword, {
-            url: input.url,
-            password: input.password,
-          });
+          const validationResult = await ctx.convex.mutation(
+            api.notebooks.validatePassword,
+            {
+              url: input.url,
+              password: input.password,
+            },
+          );
 
           if (!validationResult.valid) {
             throw new TRPCError({
@@ -100,39 +111,40 @@ export const notebooksRouter = createTRPCRouter({
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to fetch notebook",
+          message:
+            error instanceof Error ? error.message : "Failed to fetch notebook",
         });
       }
     }),
 
   // Get notebooks owned by user
-  getByOwner: protectedProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.session?.user?.id) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to view your notebooks",
-        });
-      }
+  getByOwner: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to view your notebooks",
+      });
+    }
 
-      if (!ctx.convex) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Convex client not available",
-        });
-      }
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
 
-      try {
-        return await ctx.convex.query(api.notebooks.getByOwner, {
-          userId: ctx.session.user.id,
-        });
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to fetch notebooks",
-        });
-      }
-    }),
+    try {
+      return await ctx.convex.query(api.notebooks.getByOwner, {
+        userId: ctx.session.user.id,
+      });
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error ? error.message : "Failed to fetch notebooks",
+      });
+    }
+  }),
 
   // Update notebook
   update: protectedProcedure
@@ -143,7 +155,7 @@ export const notebooksRouter = createTRPCRouter({
         description: z.string().max(500).optional(),
         isPrivate: z.boolean().optional(),
         password: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.session?.user?.id) {
@@ -174,7 +186,10 @@ export const notebooksRouter = createTRPCRouter({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to update notebook",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to update notebook",
         });
       }
     }),
@@ -184,7 +199,7 @@ export const notebooksRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string().min(1),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.session?.user?.id) {
@@ -211,7 +226,10 @@ export const notebooksRouter = createTRPCRouter({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to delete notebook",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete notebook",
         });
       }
     }),
@@ -221,7 +239,7 @@ export const notebooksRouter = createTRPCRouter({
     .input(
       z.object({
         url: z.string().min(1),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       if (!ctx.session?.user?.id) {
@@ -246,41 +264,49 @@ export const notebooksRouter = createTRPCRouter({
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to check URL availability",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to check URL availability",
         });
       }
     }),
 
   // Get or create default notebook
-  getOrCreateDefault: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      if (!ctx.session?.user?.id) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to create a default notebook",
-        });
-      }
+  getOrCreateDefault: protectedProcedure.mutation(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to create a default notebook",
+      });
+    }
 
-      if (!ctx.convex) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Convex client not available",
-        });
-      }
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
 
-      try {
-        const notebook = await ctx.convex.mutation(api.notebooks.getOrCreateDefault, {
+    try {
+      const notebook = await ctx.convex.mutation(
+        api.notebooks.getOrCreateDefault,
+        {
           userId: ctx.session.user.id,
-        });
+        },
+      );
 
-        return notebook;
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to get or create default notebook",
-        });
-      }
-    }),
+      return notebook;
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to get or create default notebook",
+      });
+    }
+  }),
 
   // Verify notebook password
   verifyPassword: publicProcedure
@@ -288,7 +314,7 @@ export const notebooksRouter = createTRPCRouter({
       z.object({
         url: z.string().min(1),
         password: z.string().min(1),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.convex) {
@@ -299,10 +325,13 @@ export const notebooksRouter = createTRPCRouter({
       }
 
       try {
-        const result = await ctx.convex.mutation(api.notebooks.validatePassword, {
-          url: input.url,
-          password: input.password,
-        });
+        const result = await ctx.convex.mutation(
+          api.notebooks.validatePassword,
+          {
+            url: input.url,
+            password: input.password,
+          },
+        );
 
         return result;
       } catch (error) {
@@ -314,106 +343,124 @@ export const notebooksRouter = createTRPCRouter({
     }),
 
   // Check if user has documents that need migration from DEFAULT_USER_ID
-  checkMigrationNeeded: protectedProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.session?.user?.id) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to check migration status",
-        });
-      }
+  checkMigrationNeeded: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to check migration status",
+      });
+    }
 
-      if (!ctx.convex) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Convex client not available",
-        });
-      }
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
 
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const result = await ctx.convex.query(api.documents.checkForMigrationNeeded, {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const result = await ctx.convex.query(
+        api.documents.checkForMigrationNeeded,
+        {
           userId: ctx.session.user.id,
-        });
-        
-        // Validate the result structure and return typed object
-        if (result && typeof result === 'object' && 
-            'migrationNeeded' in result && 
-            'defaultUserDocumentsCount' in result && 
-            'userDocumentsCount' in result) {
-          const typedResult = result as { 
-            migrationNeeded: boolean; 
-            defaultUserDocumentsCount: number; 
-            userDocumentsCount: number; 
-          };
-          return {
-            migrationNeeded: Boolean(typedResult.migrationNeeded),
-            defaultUserDocumentsCount: Number(typedResult.defaultUserDocumentsCount),
-            userDocumentsCount: Number(typedResult.userDocumentsCount),
-          };
-        } else {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Invalid migration status format returned from database",
-          });
-        }
-      } catch (error) {
+        },
+      );
+
+      // Validate the result structure and return typed object
+      if (
+        result &&
+        typeof result === "object" &&
+        "migrationNeeded" in result &&
+        "defaultUserDocumentsCount" in result &&
+        "userDocumentsCount" in result
+      ) {
+        const typedResult = result as {
+          migrationNeeded: boolean;
+          defaultUserDocumentsCount: number;
+          userDocumentsCount: number;
+        };
+        return {
+          migrationNeeded: Boolean(typedResult.migrationNeeded),
+          defaultUserDocumentsCount: Number(
+            typedResult.defaultUserDocumentsCount,
+          ),
+          userDocumentsCount: Number(typedResult.userDocumentsCount),
+        };
+      } else {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to check migration status",
+          message: "Invalid migration status format returned from database",
         });
       }
-    }),
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to check migration status",
+      });
+    }
+  }),
 
   // Migrate documents from DEFAULT_USER_ID to the current user
-  migrateDocuments: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      if (!ctx.session?.user?.id) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to migrate documents",
-        });
-      }
+  migrateDocuments: protectedProcedure.mutation(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to migrate documents",
+      });
+    }
 
-      if (!ctx.convex) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Convex client not available",
-        });
-      }
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
 
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const result = await ctx.convex.mutation(api.documents.migrateDefaultUserDocuments, {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const result = await ctx.convex.mutation(
+        api.documents.migrateDefaultUserDocuments,
+        {
           userId: ctx.session.user.id,
-        });
-        
-        // Validate the result structure and return typed object
-        if (result && typeof result === 'object' && 
-            'totalFound' in result && 
-            'migratedCount' in result && 
-            'success' in result) {
-          const typedResult = result as { 
-            totalFound: number; 
-            migratedCount: number; 
-            success: boolean; 
-          };
-          return {
-            totalFound: Number(typedResult.totalFound),
-            migratedCount: Number(typedResult.migratedCount),
-            success: Boolean(typedResult.success),
-          };
-        } else {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Invalid migration result format returned from database",
-          });
-        }
-      } catch (error) {
+        },
+      );
+
+      // Validate the result structure and return typed object
+      if (
+        result &&
+        typeof result === "object" &&
+        "totalFound" in result &&
+        "migratedCount" in result &&
+        "success" in result
+      ) {
+        const typedResult = result as {
+          totalFound: number;
+          migratedCount: number;
+          success: boolean;
+        };
+        return {
+          totalFound: Number(typedResult.totalFound),
+          migratedCount: Number(typedResult.migratedCount),
+          success: Boolean(typedResult.success),
+        };
+      } else {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to migrate documents",
+          message: "Invalid migration result format returned from database",
         });
       }
-    }),
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to migrate documents",
+      });
+    }
+  }),
 });

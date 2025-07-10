@@ -159,7 +159,9 @@ const FeatureCard = ({
               whileHover={{ x: 5 }}
               transition={{ duration: 0.2 }}
             >
-              {status === "unconfigured" ? "Criar primeiro notebook" : "Gerenciar notebooks"}
+              {status === "unconfigured"
+                ? "Criar primeiro notebook"
+                : "Gerenciar notebooks"}
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </motion.div>
           )}
@@ -248,11 +250,11 @@ export function UserDashboard() {
   //   convexApi.userSettings.getUserSettingsAndHealth,
   //   status === "authenticated" && session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip"
   // );
-  
+
   // Temporary fallback data until Convex API is properly generated
   const userSettings = status === "authenticated" ? null : undefined;
   const isLoading = userSettings === undefined && status === "authenticated";
-  const data = userSettings || {
+  const data = userSettings ?? {
     settings: {
       notePadUrl: "",
       privateOrPublicUrl: true,
@@ -277,9 +279,9 @@ export function UserDashboard() {
     {
       enabled: status === "authenticated",
       staleTime: 5 * 60 * 1000,
-    }
+    },
   );
-  
+
   // Safely extract migration status, handling potential errors
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const migrationStatus = migrationQuery.error ? null : migrationQuery.data;
@@ -307,14 +309,22 @@ export function UserDashboard() {
   const notebookCount = notebooks?.length ?? 0;
 
   // Type guard for migration status
-  const isValidMigrationStatus = (status: unknown): status is { migrationNeeded: boolean; defaultUserDocumentsCount: number } => {
-    return status !== null && 
-           typeof status === 'object' && 
-           'migrationNeeded' in status && 
-           'defaultUserDocumentsCount' in status;
+  const isValidMigrationStatus = (
+    status: unknown,
+  ): status is {
+    migrationNeeded: boolean;
+    defaultUserDocumentsCount: number;
+  } => {
+    return (
+      status !== null &&
+      typeof status === "object" &&
+      "migrationNeeded" in status &&
+      "defaultUserDocumentsCount" in status
+    );
   };
 
-  const shouldShowMigration = isValidMigrationStatus(migrationStatus) && migrationStatus.migrationNeeded;
+  const shouldShowMigration =
+    isValidMigrationStatus(migrationStatus) && migrationStatus.migrationNeeded;
 
   return (
     <main
@@ -507,9 +517,15 @@ export function UserDashboard() {
           >
             <Alert className="border-blue-200 bg-blue-50">
               <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-800">Documentos Encontrados</AlertTitle>
+              <AlertTitle className="text-blue-800">
+                Documentos Encontrados
+              </AlertTitle>
               <AlertDescription className="text-blue-700">
-                Encontramos {isValidMigrationStatus(migrationStatus) ? migrationStatus.defaultUserDocumentsCount : 0} documento(s) que precisam ser organizados. 
+                Encontramos{" "}
+                {isValidMigrationStatus(migrationStatus)
+                  ? migrationStatus.defaultUserDocumentsCount
+                  : 0}{" "}
+                documento(s) que precisam ser organizados.
                 <Button
                   variant="outline"
                   size="sm"
@@ -532,9 +548,10 @@ export function UserDashboard() {
                 key="notebooks"
                 index={0}
                 title="Meus Notebooks"
-                description={hasNotebooks 
-                  ? `Gerencie seus ${notebookCount} notebook${notebookCount > 1 ? 's' : ''} com editor colaborativo avançado. Organize suas ideias em coleções temáticas.`
-                  : "Crie e organize suas ideias em notebooks temáticos com editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
+                description={
+                  hasNotebooks
+                    ? `Gerencie seus ${notebookCount} notebook${notebookCount > 1 ? "s" : ""} com editor colaborativo avançado. Organize suas ideias em coleções temáticas.`
+                    : "Crie e organize suas ideias em notebooks temáticos com editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
                 }
                 icon={<Notebook className="h-8 w-8" />}
                 href={hasNotebooks ? "/notebooks" : "/notebooks"}
@@ -654,7 +671,9 @@ export function UserDashboard() {
                           className="group flex items-center gap-3"
                         >
                           <Notebook className="h-6 w-6" />
-                          {hasNotebooks ? "Gerenciar Notebooks" : "Criar Primeiro Notebook"}
+                          {hasNotebooks
+                            ? "Gerenciar Notebooks"
+                            : "Criar Primeiro Notebook"}
                           <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                         </Link>
                       </Button>

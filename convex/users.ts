@@ -400,8 +400,8 @@ export const getAccountByProvider = query({
   handler: async (ctx, { provider, providerAccountId }) => {
     return await ctx.db
       .query("accounts")
-      .withIndex("by_provider_account", (q) => 
-        q.eq("provider", provider).eq("providerAccountId", providerAccountId)
+      .withIndex("by_provider_account", (q) =>
+        q.eq("provider", provider).eq("providerAccountId", providerAccountId),
       )
       .first();
   },
@@ -437,11 +437,11 @@ export const deleteAccount = mutation({
   handler: async (ctx, { provider, providerAccountId }) => {
     const account = await ctx.db
       .query("accounts")
-      .withIndex("by_provider_account", (q) => 
-        q.eq("provider", provider).eq("providerAccountId", providerAccountId)
+      .withIndex("by_provider_account", (q) =>
+        q.eq("provider", provider).eq("providerAccountId", providerAccountId),
       )
       .first();
-    
+
     if (account) {
       await ctx.db.delete(account._id);
     }
@@ -489,7 +489,7 @@ export const updateAuthSession = mutation({
       .query("sessions")
       .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
       .first();
-    
+
     if (!session) {
       throw new ConvexError("Session not found");
     }
@@ -497,7 +497,7 @@ export const updateAuthSession = mutation({
     if (expires !== undefined) {
       await ctx.db.patch(session._id, { expires });
     }
-    
+
     return await ctx.db.get(session._id);
   },
 });
@@ -512,7 +512,7 @@ export const deleteAuthSession = mutation({
       .query("sessions")
       .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
       .first();
-    
+
     if (session) {
       await ctx.db.delete(session._id);
     }
@@ -540,18 +540,18 @@ export const useVerificationToken = mutation({
   handler: async (ctx, { identifier, token }) => {
     const verificationToken = await ctx.db
       .query("verificationTokens")
-      .withIndex("by_identifier_token", (q) => 
-        q.eq("identifier", identifier).eq("token", token)
+      .withIndex("by_identifier_token", (q) =>
+        q.eq("identifier", identifier).eq("token", token),
       )
       .first();
-    
+
     if (!verificationToken) {
       return null;
     }
 
     // Delete the token after use
     await ctx.db.delete(verificationToken._id);
-    
+
     return verificationToken;
   },
 });
@@ -627,7 +627,8 @@ export const updateForAuth = mutation({
     if (args.name !== undefined) updates.name = args.name;
     if (args.email !== undefined) updates.email = args.email;
     if (args.image !== undefined) updates.image = args.image;
-    if (args.emailVerified !== undefined) updates.emailVerified = args.emailVerified;
+    if (args.emailVerified !== undefined)
+      updates.emailVerified = args.emailVerified;
 
     await ctx.db.patch(args.id, updates);
     return await ctx.db.get(args.id);

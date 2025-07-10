@@ -32,22 +32,22 @@ function DocumentPageContent() {
   const notebook = useQuery(
     convexApi.notebooks.getByUrl,
     session?.user?.id
-      ? { 
-          url: normalizedUrl, 
-          userId: session.user.id 
+      ? {
+          url: normalizedUrl,
+          userId: session.user.id,
         }
-      : "skip"
+      : "skip",
   );
 
   // Get document information
   const document = useQuery(
     convexApi.documents.getById,
     session?.user?.id && normalizedDocumentId
-      ? { 
-          id: normalizedDocumentId as Id<"documents">, 
-          userId: session.user.id 
+      ? {
+          id: normalizedDocumentId as Id<"documents">,
+          userId: session.user.id,
         }
-      : "skip"
+      : "skip",
   );
 
   // Check if user is authenticated
@@ -61,7 +61,7 @@ function DocumentPageContent() {
   }
 
   if (!session?.user?.id) {
-    router.push("/auth/signin");
+    router.push("/api/auth/signin");
     return null;
   }
 
