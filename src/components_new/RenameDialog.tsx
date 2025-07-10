@@ -69,7 +69,7 @@ export function RenameDialog({
       await updateDocument({
         id: document._id,
         title: title.trim(),
-        userId: userIdString,
+        userId: userIdString as Id<"users">,
       });
 
       toast.success("Document renamed successfully!");

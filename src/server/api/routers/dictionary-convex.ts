@@ -17,6 +17,18 @@ export const dictionaryConvexRouter = createTRPCRouter({
       try {
         const { cursor, limit, includePublic } = input;
 
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const result = await ctx.convex.query(api.dictionary.getDictionary, {
           userId: ctx.session.user.id as Id<"users">,
           cursor: cursor ? (cursor as Id<"dictionary">) : undefined,
@@ -49,6 +61,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const entry = await ctx.convex.mutation(
           api.dictionary.createDictionaryEntry,
           {
@@ -96,6 +114,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const entry = await ctx.convex.mutation(
           api.dictionary.updateDictionaryEntry,
           {
@@ -144,6 +168,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         await ctx.convex.mutation(api.dictionary.deleteDictionaryEntry, {
           userId: ctx.session.user.id as Id<"users">,
           entryId: input as Id<"dictionary">,
@@ -180,6 +210,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     .input(z.object({ entryId: z.string() }))
     .query(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const entry = await ctx.convex.query(
           api.dictionary.getDictionaryEntry,
           {
@@ -225,6 +261,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const entries = await ctx.convex.query(
           api.dictionary.searchDictionary,
           {
@@ -256,6 +298,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const result = await ctx.convex.query(
           api.dictionary.getPublicDictionary,
           {
@@ -298,6 +346,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const results = await ctx.convex.mutation(
           api.dictionary.bulkCreateDictionaryEntries,
           {
@@ -341,6 +395,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const result = await ctx.convex.query(api.dictionary.exportDictionary, {
           userId: ctx.session.user.id as Id<"users">,
           format: input.format,
@@ -369,6 +429,12 @@ export const dictionaryConvexRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const result = await ctx.convex.mutation(
           api.dictionary.importDictionary,
           {

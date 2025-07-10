@@ -32,6 +32,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -90,6 +96,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -155,6 +167,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -167,6 +185,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const board = await ctx.convex.mutation(api.boards.updateBoard, {
           boardId: input.boardId as Id<"boards">,
           userId: user._id,
@@ -219,6 +243,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -280,6 +310,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -345,6 +381,12 @@ export const boardsConvexRouter = createTRPCRouter({
       }
 
       // Get user ID from Convex
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
       const user = await ctx.convex.query(api.users.getByEmail, {
         email: userEmail,
       });
@@ -415,6 +457,12 @@ export const boardsConvexRouter = createTRPCRouter({
         }
 
         // Get user ID from Convex
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const user = await ctx.convex.query(api.users.getByEmail, {
           email: userEmail,
         });
@@ -426,6 +474,12 @@ export const boardsConvexRouter = createTRPCRouter({
           });
         }
 
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
         const task = await ctx.convex.mutation(api.tasks.createTask, {
           boardId: input.boardId as Id<"boards">,
           userId: user._id,

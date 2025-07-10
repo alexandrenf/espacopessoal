@@ -89,7 +89,7 @@ const DocumentSidebar = memo(
     const documentsQuery = useQuery(
       api.documents.getAllForTreeLegacy,
       !isUserLoading && userIdString
-        ? { userId: userIdString, limit: 200, notebookId }
+        ? { userId: userIdString as Id<"users">, limit: 200, notebookId }
         : "skip",
     );
     const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
@@ -168,7 +168,7 @@ const DocumentSidebar = memo(
 
         setIsDeletingId(id);
         try {
-          await deleteDocument({ id, userId: userIdString });
+          await deleteDocument({ id, userId: userIdString as Id<"users"> });
           toast.success("Item deleted!");
 
           // If we deleted the current document, navigate to home
@@ -318,7 +318,7 @@ const DocumentSidebar = memo(
 
         const documentId = await createDocument({
           title: "Untitled Document",
-          userId: userIdString,
+          userId: userIdString as Id<"users">,
           notebookId,
         });
 
@@ -414,7 +414,7 @@ const DocumentSidebar = memo(
       try {
         const folderId = await createDocument({
           title: "New Folder",
-          userId: userIdString,
+          userId: userIdString as Id<"users">,
           isFolder: true,
           notebookId,
         });
@@ -680,7 +680,7 @@ const DocumentSidebar = memo(
             parentId: d.parentId,
             order: d.order,
           })),
-          userId: userIdString,
+          userId: userIdString as Id<"users">,
         });
       } catch (error) {
         if (process.env.NODE_ENV === "development") {

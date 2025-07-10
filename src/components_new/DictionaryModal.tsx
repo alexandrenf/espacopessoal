@@ -60,26 +60,27 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     api.dictionary.getPublicDictionary,
     !isPrivate && session?.user?.id
       ? {
-          createdById,
+          cursor: undefined,
+          limit: undefined,
         }
       : "skip",
   );
 
   const privateDictionary = useQuery(
     api.dictionary.getDictionary,
-    isPrivate && session?.user?.id ? { userId: session.user.id } : "skip",
+    isPrivate && session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip",
   );
 
   // Use the appropriate dictionary based on isPrivate with proper type safety
   const dictionary: DictionaryEntry[] = isPrivate
-    ? (privateDictionary ?? [])
-    : (publicDictionary ?? []);
+    ? (privateDictionary?.entries ?? [])
+    : (publicDictionary?.entries ?? []);
   const isLoadingDictionary =
     (isPrivate ? privateDictionary : publicDictionary) === undefined;
 
-  const createEntry = useMutation(api.dictionary.create);
-  const updateEntryMutation = useMutation(api.dictionary.update);
-  const deleteEntryMutation = useMutation(api.dictionary.remove);
+  const createEntry = useMutation(api.dictionary.createDictionaryEntry);
+  const updateEntryMutation = useMutation(api.dictionary.updateDictionaryEntry);
+  const deleteEntryMutation = useMutation(api.dictionary.deleteDictionaryEntry);
 
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -94,7 +95,8 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
       await createEntry({
         from: trimmedFrom,
         to: trimmedTo,
-        userId: session.user.id,
+        userId: session.user.id as Id<"users">,
+        isPublic: !isPrivate,
       });
       setNewFrom("");
       setNewTo("");
@@ -113,10 +115,11 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     setIsUpdating(true);
     try {
       await updateEntryMutation({
-        id,
+        entryId: id,
         from: trimmedFrom,
         to: trimmedTo,
-        userId: session.user.id,
+        userId: session.user.id as Id<"users">,
+        isPublic: !isPrivate,
       });
       setEditingId(null);
       setNewFrom("");
@@ -133,7 +136,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     if (!session?.user?.id) return;
     setIsDeleting(true);
     try {
-      await deleteEntryMutation({ id, userId: session.user.id });
+      await deleteEntryMutation({ entryId: id, userId: session.user.id as Id<"users"> });
       toast.success("Entrada removida");
     } catch (error) {
       toast.error("Erro ao remover entrada");

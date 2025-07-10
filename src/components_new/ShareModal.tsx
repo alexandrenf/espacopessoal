@@ -29,7 +29,7 @@ export function ShareModal({
 
   const data = useQuery(api.documents.getSharedDocumentByDocumentId, {
     documentId,
-    userId,
+    userId: userId as Id<"users">,
   });
 
   const createSharedDocument = useMutation(api.documents.createSharedDocument);
@@ -64,7 +64,7 @@ export function ShareModal({
   const handleCreate = async () => {
     setIsCreating(true);
     try {
-      await createSharedDocument({ documentId, userId });
+      await createSharedDocument({ documentId, userId: userId as Id<"users"> });
       toast.success("Link de compartilhamento criado com sucesso!");
     } catch (error) {
       toast.error("Erro ao criar link de compartilhamento");
@@ -78,7 +78,7 @@ export function ShareModal({
     if (!existingSharedDocument) return;
     setIsDeleting(true);
     try {
-      await deleteSharedDocument({ url: existingSharedDocument.url, userId });
+      await deleteSharedDocument({ url: existingSharedDocument.url, userId: userId as Id<"users"> });
       toast.success("Link de compartilhamento removido");
     } catch (error) {
       toast.error("Erro ao remover link de compartilhamento");
