@@ -149,7 +149,7 @@ export const usersConvexRouter = createTRPCRouter({
           name: input.name,
           email: input.email,
           image: input.image,
-        }) as Doc<"users"> | null;
+        });
 
         return user;
       } catch (error: unknown) {
@@ -187,7 +187,7 @@ export const usersConvexRouter = createTRPCRouter({
         const user = await ctx.convex.mutation(api.users.changeName, {
           userId: convexUser._id,
           name: input.name,
-        }) as Doc<"users"> | null;
+        }) 
 
         return user;
       } catch (error: unknown) {
