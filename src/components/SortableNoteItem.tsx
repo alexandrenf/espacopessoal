@@ -56,38 +56,49 @@ export const NoteItem: React.FC<NoteItemProps> = ({
     <div className="relative">
       {/* Top drag indicator */}
       {dragOverGapTop && (
-        <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 transform -translate-y-1/2 z-10 
-          animate-pulse transition-all duration-200 ease-in-out" />
+        <div className="absolute left-0 right-0 top-0 z-10 h-1 -translate-y-1/2 transform animate-pulse bg-blue-500 transition-all duration-200 ease-in-out" />
       )}
 
       <div
         onClick={onSelect}
         className={cn(
           isNested && "pl-10",
-          "group relative flex w-full items-center justify-between cursor-pointer",
+          "group relative flex w-full cursor-pointer items-center justify-between",
           "transition-all duration-200",
           selected && "text-blue-700",
           note.isOptimistic && "opacity-50",
-          dragOver && "bg-blue-100 shadow-inner scale-[1.01]",
+          dragOver && "scale-[1.01] bg-blue-100 shadow-inner",
           dragOverGapTop && "border-t-2 border-t-blue-500",
           dragOverGapBottom && "border-b-2 border-b-blue-500",
-          isNested ? "bg-gray-50/80 hover:bg-gray-100/80 border-l-2 border-l-gray-300" : "hover:bg-gray-50"
+          isNested
+            ? "border-l-2 border-l-gray-300 bg-gray-50/80 hover:bg-gray-100/80"
+            : "hover:bg-gray-50",
         )}
       >
-        <div className={cn(
-          "flex min-w-0 flex-1 items-center gap-3 py-3 px-2 z-10 pointer-events-none"
-        )}>
-          <FileText 
+        <div
+          className={cn(
+            "pointer-events-none z-10 flex min-w-0 flex-1 items-center gap-3 px-2 py-3",
+          )}
+        >
+          <FileText
             className={cn(
               "h-5 w-5 shrink-0 transition-all duration-300",
-              dragOver ? "text-blue-600 scale-110" : isNested ? "text-gray-500" : "text-gray-400"
-            )} 
+              dragOver
+                ? "scale-110 text-blue-600"
+                : isNested
+                  ? "text-gray-500"
+                  : "text-gray-400",
+            )}
           />
           <span
             className={cn(
               "block truncate text-sm transition-all duration-200",
-              selected ? "font-medium text-blue-700" : isNested ? "text-gray-600" : "text-gray-700",
-              dragOver && "font-medium text-blue-700"
+              selected
+                ? "font-medium text-blue-700"
+                : isNested
+                  ? "text-gray-600"
+                  : "text-gray-700",
+              dragOver && "font-medium text-blue-700",
             )}
           >
             {getFirstLine(note.content)}
@@ -105,8 +116,8 @@ export const NoteItem: React.FC<NoteItemProps> = ({
             className={cn(
               "mr-2 rounded p-1.5 transition-all duration-200",
               "opacity-0 group-hover:opacity-100",
-              "hover:bg-gray-100 z-10 pointer-events-auto",
-              isNested ? "hover:bg-gray-200" : "hover:bg-gray-100"
+              "pointer-events-auto z-10 hover:bg-gray-100",
+              isNested ? "hover:bg-gray-200" : "hover:bg-gray-100",
             )}
             aria-label="Delete note"
           >
@@ -121,8 +132,7 @@ export const NoteItem: React.FC<NoteItemProps> = ({
 
       {/* Bottom drag indicator */}
       {dragOverGapBottom && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 transform translate-y-1/2 z-10 
-          animate-pulse transition-all duration-200 ease-in-out" />
+        <div className="absolute bottom-0 left-0 right-0 z-10 h-1 translate-y-1/2 transform animate-pulse bg-blue-500 transition-all duration-200 ease-in-out" />
       )}
     </div>
   );

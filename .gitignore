@@ -35,7 +35,6 @@ yarn-error.log*
 # do not commit any .env files to git, except for the .env.example file. https://create.t3.gg/en/usage/env-variables#using-environment-variables
 .env
 .env*.local
-.env.example
 
 # vercel
 .vercel
@@ -53,3 +52,4 @@ deno/.env.*
 
 .env
 .env.local
+repomix-output-alexandrenf-espacopessoal-v2.xml

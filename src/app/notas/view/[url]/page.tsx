@@ -9,17 +9,23 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const urlSchema = z.string()
+const urlSchema = z
+  .string()
   .min(3, "URL must be at least 3 characters long")
   .max(50, "URL must not exceed 50 characters")
-  .regex(/^[a-zA-Z0-9-_]+$/, "URL can only contain letters, numbers, hyphens and underscores");
+  .regex(
+    /^[a-zA-Z0-9-_]+$/,
+    "URL can only contain letters, numbers, hyphens and underscores",
+  );
 
-export async function generateMetadata(
-  { params }: { params: PageProps['params'] },
-): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: PageProps["params"];
+}): Promise<Metadata> {
   const { url } = await params;
   const urlResult = urlSchema.safeParse(url);
-  
+
   if (!urlResult.success) {
     return {
       title: "Invalid URL",
@@ -51,7 +57,7 @@ export async function generateMetadata(
   }
 
   const content = note.note.content ?? "";
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const title = lines[0]?.trim() ?? "Untitled Note";
   const description = lines[1]?.trim() ?? "No description available";
 
@@ -70,10 +76,12 @@ export async function generateMetadata(
 
 export default async function SharedNotePage({
   params,
-}: { params: PageProps['params'] }) {
+}: {
+  params: PageProps["params"];
+}) {
   const { url } = await params;
   const urlResult = urlSchema.safeParse(url);
-  
+
   if (!urlResult.success) {
     notFound();
   }
@@ -86,12 +94,12 @@ export default async function SharedNotePage({
         include: {
           createdBy: {
             select: {
-              name: true
-            }
-          }
-        }
-      }
-    }
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!sharedNote) {
@@ -99,8 +107,7 @@ export default async function SharedNotePage({
   }
 
   return (
-    <SharedNotePageClient 
-      url={urlValue}
+    <SharedNotePageClient
       initialNotes={sharedNote.note ? [sharedNote.note] : undefined}
     />
   );

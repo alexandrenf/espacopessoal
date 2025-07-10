@@ -10,6 +10,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { ConvexHttpClient } from "convex/browser";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -29,9 +30,15 @@ import { db } from "~/server/db";
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
 
+  // Create Convex client - authentication will be handled by checking session in protected procedures
+  const convex = process.env.CONVEX_URL
+    ? new ConvexHttpClient(process.env.CONVEX_URL)
+    : null;
+
   return {
     db,
     session,
+    convex,
     ...opts,
   };
 };

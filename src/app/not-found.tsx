@@ -15,10 +15,12 @@ export const viewport: Viewport = {
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-gray-600">A página que você está procurando não existe.</p>
+        <h1 className="mb-4 text-4xl font-bold">404</h1>
+        <p className="text-gray-600">
+          A página que você está procurando não existe.
+        </p>
       </div>
     </div>
   );

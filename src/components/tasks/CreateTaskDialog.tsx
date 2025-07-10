@@ -39,29 +39,28 @@ export function CreateTaskDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDateTime, setReminderDateTime] = useState<Date | undefined>();
-  const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>("ONCE");
+  const [reminderFrequency, setReminderFrequency] =
+    useState<ReminderFrequency>("ONCE");
 
   const utils = api.useUtils();
-  
-  const { mutate: createTask, isPending } = api.board.createTask.useMutation({
+
+  const { mutate: createTask, isPending } = api.tasks.createTask.useMutation({
     onSuccess: async () => {
       try {
-        await utils.board.getBoards.invalidate();
+        await utils.boards.getBoards.invalidate();
         onOpenChange(false);
         resetForm();
       } catch (err) {
         // Type-safe error handling
-        const errorMessage = err instanceof Error 
-          ? err.message 
-          : "Failed to invalidate boards";
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to invalidate boards";
         console.error("Failed to invalidate boards:", errorMessage);
       }
     },
     onError: (error: unknown) => {
       // Type-safe error handling
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "An unexpected error occurred";
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
       console.error("Failed to create task:", errorMessage);
     },
   });
@@ -81,10 +80,12 @@ export function CreateTaskDialog({
       boardId,
       name,
       description,
-      dueDate: dueDate ? dueDate.toISOString() : undefined,
+      dueDate: dueDate,
       reminderEnabled,
-      reminderDateTime: reminderDateTime ? reminderDateTime.toISOString() : undefined,
-      ...(reminderEnabled ? { reminderFrequency } : {})
+      reminderDateTime: reminderDateTime
+        ? reminderDateTime.toISOString()
+        : undefined,
+      ...(reminderEnabled ? { reminderFrequency } : {}),
     });
   };
 
@@ -131,7 +132,9 @@ export function CreateTaskDialog({
               <Switch
                 id="reminder"
                 checked={reminderEnabled}
-                onCheckedChange={(checked: boolean) => setReminderEnabled(checked)}
+                onCheckedChange={(checked: boolean) =>
+                  setReminderEnabled(checked)
+                }
               />
             </div>
 
@@ -149,7 +152,9 @@ export function CreateTaskDialog({
                   <Label htmlFor="reminderFrequency">Repeat</Label>
                   <Select
                     value={reminderFrequency}
-                    onValueChange={(value: string) => setReminderFrequency(value as ReminderFrequency)}
+                    onValueChange={(value: string) =>
+                      setReminderFrequency(value as ReminderFrequency)
+                    }
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select frequency" />

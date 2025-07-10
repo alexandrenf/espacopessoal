@@ -1,10 +1,10 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { 
-  getMessaging, 
-  getToken, 
-  isSupported, 
-  onMessage, 
-  type MessagePayload 
+import {
+  getMessaging,
+  getToken,
+  isSupported,
+  onMessage,
+  type MessagePayload,
 } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -23,28 +23,30 @@ const messaging = async () => {
   try {
     const supported = await isSupported();
     if (!supported) {
-      console.log('Firebase messaging is not supported');
+      console.log("Firebase messaging is not supported");
       return null;
     }
     return getMessaging(app);
   } catch (error) {
-    console.error('Error initializing messaging:', error);
+    console.error("Error initializing messaging:", error);
     return null;
   }
 };
 
-export const requestNotificationPermission = async (): Promise<string | null> => {
+export const requestNotificationPermission = async (): Promise<
+  string | null
+> => {
   try {
     const permission = await Notification.requestPermission();
-    console.log('Notification permission status:', permission);
-    
+    console.log("Notification permission status:", permission);
+
     if (permission === "granted") {
       const fcmMessaging = await messaging();
       if (fcmMessaging) {
         const token = await getToken(fcmMessaging, {
           vapidKey: process.env.NEXT_PUBLIC_FIREBASE_FCM_VAPID_KEY,
         });
-        console.log('FCM Token obtained:', token);
+        console.log("FCM Token obtained:", token);
         return token;
       }
     }
@@ -62,19 +64,25 @@ export const onMessageListener = () => {
         const messagingInstance = await messaging();
         if (messagingInstance) {
           onMessage(messagingInstance, (payload) => {
-            console.log('Foreground message received:', payload);
+            console.log("Foreground message received:", payload);
             resolve(payload);
           });
         } else {
-          reject(new Error('Firebase Cloud Messaging is not supported'));
+          reject(new Error("Firebase Cloud Messaging is not supported"));
         }
       } catch (error) {
-        reject(error instanceof Error ? error : new Error('Failed to initialize messaging'));
+        reject(
+          error instanceof Error
+            ? error
+            : new Error("Failed to initialize messaging"),
+        );
       }
     };
     void handleMessage().catch((error) => {
-      console.error('Error setting up message listener:', error);
-      reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+      console.error("Error setting up message listener:", error);
+      reject(
+        error instanceof Error ? error : new Error("Unknown error occurred"),
+      );
     });
   });
 };

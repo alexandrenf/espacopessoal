@@ -3,24 +3,20 @@
 import { useRef, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Notebook, 
-  CheckSquare, 
-  Calculator, 
-  ArrowRight, 
+import {
+  Notebook,
+  CheckSquare,
+  Calculator,
+  ArrowRight,
   Clock,
   Sparkles,
   Heart,
   Settings,
-  AlertCircle,
   Zap,
-  Star
 } from "lucide-react";
 import Link from "next/link";
-import { api } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
-import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
 import React from "react";
 
 interface FeatureCardProps {
@@ -32,20 +28,20 @@ interface FeatureCardProps {
   comingSoon?: string;
   onClick?: () => void;
   index: number;
-  status?: 'unconfigured' | 'configured';
+  status?: "unconfigured" | "configured";
 }
 
-const FeatureCard = ({ 
-  title, 
-  description, 
-  icon, 
-  href, 
+const FeatureCard = ({
+  title,
+  description,
+  icon,
+  href,
   isActive = true,
   comingSoon,
   onClick,
   index,
-  status
-}: FeatureCardProps & { status?: 'unconfigured' | 'configured' }) => {
+  status,
+}: FeatureCardProps & { status?: "unconfigured" | "configured" }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const cardContent = (
@@ -60,47 +56,49 @@ const FeatureCard = ({
         scale: { type: "spring", stiffness: 300, damping: 20 },
       }}
       className={cn(
-        "relative p-8 rounded-3xl h-full transition-all duration-500 group border overflow-hidden",
-        isActive 
-          ? 'cursor-pointer hover:shadow-2xl bg-white/95 backdrop-blur-sm border-white/60 shadow-lg' 
-          : 'cursor-default opacity-70 bg-white/80 backdrop-blur-sm border-white/40 shadow-sm'
+        "group relative h-full overflow-hidden rounded-3xl border p-8 transition-all duration-500",
+        isActive
+          ? "cursor-pointer border-white/60 bg-white/95 shadow-lg backdrop-blur-sm hover:shadow-2xl"
+          : "cursor-default border-white/40 bg-white/80 opacity-70 shadow-sm backdrop-blur-sm",
       )}
     >
       {/* Gradient glow effect */}
-      <div 
+      <div
         className={cn(
-          "absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10",
-          status === 'unconfigured' 
+          "absolute inset-0 -z-10 rounded-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100",
+          status === "unconfigured"
             ? "bg-gradient-to-br from-yellow-400/20 via-orange-400/10 to-red-400/20"
-            : "bg-gradient-to-br from-blue-400/20 via-indigo-400/10 to-purple-400/20"
+            : "bg-gradient-to-br from-blue-400/20 via-indigo-400/10 to-purple-400/20",
         )}
-        style={{ filter: 'blur(20px)' }}
+        style={{ filter: "blur(20px)" }}
       />
 
       {!isActive && (
-        <div className="absolute inset-0 rounded-3xl bg-slate-100/60 backdrop-blur-sm flex items-center justify-center z-10">
-          <motion.div 
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-slate-100/60 backdrop-blur-sm">
+          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/95 backdrop-blur-sm px-6 py-3 rounded-2xl flex items-center gap-3 shadow-lg border border-white/50"
+            className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/95 px-6 py-3 shadow-lg backdrop-blur-sm"
           >
-            <Clock className="w-5 h-5 text-slate-500" />
-            <span className="text-sm font-semibold text-slate-700">{comingSoon}</span>
+            <Clock className="h-5 w-5 text-slate-500" />
+            <span className="text-sm font-semibold text-slate-700">
+              {comingSoon}
+            </span>
           </motion.div>
         </div>
       )}
-      
+
       <div className="flex items-start gap-6">
-        <motion.div 
+        <motion.div
           className={cn(
-            "p-4 rounded-2xl flex-shrink-0 transition-all duration-500 relative overflow-hidden",
-            status === 'unconfigured' 
+            "relative flex-shrink-0 overflow-hidden rounded-2xl p-4 transition-all duration-500",
+            status === "unconfigured"
               ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-white group-hover:from-yellow-500 group-hover:to-orange-600"
-              : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white group-hover:from-blue-600 group-hover:to-indigo-700"
+              : "bg-gradient-to-br from-blue-500 to-indigo-600 text-white group-hover:from-blue-600 group-hover:to-indigo-700",
           )}
-          whileHover={{ 
+          whileHover={{
             rotate: [0, -5, 5, 0],
-            scale: 1.1 
+            scale: 1.1,
           }}
           transition={{ duration: 0.4 }}
         >
@@ -108,7 +106,7 @@ const FeatureCard = ({
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
             animate={{
-              x: ['-100%', '100%'],
+              x: ["-100%", "100%"],
             }}
             transition={{
               duration: 2,
@@ -117,44 +115,48 @@ const FeatureCard = ({
               ease: "easeInOut",
             }}
           />
-          <div className="relative z-10">
-            {icon}
-          </div>
+          <div className="relative z-10">{icon}</div>
         </motion.div>
 
         <div className="flex-1">
-          <h3 className="text-2xl font-bold mb-3 flex items-center gap-3 text-slate-800">
+          <h3 className="mb-3 flex items-center gap-3 text-2xl font-bold text-slate-800">
             {title}
-            {status === 'unconfigured' && (
-              <motion.span 
+            {status === "unconfigured" && (
+              <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5 font-semibold shadow-lg"
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
               >
-                <Settings className="w-3 h-3" />
+                <Settings className="h-3 w-3" />
                 Configurar
               </motion.span>
             )}
           </h3>
-          <p className={cn(
-            "mb-6 text-base leading-relaxed",
-            status === 'unconfigured' ? "text-yellow-700 font-medium" : "text-slate-600"
-          )}>
-            {status === 'unconfigured' 
-              ? "Configure seu bloco de notas para começar a usar todas as funcionalidades!"
+          <p
+            className={cn(
+              "mb-6 text-base leading-relaxed",
+              status === "unconfigured"
+                ? "font-medium text-yellow-700"
+                : "text-slate-600",
+            )}
+          >
+            {status === "unconfigured"
+              ? "Crie seu primeiro notebook para começar a organizar suas ideias em coleções temáticas!"
               : description}
           </p>
           {isActive && (
-            <motion.div 
+            <motion.div
               className={cn(
-                "flex items-center font-semibold text-base",
-                status === 'unconfigured' ? "text-yellow-600" : "text-blue-600"
+                "flex items-center text-base font-semibold",
+                status === "unconfigured" ? "text-yellow-600" : "text-blue-600",
               )}
               whileHover={{ x: 5 }}
               transition={{ duration: 0.2 }}
             >
-              {status === 'unconfigured' ? 'Configurar agora' : 'Acessar'}
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              {status === "unconfigured"
+                ? "Criar primeiro notebook"
+                : "Gerenciar notebooks"}
+              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </motion.div>
           )}
         </div>
@@ -162,7 +164,7 @@ const FeatureCard = ({
 
       {/* Floating decorative elements */}
       <motion.div
-        className="absolute top-6 right-6 w-3 h-3 bg-blue-400/30 rounded-full"
+        className="absolute right-6 top-6 h-3 w-3 rounded-full bg-blue-400/30"
         animate={{
           scale: [1, 1.5, 1],
           opacity: [0.3, 0.8, 0.3],
@@ -174,7 +176,7 @@ const FeatureCard = ({
         }}
       />
       <motion.div
-        className="absolute bottom-8 left-8 w-2 h-2 bg-purple-400/40 rounded-full"
+        className="absolute bottom-8 left-8 h-2 w-2 rounded-full bg-purple-400/40"
         animate={{
           scale: [1, 2, 1],
           opacity: [0.2, 0.6, 0.2],
@@ -193,9 +195,7 @@ const FeatureCard = ({
   }
 
   return href ? (
-    <Link href={href}>
-      {cardContent}
-    </Link>
+    <Link href={href}>{cardContent}</Link>
   ) : (
     <button onClick={onClick} className="w-full text-left">
       {cardContent}
@@ -204,19 +204,19 @@ const FeatureCard = ({
 };
 
 const LoadingState = () => (
-  <main className="flex-grow container mx-auto px-4 py-8 animate-in fade-in duration-500">
+  <main className="container mx-auto flex-grow px-4 py-8 duration-500 animate-in fade-in">
     <div className="mb-12">
-      <div className="h-12 w-64 bg-gray-200 rounded-lg animate-pulse mb-4" />
-      <div className="h-6 w-96 bg-gray-200 rounded-lg animate-pulse" />
+      <div className="mb-4 h-12 w-64 animate-pulse rounded-lg bg-gray-200" />
+      <div className="h-6 w-96 animate-pulse rounded-lg bg-gray-200" />
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="p-6 rounded-xl shadow-lg bg-white">
+        <div key={i} className="rounded-xl bg-white p-6 shadow-lg">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-12 w-12 animate-pulse rounded-lg bg-gray-200" />
             <div className="flex-1">
-              <div className="h-6 w-32 bg-gray-200 rounded-lg animate-pulse mb-2" />
-              <div className="h-4 w-full bg-gray-200 rounded-lg animate-pulse" />
+              <div className="mb-2 h-6 w-32 animate-pulse rounded-lg bg-gray-200" />
+              <div className="h-4 w-full animate-pulse rounded-lg bg-gray-200" />
             </div>
           </div>
         </div>
@@ -230,65 +230,40 @@ export function UserDashboard() {
   // Detect prefers-reduced-motion
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (typeof window !== "undefined") {
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
       setReduceMotion(mq.matches);
       const handler = () => setReduceMotion(mq.matches);
-      mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
     }
   }, []);
-  
-  // Use the combined query
-  const { data, isLoading, error } = api.userSettings.getUserSettingsAndHealth.useQuery(
-    undefined,
-    {
-      enabled: status === "authenticated",
-      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-      gcTime: 10 * 60 * 1000, // Replace cacheTime with gcTime
-    }
-  );
 
   // Show loading state while authentication is being checked
-  if (status === "loading" || isLoading) {
+  if (status === "loading") {
     return <LoadingState />;
   }
 
-  const firstName = session?.user?.name?.split(' ')[0] ?? 'Usuário';
-  const isNotepadConfigured = Boolean(data?.settings.notePadUrl);
-
-  // Show error in a more user-friendly way
-  if (error) {
-    return (
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>
-            Ocorreu um erro ao carregar suas configurações. Por favor, atualize a página ou tente novamente mais tarde.
-          </AlertDescription>
-        </Alert>
-      </main>
-    );
-  }
+  const firstName = session?.user?.name?.split(" ")[0] ?? "Usuário";
 
   return (
-    <main 
-      className="flex-grow min-h-screen relative overflow-hidden"
+    <main
+      className="relative min-h-screen flex-grow overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 30%, #f1f5f9 70%, #e0e7ff 100%)',
+        background:
+          "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 30%, #f1f5f9 70%, #e0e7ff 100%)",
       }}
     >
       {/* Enhanced animated background elements */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="pointer-events-none absolute inset-0">
         {!reduceMotion && (
           <>
-            <motion.div 
-              className="absolute top-20 right-20 w-96 h-96 rounded-full opacity-10"
+            <motion.div
+              className="absolute right-20 top-20 h-96 w-96 rounded-full opacity-10"
               style={{
-                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                filter: 'blur(60px)',
-                willChange: 'transform, opacity',
+                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                filter: "blur(60px)",
+                willChange: "transform, opacity",
               }}
               animate={{
                 scale: [1, 1.2, 1],
@@ -300,12 +275,12 @@ export function UserDashboard() {
                 ease: "linear",
               }}
             />
-            <motion.div 
-              className="absolute bottom-20 left-20 w-80 h-80 rounded-full opacity-8"
+            <motion.div
+              className="opacity-8 absolute bottom-20 left-20 h-80 w-80 rounded-full"
               style={{
-                background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
-                filter: 'blur(50px)',
-                willChange: 'transform, opacity',
+                background: "linear-gradient(135deg, #6366f1 0%, #ec4899 100%)",
+                filter: "blur(50px)",
+                willChange: "transform, opacity",
               }}
               animate={{
                 scale: [1.2, 1, 1.2],
@@ -317,12 +292,12 @@ export function UserDashboard() {
                 ease: "linear",
               }}
             />
-            <motion.div 
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-5"
+            <motion.div
+              className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-5"
               style={{
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-                filter: 'blur(80px)',
-                willChange: 'transform, opacity',
+                background: "linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)",
+                filter: "blur(80px)",
+                willChange: "transform, opacity",
               }}
               animate={{
                 scale: [1, 1.1, 1],
@@ -339,85 +314,88 @@ export function UserDashboard() {
       </div>
 
       {/* Floating particles */}
-      {!reduceMotion && Array.from({ length: 12 }, (_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-blue-400/20 rounded-full pointer-events-none"
-          animate={{
-            translateX: [0, 50, 0],
-            translateY: [0, -50, 0],
-            opacity: [0.2, 0.6, 0.2],
-          }}
-          transition={{
-            duration: 6 + i * 0.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: i * 0.5,
-          }}
-          initial={false}
-          style={{
-            willChange: 'transform, opacity',
-            transform: `translateX(${10 + i * 8}vw) translateY(${20 + (i % 3) * 30}vh)`
-          }}
-        />
-      ))}
+      {!reduceMotion &&
+        Array.from({ length: 12 }, (_, i) => (
+          <motion.div
+            key={i}
+            className="pointer-events-none absolute h-2 w-2 rounded-full bg-blue-400/20"
+            animate={{
+              translateX: [0, 50, 0],
+              translateY: [0, -50, 0],
+              opacity: [0.2, 0.6, 0.2],
+            }}
+            transition={{
+              duration: 6 + i * 0.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.5,
+            }}
+            initial={false}
+            style={{
+              willChange: "transform, opacity",
+              transform: `translateX(${10 + i * 8}vw) translateY(${20 + (i % 3) * 30}vh)`,
+            }}
+          />
+        ))}
 
-      <div className="container mx-auto px-4 py-12 relative z-10">
+      <div className="container relative z-10 mx-auto px-4 py-12">
         {/* Enhanced Welcome Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="mb-16"
         >
-          <div 
-            className="p-12 rounded-3xl shadow-xl border border-white/50 relative overflow-hidden"
+          <div
+            className="relative overflow-hidden rounded-3xl border border-white/50 p-12 shadow-xl"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-              backdropFilter: 'blur(20px)',
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)",
+              backdropFilter: "blur(20px)",
             }}
           >
             {/* Welcome card glow */}
-            <div 
+            <div
               className="absolute inset-0 rounded-3xl opacity-50"
               style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
-                filter: 'blur(30px)',
+                background:
+                  "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
+                filter: "blur(30px)",
               }}
             />
-            
+
             <div className="relative z-10">
-              <motion.h1 
-                className="text-5xl md:text-6xl font-bold mb-6 flex items-center gap-4"
+              <motion.h1
+                className="mb-6 flex items-center gap-4 text-5xl font-bold md:text-6xl"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2, duration: 0.8 }}
               >
-                <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text">
+                <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Olá, {firstName}!
                 </span>
                 <motion.div
-                  animate={{ 
+                  animate={{
                     rotate: [0, 15, -15, 0],
-                    scale: [1, 1.2, 1, 1.1, 1]
+                    scale: [1, 1.2, 1, 1.1, 1],
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 2,
                     repeat: Infinity,
-                    repeatDelay: 3
+                    repeatDelay: 3,
                   }}
                 >
-                  <Sparkles className="w-12 h-12 text-yellow-500" />
+                  <Sparkles className="h-12 w-12 text-yellow-500" />
                 </motion.div>
               </motion.h1>
-              
-              <motion.p 
-                className="text-2xl text-slate-600 leading-relaxed max-w-3xl"
+
+              <motion.p
+                className="max-w-3xl text-2xl leading-relaxed text-slate-600"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4, duration: 0.8 }}
               >
-                {status === "authenticated" 
+                {status === "authenticated"
                   ? "Que bom ter você por aqui! Vamos organizar suas ideias e aumentar sua produtividade hoje?"
                   : "Bem-vindo ao Espaço Pessoal! Faça login para começar sua jornada."}
               </motion.p>
@@ -425,7 +403,7 @@ export function UserDashboard() {
 
             {/* Floating decorative elements */}
             <motion.div
-              className="absolute top-8 right-8 w-4 h-4 bg-blue-400/30 rounded-full"
+              className="absolute right-8 top-8 h-4 w-4 rounded-full bg-blue-400/30"
               animate={{
                 scale: [1, 1.5, 1],
                 opacity: [0.3, 0.8, 0.3],
@@ -436,7 +414,7 @@ export function UserDashboard() {
               }}
             />
             <motion.div
-              className="absolute bottom-8 left-8 w-3 h-3 bg-purple-400/40 rounded-full"
+              className="absolute bottom-8 left-8 h-3 w-3 rounded-full bg-purple-400/40"
               animate={{
                 scale: [1, 2, 1],
                 opacity: [0.2, 0.6, 0.2],
@@ -451,18 +429,17 @@ export function UserDashboard() {
         </motion.div>
 
         {/* Enhanced Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+        <div className="mb-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence>
-            {status === "authenticated" && !isLoading && (
+            {status === "authenticated" && (
               <FeatureCard
-                key="notepad"
+                key="notebooks"
                 index={0}
-                title="Bloco de Notas"
-                description="Organize suas anotações, pensamentos e ideias em um único lugar seguro e acessível de qualquer dispositivo."
-                icon={<Notebook className="w-8 h-8" />}
-                href={isNotepadConfigured ? `/notas/${data?.settings.notePadUrl}` : "/notas"}
+                title="Notebooks"
+                description="Crie e organize suas ideias em notebooks temáticos com editor colaborativo avançado. Edição em tempo real, formatação rica e muito mais."
+                icon={<Notebook className="h-8 w-8" />}
+                href="/notas"
                 isActive={true}
-                status={isNotepadConfigured ? 'configured' : 'unconfigured'}
               />
             )}
 
@@ -471,7 +448,7 @@ export function UserDashboard() {
               index={1}
               title="Lista de Afazeres"
               description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente e intuitiva."
-              icon={<CheckSquare className="w-8 h-8" />}
+              icon={<CheckSquare className="h-8 w-8" />}
               isActive={status === "authenticated"}
               href={status === "authenticated" ? "/lista" : "/api/auth/signin"}
             />
@@ -481,7 +458,7 @@ export function UserDashboard() {
               index={2}
               title="Calculadoras Médicas"
               description="Acesse calculadoras específicas para a área médica, facilitando seu dia a dia clínico com precisão."
-              icon={<Calculator className="w-8 h-8" />}
+              icon={<Calculator className="h-8 w-8" />}
               isActive={false}
               comingSoon="Chegando em Março"
             />
@@ -489,51 +466,53 @@ export function UserDashboard() {
         </div>
 
         {/* Enhanced Quick Actions */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.8 }}
         >
-          <div 
-            className="p-12 rounded-3xl shadow-xl border border-white/50 relative overflow-hidden"
+          <div
+            className="relative overflow-hidden rounded-3xl border border-white/50 p-12 shadow-xl"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-              backdropFilter: 'blur(20px)',
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)",
+              backdropFilter: "blur(20px)",
             }}
           >
             {/* Actions card glow */}
-            <div 
+            <div
               className="absolute inset-0 rounded-3xl opacity-30"
               style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
-                filter: 'blur(30px)',
+                background:
+                  "linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)",
+                filter: "blur(30px)",
               }}
             />
-            
+
             <div className="relative z-10">
-              <motion.h2 
-                className="text-4xl font-bold mb-8 flex items-center gap-3"
+              <motion.h2
+                className="mb-8 flex items-center gap-3 text-4xl font-bold"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 1, duration: 0.6 }}
               >
-                <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   {status === "authenticated" ? "Ações Rápidas" : "Começar"}
                 </span>
                 <motion.div
-                  animate={{ 
+                  animate={{
                     scale: [1, 1.2, 1],
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 2,
                     repeat: Infinity,
                   }}
                 >
-                  <Heart className="w-8 h-8 text-red-500" />
+                  <Heart className="h-8 w-8 text-red-500" />
                 </motion.div>
               </motion.h2>
-              
-              <motion.div 
+
+              <motion.div
                 className="flex flex-wrap gap-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -541,45 +520,63 @@ export function UserDashboard() {
               >
                 {status === "authenticated" ? (
                   <>
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button 
-                        asChild 
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Button
+                        asChild
                         size="lg"
-                        className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-8 py-6 text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6 text-lg text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-800 hover:shadow-xl"
                       >
-                        <Link href="/profile" className="group flex items-center gap-3">
-                          <Settings className="w-6 h-6" />
+                        <Link
+                          href="/profile"
+                          className="group flex items-center gap-3"
+                        >
+                          <Settings className="h-6 w-6" />
                           Configurar Perfil
-                          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                          <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                         </Link>
                       </Button>
                     </motion.div>
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button 
-                        variant="outline" 
-                        asChild 
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Button
+                        variant="outline"
+                        asChild
                         size="lg"
-                        className="border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50 text-blue-700 px-8 py-6 text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        className="rounded-2xl border-2 border-blue-200 px-8 py-6 text-lg text-blue-700 shadow-lg transition-all duration-300 hover:border-blue-300 hover:bg-blue-50 hover:shadow-xl"
                       >
-                        <Link href="/notas" className="group flex items-center gap-3">
-                          <Notebook className="w-6 h-6" />
-                          Configurar Bloco de Notas
-                          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <Link
+                          href="/notas"
+                          className="group flex items-center gap-3"
+                        >
+                          <Notebook className="h-6 w-6" />
+                          Notebooks
+                          <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                         </Link>
                       </Button>
                     </motion.div>
                   </>
                 ) : (
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button 
-                      asChild 
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      asChild
                       size="lg"
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-6 text-lg text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl"
                     >
-                      <Link href="/api/auth/signin" className="group flex items-center gap-3">
-                        <Zap className="w-6 h-6" />
+                      <Link
+                        href="/api/auth/signin"
+                        className="group flex items-center gap-3"
+                      >
+                        <Zap className="h-6 w-6" />
                         Entrar para Começar
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                       </Link>
                     </Button>
                   </motion.div>
@@ -592,4 +589,3 @@ export function UserDashboard() {
     </main>
   );
 }
-

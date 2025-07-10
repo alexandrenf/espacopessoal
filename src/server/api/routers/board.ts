@@ -6,22 +6,24 @@ const MAX_BOARDS = 50; // Prevent unlimited boards
 
 export const boardRouter = createTRPCRouter({
   getBoards: protectedProcedure
-    .input(z.object({
-      cursor: z.string().nullish(),
-      limit: z.number().min(1).max(50).default(10),
-    }))
+    .input(
+      z.object({
+        cursor: z.string().nullish(),
+        limit: z.number().min(1).max(50).default(10),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const { cursor, limit } = input;
-      
+
       // Fetch boards with tasks in a single query
       const boards = await ctx.db.board.findMany({
         where: { userId: ctx.session.user.id },
         take: limit + 1,
         cursor: cursor ? { id: cursor } : undefined,
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
         include: {
           tasks: {
-            orderBy: { order: 'asc' },
+            orderBy: { order: "asc" },
             // Only fetch essential task data initially
             select: {
               id: true,
@@ -33,8 +35,8 @@ export const boardRouter = createTRPCRouter({
             },
           },
           _count: {
-            select: { tasks: true }
-          }
+            select: { tasks: true },
+          },
         },
       });
 
@@ -47,77 +49,82 @@ export const boardRouter = createTRPCRouter({
       };
     }),
 
-     // --- ADD THIS createTask PROCEDURE ---
+  // --- ADD THIS createTask PROCEDURE ---
   createTask: protectedProcedure
-  .input(
-    z.object({
-      boardId: z.string(),
-      name: z.string().min(1),
-      description: z.string().optional(),
-      dueDate: z.string().optional(),
-      reminderEnabled: z.boolean().optional(),
-      reminderDateTime: z.string().optional(),
-      reminderFrequency: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"]).optional(),
-    })
-  )
-  .mutation(async ({ ctx, input }) => {
-    // Ensure the user owns the board
-    const board = await ctx.db.board.findFirst({
-      where: {
-        id: input.boardId,
-        userId: ctx.session.user.id,
-      },
-    });
-
-    if (!board) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Board not found or you do not own it.",
+    .input(
+      z.object({
+        boardId: z.string(),
+        name: z.string().min(1),
+        description: z.string().optional(),
+        dueDate: z.string().optional(),
+        reminderEnabled: z.boolean().optional(),
+        reminderDateTime: z.string().optional(),
+        reminderFrequency: z
+          .enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY"])
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Ensure the user owns the board
+      const board = await ctx.db.board.findFirst({
+        where: {
+          id: input.boardId,
+          userId: ctx.session.user.id,
+        },
       });
-    }
 
-    // Create the task
-    const newTask = await ctx.db.task.create({
-      data: {
-        boardId: input.boardId,
-        userId: ctx.session.user.id, // Add this line
-        name: input.name,
-        description: input.description ?? "",
-        dueDate: input.dueDate ? new Date(input.dueDate) : null,
-        reminderEnabled: input.reminderEnabled ?? false,
-        reminderDateTime: input.reminderDateTime ? new Date(input.reminderDateTime) : null,
-        reminderFrequency: input.reminderFrequency ?? "ONCE",
-        // Include any other fields (e.g., `status`, `order`) as needed
-      },
-    });
+      if (!board) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Board not found or you do not own it.",
+        });
+      }
 
-    return newTask;
-  }),
-// --- END createTask ---
+      // Create the task
+      const newTask = await ctx.db.task.create({
+        data: {
+          boardId: input.boardId,
+          userId: ctx.session.user.id, // Add this line
+          name: input.name,
+          description: input.description ?? "",
+          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          reminderEnabled: input.reminderEnabled ?? false,
+          reminderDateTime: input.reminderDateTime
+            ? new Date(input.reminderDateTime)
+            : null,
+          reminderFrequency: input.reminderFrequency ?? "ONCE",
+          // Include any other fields (e.g., `status`, `order`) as needed
+        },
+      });
 
+      return newTask;
+    }),
+  // --- END createTask ---
 
   createBoard: protectedProcedure
-    .input(z.object({
-      name: z.string().min(1).max(100),
-      color: z.string().regex(/^#[0-9A-F]{6}$/i),
-    }))
+    .input(
+      z.object({
+        name: z.string().min(1).max(100),
+        color: z.string().regex(/^#[0-9A-F]{6}$/i),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Check board limit
       const boardCount = await ctx.db.board.count({
-        where: { userId: ctx.session.user.id }
+        where: { userId: ctx.session.user.id },
       });
 
       if (boardCount >= MAX_BOARDS) {
         throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Maximum board limit reached',
+          code: "BAD_REQUEST",
+          message: "Maximum board limit reached",
         });
       }
 
       // Get highest order
       const lastBoard = await ctx.db.board.findFirst({
         where: { userId: ctx.session.user.id },
-        orderBy: { order: 'desc' },
+        orderBy: { order: "desc" },
         select: { order: true },
       });
 

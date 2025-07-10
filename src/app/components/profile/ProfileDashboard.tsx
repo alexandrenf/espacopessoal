@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { type FormEvent, useState } from 'react';
-import { api } from '~/trpc/react';
-import { toast } from 'sonner';
+import { type FormEvent, useState } from "react";
+import { api } from "~/trpc/react";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 
 interface User {
   id: string;
-  name: string | null;
-  email: string | null;
-  image: string | null;
-  emailVerified: Date | null;
+  name: string | null | undefined;
+  email: string | null | undefined;
+  image: string | null | undefined;
+  emailVerified: Date | null | number | undefined;
 }
 
 interface ProfileDashboardProps {
@@ -28,22 +28,22 @@ interface FormData {
 export function ProfileDashboard({ user }: ProfileDashboardProps) {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<FormData>({
-    name: user.name ?? '',
-    email: user.email ?? '',
-    image: user.image ?? '',
+    name: user.name ?? "",
+    email: user.email ?? "",
+    image: user.image ?? "",
   });
 
   const utils = api.useUtils();
-  const updateProfile = api.userUpdate.updateProfile.useMutation({
+  const updateProfile = api.users.updateProfile.useMutation({
     onSuccess: () => {
-      toast.success('Profile updated successfully');
+      toast.success("Profile updated successfully");
       setIsEditing(false);
-      void utils.userUpdate.getUserProfile.invalidate();
+      void utils.users.getUserProfile.invalidate();
     },
     onError: (error: unknown) => {
       // Safely extract an error message.
       const errorMessage =
-        error instanceof Error ? error.message : 'An unexpected error occurred';
+        error instanceof Error ? error.message : "An unexpected error occurred";
       toast.error(errorMessage);
     },
   });
@@ -58,7 +58,7 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
+    <div className="rounded-lg bg-white p-6 shadow">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <Label htmlFor="name">Nome</Label>
@@ -67,7 +67,7 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
             id="name"
             name="name"
             value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
+            onChange={(e) => handleInputChange("name", e.target.value)}
             disabled={!isEditing}
             className={!isEditing ? "bg-gray-50" : ""}
           />
@@ -80,7 +80,7 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
             id="email"
             name="email"
             value={formData.email}
-            onChange={(e) => handleInputChange('email', e.target.value)}
+            onChange={(e) => handleInputChange("email", e.target.value)}
             disabled={!isEditing}
             className={!isEditing ? "bg-gray-50" : ""}
           />
@@ -93,7 +93,7 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
             id="image"
             name="image"
             value={formData.image}
-            onChange={(e) => handleInputChange('image', e.target.value)}
+            onChange={(e) => handleInputChange("image", e.target.value)}
             disabled={!isEditing}
             className={!isEditing ? "bg-gray-50" : ""}
           />
@@ -108,9 +108,9 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
                 onClick={() => {
                   setIsEditing(false);
                   setFormData({
-                    name: user.name ?? '',
-                    email: user.email ?? '',
-                    image: user.image ?? '',
+                    name: user.name ?? "",
+                    email: user.email ?? "",
+                    image: user.image ?? "",
                   });
                 }}
               >
@@ -118,9 +118,11 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
               </Button>
               <Button
                 type="submit"
-                disabled={updateProfile.status === 'pending'}
+                disabled={updateProfile.status === "pending"}
               >
-                {updateProfile.status === 'pending' ? 'Salvando...' : 'Salvar Alterações'}
+                {updateProfile.status === "pending"
+                  ? "Salvando..."
+                  : "Salvar Alterações"}
               </Button>
             </>
           ) : (

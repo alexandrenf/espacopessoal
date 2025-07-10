@@ -1,12 +1,23 @@
+// Legacy Prisma-based routers (marked for removal)
 import { postRouter } from "~/server/api/routers/post";
-import { userUpdateRouter } from "~/server/api/routers/userUpdate";
-import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
-import { notesRouter } from "./routers/notes";
 import { userSettingsRouter } from "~/server/api/routers/userSettings";
 import { notificationsRouter } from "./routers/notifications";
 import { boardRouter } from "./routers/board";
 import { taskRouter } from "./routers/task";
 import { dictionaryRouter } from "./routers/dictionary";
+
+// New Convex-based routers
+import { boardsConvexRouter } from "./routers/boards-convex";
+import { tasksConvexRouter } from "./routers/tasks-convex";
+import { dictionaryConvexRouter } from "./routers/dictionary-convex";
+import { notificationsConvexRouter } from "./routers/notifications-convex";
+import { usersConvexRouter } from "./routers/users-convex";
+
+// Migration complete routers
+import { notebooksRouter } from "./routers/notebooks";
+import { userSettingsRouter as userSettingsConvexRouter } from "./routers/userSettings-convex";
+
+import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
  * This is the primary router for your server.
@@ -14,14 +25,24 @@ import { dictionaryRouter } from "./routers/dictionary";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+  // Fully migrated Convex routers
+  notebooks: notebooksRouter,
+  userSettings: userSettingsConvexRouter,
+
+  // New Convex routers (preferred)
+  boards: boardsConvexRouter,
+  tasks: tasksConvexRouter,
+  dictionary: dictionaryConvexRouter,
+  notifications: notificationsConvexRouter,
+  users: usersConvexRouter,
+
+  // Legacy Prisma routers (deprecated - will be removed)
   post: postRouter,
-  userUpdate: userUpdateRouter,
-  notes: notesRouter,
-  userSettings: userSettingsRouter,
-  notifications: notificationsRouter,
-  board: boardRouter,
-  task: taskRouter,
-  dictionary: dictionaryRouter,
+  userSettingsLegacy: userSettingsRouter,
+  notificationsLegacy: notificationsRouter,
+  boardLegacy: boardRouter,
+  taskLegacy: taskRouter,
+  dictionaryLegacy: dictionaryRouter,
 });
 
 // export type definition of API

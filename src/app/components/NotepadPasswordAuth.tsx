@@ -11,17 +11,22 @@ interface NotepadPasswordAuthProps {
   onAuthenticated: (password: string) => void;
 }
 
-export function NotepadPasswordAuth({ url, onAuthenticated }: NotepadPasswordAuthProps) {
+export function NotepadPasswordAuth({
+  url,
+  onAuthenticated,
+}: NotepadPasswordAuthProps) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const verifyPassword = api.notes.verifyNotepadPassword.useMutation({
+  const verifyPassword = api.notebooks.verifyPassword.useMutation({
     onSuccess: () => {
       onAuthenticated(password);
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "An error occurred";
       toast.error("Error", {
-        description: error.message
+        description: errorMessage,
       });
       setIsLoading(false);
     },
@@ -39,7 +44,8 @@ export function NotepadPasswordAuth({ url, onAuthenticated }: NotepadPasswordAut
         <div className="text-center">
           <h2 className="text-2xl font-bold">Protected Notepad</h2>
           <p className="mt-2 text-gray-600">
-            This notepad is password protected. Please enter the password to continue.
+            This notepad is password protected. Please enter the password to
+            continue.
           </p>
         </div>
 
@@ -54,11 +60,7 @@ export function NotepadPasswordAuth({ url, onAuthenticated }: NotepadPasswordAut
             />
           </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading}
-          >
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Verifying..." : "Access Notepad"}
           </Button>
         </form>

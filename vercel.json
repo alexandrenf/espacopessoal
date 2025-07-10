@@ -2,12 +2,17 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./",
   "git": {
     "deploymentEnabled": {
-      "deno/**/*": false
-    }
+      "deno/**/*": false,
+      "server/**/*": false
+      },
+      "ignored": [
+        "**/*.test.*"
+      ]
   },
   "functions": {
     "app/api/gemini/route.ts": {
       "maxDuration": 20
     }
   }
+  
 }

@@ -3,15 +3,16 @@ import { z } from "zod";
 
 // Set DATABASE_URL and NEXTAUTH_URL based on NODE_ENV before env validation
 
-process.env.NEXTAUTH_URL ??= process.env.NODE_ENV === "production"
-  ? process.env.NEXTAUTH_URL_PRODUCTION
-  : process.env.NEXTAUTH_URL_DEVELOPMENT;
+process.env.NEXTAUTH_URL ??=
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXTAUTH_URL_PRODUCTION
+    : process.env.NEXTAUTH_URL_DEVELOPMENT;
 
 export const env = createEnv({
   /**
    * Specify your server-side environment variables schema here. This way you can ensure the app
    * isn't built with invalid env vars.
-   */ 
+   */
   server: {
     AUTH_SECRET:
       process.env.NODE_ENV === "production"
@@ -37,8 +38,8 @@ export const env = createEnv({
     DENO_API_KEY: z.string(),
     DENO_API_URL: z.string().url(),
     OPENROUTER_API_KEY: z.string(),
+    CONVEX_URL: z.string().url(),
   },
-
 
   /**
    * Specify your client-side environment variables schema here. This way you can ensure the app
@@ -46,7 +47,8 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_CONVEX_URL: z.string().url(),
+    NEXT_PUBLIC_WS_URL: z.string().url(),
   },
 
   /**
@@ -73,6 +75,9 @@ export const env = createEnv({
     DENO_API_KEY: process.env.DENO_API_KEY,
     DENO_API_URL: process.env.DENO_API_URL,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+    CONVEX_URL: process.env.CONVEX_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -1,7 +1,7 @@
 import { type Config } from "tailwindcss";
 import { fontFamily } from "tailwindcss/defaultTheme";
 import tailwindcssAnimate from "tailwindcss-animate";
-import typography from '@tailwindcss/typography';
+import typography from "@tailwindcss/typography";
 
 const config: Config = {
   darkMode: ["class"],
@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)', ...fontFamily.sans],
+        sans: ["var(--font-geist-sans)", ...fontFamily.sans],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -59,47 +59,43 @@ const config: Config = {
         },
       },
       animation: {
-        'gradient': 'gradient 6s linear infinite',
-        'pulse': 'pulse 6s ease-in-out infinite',
+        gradient: "gradient 6s linear infinite",
+        pulse: "pulse 6s ease-in-out infinite",
       },
       keyframes: {
         gradient: {
-          '0%, 100%': {
-            'background-size': '200% 200%',
-            'background-position': 'left center'
+          "0%, 100%": {
+            "background-size": "200% 200%",
+            "background-position": "left center",
           },
-          '50%': {
-            'background-size': '200% 200%',
-            'background-position': 'right center'
+          "50%": {
+            "background-size": "200% 200%",
+            "background-position": "right center",
           },
         },
         pulse: {
-          '0%, 100%': {
-            opacity: '0.2',
+          "0%, 100%": {
+            opacity: "0.2",
           },
-          '50%': {
-            opacity: '0.3',
+          "50%": {
+            opacity: "0.3",
           },
         },
       },
       // Add custom delay utilities
       transitionDelay: {
-        '400': '400ms',
-        '600': '600ms',
-        '700': '700ms',
-        '800': '800ms',
-        '900': '900ms',
-        '1000': '1000ms',
-        '1100': '1100ms',
-        '1200': '1200ms',
-
+        "400": "400ms",
+        "600": "600ms",
+        "700": "700ms",
+        "800": "800ms",
+        "900": "900ms",
+        "1000": "1000ms",
+        "1100": "1100ms",
+        "1200": "1200ms",
       },
     },
   },
-  plugins: [
-    typography,
-    tailwindcssAnimate,
-  ],
+  plugins: [typography, tailwindcssAnimate],
 } satisfies Config;
 
 export default config;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { RouterOutputs, RouterInputs } from "~/trpc/react";
+import type { RouterInputs } from "~/trpc/react";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,6 @@ import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { api } from "~/trpc/react";
-import type { InfiniteData } from "@tanstack/react-query";
-import type { TRPCClientErrorLike } from "@trpc/client";
 import { cn } from "~/lib/utils";
 
 interface CreateBoardDialogProps {
@@ -21,9 +19,7 @@ interface CreateBoardDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type Board = RouterOutputs["board"]["getBoards"]["boards"][number];
-type CreateBoardInput = RouterInputs["board"]["createBoard"];
-type BoardsResponse = RouterOutputs["board"]["getBoards"];
+type CreateBoardInput = RouterInputs["boards"]["createBoard"];
 
 const PASTEL_COLORS = [
   { hex: "#FFB3BA", name: "Pastel Pink" },
@@ -38,65 +34,36 @@ const PASTEL_COLORS = [
   { hex: "#F0F8FF", name: "Light Sky Blue" },
 ];
 
-export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps) {
+export function CreateBoardDialog({
+  open,
+  onOpenChange,
+}: CreateBoardDialogProps) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(PASTEL_COLORS[0]?.hex ?? "#FFB3BA");
   const utils = api.useUtils();
 
-  const { mutate: createBoard, isPending } = api.board.createBoard.useMutation({
-    onMutate: async (newBoard: CreateBoardInput) => {
-      await utils.board.getBoards.cancel();
-
-      const prevData = utils.board.getBoards.getInfiniteData({ limit: 10 });
-
-      utils.board.getBoards.setInfiniteData(
-        { limit: 10 },
-        (old: InfiniteData<BoardsResponse, string | null> | undefined) => {
-          if (!old) return { pages: [], pageParams: [] as (string | null)[] };
-
-          return {
-            ...old,
-            pages: old.pages.map((page, index) => {
-              if (index === 0) {
-                const optimisticBoard: Board = {
-                  id: `temp-${Date.now()}`,
-                  name: newBoard.name,
-                  color: newBoard.color,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  userId: "", // Will be replaced with actual value on server
-                  order: 0,
-                  tasks: [],
-                  _count: { tasks: 0 },
-                };
-                
-                return {
-                  ...page,
-                  boards: [optimisticBoard, ...page.boards],
-                };
-              }
-              return page;
-            }),
-            pageParams: old.pageParams,
-          };
+  const { mutate: createBoard, isPending } = api.boards.createBoard.useMutation(
+    {
+      onMutate: async (_newBoard: CreateBoardInput) => {
+        await utils.boards.getBoards.cancel();
+        const prevData = utils.boards.getBoards.getInfiniteData({ limit: 10 });
+        onOpenChange(false);
+        return { prevData };
+      },
+      onError: (_error: unknown, _variables: unknown, context: unknown) => {
+        if (context && typeof context === "object" && "prevData" in context) {
+          utils.boards.getBoards.setInfiniteData(
+            { limit: 10 },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+            () => (context as any).prevData,
+          );
         }
-      );
-
-      onOpenChange(false);
-      return { prevData };
+      },
+      onSettled: () => {
+        void utils.boards.getBoards.invalidate();
+      },
     },
-    onError: (error, _variables, context) => {
-      if (context?.prevData) {
-        utils.board.getBoards.setInfiniteData(
-          { limit: 10 },
-          () => context.prevData
-        );
-      }
-    },
-    onSettled: () => {
-      void utils.board.getBoards.invalidate();
-    },
-  });
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,9 +90,9 @@ export function CreateBoardDialog({ open, onOpenChange }: CreateBoardDialogProps
                   type="button"
                   className={cn(
                     "h-8 w-8 rounded-full border-2 transition-all",
-                    color === pastelColor.hex 
-                      ? "border-gray-900 scale-110" 
-                      : "border-transparent hover:scale-105"
+                    color === pastelColor.hex
+                      ? "scale-110 border-gray-900"
+                      : "border-transparent hover:scale-105",
                   )}
                   style={{ backgroundColor: pastelColor.hex }}
                   onClick={() => setColor(pastelColor.hex)}

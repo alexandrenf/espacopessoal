@@ -23,22 +23,25 @@ const itemVariants = {
 
 export default function CTASection() {
   return (
-    <section className="py-24 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white relative overflow-hidden">
+    <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 py-24 text-white">
       {/* Subtle background pattern */}
-      <div 
+      <div
         className="absolute inset-0 opacity-20"
         style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.15) 1px, transparent 0)`,
-          backgroundSize: '32px 32px'
+          backgroundSize: "32px 32px",
         }}
       />
 
       {/* Gentle floating orbs */}
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-white/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-      
-      <div className="container mx-auto px-4 text-center relative z-10">
-        <div className="max-w-4xl mx-auto">
+      <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-white/10 blur-3xl" />
+      <div
+        className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-white/5 blur-3xl"
+        style={{ animationDelay: "2s" }}
+      />
+
+      <div className="container relative z-10 mx-auto px-4 text-center">
+        <div className="mx-auto max-w-4xl">
           <motion.div
             variants={containerVariants}
             initial="hidden"
@@ -46,43 +49,41 @@ export default function CTASection() {
             viewport={{ once: true }}
           >
             <motion.div variants={itemVariants} className="mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-sm">
-                <Sparkles className="w-4 h-4" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur-sm">
+                <Sparkles className="h-4 w-4" />
                 Comece gratuitamente
               </div>
             </motion.div>
 
-            <motion.h2 
-              className="text-5xl md:text-6xl font-bold mb-6 leading-tight"
+            <motion.h2
+              className="mb-6 text-5xl font-bold leading-tight md:text-6xl"
               variants={itemVariants}
             >
               Pronto para começar?
             </motion.h2>
-            
-            <motion.p 
-              className="text-xl md:text-2xl mb-10 text-blue-100 leading-relaxed max-w-3xl mx-auto"
+
+            <motion.p
+              className="mx-auto mb-10 max-w-3xl text-xl leading-relaxed text-blue-100 md:text-2xl"
               variants={itemVariants}
             >
-              Crie sua conta gratuita hoje e comece a organizar sua vida digital de forma eficiente.
+              Crie sua conta gratuita hoje e comece a organizar sua vida digital
+              de forma eficiente.
             </motion.p>
 
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
+            <motion.div
+              className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
               variants={itemVariants}
             >
-              <Link 
-                href="/api/auth/signin" 
-                className="group"
-              >
-                <Button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105 flex items-center gap-2">
+              <Link href="/api/auth/signin" className="group">
+                <Button className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-semibold text-blue-700 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl group-hover:scale-105">
                   Começar Agora
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
 
-              <Link 
-                href="#recursos" 
-                className="px-6 py-3 text-lg font-medium text-white/80 hover:text-white transition-colors"
+              <Link
+                href="#recursos"
+                className="px-6 py-3 text-lg font-medium text-white/80 transition-colors hover:text-white"
               >
                 Conhecer recursos
               </Link>
@@ -90,20 +91,37 @@ export default function CTASection() {
 
             {/* Trust indicators with improved accessibility */}
             <motion.div
-              className="flex flex-wrap justify-center items-center gap-8 text-sm text-blue-100"
+              className="flex flex-wrap items-center justify-center gap-8 text-sm text-blue-100"
               variants={itemVariants}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-400" aria-hidden="true" />
-                <span><span className="sr-only">Verificado: </span>100% Gratuito</span>
+                <CheckCircle
+                  className="h-4 w-4 text-green-400"
+                  aria-hidden="true"
+                />
+                <span>
+                  <span className="sr-only">Verificado: </span>100% Gratuito
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-blue-300" aria-hidden="true" />
-                <span><span className="sr-only">Verificado: </span>Sem cartão necessário</span>
+                <CheckCircle
+                  className="h-4 w-4 text-blue-300"
+                  aria-hidden="true"
+                />
+                <span>
+                  <span className="sr-only">Verificado: </span>Sem cartão
+                  necessário
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-purple-300" aria-hidden="true" />
-                <span><span className="sr-only">Verificado: </span>Pronto em 1 minuto</span>
+                <CheckCircle
+                  className="h-4 w-4 text-purple-300"
+                  aria-hidden="true"
+                />
+                <span>
+                  <span className="sr-only">Verificado: </span>Pronto em 1
+                  minuto
+                </span>
               </div>
             </motion.div>
           </motion.div>

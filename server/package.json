@@ -1,0 +1,23 @@
+{
+  "name": "hocus-pocus-server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --hot run index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^3.1.9",
+    "ioredis": "^5.6.1",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
+  }
+}
