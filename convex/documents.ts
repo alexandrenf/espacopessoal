@@ -195,25 +195,25 @@ export const getHierarchical = query({
       if (!notebookId) {
         throw new ConvexError("User ID or notebook ID is required");
       }
-      
+
       // Check if the notebook is public
       const notebook = await ctx.db.get(notebookId);
       if (!notebook || notebook.isPrivate) {
         throw new ConvexError("Access denied to private notebook");
       }
-      
+
       // Return documents in public notebook
       const query = ctx.db
         .query("documents")
         .withIndex("by_parent_id", (q) => q.eq("parentId", parentId))
         .filter((q) => q.eq(q.field("notebookId"), notebookId));
-      
+
       return await query.order("asc").collect();
     }
-    
+
     // For authenticated users, check ownership
     const ownerId = userId;
-    
+
     let query = ctx.db
       .query("documents")
       .withIndex("by_parent_id", (q) => q.eq("parentId", parentId))
@@ -277,16 +277,34 @@ export const getAllForTreeLegacy = query({
   args: {
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
-    userId: v.id("users"), // User ID for authentication
+    userId: v.optional(v.id("users")), // User ID for authentication (optional for public access)
   },
   handler: async (ctx, { limit, notebookId, userId }) => {
-    // Validate user ID
+    const documentLimit = limit ?? 100; // Reduced from 1000 to 100
+
+    // If no userId provided, only return documents in public notebooks
     if (!userId) {
-      throw new ConvexError("User ID is required for authentication");
+      if (!notebookId) {
+        throw new ConvexError("User ID or notebook ID is required");
+      }
+
+      // Check if the notebook is public
+      const notebook = await ctx.db.get(notebookId);
+      if (!notebook || notebook.isPrivate) {
+        throw new ConvexError("Access denied to private notebook");
+      }
+
+      // Return documents in public notebook
+      const query = ctx.db
+        .query("documents")
+        .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebookId))
+        .order("asc");
+
+      return await query.take(documentLimit);
     }
 
+    // For authenticated users, check ownership
     const ownerId = userId;
-    const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
     let query = ctx.db
       .query("documents")
@@ -320,11 +338,11 @@ export const getById = query({
       if (!notebook) {
         throw new ConvexError("Document's notebook not found");
       }
-      
+
       // Check if user has access to the notebook
       const isOwner = userId && notebook.ownerId === userId;
       const isPublicNotebook = !notebook.isPrivate;
-      
+
       if (!isOwner && !isPublicNotebook) {
         throw new ConvexError(
           "You don't have permission to access this document",

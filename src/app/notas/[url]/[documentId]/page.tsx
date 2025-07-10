@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQuery } from "convex/react";
 import { api as convexApi } from "../../../../../convex/_generated/api";
@@ -11,28 +11,32 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { useConvexUser } from "~/hooks/use-convex-user";
-import React from "react";
+import PublicDocumentSidebar from "~/components_new/PublicDocumentSidebar";
+import React, { useState } from "react";
 
 function DocumentPageContent() {
   const params = useParams<{ url: string; documentId: string }>();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const normalizedUrl = typeof params.url === "string" ? params.url : "";
-  const normalizedDocumentId = typeof params.documentId === "string" ? params.documentId : "";
+  const normalizedDocumentId =
+    typeof params.documentId === "string" ? params.documentId : "";
   const isAuthenticated = status === "authenticated" && session;
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // Get notebook metadata first (for access checking)
   const notebookMetadata = useQuery(
     convexApi.notebooks.getMetadataByUrl,
-    normalizedUrl.length > 0
-      ? { url: normalizedUrl }
-      : "skip",
+    normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
   );
 
   // Get full notebook information using Convex
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    normalizedUrl.length > 0 && (!notebookMetadata?.isPrivate || notebookMetadata?.ownerId === convexUserId)
+    normalizedUrl.length > 0 &&
+      (!notebookMetadata?.isPrivate ||
+        notebookMetadata?.ownerId === convexUserId)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
@@ -142,16 +146,44 @@ function DocumentPageContent() {
     );
   }
 
-  // Render the document editor
+  // Check if user is the owner of the notebook
+  const isOwner = convexUserId && notebookMetadata?.ownerId === convexUserId;
+  const isPublicNotebook = !notebookMetadata?.isPrivate;
+
+  // Handler for document selection from sidebar
+  const handleDocumentSelect = (documentId: Id<"documents">) => {
+    router.push(`/notas/${normalizedUrl}/${documentId}`);
+  };
+
+  // Render the document editor with sidebar for public notebooks
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="flex-grow">
-        <DocumentEditor
-          document={document}
-          notebookId={notebook._id as Id<"notebooks">}
-          notebookUrl={normalizedUrl}
-          notebookTitle={notebook.title}
-        />
+      <div className="flex flex-grow">
+        {/* Show sidebar for public notebooks or when user is owner */}
+        {(isPublicNotebook || isOwner) && showSidebar && (
+          <div className="hidden md:block md:w-80 lg:w-96">
+            <PublicDocumentSidebar
+              currentDocument={document}
+              onDocumentSelect={handleDocumentSelect}
+              onToggleSidebar={() => setShowSidebar(false)}
+              showSidebar={showSidebar}
+              isMobile={false}
+              notebookId={notebook._id as Id<"notebooks">}
+              notebookTitle={notebook.title}
+              notebookUrl={normalizedUrl}
+            />
+          </div>
+        )}
+
+        <div className="flex-grow">
+          <DocumentEditor
+            document={document}
+            notebookId={notebook._id as Id<"notebooks">}
+            notebookUrl={normalizedUrl}
+            notebookTitle={notebook.title}
+            isReadOnly={!isOwner}
+          />
+        </div>
       </div>
     </div>
   );

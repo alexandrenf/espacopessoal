@@ -153,19 +153,20 @@ function NotebookPageContent() {
 
   // Try to get notebook information using Convex
   const [hasValidPassword, setHasValidPassword] = useState(false);
-  
+
   // Get notebook metadata first (this works for all notebooks)
   const notebookMetadata = useQuery(
     convexApi.notebooks.getMetadataByUrl,
-    normalizedUrl.length > 0
-      ? { url: normalizedUrl }
-      : "skip",
+    normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
   );
 
   // Get full notebook information using Convex (only after password validation or for public/owned notebooks)
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    normalizedUrl.length > 0 && (hasValidPassword || !notebookMetadata?.hasPassword || notebookMetadata?.ownerId === convexUserId)
+    normalizedUrl.length > 0 &&
+      (hasValidPassword ||
+        !notebookMetadata?.hasPassword ||
+        notebookMetadata?.ownerId === convexUserId)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
@@ -199,7 +200,7 @@ function NotebookPageContent() {
         url: normalizedUrl,
         password: enteredPassword,
       });
-      
+
       if (result.valid) {
         storePassword(normalizedUrl, enteredPassword);
         setShowPasswordPrompt(false);
@@ -219,8 +220,9 @@ function NotebookPageContent() {
   };
 
   // Auto-show password prompt if needed
-  const needsPassword = notebookMetadata?.hasPassword && 
-    notebookMetadata.ownerId !== convexUserId && 
+  const needsPassword =
+    notebookMetadata?.hasPassword &&
+    notebookMetadata.ownerId !== convexUserId &&
     !hasValidPassword;
 
   useEffect(() => {
@@ -265,12 +267,7 @@ function NotebookPageContent() {
 
   // Handle password prompt
   if (needsPassword && showPasswordPrompt) {
-    return (
-      <PasswordPrompt
-        onSubmit={handlePasswordSubmit}
-        isLoading={false}
-      />
-    );
+    return <PasswordPrompt onSubmit={handlePasswordSubmit} isLoading={false} />;
   }
 
   // Check if notebook is loading
@@ -396,9 +393,7 @@ function NotebookPageContent() {
                     notebook
                   </span>
                   <span>•</span>
-                  <span>
-                    Created {formatDate(notebookData.createdAt)}
-                  </span>
+                  <span>Created {formatDate(notebookData.createdAt)}</span>
                 </div>
               </div>
             </div>
@@ -428,9 +423,7 @@ function NotebookPageContent() {
             </div>
           </div>
           {notebookData.description && (
-            <p className="mt-4 text-gray-600">
-              {notebookData.description}
-            </p>
+            <p className="mt-4 text-gray-600">{notebookData.description}</p>
           )}
         </div>
 

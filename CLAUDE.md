@@ -82,6 +82,11 @@ NextAuth.js handles authentication with session management. User data is stored 
 -   Spell check integration with custom dictionary management
 -   Task management system with boards and reminders
 
+## Specific Development Memories
+
+### TypeScript Best Practices
+- **Never set type as `any`** - Always use specific, well-defined types to maintain type safety and catch potential errors early in the development process.
+
 ## 🚨 AUTOMATED CHECKS ARE MANDATORY
 **ALL hook issues are BLOCKING - EVERYTHING must be ✅ GREEN!**  
 No errors. No formatting issues. No linting problems. Zero tolerance.  
