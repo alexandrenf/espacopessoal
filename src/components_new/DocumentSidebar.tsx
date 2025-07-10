@@ -70,26 +70,25 @@ const DocumentSidebar = memo(
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-    const userIdString = convexUserId ? String(convexUserId) : null;
 
     // Track if we've shown the authentication error to prevent spamming
     const hasShownAuthErrorRef = useRef(false);
 
     // Show authentication error only once when user is not authenticated after loading
     useEffect(() => {
-      if (!isUserLoading && !userIdString && !hasShownAuthErrorRef.current) {
+      if (!isUserLoading && !convexUserId && !hasShownAuthErrorRef.current) {
         hasShownAuthErrorRef.current = true;
         toast.error("Please sign in to manage documents");
-      } else if (userIdString) {
+      } else if (convexUserId) {
         hasShownAuthErrorRef.current = false; // Reset when user signs in
       }
-    }, [isUserLoading, userIdString]);
+    }, [isUserLoading, convexUserId]);
 
     // Optimized Convex queries with fallback
     const documentsQuery = useQuery(
       api.documents.getAllForTreeLegacy,
-      !isUserLoading && userIdString
-        ? { userId: userIdString as Id<"users">, limit: 200, notebookId }
+      !isUserLoading && convexUserId
+        ? { userId: convexUserId, limit: 200, notebookId }
         : "skip",
     );
     const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
@@ -161,14 +160,14 @@ const DocumentSidebar = memo(
         e.preventDefault();
         e.stopPropagation();
 
-        if (!userIdString) {
+        if (!convexUserId) {
           toast.error("User authentication required to delete documents");
           return;
         }
 
         setIsDeletingId(id);
         try {
-          await deleteDocument({ id, userId: userIdString as Id<"users"> });
+          await deleteDocument({ id, userId: convexUserId });
           toast.success("Item deleted!");
 
           // If we deleted the current document, navigate to home
@@ -191,7 +190,7 @@ const DocumentSidebar = memo(
           setIsDeletingId(undefined);
         }
       },
-      [userIdString, deleteDocument, currentDocument?._id, onNavigateToHome],
+      [convexUserId, deleteDocument, currentDocument?._id, onNavigateToHome],
     );
 
     // Optimized tree data conversion with better performance
@@ -292,7 +291,7 @@ const DocumentSidebar = memo(
         return;
       }
 
-      if (!userIdString) {
+      if (!convexUserId) {
         toast.error("Please sign in to create documents");
         return;
       }
@@ -303,7 +302,7 @@ const DocumentSidebar = memo(
       }
 
       // Ensure user is authenticated before creating document
-      if (!userIdString) {
+      if (!convexUserId) {
         toast.error(
           "Please wait for authentication to complete before creating documents.",
         );
@@ -313,12 +312,12 @@ const DocumentSidebar = memo(
       setIsCreating(true);
       try {
         if (process.env.NODE_ENV === "development") {
-          console.log("Creating document with userId:", userIdString);
+          console.log("Creating document with userId:", convexUserId);
         }
 
         const documentId = await createDocument({
           title: "Untitled Document",
-          userId: userIdString as Id<"users">,
+          userId: convexUserId,
           notebookId,
         });
 
@@ -400,7 +399,7 @@ const DocumentSidebar = memo(
         return;
       }
 
-      if (!userIdString) {
+      if (!convexUserId) {
         toast.error("Please sign in to create folders");
         return;
       }
@@ -414,7 +413,7 @@ const DocumentSidebar = memo(
       try {
         const folderId = await createDocument({
           title: "New Folder",
-          userId: userIdString as Id<"users">,
+          userId: convexUserId,
           isFolder: true,
           notebookId,
         });
@@ -666,7 +665,7 @@ const DocumentSidebar = memo(
     const persistDocumentStructure = async (
       updatedDocuments: DocumentWithTreeProps[],
     ) => {
-      if (!userIdString) {
+      if (!convexUserId) {
         toast.error(
           "User authentication required to update document structure",
         );
@@ -680,7 +679,7 @@ const DocumentSidebar = memo(
             parentId: d.parentId,
             order: d.order,
           })),
-          userId: userIdString as Id<"users">,
+          userId: convexUserId,
         });
       } catch (error) {
         if (process.env.NODE_ENV === "development") {
@@ -799,9 +798,8 @@ const DocumentSidebar = memo(
     if (process.env.NODE_ENV === "development") {
       console.log("DocumentSidebar render:", {
         isUserLoading,
-        userIdString,
-        documentsLength: documents.length,
         convexUserId,
+        documentsLength: documents.length,
         documents: documents.slice(0, 3), // First 3 documents for debugging
         isMobile,
         draggable:
