@@ -1,16 +1,20 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+// import { useQuery } from "convex/react";
+// import { api } from "../../../convex/_generated/api";
 import { api } from "~/trpc/react";
 import Link from "next/link";
 import { UserCog } from "lucide-react";
 import { useEffect, useState } from "react";
+// import { type Id } from "../../../convex/_generated/dataModel";
 
 export function HealthCheckModal() {
   const { data: session } = useSession();
   const utils = api.useUtils();
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // Temporarily use tRPC until Convex API is properly generated
   const { data: userSettings, isLoading } =
     api.userSettings.getUserSettingsAndHealth.useQuery(undefined, {
       enabled: !!session?.user,

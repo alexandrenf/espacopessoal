@@ -38,6 +38,7 @@ export const env = createEnv({
     DENO_API_KEY: z.string(),
     DENO_API_URL: z.string().url(),
     OPENROUTER_API_KEY: z.string(),
+    CONVEX_URL: z.string().url(),
   },
 
   /**
@@ -76,6 +77,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+    CONVEX_URL: process.env.CONVEX_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

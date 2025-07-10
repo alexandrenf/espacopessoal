@@ -312,4 +312,108 @@ export const notebooksRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Check if user has documents that need migration from DEFAULT_USER_ID
+  checkMigrationNeeded: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to check migration status",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const result = await ctx.convex.query(api.documents.checkForMigrationNeeded, {
+          userId: ctx.session.user.id,
+        });
+        
+        // Validate the result structure and return typed object
+        if (result && typeof result === 'object' && 
+            'migrationNeeded' in result && 
+            'defaultUserDocumentsCount' in result && 
+            'userDocumentsCount' in result) {
+          const typedResult = result as { 
+            migrationNeeded: boolean; 
+            defaultUserDocumentsCount: number; 
+            userDocumentsCount: number; 
+          };
+          return {
+            migrationNeeded: Boolean(typedResult.migrationNeeded),
+            defaultUserDocumentsCount: Number(typedResult.defaultUserDocumentsCount),
+            userDocumentsCount: Number(typedResult.userDocumentsCount),
+          };
+        } else {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid migration status format returned from database",
+          });
+        }
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Failed to check migration status",
+        });
+      }
+    }),
+
+  // Migrate documents from DEFAULT_USER_ID to the current user
+  migrateDocuments: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to migrate documents",
+        });
+      }
+
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const result = await ctx.convex.mutation(api.documents.migrateDefaultUserDocuments, {
+          userId: ctx.session.user.id,
+        });
+        
+        // Validate the result structure and return typed object
+        if (result && typeof result === 'object' && 
+            'totalFound' in result && 
+            'migratedCount' in result && 
+            'success' in result) {
+          const typedResult = result as { 
+            totalFound: number; 
+            migratedCount: number; 
+            success: boolean; 
+          };
+          return {
+            totalFound: Number(typedResult.totalFound),
+            migratedCount: Number(typedResult.migratedCount),
+            success: Boolean(typedResult.success),
+          };
+        } else {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid migration result format returned from database",
+          });
+        }
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Failed to migrate documents",
+        });
+      }
+    }),
 });

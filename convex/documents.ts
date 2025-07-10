@@ -52,7 +52,12 @@ export const create = mutation({
     isHome: v.optional(v.boolean()), // Whether this is the home document
   },
   handler: async (ctx, args) => {
-    const userId = args.userId ?? DEFAULT_USER_ID;
+    // Require authentication - don't fall back to DEFAULT_USER_ID
+    if (!args.userId) {
+      throw new ConvexError("Authentication required to create documents. Please log in and try again.");
+    }
+    
+    const userId = args.userId;
     const now = Date.now();
     const isFolder = args.isFolder ?? false;
 
@@ -1032,5 +1037,75 @@ export const getRecentDocuments = query({
     }
 
     return await query.take(limit);
+  },
+});
+
+// Migration function to fix documents with DEFAULT_USER_ID
+export const migrateDefaultUserDocuments = mutation({
+  args: {
+    userId: v.string(), // The actual user ID to migrate documents to
+  },
+  handler: async (ctx, args) => {
+    if (!args.userId) {
+      throw new ConvexError("User ID is required for migration");
+    }
+
+    // Find documents owned by DEFAULT_USER_ID
+    const defaultUserDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID))
+      .collect();
+
+    logger.log(`Found ${defaultUserDocuments.length} documents owned by DEFAULT_USER_ID`);
+
+    let migratedCount = 0;
+    
+    for (const document of defaultUserDocuments) {
+      try {
+        // Update the document to have the correct owner
+        await ctx.db.patch(document._id, {
+          ownerId: args.userId,
+          updatedAt: Date.now(),
+        });
+        migratedCount++;
+        logger.debug(`Migrated document ${document._id} to user ${args.userId}`);
+      } catch (error) {
+        logger.error(`Failed to migrate document ${document._id}:`, error);
+      }
+    }
+
+    logger.log(`Successfully migrated ${migratedCount} documents to user ${args.userId}`);
+    
+    return {
+      totalFound: defaultUserDocuments.length,
+      migratedCount,
+      success: true,
+    };
+  },
+});
+
+// Query to check if user has documents that need migration
+export const checkForMigrationNeeded = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Count documents owned by DEFAULT_USER_ID
+    const defaultUserDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID))
+      .collect();
+
+    // Count documents owned by the actual user
+    const userDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .collect();
+
+    return {
+      defaultUserDocumentsCount: defaultUserDocuments.length,
+      userDocumentsCount: userDocuments.length,
+      migrationNeeded: defaultUserDocuments.length > 0,
+    };
   },
 });

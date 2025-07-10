@@ -302,6 +302,12 @@ const DocumentSidebar = memo(
         return;
       }
 
+      // Ensure user is authenticated before creating document
+      if (!userIdString) {
+        toast.error("Please wait for authentication to complete before creating documents.");
+        return;
+      }
+
       setIsCreating(true);
       try {
         if (process.env.NODE_ENV === "development") {

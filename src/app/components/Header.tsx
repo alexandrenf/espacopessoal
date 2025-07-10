@@ -4,7 +4,11 @@ import Link from "next/link";
 import { Button } from "~/components/ui/button";
 import { useSession } from "next-auth/react";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { api } from "~/trpc/react";
+// import { api } from "~/trpc/react";
+// TODO: Re-enable once Convex API is properly generated
+// import { useQuery } from "convex/react";
+// import { api as convexApi } from "../../../convex/_generated/api";
+// import type { Id } from "../../../convex/_generated/dataModel";
 import { Menu, X } from "lucide-react";
 import {
   Sheet,
@@ -25,20 +29,20 @@ export default function Header() {
     () => status === "authenticated" && !!session,
     [status, session],
   );
+  // TODO: Fix Convex API generation - currently using anyApi instead of typed API
+  // Temporarily disable the query until Convex API is properly generated
+  const userSettings = undefined; // useQuery(
+  //   convexApi.userSettings.getUserSettingsAndHealth,
+  //   isAuthenticated && session?.user?.id
+  //     ? { userId: session.user.id as Id<"users"> }
+  //     : "skip"
+  // );
 
-  // Replace getNoteSettings with getUserSettingsAndHealth
-  const { data: userSettings, isLoading: isLoadingSettings } =
-    api.userSettings.getUserSettingsAndHealth.useQuery(undefined, {
-      enabled: isAuthenticated,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    });
-
-  // Update to use the new home route instead of legacy notepad
-  const homeUrl = useMemo(
-    () => (isAuthenticated ? "/home" : null),
+  const isLoadingSettings = userSettings === undefined && isAuthenticated;
+  
+  // Update to use the new notebooks route
+  const notebooksUrl = useMemo(
+    () => (isAuthenticated ? "/notebooks" : null),
     [isAuthenticated],
   );
 
@@ -145,17 +149,17 @@ export default function Header() {
               <div className="flex items-center space-x-8">
                 {isLoadingSettings ? (
                   <div className="relative px-3 py-2 text-sm font-medium text-slate-500">
-                    <span className="animate-pulse">Bloco de Notas</span>
+                    <span className="animate-pulse">Meus Notebooks</span>
                     <span className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-slate-300" />
                   </div>
-                ) : homeUrl ? (
+                ) : notebooksUrl ? (
                   <Link
-                    href={homeUrl}
+                    href={notebooksUrl}
                     className="group relative px-3 py-2"
                     prefetch={false}
                   >
                     <span className="relative z-10 text-sm font-medium text-slate-600 transition-colors duration-300 group-hover:text-slate-800">
-                      Bloco de Notas
+                      Meus Notebooks
                     </span>
 
                     {/* Hover background effect */}
@@ -241,15 +245,15 @@ export default function Header() {
 
                       {isAuthenticated && (
                         <>
-                          {homeUrl && (
+                          {notebooksUrl && (
                             <Link
-                              href={homeUrl}
+                              href={notebooksUrl}
                               className="group relative flex items-center overflow-hidden rounded-lg px-4 py-3"
                             >
                               <div className="absolute inset-0 bg-white/0 backdrop-blur-sm transition-all duration-300 group-hover:bg-white/60" />
                               <div className="absolute bottom-0 left-0 top-0 w-[3px] rounded-full bg-gradient-to-b from-blue-500 via-indigo-500 to-purple-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                               <span className="relative z-10 text-slate-600 transition-colors duration-300 group-hover:text-slate-800">
-                                Bloco de Notas
+                                Meus Notebooks
                               </span>
                             </Link>
                           )}
@@ -328,3 +332,4 @@ export default function Header() {
     </header>
   );
 }
+

@@ -98,4 +98,121 @@ export default defineSchema({
   })
     .index("by_url", ["url"])
     .index("by_document_id", ["documentId"]),
+
+  // NextAuth.js OAuth accounts
+  accounts: defineTable({
+    userId: v.id("users"),
+    provider: v.string(), // "google", "discord", etc.
+    providerAccountId: v.string(),
+    type: v.string(), // "oauth", "email", etc.
+    access_token: v.optional(v.string()),
+    refresh_token: v.optional(v.string()),
+    expires_at: v.optional(v.number()),
+    token_type: v.optional(v.string()),
+    scope: v.optional(v.string()),
+    id_token: v.optional(v.string()),
+    session_state: v.optional(v.string()),
+    refresh_token_expires_in: v.optional(v.number()),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_provider_account", ["provider", "providerAccountId"]),
+
+  // Verification tokens for email auth
+  verificationTokens: defineTable({
+    identifier: v.string(), // email address
+    token: v.string(),
+    expires: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_identifier_token", ["identifier", "token"]),
+
+  // User settings and configuration
+  userSettings: defineTable({
+    userId: v.id("users"),
+    notePadUrl: v.optional(v.string()), // Legacy notepad URL
+    privateOrPublicUrl: v.optional(v.boolean()), // Private if true
+    password: v.optional(v.string()), // Password for private notepad
+    fcmToken: v.optional(v.string()), // Firebase Cloud Messaging token
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_notepad_url", ["notePadUrl"]),
+
+  // Task management boards
+  boards: defineTable({
+    name: v.string(),
+    color: v.string(),
+    order: v.number(),
+    userId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_order", ["userId", "order"]),
+
+  // Individual tasks
+  tasks: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(v.literal("TODO"), v.literal("IN_PROGRESS"), v.literal("DONE")),
+    order: v.number(),
+    dueDate: v.optional(v.number()),
+    boardId: v.id("boards"),
+    userId: v.id("users"),
+    reminderEnabled: v.boolean(),
+    reminderDateTime: v.optional(v.number()),
+    reminderFrequency: v.optional(v.union(
+      v.literal("ONCE"),
+      v.literal("DAILY"),
+      v.literal("WEEKLY"),
+      v.literal("MONTHLY")
+    )),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_board_id", ["boardId"])
+    .index("by_due_date", ["dueDate"])
+    .index("by_board_order", ["boardId", "order"]),
+
+  // Scheduled notifications
+  scheduledNotifications: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    body: v.string(),
+    url: v.optional(v.string()),
+    scheduledFor: v.number(),
+    fcmToken: v.string(),
+    sent: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_scheduled_for", ["scheduledFor", "sent"])
+    .index("by_pending", ["sent", "scheduledFor"]),
+
+  // Legacy notepad system (for backward compatibility during migration)
+  legacyNotepads: defineTable({
+    content: v.optional(v.string()),
+    createdById: v.string(), // Keep as string for Prisma compatibility
+    parentId: v.optional(v.id("legacyNotepads")),
+    isFolder: v.boolean(),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_created_by", ["createdById"])
+    .index("by_parent_id", ["parentId"])
+    .index("by_parent_order", ["parentId", "order"]),
+
+  // Legacy shared notes
+  legacySharedNotes: defineTable({
+    url: v.string(),
+    noteId: v.id("legacyNotepads"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_url", ["url"])
+    .index("by_note_id", ["noteId"]),
 });

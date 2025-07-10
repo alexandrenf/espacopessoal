@@ -5,7 +5,6 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
-import { type Id } from "./_generated/dataModel";
 
 // Shared email validation utility function
 const validateEmail = (email: string): void => {
@@ -389,5 +388,248 @@ export const getByNextAuthId = query({
         q.eq("externalId", nextAuthId).eq("provider", "nextauth"),
       )
       .first();
+  },
+});
+
+// Get account by provider and provider account ID
+export const getAccountByProvider = query({
+  args: {
+    provider: v.string(),
+    providerAccountId: v.string(),
+  },
+  handler: async (ctx, { provider, providerAccountId }) => {
+    return await ctx.db
+      .query("accounts")
+      .withIndex("by_provider_account", (q) => 
+        q.eq("provider", provider).eq("providerAccountId", providerAccountId)
+      )
+      .first();
+  },
+});
+
+// Create account for OAuth provider
+export const createAccount = mutation({
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+    providerAccountId: v.string(),
+    type: v.string(),
+    access_token: v.optional(v.string()),
+    refresh_token: v.optional(v.string()),
+    expires_at: v.optional(v.number()),
+    token_type: v.optional(v.string()),
+    scope: v.optional(v.string()),
+    id_token: v.optional(v.string()),
+    session_state: v.optional(v.string()),
+    refresh_token_expires_in: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("accounts", args);
+  },
+});
+
+// Delete account
+export const deleteAccount = mutation({
+  args: {
+    provider: v.string(),
+    providerAccountId: v.string(),
+  },
+  handler: async (ctx, { provider, providerAccountId }) => {
+    const account = await ctx.db
+      .query("accounts")
+      .withIndex("by_provider_account", (q) => 
+        q.eq("provider", provider).eq("providerAccountId", providerAccountId)
+      )
+      .first();
+    
+    if (account) {
+      await ctx.db.delete(account._id);
+    }
+  },
+});
+
+// Create session for NextAuth
+export const createAuthSession = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+    expires: v.number(),
+  },
+  handler: async (ctx, { sessionToken, userId, expires }) => {
+    return await ctx.db.insert("sessions", {
+      sessionToken,
+      userId,
+      expires,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Get session by token
+export const getSessionByToken = query({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, { sessionToken }) => {
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+      .first();
+  },
+});
+
+// Update session for NextAuth
+export const updateAuthSession = mutation({
+  args: {
+    sessionToken: v.string(),
+    expires: v.optional(v.number()),
+  },
+  handler: async (ctx, { sessionToken, expires }) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+      .first();
+    
+    if (!session) {
+      throw new ConvexError("Session not found");
+    }
+
+    if (expires !== undefined) {
+      await ctx.db.patch(session._id, { expires });
+    }
+    
+    return await ctx.db.get(session._id);
+  },
+});
+
+// Delete session for NextAuth
+export const deleteAuthSession = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, { sessionToken }) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+      .first();
+    
+    if (session) {
+      await ctx.db.delete(session._id);
+    }
+  },
+});
+
+// Create verification token
+export const createVerificationToken = mutation({
+  args: {
+    identifier: v.string(),
+    token: v.string(),
+    expires: v.number(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("verificationTokens", args);
+  },
+});
+
+// Use verification token
+export const useVerificationToken = mutation({
+  args: {
+    identifier: v.string(),
+    token: v.string(),
+  },
+  handler: async (ctx, { identifier, token }) => {
+    const verificationToken = await ctx.db
+      .query("verificationTokens")
+      .withIndex("by_identifier_token", (q) => 
+        q.eq("identifier", identifier).eq("token", token)
+      )
+      .first();
+    
+    if (!verificationToken) {
+      return null;
+    }
+
+    // Delete the token after use
+    await ctx.db.delete(verificationToken._id);
+    
+    return verificationToken;
+  },
+});
+
+// NextAuth-specific functions
+export const createForAuth = mutation({
+  args: {
+    name: v.optional(v.string()),
+    email: v.string(),
+    image: v.optional(v.string()),
+    emailVerified: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Validate email format
+    validateEmail(args.email);
+
+    // Check if user already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existingUser) {
+      throw new ConvexError("User with this email already exists");
+    }
+
+    return await ctx.db.insert("users", {
+      name: args.name,
+      email: args.email,
+      image: args.image,
+      emailVerified: args.emailVerified,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const updateForAuth = mutation({
+  args: {
+    id: v.id("users"),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    image: v.optional(v.string()),
+    emailVerified: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id);
+    if (!user) {
+      throw new ConvexError("User not found!");
+    }
+
+    // If email is being updated, validate format and check for duplicates
+    if (args.email !== undefined) {
+      validateEmail(args.email);
+
+      // Check if any other user has this email
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email!))
+        .first();
+
+      if (existingUser && existingUser._id !== args.id) {
+        throw new ConvexError("Email already in use by another user");
+      }
+    }
+
+    const updates: Partial<typeof user> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.email !== undefined) updates.email = args.email;
+    if (args.image !== undefined) updates.image = args.image;
+    if (args.emailVerified !== undefined) updates.emailVerified = args.emailVerified;
+
+    await ctx.db.patch(args.id, updates);
+    return await ctx.db.get(args.id);
   },
 });
