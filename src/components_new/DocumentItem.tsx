@@ -24,6 +24,7 @@ interface DocumentItemProps {
   onSelect: () => void;
   selected: boolean;
   isNested?: boolean;
+  isPublicView?: boolean; // Flag for public view mode
 }
 
 const DocumentItem: React.FC<DocumentItemProps> = ({
@@ -34,6 +35,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   onSelect,
   selected,
   isNested = false,
+  isPublicView = false,
 }) => {
   const isDeleting = isDeletingId === document._id;
   const [isRenaming, setIsRenaming] = useState(false);
@@ -168,39 +170,42 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
         )}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
-            <MoreHorizontal className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem
-            onClick={handleRename}
-            className="focus:bg-blue-50"
-            disabled={isDeleting || isRenaming}
-          >
-            <Edit className="mr-2 h-3 w-3" />
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={handleDelete}
-            className="text-red-600 focus:bg-red-50 focus:text-red-600"
-            disabled={isDeleting}
-          >
-            <Trash className="mr-2 h-3 w-3" />
-            {isDeleting ? "Deleting..." : "Delete"}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Hide dropdown menu for public view */}
+      {!isPublicView && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              onClick={handleRename}
+              className="focus:bg-blue-50"
+              disabled={isDeleting || isRenaming}
+            >
+              <Edit className="mr-2 h-3 w-3" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleDelete}
+              className="text-red-600 focus:bg-red-50 focus:text-red-600"
+              disabled={isDeleting}
+            >
+              <Trash className="mr-2 h-3 w-3" />
+              {isDeleting ? "Deleting..." : "Delete"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 };

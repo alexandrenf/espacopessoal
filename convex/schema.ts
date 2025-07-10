@@ -35,12 +35,39 @@ export default defineSchema({
     ownerId: v.id("users"),
     isPrivate: v.boolean(), // Whether the notebook is private
     password: v.optional(v.string()), // Optional password for private notebooks
+    passwordStrength: v.optional(v.string()), // "weak", "medium", "strong"
+    passwordUpdatedAt: v.optional(v.number()), // When password was last changed
+    requirePasswordChange: v.optional(v.boolean()), // Force password update
+    maxSessionDuration: v.optional(v.number()), // Custom session length in milliseconds
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_owner_id", ["ownerId"])
     .index("by_url", ["url"])
     .index("by_owner_and_url", ["ownerId", "url"]),
+
+  // Notebook session management for password-protected access
+  notebookSessions: defineTable({
+    sessionToken: v.string(), // Cryptographically secure session token
+    notebookId: v.id("notebooks"),
+    userId: v.optional(v.id("users")), // null for non-logged-in users
+    deviceFingerprint: v.string(), // Browser/device identification
+    userAgent: v.optional(v.string()), // Browser user agent for display
+    ipAddress: v.optional(v.string()), // IP address for security tracking
+    expiresAt: v.number(), // Session expiration timestamp
+    createdAt: v.number(),
+    lastAccessedAt: v.number(),
+    isRevoked: v.boolean(), // Manual revocation capability
+    revokedAt: v.optional(v.number()), // When session was revoked
+    revokedBy: v.optional(v.id("users")), // Who revoked the session
+  })
+    .index("by_token", ["sessionToken"])
+    .index("by_notebook", ["notebookId"])
+    .index("by_user", ["userId"])
+    .index("by_device", ["deviceFingerprint"])
+    .index("by_expiration", ["expiresAt", "isRevoked"])
+    .index("by_notebook_user", ["notebookId", "userId"])
+    .index("by_active_sessions", ["isRevoked", "expiresAt"]),
 
   documents: defineTable({
     title: v.string(),

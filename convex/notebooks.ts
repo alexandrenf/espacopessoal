@@ -471,3 +471,449 @@ export const getByUrlWithPassword = query({
     };
   },
 });
+
+// ====== ENHANCED SESSION MANAGEMENT SYSTEM ======
+
+// Generate cryptographically secure session token
+const generateSessionToken = (): string => {
+  // Generate 32 random bytes and convert to base64url
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+};
+
+// Calculate password strength
+const calculatePasswordStrength = (password: string): string => {
+  let score = 0;
+
+  // Length check
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+
+  // Character variety
+  if (/[a-z]/.test(password)) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  // Common patterns penalty
+  if (/(.)\1{2,}/.test(password)) score--; // Repeated characters
+  if (/123|abc|qwe/i.test(password)) score--; // Sequential patterns
+
+  if (score <= 2) return "weak";
+  if (score <= 4) return "medium";
+  return "strong";
+};
+
+// Get default session duration based on remember me preference
+const getSessionDuration = (
+  rememberMe: boolean,
+  customDuration?: number,
+): number => {
+  if (customDuration) return customDuration;
+  return rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 1 day
+};
+
+// Create password session with secure token
+export const createPasswordSession = mutation({
+  args: {
+    notebookUrl: v.string(),
+    password: v.string(),
+    deviceFingerprint: v.string(),
+    userAgent: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    rememberMe: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    logger.debug("Creating password session for notebook:", args.notebookUrl);
+
+    // Find notebook by URL
+    const notebook = await ctx.db
+      .query("notebooks")
+      .withIndex("by_url", (q) => q.eq("url", args.notebookUrl))
+      .first();
+
+    if (!notebook) {
+      throw new ConvexError("Notebook not found");
+    }
+
+    // Check if notebook requires password
+    if (!notebook.password) {
+      throw new ConvexError("Notebook does not require password");
+    }
+
+    // Validate password
+    if (notebook.password !== args.password) {
+      logger.warn("Invalid password attempt for notebook:", args.notebookUrl);
+      throw new ConvexError("Invalid password");
+    }
+
+    const now = Date.now();
+    const sessionToken = generateSessionToken();
+    const sessionDuration = getSessionDuration(
+      args.rememberMe ?? false,
+      notebook.maxSessionDuration,
+    );
+
+    // Clean up expired sessions for this notebook and device
+    const expiredSessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_device", (q) =>
+        q.eq("deviceFingerprint", args.deviceFingerprint),
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("notebookId"), notebook._id),
+          q.or(
+            q.lt(q.field("expiresAt"), now),
+            q.eq(q.field("isRevoked"), true),
+          ),
+        ),
+      )
+      .collect();
+
+    // Delete expired sessions
+    for (const session of expiredSessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    // Create new session
+    const sessionId = await ctx.db.insert("notebookSessions", {
+      sessionToken,
+      notebookId: notebook._id,
+      userId: args.userId,
+      deviceFingerprint: args.deviceFingerprint,
+      userAgent: args.userAgent,
+      ipAddress: args.ipAddress,
+      expiresAt: now + sessionDuration,
+      createdAt: now,
+      lastAccessedAt: now,
+      isRevoked: false,
+    });
+
+    logger.debug(
+      "Created session for notebook:",
+      args.notebookUrl,
+      "expires:",
+      new Date(now + sessionDuration),
+    );
+
+    return {
+      sessionToken,
+      expiresAt: now + sessionDuration,
+      sessionId,
+    };
+  },
+});
+
+// Validate session token and update last access
+export const validateSession = query({
+  args: {
+    sessionToken: v.string(),
+    notebookId: v.id("notebooks"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+
+    if (!session) {
+      return { valid: false, reason: "Session not found" };
+    }
+
+    // Check if session belongs to the correct notebook
+    if (session.notebookId !== args.notebookId) {
+      return { valid: false, reason: "Session notebook mismatch" };
+    }
+
+    // Check if session is revoked
+    if (session.isRevoked) {
+      return { valid: false, reason: "Session revoked" };
+    }
+
+    // Check if session is expired
+    const now = Date.now();
+    if (session.expiresAt < now) {
+      return { valid: false, reason: "Session expired" };
+    }
+
+    return {
+      valid: true,
+      session: {
+        ...session,
+        sessionToken: undefined, // Don't return token in response
+      },
+    };
+  },
+});
+
+// Update session last access time
+export const updateSessionAccess = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+
+    if (!session || session.isRevoked || session.expiresAt < Date.now()) {
+      return false;
+    }
+
+    await ctx.db.patch(session._id, {
+      lastAccessedAt: Date.now(),
+    });
+
+    return true;
+  },
+});
+
+// Extend session expiration for active users
+export const extendSession = mutation({
+  args: {
+    sessionToken: v.string(),
+    additionalTime: v.optional(v.number()), // Additional milliseconds
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+
+    if (!session || session.isRevoked) {
+      throw new ConvexError("Invalid or revoked session");
+    }
+
+    const now = Date.now();
+    const extensionTime = args.additionalTime ?? 24 * 60 * 60 * 1000; // Default 1 day
+    const newExpirationTime = Math.max(session.expiresAt, now) + extensionTime;
+
+    await ctx.db.patch(session._id, {
+      expiresAt: newExpirationTime,
+      lastAccessedAt: now,
+    });
+
+    return {
+      newExpiresAt: newExpirationTime,
+    };
+  },
+});
+
+// Revoke session(s)
+export const revokeSessions = mutation({
+  args: {
+    sessionTokens: v.optional(v.array(v.string())), // Specific sessions to revoke
+    notebookId: v.optional(v.id("notebooks")), // Revoke all sessions for notebook
+    userId: v.optional(v.id("users")), // User performing revocation
+    revokeAll: v.optional(v.boolean()), // Revoke all user's sessions
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    let revokedCount = 0;
+
+    if (args.sessionTokens) {
+      // Revoke specific sessions
+      for (const token of args.sessionTokens) {
+        const session = await ctx.db
+          .query("notebookSessions")
+          .withIndex("by_token", (q) => q.eq("sessionToken", token))
+          .first();
+
+        if (session && !session.isRevoked) {
+          await ctx.db.patch(session._id, {
+            isRevoked: true,
+            revokedAt: now,
+            revokedBy: args.userId,
+          });
+          revokedCount++;
+        }
+      }
+    } else if (args.notebookId) {
+      // Revoke all sessions for a notebook
+      const sessions = await ctx.db
+        .query("notebookSessions")
+        .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId!))
+        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .collect();
+
+      for (const session of sessions) {
+        await ctx.db.patch(session._id, {
+          isRevoked: true,
+          revokedAt: now,
+          revokedBy: args.userId,
+        });
+        revokedCount++;
+      }
+    } else if (args.revokeAll && args.userId) {
+      // Revoke all sessions for a user
+      const sessions = await ctx.db
+        .query("notebookSessions")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .collect();
+
+      for (const session of sessions) {
+        await ctx.db.patch(session._id, {
+          isRevoked: true,
+          revokedAt: now,
+          revokedBy: args.userId,
+        });
+        revokedCount++;
+      }
+    }
+
+    return { revokedCount };
+  },
+});
+
+// Get active sessions for a notebook (owner only)
+export const getNotebookSessions = query({
+  args: {
+    notebookId: v.id("notebooks"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Verify user owns the notebook
+    const notebook = await ctx.db.get(args.notebookId);
+    if (!notebook || notebook.ownerId !== args.userId) {
+      throw new ConvexError("Access denied");
+    }
+
+    const now = Date.now();
+    const sessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isRevoked"), false),
+          q.gt(q.field("expiresAt"), now),
+        ),
+      )
+      .collect();
+
+    return sessions.map((session) => ({
+      ...session,
+      sessionToken: undefined, // Don't return tokens
+    }));
+  },
+});
+
+// Update notebook password (owner only)
+export const updatePassword = mutation({
+  args: {
+    notebookId: v.id("notebooks"),
+    newPassword: v.optional(v.string()), // null to remove password
+    userId: v.id("users"),
+    revokeExistingSessions: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const notebook = await ctx.db.get(args.notebookId);
+
+    if (!notebook) {
+      throw new ConvexError("Notebook not found");
+    }
+
+    // Verify ownership
+    if (notebook.ownerId !== args.userId) {
+      throw new ConvexError("Only notebook owners can update passwords");
+    }
+
+    const now = Date.now();
+    const updateData: Record<string, unknown> = {
+      updatedAt: now,
+      passwordUpdatedAt: now,
+    };
+
+    if (args.newPassword) {
+      // Setting or updating password
+      updateData.password = args.newPassword;
+      updateData.passwordStrength = calculatePasswordStrength(args.newPassword);
+      updateData.isPrivate = true; // Password-protected notebooks are private
+    } else {
+      // Removing password
+      updateData.password = undefined;
+      updateData.passwordStrength = undefined;
+      // Note: Keep isPrivate as is - user might want private notebook without password
+    }
+
+    // Update notebook
+    await ctx.db.patch(args.notebookId, updateData);
+
+    // Revoke existing sessions if requested
+    if (args.revokeExistingSessions) {
+      const sessions = await ctx.db
+        .query("notebookSessions")
+        .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
+        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .collect();
+
+      for (const session of sessions) {
+        await ctx.db.patch(session._id, {
+          isRevoked: true,
+          revokedAt: now,
+          revokedBy: args.userId,
+        });
+      }
+    }
+
+    logger.debug(
+      args.newPassword ? "Updated password" : "Removed password",
+      "for notebook:",
+      notebook.url,
+    );
+
+    return {
+      success: true,
+      revokedSessions: args.revokeExistingSessions ? true : false,
+    };
+  },
+});
+
+// Cleanup expired sessions (internal function for scheduled cleanup)
+export const cleanupExpiredSessions = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Find all expired or revoked sessions older than 7 days
+    const cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
+    const expiredSessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_active_sessions", (q) =>
+        q.eq("isRevoked", true).lt("expiresAt", cutoffTime),
+      )
+      .collect();
+
+    // Also find sessions that are expired but not revoked
+    const naturallyExpiredSessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_expiration", (q) =>
+        q.eq("expiresAt", now).eq("isRevoked", false),
+      )
+      .filter((q) => q.lt(q.field("expiresAt"), now))
+      .collect();
+
+    const allExpiredSessions = [
+      ...expiredSessions,
+      ...naturallyExpiredSessions,
+    ];
+
+    // Delete expired sessions
+    for (const session of allExpiredSessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    logger.debug("Cleaned up", allExpiredSessions.length, "expired sessions");
+
+    return {
+      cleanedCount: allExpiredSessions.length,
+    };
+  },
+});

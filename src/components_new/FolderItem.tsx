@@ -33,6 +33,7 @@ interface FolderItemProps {
   expanded: boolean;
   onExpand: (e: React.MouseEvent, node: EventDataNode<unknown>) => void;
   eventKey: string;
+  isPublicView?: boolean; // Flag for public view mode
 }
 
 const FolderItem: React.FC<FolderItemProps> = ({
@@ -43,6 +44,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
   expanded,
   onExpand,
   eventKey,
+  isPublicView = false,
 }) => {
   const [isRenaming, setIsRenaming] = useState(false);
   const [folderTitle, setFolderTitle] = useState(folder.title);
@@ -184,34 +186,40 @@ const FolderItem: React.FC<FolderItemProps> = ({
         )}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
-            <MoreHorizontal className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={handleRename} className="focus:bg-blue-50">
-            <Edit className="mr-2 h-3 w-3" />
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={handleDelete}
-            className="text-red-600 focus:bg-red-50 focus:text-red-600"
-          >
-            <Trash className="mr-2 h-3 w-3" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Hide dropdown menu for public view */}
+      {!isPublicView && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              onClick={handleRename}
+              className="focus:bg-blue-50"
+            >
+              <Edit className="mr-2 h-3 w-3" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleDelete}
+              className="text-red-600 focus:bg-red-50 focus:text-red-600"
+            >
+              <Trash className="mr-2 h-3 w-3" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 };
