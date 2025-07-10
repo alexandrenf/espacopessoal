@@ -30,7 +30,7 @@ import { db } from "~/server/db";
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
 
-  // Create Convex client only if URL is available
+  // Create Convex client - authentication will be handled by checking session in protected procedures
   const convex = process.env.CONVEX_URL
     ? new ConvexHttpClient(process.env.CONVEX_URL)
     : null;

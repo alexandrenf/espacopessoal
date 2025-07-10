@@ -32,7 +32,7 @@ export default defineSchema({
     url: v.string(), // Custom URL for notebook access (3-50 characters)
     title: v.string(),
     description: v.optional(v.string()),
-    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    ownerId: v.id("users"),
     isPrivate: v.boolean(), // Whether the notebook is private
     password: v.optional(v.string()), // Optional password for private notebooks
     createdAt: v.number(),
@@ -45,7 +45,7 @@ export default defineSchema({
   documents: defineTable({
     title: v.string(),
     initialContent: v.optional(v.string()),
-    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    ownerId: v.id("users"),
     notebookId: v.optional(v.id("notebooks")), // Reference to parent notebook
     organizationId: v.optional(v.string()),
     roomId: v.optional(v.string()), // For HocusPocus room association
@@ -69,7 +69,7 @@ export default defineSchema({
 
   documentPermissions: defineTable({
     documentId: v.id("documents"),
-    userId: v.string(), // TODO: Change to v.id("users") after auth migration
+    userId: v.id("users"),
     role: v.union(v.literal("viewer"), v.literal("editor")),
   })
     .index("by_document_id", ["documentId"])
@@ -80,7 +80,7 @@ export default defineSchema({
   dictionary: defineTable({
     from: v.string(),
     to: v.string(),
-    ownerId: v.string(), // TODO: Change to v.id("users") after auth migration
+    ownerId: v.id("users"),
     isPublic: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),

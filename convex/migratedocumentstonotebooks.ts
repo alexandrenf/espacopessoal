@@ -51,7 +51,7 @@ export const getUsersNeedingMigration = internalQuery({
 // Create default notebook for a user
 export const createDefaultNotebook = internalMutation({
   args: {
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -90,7 +90,7 @@ export const createDefaultNotebook = internalMutation({
 // Migrate documents for a specific user
 export const migrateUserDocuments = internalMutation({
   args: {
-    userId: v.string(),
+    userId: v.id("users"),
     notebookId: v.id("notebooks"),
   },
   handler: async (ctx, args) => {

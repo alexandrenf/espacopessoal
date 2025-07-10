@@ -7,7 +7,6 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { type Id, type Doc } from "./_generated/dataModel";
-import { api } from "./_generated/api";
 import { nanoid } from "nanoid";
 
 // Production-ready logging utility
@@ -45,17 +44,17 @@ export const create = mutation({
   args: {
     title: v.optional(v.string()),
     initialContent: v.optional(v.string()),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
     notebookId: v.optional(v.id("notebooks")), // Reference to parent notebook
     parentId: v.optional(v.id("documents")), // Parent folder
     isFolder: v.optional(v.boolean()), // Whether this is a folder
     isHome: v.optional(v.boolean()), // Whether this is the home document
+    userId: v.id("users"), // User ID for authentication
   },
   handler: async (ctx, args) => {
-    // Require authentication - don't fall back to DEFAULT_USER_ID
+    // Validate user ID
     if (!args.userId) {
       throw new ConvexError(
-        "Authentication required to create documents. Please log in and try again.",
+        "User ID is required to create documents. Please log in and try again.",
       );
     }
 
@@ -142,11 +141,16 @@ export const get = query({
   args: {
     paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
-    userId: v.optional(v.string()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
+    userId: v.id("users"), // User ID for authentication
   },
-  handler: async (ctx, { paginationOpts, search, userId, notebookId }) => {
-    const ownerId = userId ?? DEFAULT_USER_ID;
+  handler: async (ctx, { paginationOpts, search, notebookId, userId }) => {
+    // Validate user ID
+    if (!userId) {
+      throw new ConvexError("User ID is required for authentication");
+    }
+    
+    const ownerId = userId;
 
     if (search) {
       let searchQuery = ctx.db
@@ -181,12 +185,17 @@ export const get = query({
 // New query to get hierarchical documents
 export const getHierarchical = query({
   args: {
-    userId: v.optional(v.string()),
     parentId: v.optional(v.id("documents")),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
+    userId: v.id("users"), // User ID for authentication
   },
-  handler: async (ctx, { userId, parentId, notebookId }) => {
-    const ownerId = userId ?? DEFAULT_USER_ID;
+  handler: async (ctx, { parentId, notebookId, userId }) => {
+    // Validate user ID
+    if (!userId) {
+      throw new ConvexError("User ID is required for authentication");
+    }
+    
+    const ownerId = userId;
 
     let query = ctx.db
       .query("documents")
@@ -205,13 +214,18 @@ export const getHierarchical = query({
 // Get all documents in a flat structure for the tree with pagination
 export const getAllForTree = query({
   args: {
-    userId: v.optional(v.string()),
     cursor: v.optional(v.string()),
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
+    userId: v.id("users"), // User ID for authentication
   },
-  handler: async (ctx, { userId, cursor, limit, notebookId }) => {
-    const ownerId = userId ?? DEFAULT_USER_ID;
+  handler: async (ctx, { cursor, limit, notebookId, userId }) => {
+    // Validate user ID
+    if (!userId) {
+      throw new ConvexError("User ID is required for authentication");
+    }
+    
+    const ownerId = userId;
     const documentLimit = limit ?? 100; // Reduced default limit for better performance
 
     let query = ctx.db
@@ -244,12 +258,17 @@ export const getAllForTree = query({
 // Get all documents for tree (fallback for components not ready for pagination)
 export const getAllForTreeLegacy = query({
   args: {
-    userId: v.optional(v.string()),
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
+    userId: v.id("users"), // User ID for authentication
   },
-  handler: async (ctx, { userId, limit, notebookId }) => {
-    const ownerId = userId ?? DEFAULT_USER_ID;
+  handler: async (ctx, { limit, notebookId, userId }) => {
+    // Validate user ID
+    if (!userId) {
+      throw new ConvexError("User ID is required for authentication");
+    }
+    
+    const ownerId = userId;
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
     let query = ctx.db
@@ -269,7 +288,7 @@ export const getAllForTreeLegacy = query({
 export const getById = query({
   args: {
     id: v.id("documents"),
-    userId: v.string(), // Made required for security
+    userId: v.id("users"), // Made required for security
     notebookId: v.optional(v.id("notebooks")), // Validate notebook access
   },
   handler: async (ctx, { id, userId, notebookId }) => {
@@ -314,7 +333,7 @@ export const updateById = mutation({
   args: {
     id: v.id("documents"),
     title: v.string(),
-    userId: v.string(), // Made required for security
+    userId: v.id("users"), // Made required for security
   },
   handler: async (ctx, args) => {
     if (!args.userId) {
@@ -350,7 +369,7 @@ export const updateStructure = mutation({
         order: v.number(),
       }),
     ),
-    userId: v.string(), // Made required for security
+    userId: v.id("users"), // Made required for security
   },
   handler: async (ctx, { updates, userId }) => {
     // Verify all documents exist and belong to the user
@@ -486,7 +505,7 @@ export const updateStructure = mutation({
 export const removeById = mutation({
   args: {
     id: v.id("documents"),
-    userId: v.string(), // Made required for security
+    userId: v.id("users"), // Made required for security
   },
   handler: async (ctx, args) => {
     if (!args.userId) {
@@ -526,7 +545,7 @@ export const removeById = mutation({
 export const getByIds = query({
   args: {
     ids: v.array(v.id("documents")),
-    userId: v.string(), // Made required for security
+    userId: v.id("users"), // Made required for security
   },
   handler: async (ctx, { ids, userId }) => {
     const documents = [];
@@ -553,7 +572,7 @@ export const updateContent = mutation({
   args: {
     id: v.id("documents"),
     content: v.string(),
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const document = await ctx.db.get(args.id);
@@ -746,7 +765,7 @@ export const getByIdInternal = internalQuery({
 export const createSharedDocument = mutation({
   args: {
     documentId: v.id("documents"),
-    userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
+    userId: v.id("users"), // Updated to proper Convex user ID
   },
   handler: async (ctx, args) => {
     // Validate input
@@ -893,7 +912,7 @@ export const getSharedDocument = query({
 export const getSharedDocumentByDocumentId = query({
   args: {
     documentId: v.id("documents"),
-    userId: v.optional(v.string()), // TODO: Change to v.id("users") after auth migration
+    userId: v.optional(v.id("users")), // Updated to proper Convex user ID
   },
   handler: async (ctx, args) => {
     // Check if document exists
@@ -923,7 +942,7 @@ export const getSharedDocumentByDocumentId = query({
 export const deleteSharedDocument = mutation({
   args: {
     url: v.string(),
-    userId: v.string(), // TODO: Change to v.id("users") after auth migration
+    userId: v.id("users"), // Updated to proper Convex user ID
   },
   handler: async (ctx, args) => {
     // Validate input
@@ -971,7 +990,7 @@ export const deleteSharedDocument = mutation({
 // Get or create a user's home document within a notebook
 export const getOrCreateHomeDocument = mutation({
   args: {
-    userId: v.string(), // TODO: Change to v.id("users") after auth migration complete
+    userId: v.id("users"), // Updated to proper Convex user ID
     notebookId: v.optional(v.id("notebooks")), // Notebook to create home document in
   },
   handler: async (ctx, args) => {
@@ -1026,7 +1045,7 @@ export const getOrCreateHomeDocument = mutation({
 // Get user's recent documents for quick access
 export const getRecentDocuments = query({
   args: {
-    userId: v.string(), // TODO: Change to v.id("users") after auth migration
+    userId: v.id("users"), // Updated to proper Convex user ID
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
   },
@@ -1051,7 +1070,7 @@ export const getRecentDocuments = query({
 // Migration function to fix documents with DEFAULT_USER_ID
 export const migrateDefaultUserDocuments = mutation({
   args: {
-    userId: v.string(), // The actual user ID to migrate documents to
+    userId: v.id("users"), // The actual user ID to migrate documents to
   },
   handler: async (ctx, args) => {
     if (!args.userId) {
@@ -1061,7 +1080,7 @@ export const migrateDefaultUserDocuments = mutation({
     // Find documents owned by DEFAULT_USER_ID
     const defaultUserDocuments = await ctx.db
       .query("documents")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID as Id<"users">))
       .collect();
 
     logger.log(
@@ -1101,13 +1120,13 @@ export const migrateDefaultUserDocuments = mutation({
 // Query to check if user has documents that need migration
 export const checkForMigrationNeeded = query({
   args: {
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     // Count documents owned by DEFAULT_USER_ID
     const defaultUserDocuments = await ctx.db
       .query("documents")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", DEFAULT_USER_ID as Id<"users">))
       .collect();
 
     // Count documents owned by the actual user

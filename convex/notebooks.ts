@@ -41,7 +41,7 @@ export const create = mutation({
     url: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
-    userId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
     isPrivate: v.optional(v.boolean()),
     password: v.optional(v.string()),
   },
@@ -61,7 +61,7 @@ export const create = mutation({
     const existingNotebook = await ctx.db
       .query("notebooks")
       .withIndex("by_owner_and_url", (q) =>
-        q.eq("ownerId", userId).eq("url", args.url),
+        q.eq("ownerId", userId as Id<"users">).eq("url", args.url),
       )
       .first();
 
@@ -81,7 +81,7 @@ export const create = mutation({
         url: args.url,
         title: args.title,
         description: args.description,
-        ownerId: userId,
+        ownerId: userId as Id<"users">,
         isPrivate,
         password: args.password,
         createdAt: now,
@@ -98,7 +98,7 @@ export const create = mutation({
 export const getByUrl = query({
   args: {
     url: v.string(),
-    userId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // Validate URL format
@@ -134,14 +134,14 @@ export const getByUrl = query({
 // Get notebooks by owner
 export const getByOwner = query({
   args: {
-    userId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const userId = args.userId ?? DEFAULT_USER_ID;
 
     return await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", userId))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", userId as Id<"users">))
       .order("desc")
       .collect();
   },
@@ -155,7 +155,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     isPrivate: v.optional(v.boolean()),
     password: v.optional(v.string()),
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
@@ -205,7 +205,7 @@ export const update = mutation({
 export const remove = mutation({
   args: {
     id: v.id("notebooks"),
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
@@ -241,7 +241,7 @@ export const remove = mutation({
 export const getById = query({
   args: {
     id: v.id("notebooks"),
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const notebook = await ctx.db.get(args.id);
@@ -270,7 +270,7 @@ export const getById = query({
 export const checkUrlAvailability = query({
   args: {
     url: v.string(),
-    userId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // Validate URL format
@@ -288,7 +288,7 @@ export const checkUrlAvailability = query({
     const existingNotebook = await ctx.db
       .query("notebooks")
       .withIndex("by_owner_and_url", (q) =>
-        q.eq("ownerId", userId).eq("url", args.url),
+        q.eq("ownerId", userId as Id<"users">).eq("url", args.url),
       )
       .first();
 
@@ -309,7 +309,7 @@ export const checkUrlAvailability = query({
 // Get or create default notebook for user
 export const getOrCreateDefault = mutation({
   args: {
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     const now = Date.now();

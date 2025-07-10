@@ -634,3 +634,14 @@ export const updateForAuth = mutation({
     return await ctx.db.get(args.id);
   },
 });
+
+// Get current authenticated user for internal Convex functions
+// Note: This is a temporary implementation for tRPC integration
+// In a full Convex auth setup, this would use ctx.auth.getUserIdentity()
+export const getCurrentUser = async (ctx: { db: any }) => {
+  // For now, we'll return null to indicate no direct authentication
+  // Authentication will be handled at the tRPC level using NextAuth sessions
+  // This function exists to satisfy TypeScript but shouldn't be called
+  // from tRPC routers - they should handle auth themselves
+  return null;
+};
