@@ -18,13 +18,14 @@ export function NotepadPasswordAuth({
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const verifyPassword = api.notes.verifyNotepadPassword.useMutation({
+  const verifyPassword = api.notebooks.verifyPassword.useMutation({
     onSuccess: () => {
       onAuthenticated(password);
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
       toast.error("Error", {
-        description: error.message,
+        description: errorMessage,
       });
       setIsLoading(false);
     },

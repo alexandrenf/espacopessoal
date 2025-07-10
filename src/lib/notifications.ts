@@ -3,9 +3,8 @@ import { requestNotificationPermission, onMessageListener } from "./firebase";
 import { useEffect, useState } from "react";
 
 export function useNotifications() {
-  const utils = api.useUtils();
-  const saveToken = api.notifications.saveToken.useMutation();
-  const sendNotification = api.notifications.sendNotification.useMutation();
+  const saveToken = api.notifications.updateUserFcmToken.useMutation();
+  const createScheduledNotification = api.notifications.createScheduledNotification.useMutation();
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
@@ -45,7 +44,7 @@ export function useNotifications() {
         throw new Error("Failed to obtain notification token");
       }
 
-      await saveToken.mutateAsync({ token });
+      await saveToken.mutateAsync({ fcmToken: token });
       return true;
     } catch (error) {
       console.error("Error initializing notifications:", error);
@@ -56,20 +55,22 @@ export function useNotifications() {
   };
 
   const notify = async (
-    userId: string,
     title: string,
     body: string,
-    scheduledFor?: Date,
+    fcmToken: string,
+    scheduledFor: Date = new Date(Date.now() + 1000), // Default to 1 second from now for immediate notifications
+    url?: string,
   ): Promise<boolean> => {
     setIsSending(true);
     try {
-      const result = await sendNotification.mutateAsync({
-        userId,
+      const result = await createScheduledNotification.mutateAsync({
         title,
         body,
+        fcmToken,
         scheduledFor,
+        url,
       });
-      return result.success;
+      return !!result;
     } catch (error) {
       console.error("Failed to send notification:", error);
       throw error;

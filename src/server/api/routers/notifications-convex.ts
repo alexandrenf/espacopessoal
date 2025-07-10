@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { api } from "../../../../convex/_generated/api";
 import { TRPCError } from "@trpc/server";
-import { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 export const notificationsConvexRouter = createTRPCRouter({
   getScheduledNotifications: protectedProcedure
@@ -14,12 +14,20 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const { cursor, limit, includesSent } = input;
 
         const result = await ctx.convex.query(
           api.scheduledNotifications.getScheduledNotifications,
           {
+            userId: ctx.session.user.id as Id<"users">,
             cursor: cursor
               ? (cursor as Id<"scheduledNotifications">)
               : undefined,
@@ -54,10 +62,18 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notification = await ctx.convex.mutation(
           api.scheduledNotifications.createScheduledNotification,
           {
+            userId: ctx.session.user.id as Id<"users">,
             title: input.title,
             body: input.body,
             url: input.url,
@@ -113,10 +129,18 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notification = await ctx.convex.mutation(
           api.scheduledNotifications.updateScheduledNotification,
           {
+            userId: ctx.session.user.id as Id<"users">,
             notificationId:
               input.notificationId as Id<"scheduledNotifications">,
             title: input.title,
@@ -171,10 +195,18 @@ export const notificationsConvexRouter = createTRPCRouter({
   deleteScheduledNotification: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         await ctx.convex.mutation(
           api.scheduledNotifications.deleteScheduledNotification,
           {
+            userId: ctx.session.user.id as Id<"users">,
             notificationId: input as Id<"scheduledNotifications">,
           },
         );
@@ -208,10 +240,18 @@ export const notificationsConvexRouter = createTRPCRouter({
   getNotification: protectedProcedure
     .input(z.object({ notificationId: z.string() }))
     .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notification = await ctx.convex.query(
           api.scheduledNotifications.getNotification,
           {
+            userId: ctx.session.user.id as Id<"users">,
             notificationId:
               input.notificationId as Id<"scheduledNotifications">,
           },
@@ -250,10 +290,18 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notifications = await ctx.convex.query(
           api.scheduledNotifications.getPendingNotifications,
           {
+            userId: ctx.session.user.id as Id<"users">,
             beforeTimestamp: input.beforeTimestamp
               ? input.beforeTimestamp.getTime()
               : undefined,
@@ -275,10 +323,18 @@ export const notificationsConvexRouter = createTRPCRouter({
   markNotificationAsSent: protectedProcedure
     .input(z.object({ notificationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notification = await ctx.convex.mutation(
           api.scheduledNotifications.markNotificationAsSent,
           {
+            userId: ctx.session.user.id as Id<"users">,
             notificationId:
               input.notificationId as Id<"scheduledNotifications">,
           },
@@ -319,10 +375,18 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notificationId = await ctx.convex.mutation(
           api.scheduledNotifications.createTaskReminderNotification,
           {
+            userId: ctx.session.user.id as Id<"users">,
             taskId: input.taskId as Id<"tasks">,
             scheduledFor: input.scheduledFor.getTime(),
             fcmToken: input.fcmToken,
@@ -365,6 +429,13 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const notifications = await ctx.convex.query(
           api.scheduledNotifications.getAllPendingNotifications,
@@ -395,6 +466,13 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         const result = await ctx.convex.mutation(
           api.scheduledNotifications.batchMarkNotificationsAsSent,
@@ -424,11 +502,19 @@ export const notificationsConvexRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
       try {
         // Update user's FCM token in user settings
         const result = await ctx.convex.mutation(
-          api.userSettings.updateUserSettings,
+          api.userSettings.update,
           {
+            userId: ctx.session.user.id as Id<"users">,
             fcmToken: input.fcmToken,
           },
         );

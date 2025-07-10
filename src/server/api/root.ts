@@ -15,7 +15,7 @@ import { notificationsConvexRouter } from "./routers/notifications-convex";
 
 // Migration complete routers
 import { notebooksRouter } from "./routers/notebooks";
-import { userSettingsConvexRouter } from "./routers/userSettings-convex";
+import { userSettingsRouter as userSettingsConvexRouter } from "./routers/userSettings-convex";
 
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 

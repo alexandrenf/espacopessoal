@@ -32,28 +32,53 @@ export default async function ConfiguracoesPage() {
     );
   }
 
-  const settings = await api.userSettings.getNoteSettings();
+  try {
+    const settings = await api.userSettings.getNoteSettings();
 
-  return (
-    <HydrateClient>
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <div className="container mx-auto max-w-2xl flex-grow p-4">
-          <h1 className="mb-8 text-2xl font-bold">
-            Configurações do Bloco de Notas
-          </h1>
+    return (
+      <HydrateClient>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <div className="container mx-auto max-w-2xl flex-grow p-4">
+            <h1 className="mb-8 text-2xl font-bold">
+              Configurações do Bloco de Notas
+            </h1>
 
-          <div className="rounded-lg bg-white p-6 shadow">
-            <NotepadSettingsForm
-              initialSettings={{
-                notePadUrl: settings?.notePadUrl ?? "",
-                privateOrPublicUrl: settings?.privateOrPublicUrl ?? true,
-                password: settings?.password ?? "",
-              }}
-            />
+            <div className="rounded-lg bg-white p-6 shadow">
+              <NotepadSettingsForm
+                initialSettings={{
+                  notePadUrl: settings?.notePadUrl ?? "",
+                  privateOrPublicUrl: settings?.privateOrPublicUrl ?? true,
+                  password: settings?.password ?? "",
+                }}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </HydrateClient>
-  );
+      </HydrateClient>
+    );
+  } catch (error) {
+    console.error("Failed to load settings:", error);
+    return (
+      <HydrateClient>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <div className="container mx-auto max-w-2xl flex-grow p-4">
+            <h1 className="mb-8 text-2xl font-bold">
+              Configurações do Bloco de Notas
+            </h1>
+            <div className="rounded-lg bg-white p-6 shadow">
+              <NotepadSettingsForm
+                initialSettings={{
+                  notePadUrl: "",
+                  privateOrPublicUrl: true,
+                  password: "",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </HydrateClient>
+    );
+  }
 }

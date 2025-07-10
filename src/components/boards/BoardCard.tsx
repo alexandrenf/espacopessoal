@@ -14,9 +14,9 @@ import { useState } from "react";
 import { TaskDialog } from "../tasks/TaskDialog";
 import { cn } from "~/lib/utils";
 import { DeleteConfirmationModal } from "~/app/components/DeleteConfirmationModal";
-import { format, isValid, parseISO } from "date-fns";
+import { format } from "date-fns";
 
-type Board = RouterOutputs["board"]["getBoards"]["boards"][number];
+type Board = RouterOutputs["boards"]["getBoards"]["boards"][number];
 
 interface BoardCardProps {
   board: Board;
@@ -28,18 +28,18 @@ export function BoardCard({ board }: BoardCardProps) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const { mutate: deleteBoard, isPending: isDeleting } =
-    api.board.deleteBoard.useMutation({
+    api.boards.deleteBoard.useMutation({
       onMutate: async (deletedBoardId) => {
         // Cancel any outgoing refetches
-        await utils.board.getBoards.cancel();
+        await utils.boards.getBoards.cancel();
 
         // Snapshot the previous value
-        const previousBoards = utils.board.getBoards.getInfiniteData({
+        const previousBoards = utils.boards.getBoards.getInfiniteData({
           limit: 10,
         });
 
         // Optimistically update the cache
-        utils.board.getBoards.setInfiniteData(
+        utils.boards.getBoards.setInfiniteData(
           { limit: 10 }, // Must match the query params used in BoardList
           (old) => {
             if (!old) return { pages: [], pageParams: [] };
@@ -48,7 +48,7 @@ export function BoardCard({ board }: BoardCardProps) {
               pages: old.pages.map((page) => ({
                 ...page,
                 boards: page.boards.filter(
-                  (board) => board.id !== deletedBoardId,
+                  (board) => board._id !== deletedBoardId,
                 ),
               })),
             };
@@ -61,7 +61,7 @@ export function BoardCard({ board }: BoardCardProps) {
       onError: (_err, _deletedBoardId, context) => {
         // Restore previous data if mutation fails
         if (context?.previousBoards) {
-          utils.board.getBoards.setInfiniteData(
+          utils.boards.getBoards.setInfiniteData(
             { limit: 10 },
             context.previousBoards,
           );
@@ -69,18 +69,13 @@ export function BoardCard({ board }: BoardCardProps) {
       },
       onSettled: () => {
         // Invalidate and refetch after mutation settles
-        void utils.board.getBoards.invalidate();
+        void utils.boards.getBoards.invalidate();
       },
     });
 
   const handleDeleteConfirm = () => {
-    deleteBoard(board.id);
+    deleteBoard(board._id);
     setIsDeleteModalOpen(false);
-  };
-
-  const formatDueDate = (dateString: string) => {
-    const date = parseISO(dateString);
-    return isValid(date) ? format(date, "MMM d, yyyy") : "Invalid date";
   };
 
   return (
@@ -113,16 +108,16 @@ export function BoardCard({ board }: BoardCardProps) {
           <div className="space-y-2">
             {board.tasks.map((task) => (
               <Card
-                key={task.id}
+                key={task._id}
                 className="cursor-pointer p-3 transition-colors hover:bg-accent"
-                onClick={() => setSelectedTaskId(task.id)}
+                onClick={() => setSelectedTaskId(task._id)}
                 tabIndex={0}
                 role="button"
                 aria-label={`View task: ${task.name}`}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault(); // Prevent page scroll on space
-                    setSelectedTaskId(task.id);
+                    setSelectedTaskId(task._id);
                   }
                 }}
               >
@@ -152,7 +147,7 @@ export function BoardCard({ board }: BoardCardProps) {
                   <p className="mt-1 text-xs text-muted-foreground">
                     Due:{" "}
                     {task.dueDate
-                      ? format(task.dueDate, "MMM d, yyyy")
+                      ? format(new Date(task.dueDate), "MMM d, yyyy")
                       : "No due date"}
                   </p>
                 )}
@@ -171,7 +166,7 @@ export function BoardCard({ board }: BoardCardProps) {
         </Button>
 
         <TaskDialog
-          boardId={board.id}
+          boardId={board._id}
           taskId={selectedTaskId ?? undefined}
           open={isCreateTaskOpen || !!selectedTaskId}
           onOpenChange={(open) => {

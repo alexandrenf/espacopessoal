@@ -57,9 +57,8 @@ export default function HomePage() {
     setHasError(false);
 
     try {
-      const userIdString = String(convexUserId);
       const documentId = await getOrCreateHomeDocument({
-        userId: userIdString,
+        userId: convexUserId,
       });
       safeNavigate(`/documents/${documentId}`);
     } catch (error) {

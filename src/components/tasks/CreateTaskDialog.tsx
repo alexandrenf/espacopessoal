@@ -44,10 +44,10 @@ export function CreateTaskDialog({
 
   const utils = api.useUtils();
 
-  const { mutate: createTask, isPending } = api.board.createTask.useMutation({
+  const { mutate: createTask, isPending } = api.tasks.createTask.useMutation({
     onSuccess: async () => {
       try {
-        await utils.board.getBoards.invalidate();
+        await utils.boards.getBoards.invalidate();
         onOpenChange(false);
         resetForm();
       } catch (err) {
@@ -80,7 +80,7 @@ export function CreateTaskDialog({
       boardId,
       name,
       description,
-      dueDate: dueDate ? dueDate.toISOString() : undefined,
+      dueDate: dueDate,
       reminderEnabled,
       reminderDateTime: reminderDateTime
         ? reminderDateTime.toISOString()

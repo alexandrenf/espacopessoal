@@ -1,12 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import type { inferAsyncReturnType } from "@trpc/server";
-import type { createTRPCContext } from "~/server/api/trpc";
+
 import { api } from "../../../../convex/_generated/api";
 import { type Id } from "../../../../convex/_generated/dataModel";
 
-type Context = inferAsyncReturnType<typeof createTRPCContext>;
+
 
 const updateSettingsInput = z.object({
   notePadUrl: z
@@ -21,7 +20,7 @@ const updateSettingsInput = z.object({
   password: z.string().nullable(),
 });
 
-type UpdateSettingsInput = z.infer<typeof updateSettingsInput>;
+
 
 export const userSettingsRouter = createTRPCRouter({
   getNoteSettings: protectedProcedure.query(async ({ ctx }) => {
@@ -37,20 +36,32 @@ export const userSettingsRouter = createTRPCRouter({
       userId: ctx.session.user.id as Id<"users">,
       notePadUrl: "",
       privateOrPublicUrl: true,
-      password: null,
     });
 
+    if (!userSettings) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to create or retrieve user settings",
+      });
+    }
+
+    // Type assertion since we know upsert returns a document object
+    const settings = userSettings as {
+      notePadUrl?: string;
+      privateOrPublicUrl?: boolean;
+      password?: string;
+    };
+
     return {
-      notePadUrl: userSettings.notePadUrl || "",
-      privateOrPublicUrl: userSettings.privateOrPublicUrl ?? true,
-      password: userSettings.password || null,
+      notePadUrl: settings.notePadUrl ?? "",
+      privateOrPublicUrl: settings.privateOrPublicUrl ?? true,
+      password: settings.password ?? null,
     };
   }),
 
   updateNoteSettings: protectedProcedure
     .input(updateSettingsInput)
-    .mutation(
-      async ({ ctx, input }: { ctx: Context; input: UpdateSettingsInput }) => {
+    .mutation(async ({ ctx, input }) => {
         if (!ctx.convex) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -79,7 +90,7 @@ export const userSettingsRouter = createTRPCRouter({
           userId: ctx.session.user.id as Id<"users">,
           notePadUrl: input.notePadUrl,
           privateOrPublicUrl: input.privateOrPublicUrl,
-          password: input.password,
+          password: input.password ?? undefined,
         });
 
         return { success: true };

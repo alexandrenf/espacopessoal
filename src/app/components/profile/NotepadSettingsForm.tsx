@@ -25,7 +25,6 @@ export function NotepadSettingsForm({
   initialSettings,
 }: NotepadSettingsFormProps) {
   const router = useRouter();
-  const utils = api.useUtils();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<NoteSettings>({
     notePadUrl: initialSettings.notePadUrl ?? "",
@@ -157,8 +156,8 @@ export function NotepadSettingsForm({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateSettingsMutation.isPending}>
-              {updateSettingsMutation.isPending
+            <Button type="submit" disabled={updateSettingsMutation.isPending ?? false}>
+              {(updateSettingsMutation.isPending ?? false)
                 ? "Salvando..."
                 : "Salvar Configurações"}
             </Button>

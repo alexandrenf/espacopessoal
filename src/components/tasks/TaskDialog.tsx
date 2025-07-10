@@ -53,7 +53,7 @@ export function TaskDialog({
   const isEditMode = !!taskId;
 
   // Query hooks
-  const { data: task, isLoading } = api.task.getTask.useQuery(
+  const { data: task, isLoading } = api.tasks.getTask.useQuery(
     { taskId: taskId! },
     {
       enabled: !!taskId,
@@ -71,10 +71,10 @@ export function TaskDialog({
 
   // Mutation hooks
   const { mutate: createTask, isPending: isCreating } =
-    api.board.createTask.useMutation({
+    api.tasks.createTask.useMutation({
       onSuccess: async () => {
         try {
-          await utils.board.getBoards.invalidate();
+          await utils.boards.getBoards.invalidate();
           onOpenChange(false);
         } catch (error) {
           console.error(
@@ -83,7 +83,7 @@ export function TaskDialog({
           );
         }
       },
-      onError: (error) => {
+      onError: (error: unknown) => {
         console.error("Failed to create task:", error);
         if (error instanceof Error) {
           console.error(error.message);
@@ -96,10 +96,10 @@ export function TaskDialog({
     });
 
   const { mutate: updateTask, isPending: isUpdating } =
-    api.task.updateTask.useMutation({
+    api.tasks.updateTask.useMutation({
       onSuccess: async () => {
         try {
-          await utils.board.getBoards.invalidate();
+          await utils.boards.getBoards.invalidate();
           onOpenChange(false);
         } catch (error) {
           console.error(
@@ -108,7 +108,7 @@ export function TaskDialog({
           );
         }
       },
-      onError: (error) => {
+      onError: (error: unknown) => {
         console.error("Failed to update task:", error);
         if (error instanceof Error) {
           console.error(error.message);
@@ -121,16 +121,16 @@ export function TaskDialog({
     });
 
   const { mutate: deleteTask, isPending: isDeleting } =
-    api.task.deleteTask.useMutation({
+    api.tasks.deleteTask.useMutation({
       onSuccess: async () => {
         try {
-          await utils.board.getBoards.invalidate();
+          await utils.boards.getBoards.invalidate();
           onOpenChange(false);
         } catch (error) {
           console.error("Failed to invalidate cache:", error);
         }
       },
-      onError: (error) => {
+      onError: (error: unknown) => {
         console.error("Failed to delete task:", error);
       },
     });
@@ -141,13 +141,13 @@ export function TaskDialog({
 
     if (taskId && task) {
       // When editing an existing task, use its data
-      setName(task.name);
+      setName(task.name ?? "");
       setDescription(task.description ?? "");
-      setDueDate(task.dueDate ?? undefined);
-      setStatus(task.status);
+      setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
+      setStatus((task.status as TaskStatus) ?? "TODO");
       setReminderEnabled(task.reminderEnabled ?? false);
-      setReminderDateTime(task.reminderDateTime ?? undefined);
-      setReminderFrequency(task.reminderFrequency ?? "ONCE");
+      setReminderDateTime(task.reminderDateTime ? new Date(task.reminderDateTime) : undefined);
+      setReminderFrequency(task.reminderFrequency! as ReminderFrequency ?? "ONCE");
     } else if (!taskId) {
       // Only reset form when explicitly creating a new task
       setName("");
@@ -177,25 +177,31 @@ export function TaskDialog({
       }
     }
 
-    const taskData = {
-      boardId,
-      name,
-      description,
-      status,
-      dueDate: dueDate?.toISOString(),
-      reminderEnabled,
-      reminderDateTime: reminderDateTime?.toISOString(),
-      reminderFrequency: reminderEnabled ? reminderFrequency : undefined,
-    };
-
     if (isEditMode && taskId) {
-      updateTask({ ...taskData, taskId });
+      updateTask({ 
+        taskId,
+        status,
+        description,
+        name,
+        dueDate: dueDate?.toISOString(),
+        reminderEnabled,
+        reminderDateTime: reminderDateTime?.toISOString(),
+        reminderFrequency: reminderEnabled ? reminderFrequency : undefined,
+      });
     } else {
-      createTask(taskData);
+      createTask({
+        boardId,
+        name,
+        description,
+        dueDate: dueDate,
+        reminderEnabled,
+        reminderDateTime: reminderDateTime?.toISOString(),
+        reminderFrequency: reminderEnabled ? reminderFrequency : undefined,
+      });
     }
   };
 
-  const isPending = isCreating || isUpdating || isDeleting;
+  const isPending = (isCreating ?? false) || (isUpdating ?? false) || (isDeleting ?? false);
 
   const handleDeleteConfirm = () => {
     if (!taskId) return;
@@ -344,15 +350,15 @@ export function TaskDialog({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={
-                    isPending ||
-                    (reminderEnabled && !reminderDateTime) ||
+                  disabled={Boolean(
+                    isPending ??
+                    (reminderEnabled && !reminderDateTime) ??
                     (reminderEnabled &&
                       reminderDateTime &&
                       reminderDateTime < new Date())
-                  }
+                  )}
                 >
-                  {isPending
+                  {(isPending ?? false)
                     ? isEditMode
                       ? "Saving..."
                       : "Creating..."
@@ -371,7 +377,7 @@ export function TaskDialog({
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
         noteTitle={task?.name ?? ""}
-        isDeleting={isDeleting}
+        isDeleting={isDeleting ?? false}
       />
     </>
   );

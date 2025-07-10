@@ -6,7 +6,6 @@ import { Converter } from "showdown";
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import Header from "~/app/components/Header";
-import { api } from "~/trpc/react";
 import { useEffect, useState, useMemo } from "react";
 
 // Define the type for the note data returned from the API
@@ -30,22 +29,13 @@ interface SharedNotePageProps {
 }
 
 export default function SharedNotePageClient({
-  url,
   initialNotes,
-}: SharedNotePageProps) {
+}: Omit<SharedNotePageProps, 'url'>) {
   const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
 
-  const { data: notes } = api.notes.fetchNotesPublic.useQuery<NoteWithUser[]>(
-    { url },
-    {
-      staleTime: 30 * 1000,
-      refetchOnWindowFocus: false,
-      initialData: initialNotes,
-      enabled: !initialNotes,
-    },
-  );
-
-  const note = notes?.[0];
+  // Use the initialNotes passed from the server-side component
+  const notes = initialNotes ?? [];
+  const note = notes[0];
 
   const converter = useMemo(
     () =>

@@ -108,7 +108,6 @@ export default async function SharedNotePage({
 
   return (
     <SharedNotePageClient
-      url={urlValue}
       initialNotes={sharedNote.note ? [sharedNote.note] : undefined}
     />
   );

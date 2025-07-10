@@ -9,31 +9,45 @@ import { Suspense } from "react";
 import { ProfileTour } from "~/app/components/profile/ProfileTour";
 
 async function ProfileContent() {
-  const [userData, noteSettings] = await Promise.all([
-    api.userUpdate.getUserProfile(),
-    api.userSettings.getNoteSettings(),
-  ]);
+  try {
+    const [userData, noteSettings] = await Promise.all([
+      api.userUpdate.getUserProfile(),
+      api.userSettings.getNoteSettings(),
+    ]);
 
-  return (
-    <>
-      <div className="profile-dashboard mb-8 rounded-lg bg-white p-6 shadow">
-        <ProfileDashboard user={userData} />
-      </div>
+    return (
+      <>
+        <div className="profile-dashboard mb-8 rounded-lg bg-white p-6 shadow">
+          <ProfileDashboard user={userData} />
+        </div>
 
-      <div className="notepad-settings rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-6 text-xl font-semibold">
-          Configurações do Bloco de Notas
+        <div className="notepad-settings rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-6 text-xl font-semibold">
+            Configurações do Bloco de Notas
+          </h2>
+          <NotepadSettingsForm
+            initialSettings={{
+              notePadUrl: noteSettings.notePadUrl ?? "",
+              privateOrPublicUrl: noteSettings.privateOrPublicUrl ?? true,
+              password: noteSettings.password ?? null,
+            }}
+          />
+        </div>
+      </>
+    );
+  } catch (error) {
+    console.error("Error loading profile data:", error);
+    return (
+      <div className="rounded-lg bg-red-50 p-6 text-center">
+        <h2 className="mb-2 text-lg font-semibold text-red-800">
+          Erro ao carregar dados do perfil
         </h2>
-        <NotepadSettingsForm
-          initialSettings={{
-            notePadUrl: noteSettings.notePadUrl,
-            privateOrPublicUrl: noteSettings.privateOrPublicUrl ?? true,
-            password: noteSettings.password,
-          }}
-        />
+        <p className="text-red-600">
+          Ocorreu um erro ao carregar seus dados. Tente recarregar a página.
+        </p>
       </div>
-    </>
-  );
+    );
+  }
 }
 
 export default async function ProfilePage() {

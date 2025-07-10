@@ -47,7 +47,7 @@ export const notebooksRouter = createTRPCRouter({
           url: input.url,
           title: input.title,
           description: input.description,
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
           isPrivate: input.isPrivate,
           password: input.password,
         });
@@ -83,7 +83,7 @@ export const notebooksRouter = createTRPCRouter({
       try {
         const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
-          userId: ctx.session?.user?.id,
+          userId: ctx.session?.user?.id as Id<"users">,
         });
 
         // If notebook is private and password is provided, validate it
@@ -135,7 +135,7 @@ export const notebooksRouter = createTRPCRouter({
 
     try {
       return await ctx.convex.query(api.notebooks.getByOwner, {
-        userId: ctx.session.user.id,
+        userId: ctx.session.user.id as Id<"users">,
       });
     } catch (error) {
       throw new TRPCError({
@@ -179,7 +179,7 @@ export const notebooksRouter = createTRPCRouter({
           description: input.description,
           isPrivate: input.isPrivate,
           password: input.password,
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         });
 
         return { success: true };
@@ -219,7 +219,7 @@ export const notebooksRouter = createTRPCRouter({
       try {
         await ctx.convex.mutation(api.notebooks.remove, {
           id: input.id as Id<"notebooks">,
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         });
 
         return { success: true };
@@ -259,7 +259,7 @@ export const notebooksRouter = createTRPCRouter({
       try {
         return await ctx.convex.query(api.notebooks.checkUrlAvailability, {
           url: input.url,
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         });
       } catch (error) {
         throw new TRPCError({
@@ -292,7 +292,7 @@ export const notebooksRouter = createTRPCRouter({
       const notebook = await ctx.convex.mutation(
         api.notebooks.getOrCreateDefault,
         {
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         },
       );
 
@@ -363,7 +363,7 @@ export const notebooksRouter = createTRPCRouter({
       const result = await ctx.convex.query(
         api.documents.checkForMigrationNeeded,
         {
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         },
       );
 
@@ -425,7 +425,7 @@ export const notebooksRouter = createTRPCRouter({
       const result = await ctx.convex.mutation(
         api.documents.migrateDefaultUserDocuments,
         {
-          userId: ctx.session.user.id,
+          userId: ctx.session.user.id as Id<"users">,
         },
       );
 

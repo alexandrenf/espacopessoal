@@ -9,15 +9,15 @@ import { BoardCard, BoardCardSkeleton } from "./BoardCard";
 import { CreateBoardDialog } from "./CreateBoardDialog";
 import type { RouterOutputs } from "~/trpc/react";
 
-type BoardsResponse = RouterOutputs["board"]["getBoards"];
+type BoardsResponse = RouterOutputs["boards"]["getBoards"];
 
 export function BoardList() {
   const { data, hasNextPage, fetchNextPage, isFetching } =
-    api.board.getBoards.useInfiniteQuery(
+    api.boards.getBoards.useInfiniteQuery(
       { limit: 10 },
       {
         getNextPageParam: (lastPage: BoardsResponse) => {
-          if (lastPage.nextCursor === false) return null;
+          if (lastPage.nextCursor === null) return null;
           return lastPage.nextCursor ?? null;
         },
       },
@@ -56,7 +56,7 @@ export function BoardList() {
         <AnimatePresence>
           {boards.map((board, index) => (
             <motion.div
-              key={board.id}
+              key={board._id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}

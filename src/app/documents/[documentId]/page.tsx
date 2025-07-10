@@ -30,7 +30,6 @@ export default function DocumentPage() {
 
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId ? String(convexUserId) : null;
 
   // Validate documentId before using it
   const validatedDocumentId = isValidConvexId(documentId)
@@ -57,16 +56,16 @@ export default function DocumentPage() {
   // Only fetch the initial document to pass to DocumentEditor
   const initialDocument = useQuery(
     api.documents.getById,
-    !isUserLoading && validatedDocumentId && userIdString
-      ? { id: validatedDocumentId, userId: userIdString }
+    !isUserLoading && validatedDocumentId && convexUserId
+      ? { id: validatedDocumentId, userId: convexUserId }
       : "skip",
   );
 
   // Get notebook if document has one (for redirect logic)
   const notebook = useQuery(
     api.notebooks.getById,
-    !isUserLoading && initialDocument?.notebookId && userIdString
-      ? { id: initialDocument.notebookId, userId: userIdString }
+    !isUserLoading && initialDocument?.notebookId && convexUserId
+      ? { id: initialDocument.notebookId, userId: convexUserId }
       : "skip",
   );
 
@@ -89,7 +88,7 @@ export default function DocumentPage() {
   // Show loading screen immediately if we're waiting for user auth or document
   const isWaitingForAuth = Boolean(isUserLoading);
   const isWaitingForDocument = Boolean(
-    validatedDocumentId && userIdString && initialDocument === undefined,
+    validatedDocumentId && convexUserId && initialDocument === undefined,
   );
   const isWaitingForNotebook = Boolean(
     initialDocument?.notebookId && notebook === undefined,
@@ -156,7 +155,7 @@ export default function DocumentPage() {
 
   // Handle creating new document
   const handleCreateDocument = async () => {
-    if (!userIdString) {
+    if (!convexUserId) {
       toast.error("Please sign in to create documents");
       return;
     }
@@ -165,7 +164,7 @@ export default function DocumentPage() {
     try {
       const documentId = await createDocument({
         title: "Untitled Document",
-        userId: userIdString,
+        userId: convexUserId,
       });
 
       if (documentId) {
@@ -181,7 +180,7 @@ export default function DocumentPage() {
   };
 
   // Show authentication error if user is not authenticated
-  if (!userIdString) {
+  if (!convexUserId) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">

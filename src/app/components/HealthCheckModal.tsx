@@ -9,6 +9,18 @@ import { UserCog } from "lucide-react";
 import { useEffect, useState } from "react";
 // import { type Id } from "../../../convex/_generated/dataModel";
 
+// Type definition for the API response
+type UserSettingsAndHealth = {
+  settings: {
+    notePadUrl: string;
+    privateOrPublicUrl: boolean;
+    password: string | null;
+  };
+  health: {
+    isHealthy: boolean;
+  };
+};
+
 export function HealthCheckModal() {
   const { data: session } = useSession();
   const utils = api.useUtils();
@@ -19,7 +31,7 @@ export function HealthCheckModal() {
     api.userSettings.getUserSettingsAndHealth.useQuery(undefined, {
       enabled: !!session?.user,
       refetchOnWindowFocus: false,
-      select: (data) => {
+      select: (data: UserSettingsAndHealth): UserSettingsAndHealth => {
         // Skip showing modal if dismissed within last 24 hours
         const dismissedUntil = Number(
           localStorage.getItem("healthCheckDismissed") ?? "0",
@@ -37,7 +49,7 @@ export function HealthCheckModal() {
       session?.user &&
       !isLoading &&
       userSettings &&
-      !userSettings.health.isHealthy &&
+      !(userSettings.health?.isHealthy ?? true) &&
       !isDismissed
     ) {
       // Save current scroll position and calculate scrollbar width
@@ -73,7 +85,7 @@ export function HealthCheckModal() {
     !session?.user ||
     isLoading ||
     !userSettings ||
-    userSettings.health.isHealthy ||
+    (userSettings.health?.isHealthy ?? true) ||
     isDismissed
   ) {
     return null;

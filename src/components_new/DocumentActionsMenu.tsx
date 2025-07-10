@@ -33,7 +33,6 @@ export function DocumentActionsMenu({
 
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId ? String(convexUserId) : null;
 
   const deleteDocument = useMutation(api.documents.removeById);
   const createDocument = useMutation(api.documents.create);
@@ -44,7 +43,7 @@ export function DocumentActionsMenu({
       return;
     }
 
-    if (!userIdString) {
+    if (!convexUserId) {
       toast.error("User authentication required to duplicate documents");
       return;
     }
@@ -53,7 +52,7 @@ export function DocumentActionsMenu({
     try {
       const newDocumentId = await createDocument({
         title: `${document.title} (Copy)`,
-        userId: userIdString,
+        userId: convexUserId,
         initialContent: document.initialContent ?? "",
       });
 
@@ -72,7 +71,7 @@ export function DocumentActionsMenu({
       return;
     }
 
-    if (!userIdString) {
+    if (!convexUserId) {
       toast.error("User authentication required to delete documents");
       return;
     }
@@ -87,7 +86,7 @@ export function DocumentActionsMenu({
 
     setIsDeleting(true);
     try {
-      await deleteDocument({ id: document._id, userId: userIdString });
+      await deleteDocument({ id: document._id, userId: convexUserId });
       toast.success("Document deleted successfully!");
       router.refresh();
     } catch (error) {
