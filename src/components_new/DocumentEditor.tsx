@@ -150,7 +150,6 @@ export function DocumentEditor({
 
   // Get authenticated user with proper error handling
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const userIdString = convexUserId;
 
   // Get NextAuth session for user profile info
   const { data: session } = useSession();
@@ -158,8 +157,8 @@ export function DocumentEditor({
   // Query for current document
   const currentDocument = useQuery(
     api.documents.getById,
-    !isUserLoading && userIdString && currentDocumentId
-      ? { id: currentDocumentId, userId: userIdString }
+    !isUserLoading && convexUserId && currentDocumentId
+      ? { id: currentDocumentId, userId: convexUserId }
       : "skip",
   );
 
@@ -251,7 +250,7 @@ export function DocumentEditor({
   // Use Convex API for dictionary functionality with real user authentication
   const dictionaryQuery = useQuery(
     api.dictionary.getDictionary,
-    userIdString ? { userId: userIdString } : "skip",
+    convexUserId ? { userId: convexUserId } : "skip",
   );
   const dictionary = useMemo(
     () => dictionaryQuery?.entries ?? [],
@@ -423,7 +422,7 @@ export function DocumentEditor({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const { setEditor, setUndoManager } = useEditorStore();
+  const { setEditor, setUndoManager, undoManager } = useEditorStore();
 
   // Menu actions
   const onSaveJSON = () => {
@@ -1088,6 +1087,26 @@ export function DocumentEditor({
 
     const dom = editor.view.dom;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle undo/redo keyboard shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "z" && !e.shiftKey) {
+          // Ctrl+Z or Cmd+Z for undo
+          e.preventDefault();
+          if (undoManager?.canUndo()) {
+            undoManager.undo();
+          }
+          return;
+        }
+        if ((e.key === "y") || (e.key === "z" && e.shiftKey)) {
+          // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z or Cmd+Shift+Z for redo
+          e.preventDefault();
+          if (undoManager?.canRedo()) {
+            undoManager.redo();
+          }
+          return;
+        }
+      }
+
       if (
         e.key === " " &&
         replacementSuggestion &&
@@ -1121,6 +1140,7 @@ export function DocumentEditor({
     acceptReplacement,
     replacementSuggestion,
     recentlyRejected,
+    undoManager,
   ]);
 
   // Enhanced title handling
@@ -1138,7 +1158,7 @@ export function DocumentEditor({
       return;
     }
 
-    if (!userIdString) {
+    if (!convexUserId) {
       toast.error("Please wait for authentication to complete");
       return;
     }
@@ -1147,7 +1167,7 @@ export function DocumentEditor({
       await updateDocument({
         id: doc._id,
         title: documentTitle.trim(),
-        userId: userIdString,
+        userId: convexUserId,
       });
       toast.success("Document title updated!");
       setIsEditingTitle(false);
@@ -1518,7 +1538,7 @@ export function DocumentEditor({
                           Novo documento
                         </MenubarItem>
                         <MenubarSeparator />
-                        {userIdString && (
+                        {convexUserId && (
                           <MenubarItem
                             onClick={() => setIsShareModalOpen(true)}
                           >
@@ -1538,13 +1558,21 @@ export function DocumentEditor({
                       </MenubarTrigger>
                       <MenubarContent>
                         <MenubarItem
-                          onClick={() => editor?.chain().focus().undo().run()}
+                          onClick={() => {
+                            if (undoManager?.canUndo()) {
+                              undoManager.undo();
+                            }
+                          }}
                         >
                           <Undo2 className="mr-2 size-4" />
                           Desfazer <MenubarShortcut>Ctrl+Z</MenubarShortcut>
                         </MenubarItem>
                         <MenubarItem
-                          onClick={() => editor?.chain().focus().redo().run()}
+                          onClick={() => {
+                            if (undoManager?.canRedo()) {
+                              undoManager.redo();
+                            }
+                          }}
                         >
                           <Redo2 className="mr-2 size-4" />
                           Refazer <MenubarShortcut>Ctrl+Y</MenubarShortcut>
@@ -1648,7 +1676,7 @@ export function DocumentEditor({
                           <Sparkles className="mr-2 size-4" />
                           Verificação Ortográfica
                         </MenubarItem>
-                        {userIdString && (
+                        {convexUserId && (
                           <MenubarItem
                             onClick={() => setIsDictionaryOpen(true)}
                           >
@@ -1713,22 +1741,22 @@ export function DocumentEditor({
         </div>
       </div>
 
-      {userIdString && (
+      {convexUserId && (
         <DictionaryModal
           isOpen={isDictionaryOpen}
           onClose={() => setIsDictionaryOpen(false)}
           isPrivate={true} // Use private mode for authenticated users
-          session={{ user: { id: userIdString } }} // Use real authenticated session
-          createdById={userIdString}
+          session={{ user: { id: convexUserId } }} // Use real authenticated session
+          createdById={convexUserId}
         />
       )}
 
-      {userIdString && (
+      {convexUserId && (
         <ShareModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           documentId={doc._id}
-          userId={userIdString}
+          userId={convexUserId}
         />
       )}
 
