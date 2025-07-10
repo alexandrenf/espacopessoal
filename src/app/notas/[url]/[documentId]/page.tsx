@@ -11,46 +11,32 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { useConvexUser } from "~/hooks/use-convex-user";
-import { useState, useEffect } from "react";
+import React from "react";
 
 function DocumentPageContent() {
   const params = useParams<{ url: string; documentId: string }>();
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const [password, setPassword] = useState<string | null>(null);
-
   const normalizedUrl = typeof params.url === "string" ? params.url : "";
   const normalizedDocumentId = typeof params.documentId === "string" ? params.documentId : "";
   const isAuthenticated = status === "authenticated" && session;
 
-  // Get stored password for notebook access
-  useEffect(() => {
-    if (typeof window !== "undefined" && normalizedUrl) {
-      const stored = localStorage.getItem("notebook_passwords");
-      if (stored) {
-        try {
-          const parsed: unknown = JSON.parse(stored);
-          if (parsed && typeof parsed === "object" && parsed !== null) {
-            const passwords = parsed as Record<string, string>;
-            const storedPassword = passwords[normalizedUrl];
-            if (typeof storedPassword === "string") {
-              setPassword(storedPassword);
-            }
-          }
-        } catch {
-          // Ignore parsing errors
-        }
-      }
-    }
-  }, [normalizedUrl]);
+  // Get notebook metadata first (for access checking)
+  const notebookMetadata = useQuery(
+    convexApi.notebooks.getMetadataByUrl,
+    normalizedUrl.length > 0
+      ? { url: normalizedUrl }
+      : "skip",
+  );
 
-  // Get notebook information using Convex
+  // Get full notebook information using Convex
   const notebook = useQuery(
-    convexApi.notebooks.getByUrl,
-    normalizedUrl.length > 0 && convexUserId
+    convexApi.notebooks.getByUrlWithPassword,
+    normalizedUrl.length > 0 && (!notebookMetadata?.isPrivate || notebookMetadata?.ownerId === convexUserId)
       ? {
           url: normalizedUrl,
-          userId: convexUserId,
+          userId: convexUserId ?? undefined,
+          hasValidPassword: false,
         }
       : "skip",
   );
@@ -58,10 +44,10 @@ function DocumentPageContent() {
   // Get document information using Convex
   const document = useQuery(
     convexApi.documents.getById,
-    notebook && normalizedDocumentId && convexUserId
+    notebook && normalizedDocumentId
       ? {
           id: normalizedDocumentId as Id<"documents">,
-          userId: convexUserId,
+          userId: convexUserId ?? undefined,
         }
       : "skip",
   );
@@ -75,6 +61,28 @@ function DocumentPageContent() {
           {status === "loading" ? "Authenticating..." : "Loading user data..."}
         </span>
       </div>
+    );
+  }
+
+  // Check if notebook metadata is loading
+  if (notebookMetadata === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LoadingSpinner className="h-8 w-8" />
+        <span className="ml-2 text-sm text-gray-600">Loading notebook...</span>
+      </div>
+    );
+  }
+
+  // Handle notebook not found
+  if (!notebookMetadata) {
+    return (
+      <DocumentNotFound
+        title="Notebook Not Found"
+        message="The notebook you're looking for doesn't exist."
+        actionText="Go to Notebooks"
+        actionHref="/notas"
+      />
     );
   }
 

@@ -165,10 +165,10 @@ function NotebookPageContent() {
   // Get full notebook information using Convex (only after password validation or for public/owned notebooks)
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    convexUserId && normalizedUrl.length > 0 && (hasValidPassword || !notebookMetadata?.hasPassword || notebookMetadata?.ownerId === convexUserId)
+    normalizedUrl.length > 0 && (hasValidPassword || !notebookMetadata?.hasPassword || notebookMetadata?.ownerId === convexUserId)
       ? {
           url: normalizedUrl,
-          userId: convexUserId,
+          userId: convexUserId ?? undefined,
           hasValidPassword,
         }
       : "skip",
@@ -177,9 +177,9 @@ function NotebookPageContent() {
   // Get documents in notebook (if we have access)
   const documents = useQuery(
     convexApi.documents.getHierarchical,
-    notebook && convexUserId
+    notebook
       ? {
-          userId: convexUserId,
+          userId: convexUserId ?? undefined,
           parentId: undefined, // Get root level documents
           notebookId: notebook._id as Id<"notebooks">,
         }
