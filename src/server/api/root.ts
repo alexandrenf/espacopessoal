@@ -1,6 +1,5 @@
 // Legacy Prisma-based routers (marked for removal)
 import { postRouter } from "~/server/api/routers/post";
-import { userUpdateRouter } from "~/server/api/routers/userUpdate";
 import { userSettingsRouter } from "~/server/api/routers/userSettings";
 import { notificationsRouter } from "./routers/notifications";
 import { boardRouter } from "./routers/board";
@@ -12,6 +11,7 @@ import { boardsConvexRouter } from "./routers/boards-convex";
 import { tasksConvexRouter } from "./routers/tasks-convex";
 import { dictionaryConvexRouter } from "./routers/dictionary-convex";
 import { notificationsConvexRouter } from "./routers/notifications-convex";
+import { usersConvexRouter } from "./routers/users-convex";
 
 // Migration complete routers
 import { notebooksRouter } from "./routers/notebooks";
@@ -34,10 +34,10 @@ export const appRouter = createTRPCRouter({
   tasks: tasksConvexRouter,
   dictionary: dictionaryConvexRouter,
   notifications: notificationsConvexRouter,
+  users: usersConvexRouter,
 
   // Legacy Prisma routers (deprecated - will be removed)
   post: postRouter,
-  userUpdate: userUpdateRouter,
   userSettingsLegacy: userSettingsRouter,
   notificationsLegacy: notificationsRouter,
   boardLegacy: boardRouter,

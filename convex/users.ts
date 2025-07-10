@@ -635,13 +635,133 @@ export const updateForAuth = mutation({
   },
 });
 
-// Get current authenticated user for internal Convex functions
-// Note: This is a temporary implementation for tRPC integration
-// In a full Convex auth setup, this would use ctx.auth.getUserIdentity()
-export const getCurrentUser = async (ctx: { db: any }) => {
-  // For now, we'll return null to indicate no direct authentication
-  // Authentication will be handled at the tRPC level using NextAuth sessions
-  // This function exists to satisfy TypeScript but shouldn't be called
-  // from tRPC routers - they should handle auth themselves
-  return null;
-};
+// Check user health - returns whether user has all required data
+export const checkUserHealth = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    // Check if user has all required fields
+    const isHealthy = !!(user.name && user.email);
+    
+    return { isHealthy };
+  },
+});
+
+// Get user profile
+export const getUserProfile = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    return {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      emailVerified: user.emailVerified,
+    };
+  },
+});
+
+// Update user profile
+export const updateProfile = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+    email: v.string(),
+    image: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    // Validate name
+    if (!args.name || args.name.trim().length === 0) {
+      throw new ConvexError("Name cannot be empty");
+    }
+    if (args.name.length > 50) {
+      throw new ConvexError("Name is too long");
+    }
+    if (!/^[a-zA-Z\s-']+$/.test(args.name)) {
+      throw new ConvexError("Name contains invalid characters");
+    }
+
+    // Validate email
+    validateEmail(args.email);
+
+    // Check if email is already in use by another user
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existingUser && existingUser._id !== args.userId) {
+      throw new ConvexError("Email already in use by another user");
+    }
+
+    // Validate image URL if provided
+    let imageUrl = args.image;
+    if (imageUrl) {
+      try {
+        new URL(imageUrl);
+        imageUrl = imageUrl.trim();
+      } catch {
+        imageUrl = undefined;
+      }
+    }
+
+    await ctx.db.patch(args.userId, {
+      name: args.name.trim(),
+      email: args.email.trim(),
+      image: imageUrl,
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(args.userId);
+  },
+});
+
+// Change user name only
+export const changeName = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    // Validate name
+    if (!args.name || args.name.trim().length === 0) {
+      throw new ConvexError("Name cannot be empty");
+    }
+    if (args.name.length > 50) {
+      throw new ConvexError("Name is too long");
+    }
+    if (!/^[a-zA-Z\s-']+$/.test(args.name)) {
+      throw new ConvexError("Name contains invalid characters");
+    }
+
+    await ctx.db.patch(args.userId, {
+      name: args.name.trim(),
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(args.userId);
+  },
+});

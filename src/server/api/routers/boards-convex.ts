@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { api } from "../../../../convex/_generated/api";
 import { TRPCError } from "@trpc/server";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { type Id } from "../../../../convex/_generated/dataModel";
 
 const MAX_BOARDS = 50; // Prevent unlimited boards
 

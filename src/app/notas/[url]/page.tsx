@@ -100,19 +100,36 @@ function NotebookPageContent() {
   // Create document mutation
   const createDocument = useMutation(convexApi.documents.create);
 
-  // Check if user is authenticated
-  if (status === "loading") {
+  // Check if user is authenticated and user data is loading
+  if (status === "loading" || isUserLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner className="h-8 w-8" />
-        <span className="ml-2 text-sm text-gray-600">Authenticating...</span>
+        <span className="ml-2 text-sm text-gray-600">
+          {status === "loading" ? "Authenticating..." : "Loading user data..."}
+        </span>
       </div>
     );
   }
 
-  if (!convexUserId) {
-    router.push("/auth/signin");
+  // Only redirect to signin if user is not authenticated at all
+  if (status === "unauthenticated" || !session) {
+    router.push("/api/auth/signin");
     return null;
+  }
+
+  // If we have a session but no convexUserId and not loading, there might be an error
+  if (!convexUserId && !isUserLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading user data</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   // Check if notebook is loading

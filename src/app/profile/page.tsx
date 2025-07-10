@@ -11,7 +11,7 @@ import { ProfileTour } from "~/app/components/profile/ProfileTour";
 async function ProfileContent() {
   try {
     const [userData, noteSettings] = await Promise.all([
-      api.userUpdate.getUserProfile(),
+      api.users.getUserProfile(),
       api.userSettings.getNoteSettings(),
     ]);
 

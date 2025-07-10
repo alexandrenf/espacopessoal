@@ -9,10 +9,10 @@ import { Label } from "~/components/ui/label";
 
 interface User {
   id: string;
-  name: string | null;
-  email: string | null;
-  image: string | null;
-  emailVerified: Date | null;
+  name: string | null | undefined;
+  email: string | null | undefined;
+  image: string | null | undefined;
+  emailVerified: Date | null | number | undefined;
 }
 
 interface ProfileDashboardProps {
@@ -34,11 +34,11 @@ export function ProfileDashboard({ user }: ProfileDashboardProps) {
   });
 
   const utils = api.useUtils();
-  const updateProfile = api.userUpdate.updateProfile.useMutation({
+  const updateProfile = api.users.updateProfile.useMutation({
     onSuccess: () => {
       toast.success("Profile updated successfully");
       setIsEditing(false);
-      void utils.userUpdate.getUserProfile.invalidate();
+      void utils.users.getUserProfile.invalidate();
     },
     onError: (error: unknown) => {
       // Safely extract an error message.
