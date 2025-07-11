@@ -4,15 +4,17 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import * as Y from "yjs";
-import { IndexeddbPersistence } from "y-indexeddb";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { UndoManager } from "yjs";
 import { toast } from "sonner";
 import Link from "next/link";
+import {
+  useOptimizedDocument,
+  useOptimizedDictionary,
+  useOptimizedDocumentMutations,
+} from "~/hooks/useOptimizedConvex";
 import {
   ArrowLeft,
   Wifi,
@@ -130,8 +132,6 @@ export function DocumentEditor({
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  const updateDocument = useMutation(api.documents.updateById);
-  const updateDocumentInPublicNotebook = useMutation(api.documents.updateInPublicNotebook);
 
   // New state management for document switching
   const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(
@@ -150,13 +150,17 @@ export function DocumentEditor({
   // Get NextAuth session for user profile info
   const { data: session } = useSession();
 
-  // Query for current document
-  const currentDocument = useQuery(
-    api.documents.getById,
-    !isUserLoading && convexUserId && currentDocumentId
-      ? { id: currentDocumentId, userId: convexUserId }
-      : "skip",
+  // OPTIMIZED: Use consolidated optimized queries instead of individual ones
+  const currentDocument = useOptimizedDocument(
+    currentDocumentId,
+    convexUserId,
+    isUserLoading,
   );
+  const dictionary = useOptimizedDictionary(convexUserId);
+  const {
+    update: updateDocument,
+    updateInPublic: updateDocumentInPublicNotebook,
+  } = useOptimizedDocumentMutations();
 
   // Fallback to initial document if query is loading
   const doc = currentDocument ?? initialDocument;
@@ -241,16 +245,6 @@ export function DocumentEditor({
       }
     }
   }, [currentDocumentId]);
-
-  // Use Convex API for dictionary functionality with real user authentication
-  const dictionaryQuery = useQuery(
-    api.dictionary.getDictionary,
-    convexUserId ? { userId: convexUserId } : "skip",
-  );
-  const dictionary = useMemo(
-    () => dictionaryQuery?.entries ?? [],
-    [dictionaryQuery],
-  );
 
   // Update document title when document changes (but not when user is editing)
   useEffect(() => {
@@ -1089,7 +1083,7 @@ export function DocumentEditor({
           }
           return;
         }
-        if ((e.key === "y") || (e.key === "z" && e.shiftKey)) {
+        if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
           // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z or Cmd+Shift+Z for redo
           e.preventDefault();
           if (undoManager?.canRedo()) {
@@ -1194,7 +1188,6 @@ export function DocumentEditor({
       "Documents are automatically saved when content changes after 10 seconds of inactivity",
     );
   };
-
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
     void handleDocumentSwitch(documentId);

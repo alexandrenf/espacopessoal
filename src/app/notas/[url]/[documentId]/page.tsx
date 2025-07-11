@@ -168,7 +168,7 @@ function DocumentPageContent() {
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-grow">
         {/* Show sidebar for public notebooks or when user is owner */}
-        { /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */ }
+        {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
         {(isPublicNotebook || isOwner || hasValidPassword) && showSidebar && (
           <div className="hidden md:block md:w-80 lg:w-96">
             <DocumentSidebar
@@ -185,22 +185,23 @@ function DocumentPageContent() {
           </div>
         )}
 
-        <div className="flex-grow relative">
+        <div className="relative flex-grow">
           {/* Sidebar toggle button when sidebar is hidden */}
-          { /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */ }
-          {(isPublicNotebook || isOwner || hasValidPassword) && !showSidebar && (
-            <div className="absolute top-4 left-4 z-10">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleSidebar}
-                className="bg-white shadow-md hover:bg-gray-50"
-                title="Open sidebar"
-              >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+          {(isPublicNotebook || isOwner || hasValidPassword) &&
+            !showSidebar && (
+              <div className="absolute left-4 top-4 z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleToggleSidebar}
+                  className="bg-white shadow-md hover:bg-gray-50"
+                  title="Open sidebar"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
           <DocumentEditor
             document={document}

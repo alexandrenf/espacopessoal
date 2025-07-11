@@ -365,7 +365,9 @@ const updateYjsState = httpAction(async (ctx, request) => {
     // Convert base64 string to bytes
     let yjsStateBytes: ArrayBuffer;
     try {
-      yjsStateBytes = Uint8Array.from(atob(yjsState), c => c.charCodeAt(0)).buffer;
+      yjsStateBytes = Uint8Array.from(atob(yjsState), (c) =>
+        c.charCodeAt(0),
+      ).buffer;
     } catch (error) {
       return new Response(
         JSON.stringify({ error: "Invalid base64 in yjsState" }),
@@ -401,7 +403,9 @@ const updateYjsState = httpAction(async (ctx, request) => {
       },
     );
 
-    console.log(`updateYjsStateInternal completed successfully for ${documentId}`);
+    console.log(
+      `updateYjsStateInternal completed successfully for ${documentId}`,
+    );
 
     return new Response(
       JSON.stringify({
@@ -463,9 +467,12 @@ const getYjsState = httpAction(async (ctx, request) => {
 
     // Call the internal query
     console.log(`Calling getYjsStateInternal for document: ${documentId}`);
-    const document = await ctx.runQuery(internal.documents.getYjsStateInternal, {
-      id: documentId,
-    });
+    const document = await ctx.runQuery(
+      internal.documents.getYjsStateInternal,
+      {
+        id: documentId,
+      },
+    );
 
     console.log(
       `getYjsStateInternal result for ${documentId}:`,

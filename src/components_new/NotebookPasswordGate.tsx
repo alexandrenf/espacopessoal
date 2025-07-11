@@ -102,14 +102,14 @@ const NotebookPasswordGate: React.FC<NotebookPasswordGateProps> = ({
     try {
       const deviceFingerprint = generateDeviceFingerprint();
 
-      const sessionResult = await createPasswordSession({
+      const sessionResult = (await createPasswordSession({
         notebookUrl: notebook.url,
         password: password.trim(),
         deviceFingerprint,
         userAgent: navigator.userAgent,
         rememberMe,
         userId,
-      }) as SessionResult;
+      })) as SessionResult;
 
       // Store session securely on client
       await SecureSessionStorage.storeSession(
@@ -123,7 +123,8 @@ const NotebookPasswordGate: React.FC<NotebookPasswordGateProps> = ({
       onAccessGranted();
     } catch (error: unknown) {
       console.error("Password validation failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Invalid password";
+      const errorMessage =
+        error instanceof Error ? error.message : "Invalid password";
       toast.error(errorMessage);
       setPassword("");
     } finally {
@@ -188,8 +189,8 @@ const NotebookPasswordGate: React.FC<NotebookPasswordGateProps> = ({
             Protected Notebook
           </h1>
           <p className="text-gray-600">
-            &quot;{notebook.title}&quot; is password protected. Enter the password to
-            access this notebook.
+            &quot;{notebook.title}&quot; is password protected. Enter the
+            password to access this notebook.
           </p>
         </div>
 

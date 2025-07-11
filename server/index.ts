@@ -341,17 +341,19 @@ const saveYjsStateToConvex = async (
   yjsState: Uint8Array,
 ): Promise<SaveResult> => {
   const url = `${CONVEX_SITE_URL}/updateYjsState`;
-  
+
   // Convert Y.js binary state to base64 for JSON transport
   const yjsStateBase64 = btoa(String.fromCharCode(...yjsState));
-  
+
   const payload = {
     documentId: documentName,
     yjsState: yjsStateBase64,
     userId: SERVER_USER_ID,
   };
 
-  console.log(`[${new Date().toISOString()}] 🔗 Attempting to save Y.js state to: ${url}`);
+  console.log(
+    `[${new Date().toISOString()}] 🔗 Attempting to save Y.js state to: ${url}`,
+  );
   console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
   console.log(
     `[${new Date().toISOString()}] 📝 Y.js state length: ${yjsState.length} bytes`,
@@ -554,7 +556,10 @@ const loadYjsStateFromConvex = async (
 
       if (data.success && data.document.yjsState) {
         // Convert base64 back to Uint8Array (legacy format)
-        const yjsStateBytes = Uint8Array.from(atob(data.document.yjsState), c => c.charCodeAt(0));
+        const yjsStateBytes = Uint8Array.from(
+          atob(data.document.yjsState),
+          (c) => c.charCodeAt(0),
+        );
 
         console.log(
           `[${new Date().toISOString()}] ✅ Successfully loaded Y.js state for document ${documentName} (${yjsStateBytes.length} bytes)`,
@@ -613,7 +618,7 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   try {
     // Extract Y.js binary state for perfect formatting preservation
     const yjsState = Y.encodeStateAsUpdate(document);
-    
+
     console.log(
       `[${new Date().toISOString()}] Saving document ${documentName} (${yjsState.length} bytes Y.js state)`,
     );
@@ -774,9 +779,12 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
 };
 
 // Helper function to log formatting analysis for debugging (development only)
-const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): void => {
+const logFormattingAnalysis = (
+  fragment: Y.XmlFragment,
+  htmlContent: string,
+): void => {
   // Only run formatting analysis in development environment
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === "production") {
     return;
   }
 
@@ -794,25 +802,25 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     const analyzeElement = (element: Y.XmlElement | Y.XmlFragment): void => {
       if (element instanceof Y.XmlElement) {
         switch (element.nodeName) {
-          case 'textStyle': {
+          case "textStyle": {
             textStyleCount++;
             const attrs = element.getAttributes();
             console.log(`🎨 TextStyle attributes:`, attrs);
             break;
           }
-          case 'highlight':
+          case "highlight":
             highlightCount++;
             break;
-          case 'strong':
+          case "strong":
             strongCount++;
             break;
-          case 'em':
+          case "em":
             emCount++;
             break;
-          case 'underline':
+          case "underline":
             underlineCount++;
             break;
-          case 'code':
+          case "code":
             codeCount++;
             break;
         }
@@ -854,10 +862,14 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
 
     // Check for potential formatting loss
     if (textStyleCount > htmlSpanCount) {
-      console.warn(`⚠️ Potential formatting loss: ${textStyleCount} textStyle elements -> ${htmlSpanCount} span elements`);
+      console.warn(
+        `⚠️ Potential formatting loss: ${textStyleCount} textStyle elements -> ${htmlSpanCount} span elements`,
+      );
     }
     if (highlightCount > htmlMarkCount) {
-      console.warn(`⚠️ Potential formatting loss: ${highlightCount} highlight elements -> ${htmlMarkCount} mark elements`);
+      console.warn(
+        `⚠️ Potential formatting loss: ${highlightCount} highlight elements -> ${htmlMarkCount} mark elements`,
+      );
     }
 
     console.log("🎨 === END FORMATTING ANALYSIS ===");
@@ -1147,50 +1159,55 @@ const parseTextWithFormatting = (
           if (spanMatch && spanMatch[2] && spanMatch[3] !== undefined) {
             const attributes = spanMatch[2];
             const spanContent = spanMatch[3];
-            
+
             // Parse style attributes from span
             const styleMatch = attributes.match(/style="([^"]*)"/i);
             if (styleMatch && styleMatch[1]) {
               const styleString = styleMatch[1];
               const textStyleElement = new Y.XmlElement("textStyle");
-              
+
               // Parse individual CSS properties
-              const cssProperties = styleString.split(';').map(prop => prop.trim()).filter(prop => prop.length > 0);
-              
+              const cssProperties = styleString
+                .split(";")
+                .map((prop) => prop.trim())
+                .filter((prop) => prop.length > 0);
+
               for (const property of cssProperties) {
-                const [key, value] = property.split(':').map(part => part.trim());
+                const [key, value] = property
+                  .split(":")
+                  .map((part) => part.trim());
                 if (key && value) {
                   switch (key.toLowerCase()) {
-                    case 'font-size':
-                      textStyleElement.setAttribute('fontSize', value);
+                    case "font-size":
+                      textStyleElement.setAttribute("fontSize", value);
                       console.log(`🎨 Parsed fontSize: ${value}`);
                       break;
-                    case 'font-family':
-                      textStyleElement.setAttribute('fontFamily', value);
+                    case "font-family":
+                      textStyleElement.setAttribute("fontFamily", value);
                       console.log(`🎨 Parsed fontFamily: ${value}`);
                       break;
-                    case 'color':
-                      textStyleElement.setAttribute('color', value);
+                    case "color":
+                      textStyleElement.setAttribute("color", value);
                       console.log(`🎨 Parsed color: ${value}`);
                       break;
-                    case 'line-height':
-                      textStyleElement.setAttribute('lineHeight', value);
+                    case "line-height":
+                      textStyleElement.setAttribute("lineHeight", value);
                       console.log(`🎨 Parsed lineHeight: ${value}`);
                       break;
-                    case 'background-color':
-                      textStyleElement.setAttribute('backgroundColor', value);
+                    case "background-color":
+                      textStyleElement.setAttribute("backgroundColor", value);
                       console.log(`🎨 Parsed backgroundColor: ${value}`);
                       break;
-                    case 'font-weight':
-                      textStyleElement.setAttribute('fontWeight', value);
+                    case "font-weight":
+                      textStyleElement.setAttribute("fontWeight", value);
                       console.log(`🎨 Parsed fontWeight: ${value}`);
                       break;
-                    case 'font-style':
-                      textStyleElement.setAttribute('fontStyle', value);
+                    case "font-style":
+                      textStyleElement.setAttribute("fontStyle", value);
                       console.log(`🎨 Parsed fontStyle: ${value}`);
                       break;
-                    case 'text-decoration':
-                      textStyleElement.setAttribute('textDecoration', value);
+                    case "text-decoration":
+                      textStyleElement.setAttribute("textDecoration", value);
                       console.log(`🎨 Parsed textDecoration: ${value}`);
                       break;
                     default:
@@ -1198,20 +1215,20 @@ const parseTextWithFormatting = (
                   }
                 }
               }
-              
+
               // Add content to textStyle element
               if (spanContent) {
                 const nestedContent = parseTextWithFormatting(spanContent);
                 textStyleElement.insert(0, nestedContent);
               }
-              
+
               result.push(textStyleElement);
               remaining = after;
               continue;
             }
           }
         }
-        
+
         // Handle mark elements with style attributes (highlight colors)
         if (tag === "mark") {
           const markMatch = remaining.match(
@@ -1220,26 +1237,33 @@ const parseTextWithFormatting = (
           if (markMatch && markMatch[2] && markMatch[3] !== undefined) {
             const attributes = markMatch[2];
             const markContent = markMatch[3];
-            
+
             // Parse style attributes from mark
             const styleMatch = attributes.match(/style="([^"]*)"/i);
             if (styleMatch && styleMatch[1]) {
               const styleString = styleMatch[1];
               const highlightElement = new Y.XmlElement("highlight");
-              
+
               // Parse background-color for highlights
-              const backgroundColorMatch = styleString.match(/background-color:\s*([^;]+)/i);
+              const backgroundColorMatch = styleString.match(
+                /background-color:\s*([^;]+)/i,
+              );
               if (backgroundColorMatch && backgroundColorMatch[1]) {
-                highlightElement.setAttribute('backgroundColor', backgroundColorMatch[1].trim());
-                console.log(`🎨 Parsed highlight backgroundColor: ${backgroundColorMatch[1].trim()}`);
+                highlightElement.setAttribute(
+                  "backgroundColor",
+                  backgroundColorMatch[1].trim(),
+                );
+                console.log(
+                  `🎨 Parsed highlight backgroundColor: ${backgroundColorMatch[1].trim()}`,
+                );
               }
-              
+
               // Add content to highlight element
               if (markContent) {
                 const nestedContent = parseTextWithFormatting(markContent);
                 highlightElement.insert(0, nestedContent);
               }
-              
+
               result.push(highlightElement);
               remaining = after;
               continue;
@@ -1380,7 +1404,9 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
     case "highlight":
     case "mark": {
       // Handle highlight with color attributes
-      const backgroundColor = element.getAttribute("backgroundColor") || element.getAttribute("color");
+      const backgroundColor =
+        element.getAttribute("backgroundColor") ||
+        element.getAttribute("color");
       if (backgroundColor) {
         return `<mark style="background-color: ${backgroundColor}">${innerContent}</mark>`;
       }
@@ -1390,61 +1416,61 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
     case "span": {
       // Handle TipTap textStyle elements with comprehensive formatting attributes
       const styleAttributes: string[] = [];
-      
+
       // Font size
       const fontSize = element.getAttribute("fontSize");
       if (fontSize) {
         styleAttributes.push(`font-size: ${fontSize}`);
       }
-      
+
       // Font family
       const fontFamily = element.getAttribute("fontFamily");
       if (fontFamily) {
         styleAttributes.push(`font-family: ${fontFamily}`);
       }
-      
+
       // Text color
       const color = element.getAttribute("color");
       if (color) {
         styleAttributes.push(`color: ${color}`);
       }
-      
+
       // Line height
       const lineHeight = element.getAttribute("lineHeight");
       if (lineHeight) {
         styleAttributes.push(`line-height: ${lineHeight}`);
       }
-      
+
       // Background color for highlights
       const backgroundColor = element.getAttribute("backgroundColor");
       if (backgroundColor) {
         styleAttributes.push(`background-color: ${backgroundColor}`);
       }
-      
+
       // Additional text decorations
       const textDecoration = element.getAttribute("textDecoration");
       if (textDecoration) {
         styleAttributes.push(`text-decoration: ${textDecoration}`);
       }
-      
+
       // Font weight
       const fontWeight = element.getAttribute("fontWeight");
       if (fontWeight) {
         styleAttributes.push(`font-weight: ${fontWeight}`);
       }
-      
+
       // Font style
       const fontStyle = element.getAttribute("fontStyle");
       if (fontStyle) {
         styleAttributes.push(`font-style: ${fontStyle}`);
       }
-      
+
       if (styleAttributes.length > 0) {
-        const styleString = styleAttributes.join('; ');
+        const styleString = styleAttributes.join("; ");
         console.log(`🎨 Converting textStyle with attributes: ${styleString}`);
         return `<span style="${styleString}">${innerContent}</span>`;
       }
-      
+
       // If no style attributes, return content without wrapper
       return innerContent;
     }
@@ -1457,7 +1483,6 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
     }
   }
 };
-
 
 // Helper function to convert a ProseMirror node to HTML
 const convertNodeToHtml = (node: ProseMirrorNode): string => {
@@ -1478,7 +1503,7 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
         // Collect style attributes from textStyle marks
         const styleAttributes: string[] = [];
         let hasTextStyle = false;
-        
+
         for (const mark of node.marks) {
           switch (mark.type) {
             case "bold":
@@ -1497,43 +1522,48 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
               // Handle TipTap textStyle marks with comprehensive formatting
               hasTextStyle = true;
               const attrs = mark.attrs || {};
-              
+
               // Font size
               if (attrs.fontSize) {
                 styleAttributes.push(`font-size: ${attrs.fontSize}`);
               }
-              
+
               // Font family
               if (attrs.fontFamily) {
                 styleAttributes.push(`font-family: ${attrs.fontFamily}`);
               }
-              
+
               // Text color
               if (attrs.color) {
                 styleAttributes.push(`color: ${attrs.color}`);
               }
-              
+
               // Line height
               if (attrs.lineHeight) {
                 styleAttributes.push(`line-height: ${attrs.lineHeight}`);
               }
-              
+
               // Font weight
               if (attrs.fontWeight) {
                 styleAttributes.push(`font-weight: ${attrs.fontWeight}`);
               }
-              
+
               // Font style
               if (attrs.fontStyle) {
                 styleAttributes.push(`font-style: ${attrs.fontStyle}`);
               }
-              
+
               // Text decoration
               if (attrs.textDecoration) {
-                styleAttributes.push(`text-decoration: ${attrs.textDecoration}`);
+                styleAttributes.push(
+                  `text-decoration: ${attrs.textDecoration}`,
+                );
               }
-              
-              console.log(`🎨 Processing textStyle mark with attributes:`, attrs);
+
+              console.log(
+                `🎨 Processing textStyle mark with attributes:`,
+                attrs,
+              );
               break;
             }
             case "highlight": {
@@ -1549,10 +1579,10 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
             // Add more marks as needed
           }
         }
-        
+
         // Apply textStyle span wrapper if we have style attributes
         if (hasTextStyle && styleAttributes.length > 0) {
-          const styleString = styleAttributes.join('; ');
+          const styleString = styleAttributes.join("; ");
           console.log(`🎨 Applying textStyle with: ${styleString}`);
           text = `<span style="${styleString}">${text}</span>`;
         }
@@ -1878,7 +1908,7 @@ const server = new Server({
 
       // Get current Y.js document state
       const currentState = Y.encodeStateAsUpdate(document);
-      
+
       // Load Y.js binary state from database
       const existingYjsState = await loadYjsStateFromConvex(documentName);
 

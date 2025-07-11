@@ -301,7 +301,7 @@ export const getHierarchical = query({
       if (!notebook) {
         throw new ConvexError("Notebook not found");
       }
-      
+
       // Allow access if notebook is public OR if it's private but user has valid password
       if (notebook.isPrivate && !hasValidPassword) {
         throw new ConvexError("Access denied to private notebook");
@@ -313,7 +313,7 @@ export const getHierarchical = query({
         hasPassword: !!notebook.password,
         hasValidPassword,
         userId,
-        accessGranted: !notebook.isPrivate || hasValidPassword
+        accessGranted: !notebook.isPrivate || hasValidPassword,
       });
 
       // Return documents in accessible notebook
@@ -408,7 +408,7 @@ export const getAllForTreeLegacy = query({
       if (!notebook) {
         throw new ConvexError("Notebook not found");
       }
-      
+
       // Allow access if notebook is public OR if it's private but user has valid password
       if (notebook.isPrivate && !hasValidPassword) {
         throw new ConvexError("Access denied to private notebook");
@@ -545,7 +545,9 @@ export const updateInPublicNotebook = mutation({
 
     // Verify the document belongs to the specified notebook
     if (document.notebookId !== args.notebookId) {
-      throw new ConvexError("Document does not belong to the specified notebook");
+      throw new ConvexError(
+        "Document does not belong to the specified notebook",
+      );
     }
 
     // Validate that the notebook exists and is public
@@ -578,7 +580,9 @@ export const deleteInPublicNotebook = mutation({
 
     // Verify the document belongs to the specified notebook
     if (document.notebookId !== args.notebookId) {
-      throw new ConvexError("Document does not belong to the specified notebook");
+      throw new ConvexError(
+        "Document does not belong to the specified notebook",
+      );
     }
 
     // Validate that the notebook exists and is public
@@ -598,7 +602,9 @@ export const deleteInPublicNotebook = mutation({
         .first();
 
       if (children) {
-        throw new ConvexError("Cannot delete folder that contains documents. Please delete or move the contents first.");
+        throw new ConvexError(
+          "Cannot delete folder that contains documents. Please delete or move the contents first.",
+        );
       }
     }
 
@@ -1501,7 +1507,9 @@ export const updateYjsStateInternal = internalMutation({
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    logger.debug(`Attempting to update Y.js state for document with ID: ${args.id}`);
+    logger.debug(
+      `Attempting to update Y.js state for document with ID: ${args.id}`,
+    );
 
     // Check if this is a server update (trusted source)
     const isServerUpdate =
@@ -1523,7 +1531,7 @@ export const updateYjsStateInternal = internalMutation({
     try {
       // Convert string ID to Convex ID
       const documentId = args.id as Id<"documents">;
-      
+
       // Get the document to verify it exists
       const document = await ctx.db.get(documentId);
       if (!document) {
@@ -1534,7 +1542,9 @@ export const updateYjsStateInternal = internalMutation({
       if (!isServerUpdate && args.userId) {
         const userIdTyped = args.userId as Id<"users">;
         if (document.ownerId !== userIdTyped) {
-          throw new ConvexError("You don't have permission to update this document");
+          throw new ConvexError(
+            "You don't have permission to update this document",
+          );
         }
       }
 
@@ -1546,7 +1556,6 @@ export const updateYjsStateInternal = internalMutation({
 
       logger.debug(`Successfully updated Y.js state for document ${args.id}`);
       return { success: true };
-
     } catch (error) {
       logger.error("Error in updateYjsStateInternal:", error);
       if (error instanceof ConvexError) {
@@ -1565,7 +1574,9 @@ export const getYjsStateInternal = internalQuery({
     id: v.string(), // Accept string ID from HTTP action
   },
   handler: async (ctx, args) => {
-    logger.debug(`Attempting to get Y.js state for document with ID: ${args.id}`);
+    logger.debug(
+      `Attempting to get Y.js state for document with ID: ${args.id}`,
+    );
 
     // Validate that the ID looks like a Convex ID
     if (!args.id || typeof args.id !== "string" || args.id.length < 20) {
@@ -1581,7 +1592,7 @@ export const getYjsStateInternal = internalQuery({
     try {
       // Convert string ID to Convex ID
       const documentId = args.id as Id<"documents">;
-      
+
       // Get the document
       const document = await ctx.db.get(documentId);
       if (!document) {
@@ -1596,7 +1607,6 @@ export const getYjsStateInternal = internalQuery({
         yjsState: document.yjsState,
         updatedAt: document.updatedAt,
       };
-
     } catch (error) {
       logger.error("Error in getYjsStateInternal:", error);
       if (error instanceof ConvexError) {

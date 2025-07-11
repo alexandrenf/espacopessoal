@@ -8,11 +8,17 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { type Id } from "../../convex/_generated/dataModel";
 import { Button } from "../components_new/ui/button";
-import { ArrowLeft, FolderPlus, FilePlus, X, FileText, Eye, Lock } from "lucide-react";
+import {
+  ArrowLeft,
+  FolderPlus,
+  FilePlus,
+  X,
+  FileText,
+  Eye,
+  Lock,
+} from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
 import Tree from "rc-tree";
 import {
@@ -23,6 +29,12 @@ import {
 } from "../components_new/ui/dropdown-menu";
 import DocumentItem from "./DocumentItem";
 import FolderItem from "./FolderItem";
+import {
+  useOptimizedDocumentsTree,
+  useSmartDocumentActions,
+} from "~/hooks/useOptimizedConvex";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
 import { useConvexUser } from "../hooks/use-convex-user";
@@ -79,7 +91,12 @@ const DocumentSidebar = memo(
 
     // Show authentication error only once when user is not authenticated after loading (only for private notebooks)
     useEffect(() => {
-      if (!isPublicNotebook && !isUserLoading && !convexUserId && !hasShownAuthErrorRef.current) {
+      if (
+        !isPublicNotebook &&
+        !isUserLoading &&
+        !convexUserId &&
+        !hasShownAuthErrorRef.current
+      ) {
         hasShownAuthErrorRef.current = true;
         toast.error("Please sign in to manage documents");
       } else if (convexUserId) {
@@ -87,28 +104,32 @@ const DocumentSidebar = memo(
       }
     }, [isUserLoading, convexUserId, isPublicNotebook]);
 
-    // Optimized Convex queries with fallback
-    const documentsQuery = useQuery(
-      api.documents.getAllForTreeLegacy,
-      isPublicNotebook
-        ? { notebookId, limit: 200 } // Public notebooks don't require userId
-        : !isUserLoading && convexUserId
-          ? { limit: 200, notebookId, userId: convexUserId }
-          : notebookId && hasValidPassword
-            ? { limit: 200, notebookId, hasValidPassword: true } // For users with valid password but no userId
-            : "skip",
+    // OPTIMIZED: Use consolidated optimized queries and mutations
+    const documents = useOptimizedDocumentsTree(
+      notebookId ?? null,
+      convexUserId,
+      isUserLoading,
+      isPublicNotebook,
+      hasValidPassword,
     );
-    const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
 
-    // Mutations for private notebooks (existing)
+    // OPTIMIZED: Use smart document actions that automatically choose the right mutations
+    const documentActions = useSmartDocumentActions(isPublicNotebook);
+
+    // TODO: Gradually replace these with documentActions above for better performance
+    // Legacy mutations - keeping for compatibility during transition
     const createDocument = useMutation(api.documents.create);
     const deleteDocument = useMutation(api.documents.removeById);
     const updateStructure = useMutation(api.documents.updateStructure);
-
-    // Mutations for public notebooks (new)
-    const createDocumentInPublic = useMutation(api.documents.createInPublicNotebook);
-    const deleteDocumentInPublic = useMutation(api.documents.deleteInPublicNotebook);
-    const updateStructureInPublic = useMutation(api.documents.updateStructureInPublicNotebook);
+    const createDocumentInPublic = useMutation(
+      api.documents.createInPublicNotebook,
+    );
+    const deleteDocumentInPublic = useMutation(
+      api.documents.deleteInPublicNotebook,
+    );
+    const updateStructureInPublic = useMutation(
+      api.documents.updateStructureInPublicNotebook,
+    );
 
     // Local state
     const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
@@ -211,7 +232,14 @@ const DocumentSidebar = memo(
           setIsDeletingId(undefined);
         }
       },
-      [convexUserId, deleteDocument, deleteDocumentInPublic, isPublicNotebook, notebookId, currentDocument?._id],
+      [
+        convexUserId,
+        deleteDocument,
+        deleteDocumentInPublic,
+        isPublicNotebook,
+        notebookId,
+        currentDocument?._id,
+      ],
     );
 
     // Optimized tree data conversion with better performance
@@ -900,7 +928,9 @@ const DocumentSidebar = memo(
                 <FileText className="h-5 w-5 text-blue-600" />
                 {notebookTitle ?? "Documents"}{" "}
                 {isUserLoading && (
-                  <span className="text-sm text-gray-500">(Loading user...)</span>
+                  <span className="text-sm text-gray-500">
+                    (Loading user...)
+                  </span>
                 )}
               </h1>
               <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -980,8 +1010,7 @@ const DocumentSidebar = memo(
               <p className="mt-2 text-sm text-gray-500">
                 {isPublicNotebook
                   ? "This public notebook doesn't contain any documents yet. Anyone can create and manage documents here!"
-                  : "Create your first document using the + button above"
-                }
+                  : "Create your first document using the + button above"}
               </p>
             </div>
           ) : (
