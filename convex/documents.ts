@@ -392,23 +392,29 @@ export const getAllForTreeLegacy = query({
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
     userId: v.optional(v.id("users")), // User ID for authentication (optional for public access)
+    hasValidPassword: v.optional(v.boolean()), // Whether user has provided valid password for private notebook
   },
-  handler: async (ctx, { limit, notebookId, userId }) => {
+  handler: async (ctx, { limit, notebookId, userId, hasValidPassword }) => {
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
-    // If no userId provided, only return documents in public notebooks
+    // If no userId provided, only return documents in public notebooks or password-protected notebooks
     if (!userId) {
       if (!notebookId) {
         throw new ConvexError("User ID or notebook ID is required");
       }
 
-      // Check if the notebook is public
+      // Check if the notebook is public or user has valid password
       const notebook = await ctx.db.get(notebookId);
-      if (!notebook || notebook.isPrivate) {
+      if (!notebook) {
+        throw new ConvexError("Notebook not found");
+      }
+      
+      // Allow access if notebook is public OR if it's private but user has valid password
+      if (notebook.isPrivate && !hasValidPassword) {
         throw new ConvexError("Access denied to private notebook");
       }
 
-      // Return documents in public notebook
+      // Return documents in accessible notebook
       const query = ctx.db
         .query("documents")
         .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebookId))

@@ -48,6 +48,8 @@ function DocumentPageContent() {
       : "skip",
   );
 
+  const hasValidPassword = !isPublicNotebook && !isOwner && !!notebook; // If it's private, user is not owner, but notebook loaded successfully
+
   // Get document information using Convex
   const document = useQuery(
     convexApi.documents.getById,
@@ -166,7 +168,8 @@ function DocumentPageContent() {
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-grow">
         {/* Show sidebar for public notebooks or when user is owner */}
-        {(isPublicNotebook || isOwner) && showSidebar && (
+        { /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */ }
+        {(isPublicNotebook || isOwner || hasValidPassword) && showSidebar && (
           <div className="hidden md:block md:w-80 lg:w-96">
             <DocumentSidebar
               currentDocument={document}
@@ -176,14 +179,16 @@ function DocumentPageContent() {
               isMobile={false}
               notebookId={notebook._id as Id<"notebooks">}
               notebookTitle={notebook.title}
-              isPublicNotebook={true}
+              isPublicNotebook={isPublicNotebook}
+              hasValidPassword={hasValidPassword}
             />
           </div>
         )}
 
         <div className="flex-grow relative">
           {/* Sidebar toggle button when sidebar is hidden */}
-          {(isPublicNotebook || isOwner) && !showSidebar && (
+          { /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */ }
+          {(isPublicNotebook || isOwner || hasValidPassword) && !showSidebar && (
             <div className="absolute top-4 left-4 z-10">
               <Button
                 variant="ghost"

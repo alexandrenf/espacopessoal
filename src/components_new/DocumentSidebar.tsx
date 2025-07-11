@@ -46,6 +46,7 @@ interface DocumentSidebarProps {
   notebookId?: Id<"notebooks">;
   notebookTitle?: string;
   isPublicNotebook?: boolean;
+  hasValidPassword?: boolean; // Whether user has provided valid password for private notebook
 }
 
 interface TreeDropInfo {
@@ -67,9 +68,11 @@ const DocumentSidebar = memo(
     notebookId,
     notebookTitle,
     isPublicNotebook = false,
+    hasValidPassword = false,
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+    console.log(convexUserId);
 
     // Track if we've shown the authentication error to prevent spamming
     const hasShownAuthErrorRef = useRef(false);
@@ -90,8 +93,10 @@ const DocumentSidebar = memo(
       isPublicNotebook
         ? { notebookId, limit: 200 } // Public notebooks don't require userId
         : !isUserLoading && convexUserId
-          ? { userId: convexUserId, limit: 200, notebookId }
-          : "skip",
+          ? { limit: 200, notebookId, userId: convexUserId }
+          : notebookId && hasValidPassword
+            ? { limit: 200, notebookId, hasValidPassword: true } // For users with valid password but no userId
+            : "skip",
     );
     const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
 
