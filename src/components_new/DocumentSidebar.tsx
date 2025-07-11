@@ -29,7 +29,6 @@ import { useConvexUser } from "../hooks/use-convex-user";
 import { type DocumentWithTreeProps } from "../types/document";
 import "./DocumentSidebar.css";
 
-// Extend DataNode to include level
 interface CustomDataNode {
   key: string;
   title: React.ReactNode;
