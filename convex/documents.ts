@@ -417,19 +417,31 @@ export const getAllForTreeLegacy = query({
       return await query.take(documentLimit);
     }
 
-    // For authenticated users, check ownership
-    const ownerId = userId;
+    // If userId is provided, check if user is the owner of the notebook (if notebookId is provided)
+    if (notebookId) {
+      const notebook = await ctx.db.get(notebookId);
+      if (!notebook) {
+        throw new ConvexError("Notebook not found");
+      }
+      const isOwner = notebook.ownerId === userId;
+      const isPublicNotebook = !notebook.isPrivate;
+      if (!isOwner && !isPublicNotebook) {
+        throw new ConvexError("Access denied to private notebook");
+      }
+      // Return all documents in the notebook
+      const query = ctx.db
+        .query("documents")
+        .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebookId))
+        .order("asc");
+      return await query.take(documentLimit);
+    }
 
-    let query = ctx.db
+    // If no notebookId, return all documents owned by the user
+    const ownerId = userId;
+    const query = ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
       .order("asc");
-
-    // Filter by notebook if provided
-    if (notebookId) {
-      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
-    }
-
     return await query.take(documentLimit);
   },
 });
