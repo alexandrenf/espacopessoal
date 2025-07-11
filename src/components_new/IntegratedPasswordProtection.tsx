@@ -100,7 +100,8 @@ const IntegratedPasswordProtection: React.FC<
             Access Denied
           </h1>
           <p className="text-gray-600">
-            This notebook is private and you don&apos;t have permission to access it.
+            This notebook is private and you don&apos;t have permission to
+            access it.
           </p>
         </div>
       </div>
@@ -111,7 +112,7 @@ const IntegratedPasswordProtection: React.FC<
   return (
     <NotebookPasswordGate
       notebook={notebookMetadata}
-      userId={session?.user?.id ? session.user.id as Id<"users"> : undefined}
+      userId={session?.user?.id ? (session.user.id as Id<"users">) : undefined}
       onAccessGranted={handleAccessGranted}
     >
       {children}

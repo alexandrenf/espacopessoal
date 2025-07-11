@@ -452,7 +452,7 @@ export const getByUrlWithPassword = query({
     // Use the authenticated user ID from context, but also consider the provided userId
     // This ensures proper access control while supporting both authenticated and session-based access
     const effectiveUserId = authenticatedUserId ?? args.userId;
-    
+
     const isOwner = effectiveUserId
       ? notebook.ownerId === effectiveUserId
       : false;
@@ -466,7 +466,7 @@ export const getByUrlWithPassword = query({
       isOwner,
       isPrivate: notebook.isPrivate,
       hasPassword: !!notebook.password,
-      hasValidPassword: args.hasValidPassword
+      hasValidPassword: args.hasValidPassword,
     });
 
     // If notebook is private and user is not the owner

@@ -4,15 +4,18 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import * as Y from "yjs";
-import { IndexeddbPersistence } from "y-indexeddb";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { UndoManager } from "yjs";
 import { toast } from "sonner";
 import Link from "next/link";
+import {
+  useOptimizedDocument,
+  useOptimizedDictionary,
+  useOptimizedDocumentMutations,
+} from "~/hooks/useOptimizedConvex";
+import { api } from "~/trpc/react";
 import {
   ArrowLeft,
   Wifi,
@@ -64,6 +67,7 @@ import {
 } from "../components_new/ui/menubar";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import Image from "next/image";
 
 // TipTap Extensions
 import { FontSizeExtension } from "../extensions/font-size";
@@ -89,7 +93,6 @@ import { ImageResize } from "tiptap-extension-resize-image";
 import { Ruler } from "./Ruler";
 import { Threads } from "./Threads";
 import { Toolbar } from "./Toolbar";
-import DocumentSidebar from "./DocumentSidebar";
 import { SpellCheckSidebar } from "./SpellCheckSidebar";
 import { DictionaryModal } from "./DictionaryModal";
 import { ReplacementPopup } from "./ReplacementPopup";
@@ -120,10 +123,7 @@ interface EditorProps {
   document: Document;
   initialContent?: string | undefined;
   isReadOnly?: boolean;
-  notebookId?: Id<"notebooks">; // Notebook context for sidebar
-  notebookUrl?: string; // Notebook URL for navigation
-  notebookTitle?: string; // Notebook title for display
-  hideInternalSidebar?: boolean; // Hide internal sidebar when page provides its own
+  notebookId?: Id<"notebooks">;
 }
 
 export function DocumentEditor({
@@ -131,14 +131,9 @@ export function DocumentEditor({
   initialContent,
   isReadOnly,
   notebookId,
-  notebookUrl,
-  notebookTitle,
-  hideInternalSidebar = false,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  const updateDocument = useMutation(api.documents.updateById);
-  const updateDocumentInPublicNotebook = useMutation(api.documents.updateInPublicNotebook);
 
   // New state management for document switching
   const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(
@@ -157,13 +152,23 @@ export function DocumentEditor({
   // Get NextAuth session for user profile info
   const { data: session } = useSession();
 
-  // Query for current document
-  const currentDocument = useQuery(
-    api.documents.getById,
-    !isUserLoading && convexUserId && currentDocumentId
-      ? { id: currentDocumentId, userId: convexUserId }
-      : "skip",
+  // Get user profile from Convex for updated profile image
+  const { data: userProfile } = api.users.getUserProfile.useQuery(
+    undefined,
+    { enabled: !!convexUserId }
   );
+
+  // OPTIMIZED: Use consolidated optimized queries instead of individual ones
+  const currentDocument = useOptimizedDocument(
+    currentDocumentId,
+    convexUserId,
+    isUserLoading,
+  );
+  const dictionary = useOptimizedDictionary(convexUserId);
+  const {
+    update: updateDocument,
+    updateInPublic: updateDocumentInPublicNotebook,
+  } = useOptimizedDocumentMutations();
 
   // Fallback to initial document if query is loading
   const doc = currentDocument ?? initialDocument;
@@ -176,7 +181,6 @@ export function DocumentEditor({
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
   const [isContentLoading, setIsContentLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showSpellCheck, setShowSpellCheck] = useState(false);
@@ -200,11 +204,16 @@ export function DocumentEditor({
   // Create document immediately with current document ID
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
 
-  // Add a limit to cached documents to prevent memory leaks
-  const MAX_CACHED_DOCUMENTS = 5;
+  // OPTIMIZATION: Enhanced document caching with performance metrics
+  const MAX_CACHED_DOCUMENTS = 8; // Increased from 5 for better performance
   const documentAccessOrder = useRef<string[]>([]);
+  const documentCacheStats = useRef<{
+    hits: number;
+    misses: number;
+    evictions: number;
+  }>({ hits: 0, misses: 0, evictions: 0 });
 
-  // Enhanced cleanup function with memory leak prevention
+  // OPTIMIZATION: Enhanced cleanup function with performance metrics
   const cleanupOldDocuments = useCallback(() => {
     if (documentInstances.current.size > MAX_CACHED_DOCUMENTS) {
       // Remove least recently used documents with proper error handling
@@ -220,6 +229,7 @@ export function DocumentEditor({
               console.log("🧹 Cleaning up old Y.js document:", oldestDocId);
               oldDoc.destroy();
               documentInstances.current.delete(oldestDocId);
+              documentCacheStats.current.evictions++;
             } catch (error) {
               console.error(
                 `Error cleaning up document ${oldestDocId}:`,
@@ -249,16 +259,6 @@ export function DocumentEditor({
       }
     }
   }, [currentDocumentId]);
-
-  // Use Convex API for dictionary functionality with real user authentication
-  const dictionaryQuery = useQuery(
-    api.dictionary.getDictionary,
-    convexUserId ? { userId: convexUserId } : "skip",
-  );
-  const dictionary = useMemo(
-    () => dictionaryQuery?.entries ?? [],
-    [dictionaryQuery],
-  );
 
   // Update document title when document changes (but not when user is editing)
   useEffect(() => {
@@ -415,9 +415,6 @@ export function DocumentEditor({
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setShowSidebar(false);
-      }
     };
 
     checkMobile();
@@ -1100,7 +1097,7 @@ export function DocumentEditor({
           }
           return;
         }
-        if ((e.key === "y") || (e.key === "z" && e.shiftKey)) {
+        if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
           // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z or Cmd+Shift+Z for redo
           e.preventDefault();
           if (undoManager?.canRedo()) {
@@ -1204,19 +1201,6 @@ export function DocumentEditor({
     toast.info(
       "Documents are automatically saved when content changes after 10 seconds of inactivity",
     );
-  };
-
-  const handleToggleSidebar = () => {
-    setShowSidebar(!showSidebar);
-  };
-
-  // Safe router navigation functions - removed unused function
-
-  const handleNavigateToHome = () => {
-    // Force navigation to home page
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
@@ -1366,25 +1350,7 @@ export function DocumentEditor({
         </div>
       )}
 
-      {/* Sidebar - hidden when page provides its own sidebar */}
-      {showSidebar && !hideInternalSidebar && (
-        <div
-          className={`${isMobile ? "fixed inset-0 z-50 bg-white" : "w-80 border-r bg-white"}`}
-        >
-          <DocumentSidebar
-            currentDocument={doc}
-            setCurrentDocumentId={handleSetCurrentDocument}
-            onToggleSidebar={handleToggleSidebar}
-            showSidebar={showSidebar}
-            isMobile={isMobile}
-            onNavigateToHome={handleNavigateToHome}
-            notebookId={notebookId}
-            notebookUrl={notebookUrl}
-            notebookTitle={notebookTitle}
-            isPublicNotebook={false} // DocumentEditor is used for private documents
-          />
-        </div>
-      )}
+      {/* Sidebar will be rendered as a sibling component */}
 
       {/* Main content */}
       <div className="min-w-0 flex-1">
@@ -1394,22 +1360,11 @@ export function DocumentEditor({
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {!showSidebar && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleToggleSidebar}
-                  >
-                    <PanelLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                {!showSidebar && (
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href="/">
-                      <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
+                <Button variant="ghost" size="icon" asChild>
+                  <Link href="/">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
                 {isEditingTitle ? (
                   <input
                     type="text"
@@ -1461,11 +1416,13 @@ export function DocumentEditor({
                       variant="ghost"
                       className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
                     >
-                      {session?.user?.image ? (
-                        <img
+                      {userProfile?.image ?? session?.user?.image ? (
+                        <Image
                           className="h-8 w-8 rounded-full object-cover"
-                          src={session.user.image}
+                          src={userProfile?.image ?? session?.user?.image ?? ""}
                           alt={getUserDisplayName()}
+                          width={32}
+                          height={32}
                         />
                       ) : (
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-medium text-white">

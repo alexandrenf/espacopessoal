@@ -10,28 +10,14 @@ import { ProfileTour } from "~/app/components/profile/ProfileTour";
 
 async function ProfileContent() {
   try {
-    const [userData, noteSettings] = await Promise.all([
-      api.users.getUserProfile(),
-      api.userSettings.getNoteSettings(),
+    const [userData] = await Promise.all([
+      api.users.getUserProfile()
     ]);
 
     return (
       <>
         <div className="profile-dashboard mb-8 rounded-lg bg-white p-6 shadow">
           <ProfileDashboard user={userData} />
-        </div>
-
-        <div className="notepad-settings rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-6 text-xl font-semibold">
-            Configurações do Bloco de Notas
-          </h2>
-          <NotepadSettingsForm
-            initialSettings={{
-              notePadUrl: noteSettings.notePadUrl ?? "",
-              privateOrPublicUrl: noteSettings.privateOrPublicUrl ?? true,
-              password: noteSettings.password ?? null,
-            }}
-          />
         </div>
       </>
     );

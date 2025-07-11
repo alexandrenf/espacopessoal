@@ -100,10 +100,10 @@ export const useNotebookSession = ({
           return false;
         }
 
-        const result = await extendSession({
+        const result = (await extendSession({
           sessionToken: sessionData.sessionToken,
           additionalTime,
-        }) as { newExpiresAt: number };
+        })) as { newExpiresAt: number };
 
         // Update local storage
         await SecureSessionStorage.storeSession(

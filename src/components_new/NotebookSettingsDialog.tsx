@@ -41,7 +41,6 @@ interface Notebook {
   url: string;
 }
 
-
 interface NotebookSession {
   _id: Id<"notebookSessions">;
   userAgent?: string;
@@ -85,7 +84,7 @@ const NotebookSettingsDialog: React.FC<NotebookSettingsDialogProps> = ({
     api.notebooks.getNotebookSessions,
     notebook && userId ? { notebookId: notebook._id, userId } : "skip",
   ) as NotebookSession[] | undefined | null;
-  
+
   // Safely extract sessions data with proper type checking
   const notebookSessions: NotebookSession[] = (() => {
     if (!notebookSessionsQuery) return [];
@@ -185,13 +184,13 @@ const NotebookSettingsDialog: React.FC<NotebookSettingsDialogProps> = ({
     setIsLoading(true);
 
     try {
-      const result = await revokeSessions({
+      const result = (await revokeSessions({
         notebookId: notebook._id,
         userId,
-      }) as { revokedCount: number } | null;
+      })) as { revokedCount: number } | null;
 
       // Type guard to safely access result properties
-      if (result && typeof result === 'object' && 'revokedCount' in result) {
+      if (result && typeof result === "object" && "revokedCount" in result) {
         toast.success(`Revoked ${result.revokedCount} active sessions`);
       } else {
         toast.success("Sessions revoked successfully");
@@ -378,7 +377,9 @@ const NotebookSettingsDialog: React.FC<NotebookSettingsDialogProps> = ({
           variant="outline"
           size="sm"
           onClick={handleRevokeAllSessions}
-          disabled={isLoading || !notebookSessions || notebookSessions.length === 0}
+          disabled={
+            isLoading || !notebookSessions || notebookSessions.length === 0
+          }
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Revoke All

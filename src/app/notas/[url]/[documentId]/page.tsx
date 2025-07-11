@@ -34,11 +34,12 @@ function DocumentPageContent() {
   );
 
   // Get full notebook information using Convex
+  const isOwner = convexUserId && notebookMetadata?.ownerId === convexUserId;
+  const isPublicNotebook = !notebookMetadata?.isPrivate;
+
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    normalizedUrl.length > 0 &&
-      (!notebookMetadata?.isPrivate ||
-        notebookMetadata?.ownerId === convexUserId)
+    normalizedUrl.length > 0 && (isPublicNotebook || isOwner)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
@@ -46,6 +47,8 @@ function DocumentPageContent() {
         }
       : "skip",
   );
+
+  const hasValidPassword = !isPublicNotebook && !isOwner && !!notebook; // If it's private, user is not owner, but notebook loaded successfully
 
   // Get document information using Convex
   const document = useQuery(
@@ -148,9 +151,7 @@ function DocumentPageContent() {
     );
   }
 
-  // Check if user is the owner of the notebook
-  const isOwner = convexUserId && notebookMetadata?.ownerId === convexUserId;
-  const isPublicNotebook = !notebookMetadata?.isPrivate;
+  // isOwner and isPublicNotebook are now defined above
 
   // Handler for document selection from sidebar
   const handleDocumentSelect = (documentId: Id<"documents">) => {
@@ -167,7 +168,8 @@ function DocumentPageContent() {
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-grow">
         {/* Show sidebar for public notebooks or when user is owner */}
-        {(isPublicNotebook || isOwner) && showSidebar && (
+        {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+        {(isPublicNotebook || isOwner || hasValidPassword) && showSidebar && (
           <div className="hidden md:block md:w-80 lg:w-96">
             <DocumentSidebar
               currentDocument={document}
@@ -177,35 +179,34 @@ function DocumentPageContent() {
               isMobile={false}
               notebookId={notebook._id as Id<"notebooks">}
               notebookTitle={notebook.title}
-              notebookUrl={normalizedUrl}
-              isPublicNotebook={true}
+              isPublicNotebook={isPublicNotebook}
+              hasValidPassword={hasValidPassword}
             />
           </div>
         )}
 
-        <div className="flex-grow relative">
+        <div className="relative flex-grow">
           {/* Sidebar toggle button when sidebar is hidden */}
-          {(isPublicNotebook || isOwner) && !showSidebar && (
-            <div className="absolute top-4 left-4 z-10">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleSidebar}
-                className="bg-white shadow-md hover:bg-gray-50"
-                title="Open sidebar"
-              >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+          {(isPublicNotebook || isOwner || hasValidPassword) &&
+            !showSidebar && (
+              <div className="absolute left-4 top-4 z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleToggleSidebar}
+                  className="bg-white shadow-md hover:bg-gray-50"
+                  title="Open sidebar"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
           <DocumentEditor
             document={document}
             notebookId={notebook._id as Id<"notebooks">}
-            notebookUrl={normalizedUrl}
-            notebookTitle={notebook.title}
             isReadOnly={false} // Public notebooks are now fully manageable
-            hideInternalSidebar={true} // Use page-level sidebar for public notebooks
           />
         </div>
       </div>

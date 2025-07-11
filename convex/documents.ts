@@ -301,7 +301,7 @@ export const getHierarchical = query({
       if (!notebook) {
         throw new ConvexError("Notebook not found");
       }
-      
+
       // Allow access if notebook is public OR if it's private but user has valid password
       if (notebook.isPrivate && !hasValidPassword) {
         throw new ConvexError("Access denied to private notebook");
@@ -313,7 +313,7 @@ export const getHierarchical = query({
         hasPassword: !!notebook.password,
         hasValidPassword,
         userId,
-        accessGranted: !notebook.isPrivate || hasValidPassword
+        accessGranted: !notebook.isPrivate || hasValidPassword,
       });
 
       // Return documents in accessible notebook
@@ -392,23 +392,29 @@ export const getAllForTreeLegacy = query({
     limit: v.optional(v.number()),
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
     userId: v.optional(v.id("users")), // User ID for authentication (optional for public access)
+    hasValidPassword: v.optional(v.boolean()), // Whether user has provided valid password for private notebook
   },
-  handler: async (ctx, { limit, notebookId, userId }) => {
+  handler: async (ctx, { limit, notebookId, userId, hasValidPassword }) => {
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
-    // If no userId provided, only return documents in public notebooks
+    // If no userId provided, only return documents in public notebooks or password-protected notebooks
     if (!userId) {
       if (!notebookId) {
         throw new ConvexError("User ID or notebook ID is required");
       }
 
-      // Check if the notebook is public
+      // Check if the notebook is public or user has valid password
       const notebook = await ctx.db.get(notebookId);
-      if (!notebook || notebook.isPrivate) {
+      if (!notebook) {
+        throw new ConvexError("Notebook not found");
+      }
+
+      // Allow access if notebook is public OR if it's private but user has valid password
+      if (notebook.isPrivate && !hasValidPassword) {
         throw new ConvexError("Access denied to private notebook");
       }
 
-      // Return documents in public notebook
+      // Return documents in accessible notebook
       const query = ctx.db
         .query("documents")
         .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebookId))
@@ -417,19 +423,31 @@ export const getAllForTreeLegacy = query({
       return await query.take(documentLimit);
     }
 
-    // For authenticated users, check ownership
-    const ownerId = userId;
+    // If userId is provided, check if user is the owner of the notebook (if notebookId is provided)
+    if (notebookId) {
+      const notebook = await ctx.db.get(notebookId);
+      if (!notebook) {
+        throw new ConvexError("Notebook not found");
+      }
+      const isOwner = notebook.ownerId === userId;
+      const isPublicNotebook = !notebook.isPrivate;
+      if (!isOwner && !isPublicNotebook) {
+        throw new ConvexError("Access denied to private notebook");
+      }
+      // Return all documents in the notebook
+      const query = ctx.db
+        .query("documents")
+        .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebookId))
+        .order("asc");
+      return await query.take(documentLimit);
+    }
 
-    let query = ctx.db
+    // If no notebookId, return all documents owned by the user
+    const ownerId = userId;
+    const query = ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
       .order("asc");
-
-    // Filter by notebook if provided
-    if (notebookId) {
-      query = query.filter((q) => q.eq(q.field("notebookId"), notebookId));
-    }
-
     return await query.take(documentLimit);
   },
 });
@@ -527,7 +545,9 @@ export const updateInPublicNotebook = mutation({
 
     // Verify the document belongs to the specified notebook
     if (document.notebookId !== args.notebookId) {
-      throw new ConvexError("Document does not belong to the specified notebook");
+      throw new ConvexError(
+        "Document does not belong to the specified notebook",
+      );
     }
 
     // Validate that the notebook exists and is public
@@ -560,7 +580,9 @@ export const deleteInPublicNotebook = mutation({
 
     // Verify the document belongs to the specified notebook
     if (document.notebookId !== args.notebookId) {
-      throw new ConvexError("Document does not belong to the specified notebook");
+      throw new ConvexError(
+        "Document does not belong to the specified notebook",
+      );
     }
 
     // Validate that the notebook exists and is public
@@ -580,7 +602,9 @@ export const deleteInPublicNotebook = mutation({
         .first();
 
       if (children) {
-        throw new ConvexError("Cannot delete folder that contains documents. Please delete or move the contents first.");
+        throw new ConvexError(
+          "Cannot delete folder that contains documents. Please delete or move the contents first.",
+        );
       }
     }
 
@@ -1483,7 +1507,9 @@ export const updateYjsStateInternal = internalMutation({
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    logger.debug(`Attempting to update Y.js state for document with ID: ${args.id}`);
+    logger.debug(
+      `Attempting to update Y.js state for document with ID: ${args.id}`,
+    );
 
     // Check if this is a server update (trusted source)
     const isServerUpdate =
@@ -1505,7 +1531,7 @@ export const updateYjsStateInternal = internalMutation({
     try {
       // Convert string ID to Convex ID
       const documentId = args.id as Id<"documents">;
-      
+
       // Get the document to verify it exists
       const document = await ctx.db.get(documentId);
       if (!document) {
@@ -1516,7 +1542,9 @@ export const updateYjsStateInternal = internalMutation({
       if (!isServerUpdate && args.userId) {
         const userIdTyped = args.userId as Id<"users">;
         if (document.ownerId !== userIdTyped) {
-          throw new ConvexError("You don't have permission to update this document");
+          throw new ConvexError(
+            "You don't have permission to update this document",
+          );
         }
       }
 
@@ -1528,7 +1556,6 @@ export const updateYjsStateInternal = internalMutation({
 
       logger.debug(`Successfully updated Y.js state for document ${args.id}`);
       return { success: true };
-
     } catch (error) {
       logger.error("Error in updateYjsStateInternal:", error);
       if (error instanceof ConvexError) {
@@ -1547,7 +1574,9 @@ export const getYjsStateInternal = internalQuery({
     id: v.string(), // Accept string ID from HTTP action
   },
   handler: async (ctx, args) => {
-    logger.debug(`Attempting to get Y.js state for document with ID: ${args.id}`);
+    logger.debug(
+      `Attempting to get Y.js state for document with ID: ${args.id}`,
+    );
 
     // Validate that the ID looks like a Convex ID
     if (!args.id || typeof args.id !== "string" || args.id.length < 20) {
@@ -1563,7 +1592,7 @@ export const getYjsStateInternal = internalQuery({
     try {
       // Convert string ID to Convex ID
       const documentId = args.id as Id<"documents">;
-      
+
       // Get the document
       const document = await ctx.db.get(documentId);
       if (!document) {
@@ -1578,7 +1607,6 @@ export const getYjsStateInternal = internalQuery({
         yjsState: document.yjsState,
         updatedAt: document.updatedAt,
       };
-
     } catch (error) {
       logger.error("Error in getYjsStateInternal:", error);
       if (error instanceof ConvexError) {
