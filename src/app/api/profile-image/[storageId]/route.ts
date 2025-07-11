@@ -1,18 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ storageId: string }> }
 ) {
   const { storageId } = await params;
   try {
     // Check if profile picture exists in database first
     const profilePicture = await convex.query(api.users.getProfilePictureByStorageId, {
-      storageId: storageId as any,
+      storageId: storageId as Id<"_storage">,
     });
 
     if (!profilePicture) {
@@ -21,12 +23,12 @@ export async function GET(
 
     // Update access time for this profile picture
     await convex.mutation(api.users.updateProfilePictureAccess, {
-      storageId: storageId as any,
+      storageId: storageId as Id<"_storage">,
     });
 
     // Get the actual file from Convex storage
     const imageUrl = await convex.query(api.users.getStorageUrl, {
-      storageId: storageId as any,
+      storageId: storageId as Id<"_storage">,
     });
 
     if (!imageUrl) {
