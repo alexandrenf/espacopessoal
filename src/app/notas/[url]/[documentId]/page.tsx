@@ -177,7 +177,6 @@ function DocumentPageContent() {
               isMobile={false}
               notebookId={notebook._id as Id<"notebooks">}
               notebookTitle={notebook.title}
-              notebookUrl={normalizedUrl}
               isPublicNotebook={true}
             />
           </div>
@@ -202,10 +201,7 @@ function DocumentPageContent() {
           <DocumentEditor
             document={document}
             notebookId={notebook._id as Id<"notebooks">}
-            notebookUrl={normalizedUrl}
-            notebookTitle={notebook.title}
             isReadOnly={false} // Public notebooks are now fully manageable
-            hideInternalSidebar={true} // Use page-level sidebar for public notebooks
           />
         </div>
       </div>

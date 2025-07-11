@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { type Id } from "../../../../convex/_generated/dataModel";
 import { DocumentEditor } from "../../../components_new/DocumentEditor";
+import DocumentSidebar from "../../../components_new/DocumentSidebar";
 import { ErrorBoundary } from "../../../components_new/ErrorBoundary";
 import { Button } from "../../../components_new/ui/button";
 import { Loader, FileText, FilePlus } from "lucide-react";
@@ -27,6 +28,7 @@ export default function DocumentPage() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -243,10 +245,34 @@ export default function DocumentPage() {
     );
   }
 
+  const handleToggleSidebar = () => {
+    setShowSidebar(!showSidebar);
+  };
+
+  const handleSetCurrentDocument = (newDocumentId: Id<"documents">) => {
+    router.push(`/documents/${newDocumentId}`);
+  };
+
   // Pass the initial document to DocumentEditor - it will handle all document switching internally
   return (
     <ErrorBoundary>
-      {initialDocument && <DocumentEditor document={initialDocument} />}
+      <div className="flex h-full">
+        {showSidebar && (
+          <DocumentSidebar
+            currentDocument={initialDocument ?? undefined}
+            setCurrentDocumentId={handleSetCurrentDocument}
+            onToggleSidebar={handleToggleSidebar}
+            isMobile={false} // Assuming desktop view for this page
+            isPublicNotebook={false}
+          />
+        )}
+        {initialDocument && (
+          <DocumentEditor
+            document={initialDocument}
+            notebookId={initialDocument.notebookId}
+          />
+        )}
+      </div>
     </ErrorBoundary>
   );
 }

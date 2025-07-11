@@ -89,7 +89,6 @@ import { ImageResize } from "tiptap-extension-resize-image";
 import { Ruler } from "./Ruler";
 import { Threads } from "./Threads";
 import { Toolbar } from "./Toolbar";
-import DocumentSidebar from "./DocumentSidebar";
 import { SpellCheckSidebar } from "./SpellCheckSidebar";
 import { DictionaryModal } from "./DictionaryModal";
 import { ReplacementPopup } from "./ReplacementPopup";
@@ -120,10 +119,9 @@ interface EditorProps {
   document: Document;
   initialContent?: string | undefined;
   isReadOnly?: boolean;
-  notebookId?: Id<"notebooks">; // Notebook context for sidebar
-  notebookUrl?: string; // Notebook URL for navigation
-  notebookTitle?: string; // Notebook title for display
-  hideInternalSidebar?: boolean; // Hide internal sidebar when page provides its own
+  notebookId?: Id<"notebooks">;
+  showSidebar?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export function DocumentEditor({
@@ -131,9 +129,6 @@ export function DocumentEditor({
   initialContent,
   isReadOnly,
   notebookId,
-  notebookUrl,
-  notebookTitle,
-  hideInternalSidebar = false,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -176,7 +171,6 @@ export function DocumentEditor({
     "connecting" | "connected" | "disconnected" | "error"
   >("connecting");
   const [isContentLoading, setIsContentLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showSpellCheck, setShowSpellCheck] = useState(false);
@@ -415,9 +409,6 @@ export function DocumentEditor({
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setShowSidebar(false);
-      }
     };
 
     checkMobile();
@@ -1207,16 +1198,8 @@ export function DocumentEditor({
   };
 
   const handleToggleSidebar = () => {
-    setShowSidebar(!showSidebar);
-  };
-
-  // Safe router navigation functions - removed unused function
-
-  const handleNavigateToHome = () => {
-    // Force navigation to home page
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
+    // This function is no longer needed since sidebar is managed at page level
+    // but keeping it for compatibility with the interface
   };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
@@ -1366,25 +1349,7 @@ export function DocumentEditor({
         </div>
       )}
 
-      {/* Sidebar - hidden when page provides its own sidebar */}
-      {showSidebar && !hideInternalSidebar && (
-        <div
-          className={`${isMobile ? "fixed inset-0 z-50 bg-white" : "w-80 border-r bg-white"}`}
-        >
-          <DocumentSidebar
-            currentDocument={doc}
-            setCurrentDocumentId={handleSetCurrentDocument}
-            onToggleSidebar={handleToggleSidebar}
-            showSidebar={showSidebar}
-            isMobile={isMobile}
-            onNavigateToHome={handleNavigateToHome}
-            notebookId={notebookId}
-            notebookUrl={notebookUrl}
-            notebookTitle={notebookTitle}
-            isPublicNotebook={false} // DocumentEditor is used for private documents
-          />
-        </div>
-      )}
+      {/* Sidebar will be rendered as a sibling component */}
 
       {/* Main content */}
       <div className="min-w-0 flex-1">
@@ -1394,22 +1359,11 @@ export function DocumentEditor({
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {!showSidebar && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleToggleSidebar}
-                  >
-                    <PanelLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                {!showSidebar && (
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link href="/">
-                      <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
+                <Button variant="ghost" size="icon" asChild>
+                  <Link href="/">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
                 {isEditingTitle ? (
                   <input
                     type="text"

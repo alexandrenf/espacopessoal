@@ -43,11 +43,9 @@ interface DocumentSidebarProps {
   onToggleSidebar?: () => void;
   showSidebar?: boolean;
   isMobile?: boolean;
-  onNavigateToHome?: () => void;
-  notebookId?: Id<"notebooks">; // Notebook context for filtering documents
-  notebookUrl?: string; // Notebook URL for navigation
-  notebookTitle?: string; // Notebook title for display
-  isPublicNotebook?: boolean; // Whether this is a public notebook
+  notebookId?: Id<"notebooks">;
+  notebookTitle?: string;
+  isPublicNotebook?: boolean;
 }
 
 interface TreeDropInfo {
@@ -66,7 +64,6 @@ const DocumentSidebar = memo(
     onToggleSidebar,
     showSidebar = true,
     isMobile = false,
-    onNavigateToHome,
     notebookId,
     notebookTitle,
     isPublicNotebook = false,
@@ -195,13 +192,9 @@ const DocumentSidebar = memo(
 
           // If we deleted the current document, navigate to home
           if (id === currentDocument?._id) {
-            if (onNavigateToHome) {
-              onNavigateToHome();
-            } else {
-              // Fallback navigation to home
-              if (typeof window !== "undefined") {
-                window.location.href = "/";
-              }
+            // Fallback navigation to home
+            if (typeof window !== "undefined") {
+              window.location.href = "/";
             }
           }
         } catch (error: unknown) {
@@ -213,7 +206,7 @@ const DocumentSidebar = memo(
           setIsDeletingId(undefined);
         }
       },
-      [convexUserId, deleteDocument, deleteDocumentInPublic, isPublicNotebook, notebookId, currentDocument?._id, onNavigateToHome],
+      [convexUserId, deleteDocument, deleteDocumentInPublic, isPublicNotebook, notebookId, currentDocument?._id],
     );
 
     // Optimized tree data conversion with better performance
