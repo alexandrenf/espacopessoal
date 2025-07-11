@@ -529,27 +529,46 @@ const loadYjsStateFromConvex = async (
       return null;
     }
 
-    const data = (await response.json()) as {
-      success: boolean;
-      document: {
-        id: string;
-        title: string;
-        yjsState: string | null;
-        updatedAt: number;
-      };
-    };
+    // Check content type to determine response format
+    const contentType = response.headers.get("content-type");
 
-    if (data.success && data.document.yjsState) {
-      // Convert base64 back to Uint8Array
-      const yjsStateBytes = Uint8Array.from(atob(data.document.yjsState), c => c.charCodeAt(0));
-      
+    if (contentType === "application/octet-stream") {
+      // Binary Y.js state response
+      const yjsStateBytes = new Uint8Array(await response.arrayBuffer());
+
       console.log(
-        `[${new Date().toISOString()}] ✅ Successfully loaded Y.js state for document ${documentName} (${yjsStateBytes.length} bytes)`,
+        `[${new Date().toISOString()}] ✅ Successfully loaded Y.js binary state for document ${documentName} (${yjsStateBytes.length} bytes)`,
       );
       return yjsStateBytes;
+    } else if (contentType?.includes("application/json")) {
+      // JSON response (no Y.js state or error)
+      const data = (await response.json()) as {
+        success: boolean;
+        document: {
+          id: string;
+          title: string;
+          yjsState: string | null;
+          updatedAt: number;
+        };
+      };
+
+      if (data.success && data.document.yjsState) {
+        // Convert base64 back to Uint8Array (legacy format)
+        const yjsStateBytes = Uint8Array.from(atob(data.document.yjsState), c => c.charCodeAt(0));
+
+        console.log(
+          `[${new Date().toISOString()}] ✅ Successfully loaded Y.js state for document ${documentName} (${yjsStateBytes.length} bytes)`,
+        );
+        return yjsStateBytes;
+      } else {
+        console.log(
+          `[${new Date().toISOString()}] Both Y.js and DB are empty - no action needed`,
+        );
+        return null;
+      }
     } else {
-      console.log(
-        `[${new Date().toISOString()}] Document ${documentName} found but no Y.js state available`,
+      console.error(
+        `[${new Date().toISOString()}] Unexpected content type: ${contentType}`,
       );
       return null;
     }
