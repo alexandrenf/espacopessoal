@@ -480,10 +480,18 @@ const getYjsState = httpAction(async (ctx, request) => {
       });
     }
 
-    // Convert Y.js binary state to base64 for JSON transport
-    const yjsStateBase64 = document.yjsState 
-      ? btoa(String.fromCharCode(...new Uint8Array(document.yjsState)))
-      : null;
+    // Return binary Y.js state directly, avoiding base64 encoding
+    if (document.yjsState) {
+      return new Response(document.yjsState, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Document-Id": document._id,
+          "X-Document-Title": document.title,
+          "X-Updated-At": document.updatedAt.toString(),
+        },
+      });
+    }
 
     return new Response(
       JSON.stringify({
@@ -491,7 +499,7 @@ const getYjsState = httpAction(async (ctx, request) => {
         document: {
           id: document._id,
           title: document.title,
-          yjsState: yjsStateBase64,
+          yjsState: null,
           updatedAt: document.updatedAt,
         },
       }),

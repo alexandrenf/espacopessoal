@@ -754,11 +754,16 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   }
 };
 
-// Helper function to log formatting analysis for debugging
+// Helper function to log formatting analysis for debugging (development only)
 const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): void => {
+  // Only run formatting analysis in development environment
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
   try {
     console.log("🎨 === FORMATTING ANALYSIS ===");
-    
+
     // Count formatting elements in Y.js fragment
     let textStyleCount = 0;
     let highlightCount = 0;
@@ -766,15 +771,16 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     let emCount = 0;
     let underlineCount = 0;
     let codeCount = 0;
-    
+
     const analyzeElement = (element: Y.XmlElement | Y.XmlFragment): void => {
       if (element instanceof Y.XmlElement) {
         switch (element.nodeName) {
-          case 'textStyle':
+          case 'textStyle': {
             textStyleCount++;
             const attrs = element.getAttributes();
             console.log(`🎨 TextStyle attributes:`, attrs);
             break;
+          }
           case 'highlight':
             highlightCount++;
             break;
@@ -792,7 +798,7 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
             break;
         }
       }
-      
+
       // Recursively analyze children
       element.forEach((child) => {
         if (child instanceof Y.XmlElement) {
@@ -800,9 +806,9 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
         }
       });
     };
-    
+
     analyzeElement(fragment);
-    
+
     console.log(`🎨 Y.js Formatting Counts:`);
     console.log(`  - TextStyle elements: ${textStyleCount}`);
     console.log(`  - Highlight elements: ${highlightCount}`);
@@ -810,7 +816,7 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     console.log(`  - Em elements: ${emCount}`);
     console.log(`  - Underline elements: ${underlineCount}`);
     console.log(`  - Code elements: ${codeCount}`);
-    
+
     // Count formatting elements in HTML output
     const htmlSpanCount = (htmlContent.match(/<span[^>]*>/g) || []).length;
     const htmlMarkCount = (htmlContent.match(/<mark[^>]*>/g) || []).length;
@@ -818,7 +824,7 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     const htmlEmCount = (htmlContent.match(/<em>/g) || []).length;
     const htmlUCount = (htmlContent.match(/<u>/g) || []).length;
     const htmlCodeCount = (htmlContent.match(/<code>/g) || []).length;
-    
+
     console.log(`🎨 HTML Formatting Counts:`);
     console.log(`  - Span elements: ${htmlSpanCount}`);
     console.log(`  - Mark elements: ${htmlMarkCount}`);
@@ -826,7 +832,7 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     console.log(`  - Em elements: ${htmlEmCount}`);
     console.log(`  - U elements: ${htmlUCount}`);
     console.log(`  - Code elements: ${htmlCodeCount}`);
-    
+
     // Check for potential formatting loss
     if (textStyleCount > htmlSpanCount) {
       console.warn(`⚠️ Potential formatting loss: ${textStyleCount} textStyle elements -> ${htmlSpanCount} span elements`);
@@ -834,7 +840,7 @@ const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): vo
     if (highlightCount > htmlMarkCount) {
       console.warn(`⚠️ Potential formatting loss: ${highlightCount} highlight elements -> ${htmlMarkCount} mark elements`);
     }
-    
+
     console.log("🎨 === END FORMATTING ANALYSIS ===");
   } catch (error) {
     console.error("Error in formatting analysis:", error);
