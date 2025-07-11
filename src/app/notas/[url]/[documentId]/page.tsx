@@ -34,11 +34,12 @@ function DocumentPageContent() {
   );
 
   // Get full notebook information using Convex
+  const isOwner = convexUserId && notebookMetadata?.ownerId === convexUserId;
+  const isPublicNotebook = !notebookMetadata?.isPrivate;
+
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    normalizedUrl.length > 0 &&
-      (!notebookMetadata?.isPrivate ||
-        notebookMetadata?.ownerId === convexUserId)
+    normalizedUrl.length > 0 && (isPublicNotebook || isOwner)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
@@ -148,9 +149,7 @@ function DocumentPageContent() {
     );
   }
 
-  // Check if user is the owner of the notebook
-  const isOwner = convexUserId && notebookMetadata?.ownerId === convexUserId;
-  const isPublicNotebook = !notebookMetadata?.isPrivate;
+  // isOwner and isPublicNotebook are now defined above
 
   // Handler for document selection from sidebar
   const handleDocumentSelect = (documentId: Id<"documents">) => {
