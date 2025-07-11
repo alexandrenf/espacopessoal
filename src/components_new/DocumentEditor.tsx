@@ -120,8 +120,6 @@ interface EditorProps {
   initialContent?: string | undefined;
   isReadOnly?: boolean;
   notebookId?: Id<"notebooks">;
-  showSidebar?: boolean;
-  onToggleSidebar?: () => void;
 }
 
 export function DocumentEditor({
@@ -1197,10 +1195,6 @@ export function DocumentEditor({
     );
   };
 
-  const handleToggleSidebar = () => {
-    // This function is no longer needed since sidebar is managed at page level
-    // but keeping it for compatibility with the interface
-  };
 
   const handleSetCurrentDocument = (documentId: Id<"documents">) => {
     void handleDocumentSwitch(documentId);
