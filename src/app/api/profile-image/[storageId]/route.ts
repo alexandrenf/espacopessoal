@@ -6,11 +6,19 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { storageId: string } }
+  { params }: { params: Promise<{ storageId: string }> }
 ) {
+  const { storageId } = await params;
   try {
-    const { storageId } = params;
-    
+    // Check if profile picture exists in database first
+    const profilePicture = await convex.query(api.users.getProfilePictureByStorageId, {
+      storageId: storageId as any,
+    });
+
+    if (!profilePicture) {
+      return new NextResponse("Profile picture not found", { status: 404 });
+    }
+
     // Update access time for this profile picture
     await convex.mutation(api.users.updateProfilePictureAccess, {
       storageId: storageId as any,
@@ -20,7 +28,7 @@ export async function GET(
     const imageUrl = await convex.query(api.users.getStorageUrl, {
       storageId: storageId as any,
     });
-    
+
     if (!imageUrl) {
       return new NextResponse("Image not found", { status: 404 });
     }
@@ -34,15 +42,10 @@ export async function GET(
 
     // Get the image data
     const imageData = await imageResponse.arrayBuffer();
-    
-    // Get profile picture metadata for proper headers
-    const profilePicture = await convex.query(api.users.getProfilePictureByStorageId, {
-      storageId: storageId as any,
-    });
 
     // Set appropriate headers for caching and content type
     const headers = new Headers({
-      "Content-Type": profilePicture?.mimeType || "image/webp",
+      "Content-Type": profilePicture.mimeType || "image/webp",
       "Cache-Control": "public, max-age=31536000, immutable", // Cache for 1 year
       "Content-Length": imageData.byteLength.toString(),
     });
