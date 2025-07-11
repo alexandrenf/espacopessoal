@@ -127,6 +127,23 @@ export default defineSchema({
     .index("by_url", ["url"])
     .index("by_document_id", ["documentId"]),
 
+  // Profile pictures management
+  profilePictures: defineTable({
+    userId: v.id("users"),
+    storageId: v.id("_storage"), // Convex storage ID
+    filename: v.string(), // Original filename for reference
+    fileSize: v.number(), // File size in bytes
+    mimeType: v.string(), // MIME type (should be image/webp)
+    isActive: v.boolean(), // Whether this is the current profile picture
+    uploadedAt: v.number(),
+    lastAccessedAt: v.number(), // For tracking unused files
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_storage_id", ["storageId"])
+    .index("by_active", ["isActive"])
+    .index("by_last_accessed", ["lastAccessedAt"])
+    .index("by_user_active", ["userId", "isActive"]),
+
   // NextAuth.js OAuth accounts
   accounts: defineTable({
     userId: v.id("users"),

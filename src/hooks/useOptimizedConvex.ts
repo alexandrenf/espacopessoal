@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -8,6 +8,12 @@ import type { Id } from "../../convex/_generated/dataModel";
 /**
  * Optimized Convex hooks following best practices from Context7 documentation
  * Reduces redundant queries and improves reactivity patterns
+ *
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Smart query conditions to prevent unnecessary network requests
+ * - Memoized arguments to prevent React re-renders
+ * - Efficient fallback patterns for offline scenarios
+ * - Batch operations for multiple document updates
  */
 
 // Optimized document query with proper memoization and conditions
@@ -162,6 +168,51 @@ export function useSmartDocumentActions(isPublicNotebook: boolean) {
   }, [isPublicNotebook, mutations]);
 }
 
+// OPTIMIZATION: Enhanced caching helper for preloaded documents
+export function useDocumentCache(maxCacheSize = 10) {
+  const cacheRef = useRef(new Map<Id<"documents">, unknown>());
+  const accessOrderRef = useRef<Id<"documents">[]>([]);
+
+  // Memoize cache management
+  const cacheHelpers = useMemo(
+    () => ({
+      get: (documentId: Id<"documents">) => {
+        const doc = cacheRef.current.get(documentId);
+        if (doc) {
+          // Move to end for LRU
+          const index = accessOrderRef.current.indexOf(documentId);
+          if (index > -1) {
+            accessOrderRef.current.splice(index, 1);
+          }
+          accessOrderRef.current.push(documentId);
+        }
+        return doc;
+      },
+
+      set: (documentId: Id<"documents">, document: unknown) => {
+        cacheRef.current.set(documentId, document);
+        accessOrderRef.current.push(documentId);
+
+        // Maintain cache size
+        while (cacheRef.current.size > maxCacheSize) {
+          const oldest = accessOrderRef.current.shift();
+          if (oldest) {
+            cacheRef.current.delete(oldest);
+          }
+        }
+      },
+
+      clear: () => {
+        cacheRef.current.clear();
+        accessOrderRef.current = [];
+      },
+    }),
+    [maxCacheSize],
+  );
+
+  return cacheHelpers;
+}
+
 // Optimized query condition builders following Convex best practices
 export const ConvexOptimizations = {
   // Build efficient query conditions
@@ -203,5 +254,16 @@ export const ConvexOptimizations = {
   // Memoization helpers
   memoizeQueryResult: <T>(result: T | undefined, fallback: T): T => {
     return result ?? fallback;
+  },
+
+  // OPTIMIZATION: Batch query helper for multiple document operations
+  batchDocumentQueries: (
+    documentIds: Id<"documents">[],
+    userId: Id<"users"> | null,
+    isUserLoading: boolean,
+  ) => {
+    if (!userId || isUserLoading) return [];
+
+    return documentIds.map((id) => ({ id, userId }));
   },
 };

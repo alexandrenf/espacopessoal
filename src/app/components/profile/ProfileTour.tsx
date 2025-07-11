@@ -90,16 +90,6 @@ export function ProfileTour() {
             align: "center",
           },
         },
-        {
-          element: ".notepad-settings",
-          popover: {
-            title: "Configurações do Bloco de Notas",
-            description:
-              "Configure suas preferências do Bloco de Notas, incluindo URL, privacidade e senha de acesso.",
-            side: "left",
-            align: "start",
-          },
-        },
       ],
       nextBtnText: "Próximo",
       prevBtnText: "Anterior",

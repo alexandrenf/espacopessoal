@@ -132,7 +132,7 @@ export const usersConvexRouter = createTRPCRouter({
           .min(1, "Name cannot be empty")
           .max(50, "Name is too long")
           .trim()
-          .regex(/^[a-zA-Z\s-']+$/, "Name contains invalid characters"),
+          .regex(/^[a-zA-Z0-9\s._'-]+$/, "Name contains invalid characters"),
         email: z.string().email("Invalid email address").trim(),
         image: z
           .string()
@@ -189,7 +189,7 @@ export const usersConvexRouter = createTRPCRouter({
           .min(1, "Name cannot be empty")
           .max(50, "Name is too long")
           .trim()
-          .regex(/^[a-zA-Z\s-']+$/, "Name contains invalid characters"),
+          .regex(/^[a-zA-Z0-9\s._'-]+$/, "Name contains invalid characters"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -216,6 +216,149 @@ export const usersConvexRouter = createTRPCRouter({
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to update user name";
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: errorMessage,
+        });
+      }
+    }),
+
+  generateUploadUrl: protectedProcedure.mutation(async ({ ctx }) => {
+    try {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      const uploadUrl = await ctx.convex.mutation(api.users.generateUploadUrl, {});
+      return { uploadUrl };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to generate upload URL";
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: errorMessage,
+      });
+    }
+  }),
+
+  updateProfileImage: protectedProcedure
+    .input(
+      z.object({
+        storageId: z.string(),
+        filename: z.string(),
+        fileSize: z.number(),
+        mimeType: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
+
+        // Get or create the Convex user
+        const convexUser: Doc<"users"> = await getOrCreateConvexUser(
+          ctx.convex,
+          ctx.session,
+        );
+
+        const user = await ctx.convex.mutation(api.users.updateProfileImage, {
+          userId: convexUser._id,
+          storageId: input.storageId as Id<"_storage">,
+          filename: input.filename,
+          fileSize: input.fileSize,
+          mimeType: input.mimeType,
+        });
+
+        return user;
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to update profile image";
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: errorMessage,
+        });
+      }
+    }),
+
+  getUserAccounts: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      if (!ctx.convex) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Convex client not available",
+        });
+      }
+
+      // Get or create the Convex user
+      const convexUser: Doc<"users"> = await getOrCreateConvexUser(
+        ctx.convex,
+        ctx.session,
+      );
+
+      const accounts = await ctx.convex.query(api.users.getUserAccounts, {
+        userId: convexUser._id,
+      });
+
+      return accounts;
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to get user accounts";
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: errorMessage,
+      });
+    }
+  }),
+
+  refetchAuthProviderImage: protectedProcedure
+    .input(
+      z.object({
+        provider: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input: _input }) => {
+      try {
+        // Refresh the session to get the latest data from the provider
+        // This will depend on the NextAuth configuration
+        // For now, we'll just update the image from the current session
+        if (!ctx.session?.user?.image) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No image available from auth provider",
+          });
+        }
+
+        if (!ctx.convex) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Convex client not available",
+          });
+        }
+
+        // Get or create the Convex user
+        const convexUser: Doc<"users"> = await getOrCreateConvexUser(
+          ctx.convex,
+          ctx.session,
+        );
+
+        const user = await ctx.convex.mutation(api.users.updateProfile, {
+          userId: convexUser._id,
+          name: convexUser.name ?? "",
+          email: convexUser.email,
+          image: ctx.session.user.image,
+        });
+
+        return user;
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to refetch auth provider image";
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: errorMessage,

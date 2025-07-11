@@ -15,6 +15,7 @@ import {
   useOptimizedDictionary,
   useOptimizedDocumentMutations,
 } from "~/hooks/useOptimizedConvex";
+import { api } from "~/trpc/react";
 import {
   ArrowLeft,
   Wifi,
@@ -66,6 +67,7 @@ import {
 } from "../components_new/ui/menubar";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import Image from "next/image";
 
 // TipTap Extensions
 import { FontSizeExtension } from "../extensions/font-size";
@@ -150,6 +152,12 @@ export function DocumentEditor({
   // Get NextAuth session for user profile info
   const { data: session } = useSession();
 
+  // Get user profile from Convex for updated profile image
+  const { data: userProfile } = api.users.getUserProfile.useQuery(
+    undefined,
+    { enabled: !!convexUserId }
+  );
+
   // OPTIMIZED: Use consolidated optimized queries instead of individual ones
   const currentDocument = useOptimizedDocument(
     currentDocumentId,
@@ -196,11 +204,16 @@ export function DocumentEditor({
   // Create document immediately with current document ID
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
 
-  // Add a limit to cached documents to prevent memory leaks
-  const MAX_CACHED_DOCUMENTS = 5;
+  // OPTIMIZATION: Enhanced document caching with performance metrics
+  const MAX_CACHED_DOCUMENTS = 8; // Increased from 5 for better performance
   const documentAccessOrder = useRef<string[]>([]);
+  const documentCacheStats = useRef<{
+    hits: number;
+    misses: number;
+    evictions: number;
+  }>({ hits: 0, misses: 0, evictions: 0 });
 
-  // Enhanced cleanup function with memory leak prevention
+  // OPTIMIZATION: Enhanced cleanup function with performance metrics
   const cleanupOldDocuments = useCallback(() => {
     if (documentInstances.current.size > MAX_CACHED_DOCUMENTS) {
       // Remove least recently used documents with proper error handling
@@ -216,6 +229,7 @@ export function DocumentEditor({
               console.log("🧹 Cleaning up old Y.js document:", oldestDocId);
               oldDoc.destroy();
               documentInstances.current.delete(oldestDocId);
+              documentCacheStats.current.evictions++;
             } catch (error) {
               console.error(
                 `Error cleaning up document ${oldestDocId}:`,
@@ -1402,11 +1416,13 @@ export function DocumentEditor({
                       variant="ghost"
                       className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
                     >
-                      {session?.user?.image ? (
-                        <img
+                      {userProfile?.image ?? session?.user?.image ? (
+                        <Image
                           className="h-8 w-8 rounded-full object-cover"
-                          src={session.user.image}
+                          src={userProfile?.image ?? session?.user?.image ?? ""}
                           alt={getUserDisplayName()}
+                          width={32}
+                          height={32}
                         />
                       ) : (
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-medium text-white">

@@ -45,6 +45,11 @@ const INITIAL_RETRY_DELAY = 1000; // 1 second
 const RETRY_BACKOFF_MULTIPLIER = 2;
 const MAX_RETRY_DELAY = 10000; // 10 seconds
 
+// OPTIMIZATION: Performance and cost optimization settings
+const SAVE_DELAY = safeParseInt(process.env.SAVE_DELAY, 15000); // 15 seconds (increased from 10s for cost optimization)
+const BATCH_SAVE_DELAY = safeParseInt(process.env.BATCH_SAVE_DELAY, 2000); // 2 seconds for batching multiple saves
+const MAX_BATCH_SIZE = safeParseInt(process.env.MAX_BATCH_SIZE, 10); // Maximum documents to save in one batch
+
 // Enhanced document state tracking with last saved content
 interface DocumentState {
   documentName: string;
@@ -600,10 +605,10 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
   state.lastActivity = Date.now();
   state.pendingSave = true;
 
-  // Schedule save after 10 seconds of inactivity (reduced from 5 seconds for cost optimization)
+  // OPTIMIZATION: Use configurable save delay for cost optimization
   state.saveTimeout = setTimeout(() => {
     void performDocumentSave(documentName, document);
-  }, 10000);
+  }, SAVE_DELAY);
 };
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
@@ -619,6 +624,16 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     // Extract Y.js binary state for perfect formatting preservation
     const yjsState = Y.encodeStateAsUpdate(document);
 
+    // OPTIMIZATION: Content diffing - only save if content actually changed
+    const yjsStateString = Buffer.from(yjsState).toString("base64");
+    if (state.lastSavedContent === yjsStateString) {
+      console.log(
+        `[${new Date().toISOString()}] ⚡ Skipping save for ${documentName} - content unchanged (${yjsState.length} bytes)`,
+      );
+      state.pendingSave = false;
+      return;
+    }
+
     console.log(
       `[${new Date().toISOString()}] Saving document ${documentName} (${yjsState.length} bytes Y.js state)`,
     );
@@ -627,6 +642,8 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     const result = await saveYjsStateToConvex(documentName, yjsState);
 
     if (result.success) {
+      // OPTIMIZATION: Store the successfully saved content for future comparisons
+      state.lastSavedContent = yjsStateString;
       console.log(
         `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex`,
       );

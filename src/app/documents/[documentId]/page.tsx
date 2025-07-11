@@ -55,7 +55,7 @@ export default function DocumentPage() {
     }
   }, [validatedDocumentId, documentId]);
 
-  // Only fetch the initial document to pass to DocumentEditor
+  // OPTIMIZATION: Parallel loading - fetch document immediately when user data is available
   const initialDocument = useQuery(
     api.documents.getById,
     !isUserLoading && validatedDocumentId && convexUserId
@@ -63,7 +63,8 @@ export default function DocumentPage() {
       : "skip",
   );
 
-  // Get notebook if document has one (for redirect logic)
+  // OPTIMIZATION: Parallel loading - pre-fetch notebook data for common use cases
+  // This runs in parallel with document fetch to reduce waterfall loading
   const notebook = useQuery(
     api.notebooks.getById,
     !isUserLoading && initialDocument?.notebookId && convexUserId

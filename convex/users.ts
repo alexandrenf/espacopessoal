@@ -695,7 +695,7 @@ export const updateProfile = mutation({
     if (args.name.length > 50) {
       throw new ConvexError("Name is too long");
     }
-    if (!/^[a-zA-Z\s-']+$/.test(args.name)) {
+    if (!/^[a-zA-Z0-9\s._'-]+$/.test(args.name)) {
       throw new ConvexError("Name contains invalid characters");
     }
 
@@ -753,7 +753,7 @@ export const changeName = mutation({
     if (args.name.length > 50) {
       throw new ConvexError("Name is too long");
     }
-    if (!/^[a-zA-Z\s-']+$/.test(args.name)) {
+    if (!/^[a-zA-Z0-9\s._'-]+$/.test(args.name)) {
       throw new ConvexError("Name contains invalid characters");
     }
 
@@ -763,5 +763,222 @@ export const changeName = mutation({
     });
 
     return await ctx.db.get(args.userId);
+  },
+});
+
+// Generate upload URL for profile image
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+// Create profile picture record
+export const createProfilePicture = mutation({
+  args: {
+    userId: v.id("users"),
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Deactivate any existing profile pictures for this user
+    const existingPictures = await ctx.db
+      .query("profilePictures")
+      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .collect();
+    
+    for (const picture of existingPictures) {
+      await ctx.db.patch(picture._id, { isActive: false });
+    }
+    
+    // Create new profile picture record
+    const profilePictureId = await ctx.db.insert("profilePictures", {
+      userId: args.userId,
+      storageId: args.storageId,
+      filename: args.filename,
+      fileSize: args.fileSize,
+      mimeType: args.mimeType,
+      isActive: true,
+      uploadedAt: now,
+      lastAccessedAt: now,
+    });
+    
+    return profilePictureId;
+  },
+});
+
+// Get user's active profile picture
+export const getActiveProfilePicture = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("profilePictures")
+      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .first();
+  },
+});
+
+// Get profile picture by storage ID
+export const getProfilePictureByStorageId = query({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("profilePictures")
+      .withIndex("by_storage_id", (q) => q.eq("storageId", args.storageId))
+      .first();
+  },
+});
+
+// Get storage URL for a file ID
+export const getStorageUrl = query({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
+// Update profile picture access time
+export const updateProfilePictureAccess = mutation({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const profilePicture = await ctx.db
+      .query("profilePictures")
+      .withIndex("by_storage_id", (q) => q.eq("storageId", args.storageId))
+      .first();
+    
+    if (profilePicture) {
+      await ctx.db.patch(profilePicture._id, {
+        lastAccessedAt: Date.now(),
+      });
+    }
+  },
+});
+
+// Update user profile image with uploaded file
+export const updateProfileImage = mutation({
+  args: {
+    userId: v.id("users"),
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    // Create profile picture record (this will deactivate old ones)
+    await ctx.db.insert("profilePictures", {
+      userId: args.userId,
+      storageId: args.storageId,
+      filename: args.filename,
+      fileSize: args.fileSize,
+      mimeType: args.mimeType,
+      isActive: true,
+      uploadedAt: Date.now(),
+      lastAccessedAt: Date.now(),
+    });
+
+    // Deactivate any existing profile pictures for this user
+    const existingPictures = await ctx.db
+      .query("profilePictures")
+      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .collect();
+    
+    for (const picture of existingPictures) {
+      if (picture.storageId !== args.storageId) {
+        await ctx.db.patch(picture._id, { isActive: false });
+      }
+    }
+
+    // Update user with server-side image URL instead of Convex URL
+    const serverImageUrl = `/api/profile-image/${args.storageId}`;
+    await ctx.db.patch(args.userId, {
+      image: serverImageUrl,
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(args.userId);
+  },
+});
+
+// Get user accounts for auth provider image refetch
+export const getUserAccounts = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .collect();
+
+    return accounts.map((account) => ({
+      provider: account.provider,
+      providerAccountId: account.providerAccountId,
+    }));
+  },
+});
+
+// Internal function to cleanup unused profile pictures (run by cron job)
+export const cleanupUnusedProfilePictures = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
+    
+    // Find inactive profile pictures that haven't been accessed in 30 days
+    const oldProfilePictures = await ctx.db
+      .query("profilePictures")
+      .withIndex("by_last_accessed")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("isActive"), false),
+          q.lt(q.field("lastAccessedAt"), thirtyDaysAgo)
+        )
+      )
+      .collect();
+
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    // Delete old profile pictures and their storage files
+    for (const picture of oldProfilePictures) {
+      try {
+        // Delete the file from Convex storage
+        await ctx.storage.delete(picture.storageId);
+        
+        // Remove the database record
+        await ctx.db.delete(picture._id);
+        
+        deletedCount++;
+      } catch (error) {
+        console.error(`Failed to delete profile picture ${picture._id}:`, error);
+        failedCount++;
+      }
+    }
+
+    console.log(`Profile picture cleanup completed: ${deletedCount} deleted, ${failedCount} failed`);
+    
+    return {
+      deletedCount,
+      failedCount,
+      totalProcessed: oldProfilePictures.length,
+    };
   },
 });
