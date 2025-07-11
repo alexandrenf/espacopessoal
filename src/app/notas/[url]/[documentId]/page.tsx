@@ -13,6 +13,8 @@ import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { useConvexUser } from "~/hooks/use-convex-user";
 import DocumentSidebar from "~/components_new/DocumentSidebar";
 import React, { useState } from "react";
+import { Button } from "~/components/ui/button";
+import { PanelLeft } from "lucide-react";
 
 function DocumentPageContent() {
   const params = useParams<{ url: string; documentId: string }>();
@@ -155,6 +157,11 @@ function DocumentPageContent() {
     router.push(`/notas/${normalizedUrl}/${documentId}`);
   };
 
+  // Handler for sidebar toggle
+  const handleToggleSidebar = () => {
+    setShowSidebar(!showSidebar);
+  };
+
   // Render the document editor with sidebar for public notebooks
   return (
     <div className="flex min-h-screen flex-col">
@@ -165,7 +172,7 @@ function DocumentPageContent() {
             <DocumentSidebar
               currentDocument={document}
               setCurrentDocumentId={handleDocumentSelect}
-              onToggleSidebar={() => setShowSidebar(false)}
+              onToggleSidebar={handleToggleSidebar}
               showSidebar={showSidebar}
               isMobile={false}
               notebookId={notebook._id as Id<"notebooks">}
@@ -176,7 +183,22 @@ function DocumentPageContent() {
           </div>
         )}
 
-        <div className="flex-grow">
+        <div className="flex-grow relative">
+          {/* Sidebar toggle button when sidebar is hidden */}
+          {(isPublicNotebook || isOwner) && !showSidebar && (
+            <div className="absolute top-4 left-4 z-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleSidebar}
+                className="bg-white shadow-md hover:bg-gray-50"
+                title="Open sidebar"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           <DocumentEditor
             document={document}
             notebookId={notebook._id as Id<"notebooks">}
