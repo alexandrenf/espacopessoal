@@ -139,7 +139,6 @@ const saveDocumentToConvex = async (
   );
 
   let lastError: unknown;
-  let lastResponse: Response | undefined;
 
   for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -161,7 +160,7 @@ const saveDocumentToConvex = async (
       console.log(
         `[${new Date().toISOString()}] 📡 Response status: ${response.status} ${response.statusText}`,
       );
-      lastResponse = response;
+      // Response processed inline
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -336,6 +335,233 @@ const loadDocumentFromConvex = async (
   }
 };
 
+// New functions for Y.js binary state management (perfect formatting preservation)
+const saveYjsStateToConvex = async (
+  documentName: string,
+  yjsState: Uint8Array,
+): Promise<SaveResult> => {
+  const url = `${CONVEX_SITE_URL}/updateYjsState`;
+  
+  // Convert Y.js binary state to base64 for JSON transport
+  const yjsStateBase64 = btoa(String.fromCharCode(...yjsState));
+  
+  const payload = {
+    documentId: documentName,
+    yjsState: yjsStateBase64,
+    userId: SERVER_USER_ID,
+  };
+
+  console.log(`[${new Date().toISOString()}] 🔗 Attempting to save Y.js state to: ${url}`);
+  console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
+  console.log(
+    `[${new Date().toISOString()}] 📝 Y.js state length: ${yjsState.length} bytes`,
+  );
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(
+          `[${new Date().toISOString()}] 🔄 Retry attempt ${attempt}/${MAX_RETRY_ATTEMPTS} for document ${documentName}`,
+        );
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log(
+        `[${new Date().toISOString()}] 📡 Response status: ${response.status} ${response.statusText}`,
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `[${new Date().toISOString()}] ❌ HTTP Error: ${response.status} - ${errorText}`,
+        );
+
+        // Handle non-retryable errors immediately
+        if (response.status === 404) {
+          console.log(
+            `[${new Date().toISOString()}] Document ${documentName} not found, returning not_found`,
+          );
+          return {
+            success: false,
+            error: "Document not found",
+            type: "not_found",
+          };
+        }
+
+        // Handle client errors (4xx) as non-retryable
+        if (response.status >= 400 && response.status < 500) {
+          console.log(
+            `[${new Date().toISOString()}] Client error ${response.status} - not retrying`,
+          );
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${errorText}`,
+            type: "error",
+          };
+        }
+
+        // Server errors (5xx) and other issues are retryable
+        if (attempt === MAX_RETRY_ATTEMPTS) {
+          console.error(
+            `[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName}, giving up`,
+          );
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${errorText}`,
+            type: "error",
+          };
+        }
+
+        // Calculate delay for next attempt with exponential backoff
+        const delayMs = Math.min(
+          INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
+          MAX_RETRY_DELAY,
+        );
+
+        console.log(
+          `[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to ${response.status} error`,
+        );
+        await delay(delayMs);
+        continue;
+      }
+
+      // Success case
+      const result = (await response.json()) as {
+        success: boolean;
+        message: string;
+      };
+
+      if (attempt > 1) {
+        console.log(
+          `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex after ${attempt} attempts`,
+        );
+      } else {
+        console.log(
+          `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex`,
+        );
+      }
+
+      return {
+        success: true,
+        type: "success",
+      };
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `[${new Date().toISOString()}] Network error saving Y.js state for document ${documentName} to Convex:`,
+        error,
+      );
+
+      // Network errors are always retryable
+      if (attempt === MAX_RETRY_ATTEMPTS) {
+        console.error(
+          `[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName} after network error, giving up`,
+        );
+        break;
+      }
+
+      // Calculate delay for next attempt with exponential backoff
+      const delayMs = Math.min(
+        INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
+        MAX_RETRY_DELAY,
+      );
+
+      console.log(
+        `[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to network error`,
+      );
+      await delay(delayMs);
+    }
+  }
+
+  // If we get here, all retries failed
+  return {
+    success: false,
+    error:
+      lastError instanceof Error
+        ? lastError.message
+        : "Unknown error after retries",
+    type: "error",
+  };
+};
+
+const loadYjsStateFromConvex = async (
+  documentName: string,
+): Promise<Uint8Array | null> => {
+  const url = `${CONVEX_SITE_URL}/getYjsState?documentId=${encodeURIComponent(documentName)}`;
+
+  console.log(
+    `[${new Date().toISOString()}] 🔍 Attempting to load Y.js state from: ${url}`,
+  );
+  console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log(
+      `[${new Date().toISOString()}] 📡 Load Y.js state response status: ${response.status} ${response.statusText}`,
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(
+          `[${new Date().toISOString()}] Document ${documentName} not found in Convex - will start with empty document`,
+        );
+        return null;
+      }
+
+      console.error(
+        `[${new Date().toISOString()}] Failed to load Y.js state: ${response.status} ${response.statusText}`,
+      );
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      success: boolean;
+      document: {
+        id: string;
+        title: string;
+        yjsState: string | null;
+        updatedAt: number;
+      };
+    };
+
+    if (data.success && data.document.yjsState) {
+      // Convert base64 back to Uint8Array
+      const yjsStateBytes = Uint8Array.from(atob(data.document.yjsState), c => c.charCodeAt(0));
+      
+      console.log(
+        `[${new Date().toISOString()}] ✅ Successfully loaded Y.js state for document ${documentName} (${yjsStateBytes.length} bytes)`,
+      );
+      return yjsStateBytes;
+    } else {
+      console.log(
+        `[${new Date().toISOString()}] Document ${documentName} found but no Y.js state available`,
+      );
+      return null;
+    }
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] Error loading Y.js state for document ${documentName} from Convex:`,
+      error,
+    );
+    return null;
+  }
+};
+
 // Document saving logic with enhanced scheduling
 const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
@@ -366,66 +592,29 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   }
 
   try {
-    // Extract current content
-    const currentContent = extractDocumentContent(document);
-
-    // Normalize content for comparison
-    const normalize = (str: string): string =>
-      (str || "")
-        .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, "") // remove empty tags
-        .replace(/\s+/g, " ") // collapse whitespace
-        .trim();
-
-    const normalizedCurrent = normalize(currentContent);
-    const normalizedLastSaved = normalize(state.lastSavedContent ?? "");
-
-    // Skip save if content hasn't actually changed
-    if (normalizedCurrent === normalizedLastSaved) {
-      console.log(
-        `[${new Date().toISOString()}] Skipping save for ${documentName} - content unchanged`,
-      );
-      state.pendingSave = false;
-      if (state.saveTimeout) {
-        clearTimeout(state.saveTimeout);
-        state.saveTimeout = undefined;
-      }
-      return;
-    }
-
-    // Only save if content is meaningful (not just empty paragraphs)
-    if (!normalizedCurrent || normalizedCurrent === "<p></p>") {
-      console.log(
-        `[${new Date().toISOString()}] Skipping save for ${documentName} - empty content`,
-      );
-      state.pendingSave = false;
-      if (state.saveTimeout) {
-        clearTimeout(state.saveTimeout);
-        state.saveTimeout = undefined;
-      }
-      return;
-    }
-
+    // Extract Y.js binary state for perfect formatting preservation
+    const yjsState = Y.encodeStateAsUpdate(document);
+    
     console.log(
-      `[${new Date().toISOString()}] Saving document ${documentName} (${currentContent.length} chars)`,
+      `[${new Date().toISOString()}] Saving document ${documentName} (${yjsState.length} bytes Y.js state)`,
     );
 
-    const result = await saveDocumentToConvex(documentName, currentContent);
+    // Save Y.js binary state instead of HTML
+    const result = await saveYjsStateToConvex(documentName, yjsState);
 
     if (result.success) {
-      // Update last saved content on successful save
-      state.lastSavedContent = currentContent;
       console.log(
-        `[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`,
+        `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex`,
       );
     } else {
       console.error(
-        `[${new Date().toISOString()}] ❌ Failed to save document ${documentName}:`,
+        `[${new Date().toISOString()}] ❌ Failed to save Y.js state for document ${documentName}:`,
         result.error,
       );
     }
   } catch (error) {
     console.error(
-      `[${new Date().toISOString()}] Error saving document ${documentName}:`,
+      `[${new Date().toISOString()}] Error saving Y.js state for document ${documentName}:`,
       error,
     );
   } finally {
@@ -467,6 +656,8 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           if (fragment.length > 0) {
             const content = convertXmlFragmentToHtml(fragment);
             if (content && content !== "<p></p>") {
+              // Enhanced logging for formatting analysis
+              logFormattingAnalysis(fragment, content);
               console.log(
                 `✅ Successfully extracted content from fragment '${fragmentName}':`,
                 content,
@@ -512,6 +703,8 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
           if (sharedType.length > 0) {
             const content = convertXmlFragmentToHtml(sharedType);
             if (content && content !== "<p></p>") {
+              // Enhanced logging for formatting analysis
+              logFormattingAnalysis(sharedType, content);
               console.log(
                 `✅ Successfully extracted content from shared type '${typeName}':`,
                 content,
@@ -558,6 +751,99 @@ const extractDocumentContent = (ydoc: Y.Doc): string => {
   } catch (error) {
     console.error("💥 Error extracting document content:", error);
     return "<p>Error extracting content</p>";
+  }
+};
+
+// Helper function to log formatting analysis for debugging (development only)
+const logFormattingAnalysis = (fragment: Y.XmlFragment, htmlContent: string): void => {
+  // Only run formatting analysis in development environment
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  try {
+    console.log("🎨 === FORMATTING ANALYSIS ===");
+
+    // Count formatting elements in Y.js fragment
+    let textStyleCount = 0;
+    let highlightCount = 0;
+    let strongCount = 0;
+    let emCount = 0;
+    let underlineCount = 0;
+    let codeCount = 0;
+
+    const analyzeElement = (element: Y.XmlElement | Y.XmlFragment): void => {
+      if (element instanceof Y.XmlElement) {
+        switch (element.nodeName) {
+          case 'textStyle': {
+            textStyleCount++;
+            const attrs = element.getAttributes();
+            console.log(`🎨 TextStyle attributes:`, attrs);
+            break;
+          }
+          case 'highlight':
+            highlightCount++;
+            break;
+          case 'strong':
+            strongCount++;
+            break;
+          case 'em':
+            emCount++;
+            break;
+          case 'underline':
+            underlineCount++;
+            break;
+          case 'code':
+            codeCount++;
+            break;
+        }
+      }
+
+      // Recursively analyze children
+      element.forEach((child) => {
+        if (child instanceof Y.XmlElement) {
+          analyzeElement(child);
+        }
+      });
+    };
+
+    analyzeElement(fragment);
+
+    console.log(`🎨 Y.js Formatting Counts:`);
+    console.log(`  - TextStyle elements: ${textStyleCount}`);
+    console.log(`  - Highlight elements: ${highlightCount}`);
+    console.log(`  - Strong elements: ${strongCount}`);
+    console.log(`  - Em elements: ${emCount}`);
+    console.log(`  - Underline elements: ${underlineCount}`);
+    console.log(`  - Code elements: ${codeCount}`);
+
+    // Count formatting elements in HTML output
+    const htmlSpanCount = (htmlContent.match(/<span[^>]*>/g) || []).length;
+    const htmlMarkCount = (htmlContent.match(/<mark[^>]*>/g) || []).length;
+    const htmlStrongCount = (htmlContent.match(/<strong>/g) || []).length;
+    const htmlEmCount = (htmlContent.match(/<em>/g) || []).length;
+    const htmlUCount = (htmlContent.match(/<u>/g) || []).length;
+    const htmlCodeCount = (htmlContent.match(/<code>/g) || []).length;
+
+    console.log(`🎨 HTML Formatting Counts:`);
+    console.log(`  - Span elements: ${htmlSpanCount}`);
+    console.log(`  - Mark elements: ${htmlMarkCount}`);
+    console.log(`  - Strong elements: ${htmlStrongCount}`);
+    console.log(`  - Em elements: ${htmlEmCount}`);
+    console.log(`  - U elements: ${htmlUCount}`);
+    console.log(`  - Code elements: ${htmlCodeCount}`);
+
+    // Check for potential formatting loss
+    if (textStyleCount > htmlSpanCount) {
+      console.warn(`⚠️ Potential formatting loss: ${textStyleCount} textStyle elements -> ${htmlSpanCount} span elements`);
+    }
+    if (highlightCount > htmlMarkCount) {
+      console.warn(`⚠️ Potential formatting loss: ${highlightCount} highlight elements -> ${htmlMarkCount} mark elements`);
+    }
+
+    console.log("🎨 === END FORMATTING ANALYSIS ===");
+  } catch (error) {
+    console.error("Error in formatting analysis:", error);
   }
 };
 
@@ -811,14 +1097,13 @@ const parseTextWithFormatting = (
   try {
     const result: (Y.XmlText | Y.XmlElement)[] = [];
 
-    // Simple approach: split by formatting tags and rebuild
-    // This handles basic bold, italic, underline formatting
+    // Enhanced approach: handle both basic formatting tags and span elements with style attributes
     let remaining = html;
 
     while (remaining) {
-      // Find the next formatting tag
+      // Find the next formatting tag - including span elements with style attributes
       const formatMatch = remaining.match(
-        /^(.*?)<(strong|b|em|i|u|code|mark)[^>]*>(.*?)<\/\2>(.*)$/s,
+        /^(.*?)<(strong|b|em|i|u|code|mark|span)[^>]*>(.*?)<\/\2>(.*)$/s,
       );
 
       if (
@@ -835,7 +1120,115 @@ const parseTextWithFormatting = (
           result.push(new Y.XmlText(before));
         }
 
-        // Create formatted element
+        // Handle span elements with style attributes (TipTap textStyle)
+        if (tag === "span") {
+          const spanMatch = remaining.match(
+            /^(.*?)<span([^>]*)>(.*?)<\/span>(.*)$/s,
+          );
+          if (spanMatch && spanMatch[2] && spanMatch[3] !== undefined) {
+            const attributes = spanMatch[2];
+            const spanContent = spanMatch[3];
+            
+            // Parse style attributes from span
+            const styleMatch = attributes.match(/style="([^"]*)"/i);
+            if (styleMatch && styleMatch[1]) {
+              const styleString = styleMatch[1];
+              const textStyleElement = new Y.XmlElement("textStyle");
+              
+              // Parse individual CSS properties
+              const cssProperties = styleString.split(';').map(prop => prop.trim()).filter(prop => prop.length > 0);
+              
+              for (const property of cssProperties) {
+                const [key, value] = property.split(':').map(part => part.trim());
+                if (key && value) {
+                  switch (key.toLowerCase()) {
+                    case 'font-size':
+                      textStyleElement.setAttribute('fontSize', value);
+                      console.log(`🎨 Parsed fontSize: ${value}`);
+                      break;
+                    case 'font-family':
+                      textStyleElement.setAttribute('fontFamily', value);
+                      console.log(`🎨 Parsed fontFamily: ${value}`);
+                      break;
+                    case 'color':
+                      textStyleElement.setAttribute('color', value);
+                      console.log(`🎨 Parsed color: ${value}`);
+                      break;
+                    case 'line-height':
+                      textStyleElement.setAttribute('lineHeight', value);
+                      console.log(`🎨 Parsed lineHeight: ${value}`);
+                      break;
+                    case 'background-color':
+                      textStyleElement.setAttribute('backgroundColor', value);
+                      console.log(`🎨 Parsed backgroundColor: ${value}`);
+                      break;
+                    case 'font-weight':
+                      textStyleElement.setAttribute('fontWeight', value);
+                      console.log(`🎨 Parsed fontWeight: ${value}`);
+                      break;
+                    case 'font-style':
+                      textStyleElement.setAttribute('fontStyle', value);
+                      console.log(`🎨 Parsed fontStyle: ${value}`);
+                      break;
+                    case 'text-decoration':
+                      textStyleElement.setAttribute('textDecoration', value);
+                      console.log(`🎨 Parsed textDecoration: ${value}`);
+                      break;
+                    default:
+                      console.log(`🎨 Unknown CSS property: ${key}`);
+                  }
+                }
+              }
+              
+              // Add content to textStyle element
+              if (spanContent) {
+                const nestedContent = parseTextWithFormatting(spanContent);
+                textStyleElement.insert(0, nestedContent);
+              }
+              
+              result.push(textStyleElement);
+              remaining = after;
+              continue;
+            }
+          }
+        }
+        
+        // Handle mark elements with style attributes (highlight colors)
+        if (tag === "mark") {
+          const markMatch = remaining.match(
+            /^(.*?)<mark([^>]*)>(.*?)<\/mark>(.*)$/s,
+          );
+          if (markMatch && markMatch[2] && markMatch[3] !== undefined) {
+            const attributes = markMatch[2];
+            const markContent = markMatch[3];
+            
+            // Parse style attributes from mark
+            const styleMatch = attributes.match(/style="([^"]*)"/i);
+            if (styleMatch && styleMatch[1]) {
+              const styleString = styleMatch[1];
+              const highlightElement = new Y.XmlElement("highlight");
+              
+              // Parse background-color for highlights
+              const backgroundColorMatch = styleString.match(/background-color:\s*([^;]+)/i);
+              if (backgroundColorMatch && backgroundColorMatch[1]) {
+                highlightElement.setAttribute('backgroundColor', backgroundColorMatch[1].trim());
+                console.log(`🎨 Parsed highlight backgroundColor: ${backgroundColorMatch[1].trim()}`);
+              }
+              
+              // Add content to highlight element
+              if (markContent) {
+                const nestedContent = parseTextWithFormatting(markContent);
+                highlightElement.insert(0, nestedContent);
+              }
+              
+              result.push(highlightElement);
+              remaining = after;
+              continue;
+            }
+          }
+        }
+
+        // Create formatted element for basic tags
         const formattedElement = new Y.XmlElement(getYjsElementName(tag));
         if (content) {
           // Recursively handle nested formatting
@@ -881,6 +1274,8 @@ const getYjsElementName = (htmlTag: string): string => {
       return "code";
     case "mark":
       return "highlight";
+    case "span":
+      return "textStyle";
     default:
       return htmlTag;
   }
@@ -956,11 +1351,83 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
     case "i": {
       return `<em>${innerContent}</em>`;
     }
-    case "u": {
+    case "u":
+    case "underline": {
       return `<u>${innerContent}</u>`;
     }
     case "code": {
       return `<code>${innerContent}</code>`;
+    }
+    case "highlight":
+    case "mark": {
+      // Handle highlight with color attributes
+      const backgroundColor = element.getAttribute("backgroundColor") || element.getAttribute("color");
+      if (backgroundColor) {
+        return `<mark style="background-color: ${backgroundColor}">${innerContent}</mark>`;
+      }
+      return `<mark>${innerContent}</mark>`;
+    }
+    case "textStyle":
+    case "span": {
+      // Handle TipTap textStyle elements with comprehensive formatting attributes
+      const styleAttributes: string[] = [];
+      
+      // Font size
+      const fontSize = element.getAttribute("fontSize");
+      if (fontSize) {
+        styleAttributes.push(`font-size: ${fontSize}`);
+      }
+      
+      // Font family
+      const fontFamily = element.getAttribute("fontFamily");
+      if (fontFamily) {
+        styleAttributes.push(`font-family: ${fontFamily}`);
+      }
+      
+      // Text color
+      const color = element.getAttribute("color");
+      if (color) {
+        styleAttributes.push(`color: ${color}`);
+      }
+      
+      // Line height
+      const lineHeight = element.getAttribute("lineHeight");
+      if (lineHeight) {
+        styleAttributes.push(`line-height: ${lineHeight}`);
+      }
+      
+      // Background color for highlights
+      const backgroundColor = element.getAttribute("backgroundColor");
+      if (backgroundColor) {
+        styleAttributes.push(`background-color: ${backgroundColor}`);
+      }
+      
+      // Additional text decorations
+      const textDecoration = element.getAttribute("textDecoration");
+      if (textDecoration) {
+        styleAttributes.push(`text-decoration: ${textDecoration}`);
+      }
+      
+      // Font weight
+      const fontWeight = element.getAttribute("fontWeight");
+      if (fontWeight) {
+        styleAttributes.push(`font-weight: ${fontWeight}`);
+      }
+      
+      // Font style
+      const fontStyle = element.getAttribute("fontStyle");
+      if (fontStyle) {
+        styleAttributes.push(`font-style: ${fontStyle}`);
+      }
+      
+      if (styleAttributes.length > 0) {
+        const styleString = styleAttributes.join('; ');
+        console.log(`🎨 Converting textStyle with attributes: ${styleString}`);
+        return `<span style="${styleString}">${innerContent}</span>`;
+      }
+      
+      // If no style attributes, return content without wrapper
+      return innerContent;
     }
     case "text": {
       return innerContent;
@@ -972,27 +1439,6 @@ const convertXmlElementToHtml = (element: Y.XmlElement): string => {
   }
 };
 
-// Helper function to convert ProseMirror JSON to HTML
-const convertProseMirrorToHtml = (
-  json: ProseMirrorDocument | ProseMirrorNode,
-): string => {
-  try {
-    if (!json || typeof json !== "object") return "";
-
-    // If it's a document node, extract content from it
-    if (json.type === "doc" && json.content && Array.isArray(json.content)) {
-      return json.content
-        .map((node: ProseMirrorNode) => convertNodeToHtml(node))
-        .join("");
-    }
-
-    // If it's a single node, convert it
-    return convertNodeToHtml(json);
-  } catch (error) {
-    console.error("Error converting ProseMirror JSON to HTML:", error);
-    return "";
-  }
-};
 
 // Helper function to convert a ProseMirror node to HTML
 const convertNodeToHtml = (node: ProseMirrorNode): string => {
@@ -1008,8 +1454,12 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
     }
     case "text": {
       let text = node.text ?? "";
-      // Apply marks (bold, italic, etc.)
+      // Apply marks (bold, italic, textStyle, etc.)
       if (node.marks && Array.isArray(node.marks)) {
+        // Collect style attributes from textStyle marks
+        const styleAttributes: string[] = [];
+        let hasTextStyle = false;
+        
         for (const mark of node.marks) {
           switch (mark.type) {
             case "bold":
@@ -1024,8 +1474,68 @@ const convertNodeToHtml = (node: ProseMirrorNode): string => {
             case "code":
               text = `<code>${text}</code>`;
               break;
+            case "textStyle": {
+              // Handle TipTap textStyle marks with comprehensive formatting
+              hasTextStyle = true;
+              const attrs = mark.attrs || {};
+              
+              // Font size
+              if (attrs.fontSize) {
+                styleAttributes.push(`font-size: ${attrs.fontSize}`);
+              }
+              
+              // Font family
+              if (attrs.fontFamily) {
+                styleAttributes.push(`font-family: ${attrs.fontFamily}`);
+              }
+              
+              // Text color
+              if (attrs.color) {
+                styleAttributes.push(`color: ${attrs.color}`);
+              }
+              
+              // Line height
+              if (attrs.lineHeight) {
+                styleAttributes.push(`line-height: ${attrs.lineHeight}`);
+              }
+              
+              // Font weight
+              if (attrs.fontWeight) {
+                styleAttributes.push(`font-weight: ${attrs.fontWeight}`);
+              }
+              
+              // Font style
+              if (attrs.fontStyle) {
+                styleAttributes.push(`font-style: ${attrs.fontStyle}`);
+              }
+              
+              // Text decoration
+              if (attrs.textDecoration) {
+                styleAttributes.push(`text-decoration: ${attrs.textDecoration}`);
+              }
+              
+              console.log(`🎨 Processing textStyle mark with attributes:`, attrs);
+              break;
+            }
+            case "highlight": {
+              // Handle highlight marks with color attributes
+              const attrs = mark.attrs || {};
+              if (attrs.color) {
+                text = `<mark style="background-color: ${attrs.color}">${text}</mark>`;
+              } else {
+                text = `<mark>${text}</mark>`;
+              }
+              break;
+            }
             // Add more marks as needed
           }
+        }
+        
+        // Apply textStyle span wrapper if we have style attributes
+        if (hasTextStyle && styleAttributes.length > 0) {
+          const styleString = styleAttributes.join('; ');
+          console.log(`🎨 Applying textStyle with: ${styleString}`);
+          text = `<span style="${styleString}">${text}</span>`;
         }
       }
       return text;
@@ -1269,7 +1779,7 @@ const server = new Server({
     }
   },
 
-  async onListen(data: onListenPayload) {
+  async onListen(_data: onListenPayload) {
     console.log(
       `[${new Date().toISOString()}] ${SERVER_NAME} listening on ${HOST}:${PORT}`,
     );
@@ -1292,7 +1802,7 @@ const server = new Server({
     );
   },
 
-  async onDestroy(data: onDestroyPayload) {
+  async onDestroy(_data: onDestroyPayload) {
     console.log(`[${new Date().toISOString()}] ${SERVER_NAME} destroyed`);
 
     // Save all pending documents before shutdown
@@ -1345,87 +1855,45 @@ const server = new Server({
       // Wait for IndexedDB/client hydration to complete
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const fragment = document.getXmlFragment("default");
-      const hasExistingContent = fragment.length > 0;
+      const hasExistingContent = document.share.size > 0;
 
-      // Extract current Y.js document content
-      let currentHtml = "";
-      try {
-        currentHtml = extractDocumentContent(document);
-      } catch (error) {
-        currentHtml = "";
-      }
+      // Get current Y.js document state
+      const currentState = Y.encodeStateAsUpdate(document);
+      
+      // Load Y.js binary state from database
+      const existingYjsState = await loadYjsStateFromConvex(documentName);
 
-      // Load content from database
-      const existingContent = await loadDocumentFromConvex(documentName);
-
-      // Normalize content for comparison
-      const normalize = (str: string): string =>
-        (str || "")
-          .replace(/<([a-z][a-z0-9]*)\b[^>]*>\s*<\/\1>/gi, "") // remove empty tags
-          .replace(/<[^>]*>/g, (tag) => tag.toLowerCase()) // normalize tag case
-          .replace(/\s+/g, " ") // collapse whitespace
-          .replace(/^\s*<p>\s*<\/p>\s*/, "") // remove leading empty paragraph
-          .replace(/\s*<p>\s*<\/p>\s*$/, "") // remove trailing empty paragraph
-          .trim();
-
-      const normalizedYjs = normalize(currentHtml);
-      const normalizedDB = normalize(existingContent || "");
-
-      // Skip loading if content is identical
-      if (normalizedYjs && normalizedDB && normalizedYjs === normalizedDB) {
+      // Skip loading if Y.js has content but DB has no state
+      if (hasExistingContent && !existingYjsState) {
         console.log(
-          `[${new Date().toISOString()}] Content is identical - skipping DB load`,
-        );
-        return document;
-      }
-
-      // Skip loading if Y.js has content but DB is empty
-      if (hasExistingContent && !normalizedDB) {
-        console.log(
-          `[${new Date().toISOString()}] Y.js has content, DB is empty - keeping Y.js content`,
+          `[${new Date().toISOString()}] Y.js has content, DB has no state - keeping Y.js content`,
         );
         return document;
       }
 
       // Skip if both are empty
-      if (!hasExistingContent && !normalizedDB) {
+      if (!hasExistingContent && !existingYjsState) {
         console.log(
           `[${new Date().toISOString()}] Both Y.js and DB are empty - no action needed`,
         );
         return document;
       }
 
-      // Load from DB if content differs
-      if (
-        existingContent &&
-        existingContent.trim() &&
-        existingContent !== "<p></p>" &&
-        normalizedDB !== normalizedYjs
-      ) {
+      // Load from DB if we have saved state
+      if (existingYjsState && existingYjsState.length > 0) {
         console.log(
-          `[${new Date().toISOString()}] Loading content from DB (${normalizedDB.length} chars)`,
+          `[${new Date().toISOString()}] Loading Y.js state from DB (${existingYjsState.length} bytes)`,
         );
 
         // Prevent onChange during population
         isPopulatingFromDatabase.set(documentName, true);
 
         try {
-          // Clear and replace content
-          fragment.delete(0, fragment.length);
-
-          if (existingContent.includes("<")) {
-            convertHtmlToYjsFragment(existingContent, fragment);
-          } else {
-            const paragraph = new Y.XmlElement("paragraph");
-            if (existingContent.trim()) {
-              paragraph.insert(0, [new Y.XmlText(existingContent)]);
-            }
-            fragment.insert(0, [paragraph]);
-          }
+          // Apply the Y.js state directly - this preserves ALL formatting perfectly
+          Y.applyUpdate(document, existingYjsState);
 
           console.log(
-            `[${new Date().toISOString()}] Successfully loaded document with ${fragment.length} elements`,
+            `[${new Date().toISOString()}] Successfully loaded Y.js state for document ${documentName}`,
           );
         } finally {
           setTimeout(() => {
@@ -1435,7 +1903,7 @@ const server = new Server({
         return document;
       } else {
         console.log(
-          `[${new Date().toISOString()}] No DB content to load - using current Y.js state`,
+          `[${new Date().toISOString()}] No Y.js state to load - using current Y.js state`,
         );
         return document;
       }

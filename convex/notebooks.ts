@@ -428,8 +428,8 @@ export const getMetadataByUrl = query({
 export const getByUrlWithPassword = query({
   args: {
     url: v.string(),
-    userId: v.optional(v.id("users")),
     hasValidPassword: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // Validate URL format
@@ -446,9 +446,28 @@ export const getByUrlWithPassword = query({
       throw new ConvexError("Notebook not found");
     }
 
-    // Check if user has access to this notebook
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    const isOwner = notebook.ownerId === userId;
+    const identity = await ctx.auth.getUserIdentity();
+    const authenticatedUserId = identity?.subject as Id<"users"> | undefined;
+
+    // Use the authenticated user ID from context, but also consider the provided userId
+    // This ensures proper access control while supporting both authenticated and session-based access
+    const effectiveUserId = authenticatedUserId ?? args.userId;
+    
+    const isOwner = effectiveUserId
+      ? notebook.ownerId === effectiveUserId
+      : false;
+
+    console.log("Access check:", {
+      notebookUrl: args.url,
+      notebookOwnerId: notebook.ownerId,
+      authenticatedUserId,
+      providedUserId: args.userId,
+      effectiveUserId,
+      isOwner,
+      isPrivate: notebook.isPrivate,
+      hasPassword: !!notebook.password,
+      hasValidPassword: args.hasValidPassword
+    });
 
     // If notebook is private and user is not the owner
     if (notebook.isPrivate && !isOwner) {

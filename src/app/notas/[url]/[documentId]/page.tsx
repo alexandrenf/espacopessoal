@@ -11,7 +11,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import { useConvexUser } from "~/hooks/use-convex-user";
-import PublicDocumentSidebar from "~/components_new/PublicDocumentSidebar";
+import DocumentSidebar from "~/components_new/DocumentSidebar";
 import React, { useState } from "react";
 
 function DocumentPageContent() {
@@ -162,15 +162,16 @@ function DocumentPageContent() {
         {/* Show sidebar for public notebooks or when user is owner */}
         {(isPublicNotebook || isOwner) && showSidebar && (
           <div className="hidden md:block md:w-80 lg:w-96">
-            <PublicDocumentSidebar
+            <DocumentSidebar
               currentDocument={document}
-              onDocumentSelect={handleDocumentSelect}
+              setCurrentDocumentId={handleDocumentSelect}
               onToggleSidebar={() => setShowSidebar(false)}
               showSidebar={showSidebar}
               isMobile={false}
               notebookId={notebook._id as Id<"notebooks">}
               notebookTitle={notebook.title}
               notebookUrl={normalizedUrl}
+              isPublicNotebook={true}
             />
           </div>
         )}
@@ -181,7 +182,8 @@ function DocumentPageContent() {
             notebookId={notebook._id as Id<"notebooks">}
             notebookUrl={normalizedUrl}
             notebookTitle={notebook.title}
-            isReadOnly={!isOwner}
+            isReadOnly={false} // Public notebooks are now fully manageable
+            hideInternalSidebar={true} // Use page-level sidebar for public notebooks
           />
         </div>
       </div>
