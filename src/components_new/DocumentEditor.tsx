@@ -123,6 +123,7 @@ interface EditorProps {
   notebookId?: Id<"notebooks">; // Notebook context for sidebar
   notebookUrl?: string; // Notebook URL for navigation
   notebookTitle?: string; // Notebook title for display
+  hideInternalSidebar?: boolean; // Hide internal sidebar when page provides its own
 }
 
 export function DocumentEditor({
@@ -132,10 +133,12 @@ export function DocumentEditor({
   notebookId,
   notebookUrl,
   notebookTitle,
+  hideInternalSidebar = false,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   const updateDocument = useMutation(api.documents.updateById);
+  const updateDocumentInPublicNotebook = useMutation(api.documents.updateInPublicNotebook);
 
   // New state management for document switching
   const [currentDocumentId, setCurrentDocumentId] = useState<Id<"documents">>(
@@ -1158,17 +1161,27 @@ export function DocumentEditor({
       return;
     }
 
-    if (!convexUserId) {
-      toast.error("Please wait for authentication to complete");
-      return;
-    }
-
     try {
-      await updateDocument({
-        id: doc._id,
-        title: documentTitle.trim(),
-        userId: convexUserId,
-      });
+      // Check if this is a public notebook document
+      if (notebookId) {
+        // Use public notebook update function (no authentication required)
+        await updateDocumentInPublicNotebook({
+          id: doc._id,
+          title: documentTitle.trim(),
+          notebookId,
+        });
+      } else {
+        // Use regular update function (requires authentication)
+        if (!convexUserId) {
+          toast.error("Please wait for authentication to complete");
+          return;
+        }
+        await updateDocument({
+          id: doc._id,
+          title: documentTitle.trim(),
+          userId: convexUserId,
+        });
+      }
       toast.success("Document title updated!");
       setIsEditingTitle(false);
     } catch {
@@ -1353,8 +1366,8 @@ export function DocumentEditor({
         </div>
       )}
 
-      {/* Sidebar */}
-      {showSidebar && (
+      {/* Sidebar - hidden when page provides its own sidebar */}
+      {showSidebar && !hideInternalSidebar && (
         <div
           className={`${isMobile ? "fixed inset-0 z-50 bg-white" : "w-80 border-r bg-white"}`}
         >
@@ -1367,6 +1380,8 @@ export function DocumentEditor({
             onNavigateToHome={handleNavigateToHome}
             notebookId={notebookId}
             notebookUrl={notebookUrl}
+            notebookTitle={notebookTitle}
+            isPublicNotebook={false} // DocumentEditor is used for private documents
           />
         </div>
       )}

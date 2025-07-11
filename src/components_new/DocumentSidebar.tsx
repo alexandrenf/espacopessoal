@@ -12,7 +12,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { type Id } from "../../convex/_generated/dataModel";
 import { Button } from "../components_new/ui/button";
-import { ArrowLeft, FolderPlus, FilePlus, X, FileText } from "lucide-react";
+import { ArrowLeft, FolderPlus, FilePlus, X, FileText, Eye, Lock } from "lucide-react";
 import { ImSpinner8 } from "react-icons/im";
 import Tree from "rc-tree";
 import {
@@ -47,6 +47,8 @@ interface DocumentSidebarProps {
   onNavigateToHome?: () => void;
   notebookId?: Id<"notebooks">; // Notebook context for filtering documents
   notebookUrl?: string; // Notebook URL for navigation
+  notebookTitle?: string; // Notebook title for display
+  isPublicNotebook?: boolean; // Whether this is a public notebook
 }
 
 interface TreeDropInfo {
@@ -67,6 +69,8 @@ const DocumentSidebar = memo(
     isMobile = false,
     onNavigateToHome,
     notebookId,
+    notebookTitle,
+    isPublicNotebook = false,
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -74,27 +78,36 @@ const DocumentSidebar = memo(
     // Track if we've shown the authentication error to prevent spamming
     const hasShownAuthErrorRef = useRef(false);
 
-    // Show authentication error only once when user is not authenticated after loading
+    // Show authentication error only once when user is not authenticated after loading (only for private notebooks)
     useEffect(() => {
-      if (!isUserLoading && !convexUserId && !hasShownAuthErrorRef.current) {
+      if (!isPublicNotebook && !isUserLoading && !convexUserId && !hasShownAuthErrorRef.current) {
         hasShownAuthErrorRef.current = true;
         toast.error("Please sign in to manage documents");
       } else if (convexUserId) {
         hasShownAuthErrorRef.current = false; // Reset when user signs in
       }
-    }, [isUserLoading, convexUserId]);
+    }, [isUserLoading, convexUserId, isPublicNotebook]);
 
     // Optimized Convex queries with fallback
     const documentsQuery = useQuery(
       api.documents.getAllForTreeLegacy,
-      !isUserLoading && convexUserId
-        ? { userId: convexUserId, limit: 200, notebookId }
-        : "skip",
+      isPublicNotebook
+        ? { notebookId, limit: 200 } // Public notebooks don't require userId
+        : !isUserLoading && convexUserId
+          ? { userId: convexUserId, limit: 200, notebookId }
+          : "skip",
     );
     const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
+
+    // Mutations for private notebooks (existing)
     const createDocument = useMutation(api.documents.create);
     const deleteDocument = useMutation(api.documents.removeById);
     const updateStructure = useMutation(api.documents.updateStructure);
+
+    // Mutations for public notebooks (new)
+    const createDocumentInPublic = useMutation(api.documents.createInPublicNotebook);
+    const deleteDocumentInPublic = useMutation(api.documents.deleteInPublicNotebook);
+    const updateStructureInPublic = useMutation(api.documents.updateStructureInPublicNotebook);
 
     // Local state
     const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
@@ -160,14 +173,25 @@ const DocumentSidebar = memo(
         e.preventDefault();
         e.stopPropagation();
 
-        if (!convexUserId) {
+        // For public notebooks, allow deletion without authentication
+        if (!isPublicNotebook && !convexUserId) {
           toast.error("User authentication required to delete documents");
+          return;
+        }
+
+        // For public notebooks, require notebookId
+        if (isPublicNotebook && !notebookId) {
+          toast.error("Notebook ID is required to delete documents");
           return;
         }
 
         setIsDeletingId(id);
         try {
-          await deleteDocument({ id, userId: convexUserId });
+          if (isPublicNotebook) {
+            await deleteDocumentInPublic({ id, notebookId: notebookId! });
+          } else {
+            await deleteDocument({ id, userId: convexUserId! });
+          }
           toast.success("Item deleted!");
 
           // If we deleted the current document, navigate to home
@@ -190,7 +214,7 @@ const DocumentSidebar = memo(
           setIsDeletingId(undefined);
         }
       },
-      [convexUserId, deleteDocument, currentDocument?._id, onNavigateToHome],
+      [convexUserId, deleteDocument, deleteDocumentInPublic, isPublicNotebook, notebookId, currentDocument?._id, onNavigateToHome],
     );
 
     // Optimized tree data conversion with better performance
@@ -285,27 +309,27 @@ const DocumentSidebar = memo(
       const retryCount =
         typeof eventOrRetryCount === "number" ? eventOrRetryCount : 0;
 
-      // Check authentication state first
-      if (isUserLoading) {
-        toast.info("Please wait for authentication to complete...");
-        return;
+      // Check authentication state for private notebooks
+      if (!isPublicNotebook) {
+        if (isUserLoading) {
+          toast.info("Please wait for authentication to complete...");
+          return;
+        }
+
+        if (!convexUserId) {
+          toast.error("Please sign in to create documents");
+          return;
+        }
       }
 
-      if (!convexUserId) {
-        toast.error("Please sign in to create documents");
+      // For public notebooks, require notebookId
+      if (isPublicNotebook && !notebookId) {
+        toast.error("Notebook ID is required to create documents");
         return;
       }
 
       // Prevent multiple simultaneous creates
       if (isCreating) {
-        return;
-      }
-
-      // Ensure user is authenticated before creating document
-      if (!convexUserId) {
-        toast.error(
-          "Please wait for authentication to complete before creating documents.",
-        );
         return;
       }
 
@@ -315,11 +339,20 @@ const DocumentSidebar = memo(
           console.log("Creating document with userId:", convexUserId);
         }
 
-        const documentId = await createDocument({
-          title: "Untitled Document",
-          userId: convexUserId,
-          notebookId,
-        });
+        let documentId;
+        if (isPublicNotebook) {
+          documentId = await createDocumentInPublic({
+            title: "Untitled Document",
+            notebookId: notebookId!,
+            userId: convexUserId ?? undefined,
+          });
+        } else {
+          documentId = await createDocument({
+            title: "Untitled Document",
+            userId: convexUserId!,
+            notebookId,
+          });
+        }
 
         if (!documentId) {
           throw new Error("Document creation returned invalid ID");
@@ -393,14 +426,22 @@ const DocumentSidebar = memo(
       const retryCount =
         typeof eventOrRetryCount === "number" ? eventOrRetryCount : 0;
 
-      // Check authentication state first
-      if (isUserLoading) {
-        toast.info("Please wait for authentication to complete...");
-        return;
+      // Check authentication state for private notebooks
+      if (!isPublicNotebook) {
+        if (isUserLoading) {
+          toast.info("Please wait for authentication to complete...");
+          return;
+        }
+
+        if (!convexUserId) {
+          toast.error("Please sign in to create folders");
+          return;
+        }
       }
 
-      if (!convexUserId) {
-        toast.error("Please sign in to create folders");
+      // For public notebooks, require notebookId
+      if (isPublicNotebook && !notebookId) {
+        toast.error("Notebook ID is required to create folders");
         return;
       }
 
@@ -411,12 +452,22 @@ const DocumentSidebar = memo(
 
       setIsCreating(true);
       try {
-        const folderId = await createDocument({
-          title: "New Folder",
-          userId: convexUserId,
-          isFolder: true,
-          notebookId,
-        });
+        let folderId;
+        if (isPublicNotebook) {
+          folderId = await createDocumentInPublic({
+            title: "New Folder",
+            notebookId: notebookId!,
+            isFolder: true,
+            userId: convexUserId ?? undefined,
+          });
+        } else {
+          folderId = await createDocument({
+            title: "New Folder",
+            userId: convexUserId!,
+            isFolder: true,
+            notebookId,
+          });
+        }
 
         if (!folderId) {
           throw new Error("Folder creation returned invalid ID");
@@ -665,22 +716,40 @@ const DocumentSidebar = memo(
     const persistDocumentStructure = async (
       updatedDocuments: DocumentWithTreeProps[],
     ) => {
-      if (!convexUserId) {
+      // For public notebooks, allow structure updates without authentication
+      if (!isPublicNotebook && !convexUserId) {
         toast.error(
           "User authentication required to update document structure",
         );
         return;
       }
 
+      // For public notebooks, require notebookId
+      if (isPublicNotebook && !notebookId) {
+        toast.error("Notebook ID is required to update document structure");
+        return;
+      }
+
       try {
-        await updateStructure({
-          updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
-            id: d._id,
-            parentId: d.parentId,
-            order: d.order,
-          })),
-          userId: convexUserId,
-        });
+        if (isPublicNotebook) {
+          await updateStructureInPublic({
+            updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
+              id: d._id,
+              parentId: d.parentId,
+              order: d.order,
+            })),
+            notebookId: notebookId!,
+          });
+        } else {
+          await updateStructure({
+            updates: updatedDocuments.map((d: DocumentWithTreeProps) => ({
+              id: d._id,
+              parentId: d.parentId,
+              order: d.order,
+            })),
+            userId: convexUserId!,
+          });
+        }
       } catch (error) {
         if (process.env.NODE_ENV === "development") {
           console.error("Failed to update structure:", error);
@@ -829,13 +898,28 @@ const DocumentSidebar = memo(
                 )}
               </Button>
             )}
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
-              <FileText className="h-5 w-5 text-blue-600" />
-              Documents{" "}
-              {isUserLoading && (
-                <span className="text-sm text-gray-500">(Loading user...)</span>
-              )}
-            </h1>
+            <div className="flex flex-col">
+              <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+                <FileText className="h-5 w-5 text-blue-600" />
+                {notebookTitle ?? "Documents"}{" "}
+                {isUserLoading && (
+                  <span className="text-sm text-gray-500">(Loading user...)</span>
+                )}
+              </h1>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                {isPublicNotebook ? (
+                  <>
+                    <Eye className="h-3 w-3" />
+                    <span>Public Notebook (Manageable)</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-3 w-3" />
+                    <span>Private Notebook</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenu>
@@ -897,7 +981,10 @@ const DocumentSidebar = memo(
               <FileText className="mx-auto mb-4 h-12 w-12 text-gray-300" />
               <p className="font-medium text-gray-600">No documents found</p>
               <p className="mt-2 text-sm text-gray-500">
-                Create your first document using the + button above
+                {isPublicNotebook
+                  ? "This public notebook doesn't contain any documents yet. Anyone can create and manage documents here!"
+                  : "Create your first document using the + button above"
+                }
               </p>
             </div>
           ) : (

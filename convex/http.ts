@@ -304,4 +304,222 @@ http.route({
   handler: getDocumentContent,
 });
 
+// New endpoints for Y.js binary state management
+const updateYjsState = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch (parseError) {
+    return new Response(
+      JSON.stringify({ error: "Invalid JSON in request body" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  try {
+    const { documentId, yjsState, userId } = body as {
+      documentId: unknown;
+      yjsState: unknown;
+      userId?: unknown;
+    };
+
+    // Validate documentId
+    if (!documentId || typeof documentId !== "string") {
+      return new Response(
+        JSON.stringify({ error: "documentId must be a non-empty string" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (!isValidConvexId(documentId)) {
+      return new Response(
+        JSON.stringify({ error: "documentId has invalid format" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Validate yjsState - should be a base64 encoded string
+    if (!yjsState || typeof yjsState !== "string") {
+      return new Response(
+        JSON.stringify({ error: "yjsState must be a base64 encoded string" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Convert base64 string to bytes
+    let yjsStateBytes: ArrayBuffer;
+    try {
+      yjsStateBytes = Uint8Array.from(atob(yjsState), c => c.charCodeAt(0)).buffer;
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: "Invalid base64 in yjsState" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Validate userId if provided
+    if (userId !== undefined && typeof userId !== "string") {
+      return new Response(
+        JSON.stringify({ error: "userId must be a string" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    console.log(
+      `HTTP updateYjsState called with documentId: ${documentId}, yjsState length: ${yjsStateBytes.byteLength}, userId: ${userId}`,
+    );
+
+    // Call the internal mutation
+    const result = await ctx.runMutation(
+      internal.documents.updateYjsStateInternal,
+      {
+        id: documentId,
+        yjsState: yjsStateBytes,
+        userId: userId as string | undefined,
+      },
+    );
+
+    console.log(`updateYjsStateInternal completed successfully for ${documentId}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Y.js state updated successfully",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  } catch (error) {
+    console.error("Error updating Y.js state:", error);
+
+    if (error instanceof ConvexError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+});
+
+const getYjsState = httpAction(async (ctx, request) => {
+  if (request.method !== "GET") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  try {
+    const url = new URL(request.url);
+    const documentId = url.searchParams.get("documentId");
+
+    console.log(`HTTP getYjsState called with documentId: ${documentId}`);
+
+    if (!documentId) {
+      return new Response(
+        JSON.stringify({ error: "Missing documentId parameter" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (!isValidConvexId(documentId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid documentId format" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Call the internal query
+    console.log(`Calling getYjsStateInternal for document: ${documentId}`);
+    const document = await ctx.runQuery(internal.documents.getYjsStateInternal, {
+      id: documentId,
+    });
+
+    console.log(
+      `getYjsStateInternal result for ${documentId}:`,
+      document ? `Found document "${document.title}"` : "Document not found",
+    );
+
+    if (!document) {
+      console.log(`Document ${documentId} not found, returning 404`);
+      return new Response(JSON.stringify({ error: "Document not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Convert Y.js binary state to base64 for JSON transport
+    const yjsStateBase64 = document.yjsState 
+      ? btoa(String.fromCharCode(...new Uint8Array(document.yjsState)))
+      : null;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        document: {
+          id: document._id,
+          title: document.title,
+          yjsState: yjsStateBase64,
+          updatedAt: document.updatedAt,
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  } catch (error) {
+    console.error("Error fetching Y.js state:", error);
+
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+});
+
+http.route({
+  path: "/updateYjsState",
+  method: "POST",
+  handler: updateYjsState,
+});
+
+http.route({
+  path: "/getYjsState",
+  method: "GET",
+  handler: getYjsState,
+});
+
 export default http;

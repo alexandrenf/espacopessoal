@@ -145,14 +145,70 @@ function NotebookPageContent() {
     if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
       const passwords = getStoredPasswords();
       const storedPassword = passwords[normalizedUrl];
-      if (storedPassword) {
-        setHasValidPassword(true);
-      }
+      console.log("Checking stored password for:", normalizedUrl, {
+        storedPassword: storedPassword ? "***EXISTS***" : "none",
+        allStoredPasswords: Object.keys(passwords)
+      });
+      
+      // For now, we'll just note if there's a stored password
+      // The validation will happen in a separate effect after verifyPassword is available
     }
   }, [normalizedUrl]);
 
   // Try to get notebook information using Convex
   const [hasValidPassword, setHasValidPassword] = useState(false);
+  const [isPasswordValidationComplete, setIsPasswordValidationComplete] = useState(false);
+
+  // Verify password mutation using Convex (moved up to be available in useEffect)
+  const verifyPassword = useMutation(convexApi.notebooks.validatePassword);
+
+  // Validate stored password with server after verifyPassword is available
+  useEffect(() => {
+    if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
+      const passwords = getStoredPasswords();
+      const storedPassword = passwords[normalizedUrl];
+      
+      if (storedPassword && !hasValidPassword && !isPasswordValidationComplete) {
+        console.log("Found stored password, validating with server...");
+        // Validate stored password with server instead of trusting it blindly
+        verifyPassword({
+          url: normalizedUrl,
+          password: storedPassword,
+        }).then((result) => {
+          console.log("Stored password validation result:", result);
+          if (result.valid) {
+            console.log("Stored password is valid, setting hasValidPassword to true");
+            setHasValidPassword(true);
+          } else {
+            console.log("Stored password is invalid, removing from storage");
+            // Remove invalid stored password
+            const passwords = getStoredPasswords();
+            delete passwords[normalizedUrl];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
+          }
+          // Mark validation as complete regardless of result
+          setIsPasswordValidationComplete(true);
+        }).catch((error) => {
+          console.error("Error validating stored password:", error);
+          // Remove invalid stored password
+          const passwords = getStoredPasswords();
+          delete passwords[normalizedUrl];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
+          // Mark validation as complete even on error
+          setIsPasswordValidationComplete(true);
+        });
+      } else if (!storedPassword) {
+        // No stored password, mark validation as complete immediately
+        console.log("No stored password found, marking validation complete");
+        setIsPasswordValidationComplete(true);
+      }
+    }
+  }, [normalizedUrl, verifyPassword, hasValidPassword, isPasswordValidationComplete]);
+
+  // Debug effect to track hasValidPassword changes
+  useEffect(() => {
+    console.log("hasValidPassword changed to:", hasValidPassword, "validation complete:", isPasswordValidationComplete);
+  }, [hasValidPassword, isPasswordValidationComplete]);
 
   // Get notebook metadata first (this works for all notebooks)
   const notebookMetadata = useQuery(
@@ -161,56 +217,104 @@ function NotebookPageContent() {
   );
 
   // Get full notebook information using Convex (only after password validation or for public/owned notebooks)
+  const notebookQueryEnabled = normalizedUrl.length > 0 &&
+    isPasswordValidationComplete && // Wait for stored password validation to complete
+    (hasValidPassword ||
+     !notebookMetadata?.hasPassword ||
+     notebookMetadata?.ownerId === convexUserId);
+
+  console.log("Notebook query state:", {
+    normalizedUrl,
+    hasValidPassword,
+    isPasswordValidationComplete,
+    hasPassword: notebookMetadata?.hasPassword,
+    ownerId: notebookMetadata?.ownerId,
+    convexUserId,
+    isOwner: notebookMetadata?.ownerId === convexUserId,
+    queryEnabled: notebookQueryEnabled
+  });
+
+  // Track when query conditions change
+  useEffect(() => {
+    console.log("Query conditions changed - notebookQueryEnabled:", notebookQueryEnabled, {
+      hasValidPassword,
+      isPasswordValidationComplete,
+      hasPassword: notebookMetadata?.hasPassword,
+      isOwner: notebookMetadata?.ownerId === convexUserId
+    });
+  }, [notebookQueryEnabled, hasValidPassword, isPasswordValidationComplete, notebookMetadata?.hasPassword, notebookMetadata?.ownerId, convexUserId]);
+
+  // Force query to re-run when hasValidPassword changes by including it in the condition
+  const notebookQueryArgs = notebookQueryEnabled
+    ? {
+        url: normalizedUrl,
+        userId: convexUserId ?? undefined,
+        hasValidPassword,
+      }
+    : "skip";
+
+  console.log("About to run notebook query with args:", notebookQueryArgs, {
+    enabled: notebookQueryEnabled,
+    hasValidPassword,
+    isPasswordValidationComplete
+  });
+
   const notebook = useQuery(
     convexApi.notebooks.getByUrlWithPassword,
-    normalizedUrl.length > 0 &&
-      (hasValidPassword ||
-        !notebookMetadata?.hasPassword ||
-        notebookMetadata?.ownerId === convexUserId)
-      ? {
-          url: normalizedUrl,
-          userId: convexUserId ?? undefined,
-          hasValidPassword,
-        }
-      : "skip",
+    notebookQueryArgs,
   );
 
   // Get documents in notebook (if we have access)
+  const documentsQueryArgs = notebook
+    ? {
+        userId: convexUserId ?? undefined,
+        parentId: undefined, // Get root level documents
+        notebookId: notebook._id as Id<"notebooks">,
+        hasValidPassword, // Pass password validation status
+      }
+    : "skip";
+
+  console.log("About to run documents query with args:", documentsQueryArgs);
+
   const documents = useQuery(
     convexApi.documents.getHierarchical,
-    notebook
-      ? {
-          userId: convexUserId ?? undefined,
-          parentId: undefined, // Get root level documents
-          notebookId: notebook._id as Id<"notebooks">,
-        }
-      : "skip",
+    documentsQueryArgs,
   );
 
   // Create document mutation
   const createDocument = useMutation(convexApi.documents.create);
 
-  // Verify password mutation using Convex
-  const verifyPassword = useMutation(convexApi.notebooks.validatePassword);
-
   // Handle password submission
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
+      console.log("Verifying password for:", normalizedUrl);
       const result = await verifyPassword({
         url: normalizedUrl,
         password: enteredPassword,
       });
+      
+      console.log("Password verification result:", result);
 
       if (result.valid) {
+        console.log("Password is valid, setting hasValidPassword to true");
         storePassword(normalizedUrl, enteredPassword);
         setShowPasswordPrompt(false);
         setHasValidPassword(true);
+        setIsPasswordValidationComplete(true); // Mark validation as complete
         toast({
           title: "Acesso liberado",
           description: "Senha correta! Você pode agora acessar o notebook.",
         });
+      } else {
+        console.log("Password is invalid");
+        toast({
+          title: "Erro",
+          description: "A senha digitada está incorreta. Tente novamente.",
+          variant: "destructive",
+        });
       }
-    } catch {
+    } catch (error) {
+      console.error("Password verification failed:", error);
       toast({
         title: "Erro",
         description: "A senha digitada está incorreta. Tente novamente.",
@@ -225,8 +329,24 @@ function NotebookPageContent() {
     notebookMetadata.ownerId !== convexUserId &&
     !hasValidPassword;
 
+  console.log("Password prompt logic:", {
+    hasPassword: notebookMetadata?.hasPassword,
+    ownerId: notebookMetadata?.ownerId,
+    convexUserId,
+    isOwner: notebookMetadata?.ownerId === convexUserId,
+    hasValidPassword,
+    needsPassword,
+    showPasswordPrompt
+  });
+
   useEffect(() => {
+    console.log("Password prompt useEffect triggered:", {
+      needsPassword,
+      showPasswordPrompt,
+      shouldShow: needsPassword && !showPasswordPrompt
+    });
     if (needsPassword && !showPasswordPrompt) {
+      console.log("Setting showPasswordPrompt to true");
       setShowPasswordPrompt(true);
     }
   }, [needsPassword, showPasswordPrompt]);
@@ -266,7 +386,16 @@ function NotebookPageContent() {
   }
 
   // Handle password prompt
+  console.log("Render decision:", {
+    needsPassword,
+    showPasswordPrompt,
+    shouldShowPasswordPrompt: needsPassword && showPasswordPrompt,
+    notebookLoading: notebook === undefined,
+    notebookExists: !!notebook
+  });
+
   if (needsPassword && showPasswordPrompt) {
+    console.log("Rendering PasswordPrompt");
     return <PasswordPrompt onSubmit={handlePasswordSubmit} isLoading={false} />;
   }
 

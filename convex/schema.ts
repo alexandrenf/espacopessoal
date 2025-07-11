@@ -72,6 +72,7 @@ export default defineSchema({
   documents: defineTable({
     title: v.string(),
     initialContent: v.optional(v.string()),
+    yjsState: v.optional(v.bytes()), // Y.js binary state for perfect formatting preservation
     ownerId: v.id("users"),
     notebookId: v.optional(v.id("notebooks")), // Reference to parent notebook
     organizationId: v.optional(v.string()),
