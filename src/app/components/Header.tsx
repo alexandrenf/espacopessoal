@@ -104,7 +104,7 @@ export default function Header() {
 
   // Update to use the new notebooks route
   const notebooksUrl = useMemo(
-    () => (isAuthenticated ? "/notebooks" : null),
+    () => (isAuthenticated ? "/notas" : null),
     [isAuthenticated],
   );
 
