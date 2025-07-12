@@ -1,38 +1,25 @@
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
-import { ProfileDashboard } from "~/app/components/profile/ProfileDashboard";
 import Link from "next/link";
-import { NotepadSettingsForm } from "~/app/components/profile/NotepadSettingsForm";
 import Header from "~/app/components/Header";
 import { HydrateClient } from "~/trpc/server";
 import { Suspense } from "react";
 import { ProfileTour } from "~/app/components/profile/ProfileTour";
+import {
+  ProfilePageClient,
+  ProfileErrorClient,
+  ProfilePageSkeleton,
+  ProfileUnauthenticatedClient,
+  ProfilePageTitle,
+} from "~/app/components/profile/ProfilePageClient";
 
 async function ProfileContent() {
   try {
-    const [userData] = await Promise.all([
-      api.users.getUserProfile()
-    ]);
-
-    return (
-      <>
-        <div className="profile-dashboard mb-8 rounded-lg bg-white p-6 shadow">
-          <ProfileDashboard user={userData} />
-        </div>
-      </>
-    );
+    const [userData] = await Promise.all([api.users.getUserProfile()]);
+    return <ProfilePageClient userData={userData} />;
   } catch (error) {
     console.error("Error loading profile data:", error);
-    return (
-      <div className="rounded-lg bg-red-50 p-6 text-center">
-        <h2 className="mb-2 text-lg font-semibold text-red-800">
-          Erro ao carregar dados do perfil
-        </h2>
-        <p className="text-red-600">
-          Ocorreu um erro ao carregar seus dados. Tente recarregar a página.
-        </p>
-      </div>
-    );
+    return <ProfileErrorClient />;
   }
 }
 
@@ -43,21 +30,21 @@ export default async function ProfilePage() {
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
-        <div className="flex flex-grow items-center justify-center bg-gray-100">
-          <div className="w-full max-w-md rounded-lg bg-white p-8 text-center shadow-md">
-            <h2 className="mb-4 text-2xl font-bold text-gray-800">
-              Acesso Negado
-            </h2>
-            <p className="mb-6 text-gray-600">
-              Por favor, faça login para visualizar seu perfil.
-            </p>
-            <Link
-              href="/api/auth/signin"
-              className="inline-block rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-            >
-              Entrar
-            </Link>
-          </div>
+        <div className="relative flex flex-grow items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-64 w-64 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+          <ProfileUnauthenticatedClient />
+          <Link
+            href="/api/auth/signin"
+            className="absolute bottom-8 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-medium text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
+          >
+            Entrar
+          </Link>
         </div>
       </div>
     );
@@ -67,33 +54,21 @@ export default async function ProfilePage() {
     <HydrateClient>
       <div className="flex min-h-screen flex-col">
         <Header />
-        <div className="container mx-auto max-w-2xl flex-grow p-4">
-          <h1 className="profile-header mb-8 text-2xl font-bold">
-            Painel de Perfil
-          </h1>
-          <Suspense
-            fallback={
-              <div className="animate-pulse">
-                <div className="mb-8 rounded-lg bg-white p-6 shadow">
-                  <div className="space-y-4">
-                    <div className="h-4 w-3/4 rounded bg-gray-200"></div>
-                    <div className="h-4 w-1/2 rounded bg-gray-200"></div>
-                    <div className="h-4 w-2/3 rounded bg-gray-200"></div>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-white p-6 shadow">
-                  <div className="mb-6 h-6 w-2/3 rounded bg-gray-200"></div>
-                  <div className="space-y-4">
-                    <div className="h-4 w-full rounded bg-gray-200"></div>
-                    <div className="h-4 w-5/6 rounded bg-gray-200"></div>
-                    <div className="h-4 w-4/6 rounded bg-gray-200"></div>
-                  </div>
-                </div>
-              </div>
-            }
-          >
-            <ProfileContent />
-          </Suspense>
+        <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/3 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/3 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+          <div className="container relative mx-auto max-w-3xl flex-grow p-6">
+            <ProfilePageTitle />
+
+            <Suspense fallback={<ProfilePageSkeleton />}>
+              <ProfileContent />
+            </Suspense>
+          </div>
         </div>
       </div>
       <ProfileTour />

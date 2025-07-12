@@ -9,14 +9,76 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 // import { useQuery } from "convex/react";
 // import { api as convexApi } from "../../../convex/_generated/api";
 // import type { Id } from "../../../convex/_generated/dataModel";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User, ChevronDown } from "lucide-react";
 import {
   Sheet,
   SheetTrigger,
   SheetContent,
   SheetClose,
 } from "~/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import Image from "next/image";
 import debounce from "lodash/debounce"; // Using lodash's debounce since it's already in dependencies
+
+// Helper function to get user initials
+function getUserInitials(name?: string | null, email?: string | null): string {
+  if (name) {
+    const names = name.trim().split(" ");
+    if (names.length >= 2) {
+      return `${names[0]?.[0] ?? ""}${names[names.length - 1]?.[0] ?? ""}`.toUpperCase();
+    }
+    return name[0]?.toUpperCase() ?? "";
+  }
+  if (email) {
+    return email[0]?.toUpperCase() ?? "U";
+  }
+  return "U";
+}
+
+// UserAvatar component
+function UserAvatar({
+  user,
+  size = "md",
+}: {
+  user: { name?: string | null; email?: string | null; image?: string | null };
+  size?: "sm" | "md" | "lg";
+}) {
+  const sizeClasses = {
+    sm: "h-8 w-8 text-xs",
+    md: "h-10 w-10 text-sm",
+    lg: "h-12 w-12 text-base",
+  };
+
+  const initials = getUserInitials(user.name, user.email);
+
+  if (user.image) {
+    return (
+      <div className="relative">
+        <Image
+          src={user.image}
+          alt={user.name ?? "User avatar"}
+          width={size === "sm" ? 32 : size === "md" ? 40 : 48}
+          height={size === "sm" ? 32 : size === "md" ? 40 : 48}
+          className={`${sizeClasses[size]} rounded-full object-cover shadow-sm ring-2 ring-white transition-all duration-300 hover:shadow-md`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClasses[size]} flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm ring-2 ring-white transition-all duration-300 hover:scale-105 hover:shadow-md`}
+    >
+      <span className="font-semibold text-white">{initials}</span>
+    </div>
+  );
+}
 
 export default function Header() {
   const { data: session, status } = useSession({
@@ -42,7 +104,7 @@ export default function Header() {
 
   // Update to use the new notebooks route
   const notebooksUrl = useMemo(
-    () => (isAuthenticated ? "/notebooks" : null),
+    () => (isAuthenticated ? "/notas" : null),
     [isAuthenticated],
   );
 
@@ -172,9 +234,16 @@ export default function Header() {
 
                   <div className="flex-1 p-6">
                     <div className="mb-8 flex items-center justify-between">
-                      <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-lg font-semibold text-transparent">
-                        Menu
-                      </span>
+                      <div className="flex items-center gap-3">
+                        {session && (
+                          <UserAvatar user={session.user} size="sm" />
+                        )}
+                        <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-lg font-semibold text-transparent">
+                          {session
+                            ? `Olá, ${session.user.name?.split(" ")[0] ?? "Usuário"}!`
+                            : "Menu"}
+                        </span>
+                      </div>
                       <SheetClose asChild>
                         <Button
                           variant="ghost"
@@ -223,41 +292,123 @@ export default function Header() {
                     </nav>
                   </div>
 
-                  {/* Bottom border */}
-                  <div className="h-px w-full bg-slate-200" />
+                  {/* Authentication section for mobile */}
+                  <div className="border-t border-slate-200 p-6">
+                    {session ? (
+                      <div className="space-y-4">
+                        {/* User info */}
+                        <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                          <UserAvatar user={session.user} size="md" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {session.user.name ?? "Usuário"}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {session.user.email}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Sign out button */}
+                        <Link href="/api/auth/signout" className="block">
+                          <Button
+                            variant="outline"
+                            className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50"
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Sair
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <Link href="/api/auth/signin" className="block">
+                        <Button className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
+                          Entrar
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
 
-            <Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
-              <Button
-                variant={session ? "outline" : "default"}
-                className={`group relative shadow-sm transition-all duration-300 hover:shadow-md ${
-                  session
-                    ? "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-                disabled={status === "loading"}
-              >
-                {/* Button text with loading state */}
-                <span className="font-medium">
-                  {status === "loading" ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-                      <span>Carregando</span>
-                    </span>
-                  ) : session ? (
-                    <span className="inline-block transition-transform duration-300 group-hover:scale-105">
-                      Sair
-                    </span>
-                  ) : (
-                    <span className="inline-block transition-transform duration-300 group-hover:scale-105">
-                      Entrar
-                    </span>
+            {/* Authentication Section */}
+            {status === "loading" ? (
+              <div className="flex items-center gap-2 px-4 py-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-r-transparent" />
+                <span className="text-sm text-slate-600">Carregando...</span>
+              </div>
+            ) : session ? (
+              /* User Dropdown Menu */
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="group relative flex h-auto items-center gap-2 rounded-full p-2 transition-all duration-300 hover:bg-slate-100 focus:bg-slate-100"
+                  >
+                    <UserAvatar user={session.user} size="sm" />
+                    <div className="hidden flex-col items-start sm:flex">
+                      <span className="text-sm font-medium leading-none text-slate-900">
+                        {session.user.name?.split(" ")[0] ?? "Usuário"}
+                      </span>
+                      <span className="mt-0.5 text-xs leading-none text-slate-500">
+                        {session.user.email}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-300 group-data-[state=open]:rotate-180" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-1">
+                  <div className="flex items-center gap-3 border-b border-slate-100 p-3">
+                    <UserAvatar user={session.user} size="md" />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {session.user.name ?? "Usuário"}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {session.user.email}
+                      </span>
+                    </div>
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/profile"
+                      className="flex cursor-pointer items-center gap-2"
+                    >
+                      <User className="h-4 w-4" />
+                      <span>Meu Perfil</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  {notebooksUrl && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={notebooksUrl}
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <Menu className="h-4 w-4" />
+                        <span>Meus Notebooks</span>
+                      </Link>
+                    </DropdownMenuItem>
                   )}
-                </span>
-              </Button>
-            </Link>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/api/auth/signout"
+                      className="flex cursor-pointer items-center gap-2 text-red-600 focus:text-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Sair</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              /* Sign In Button for Non-authenticated Users */
+              <Link href="/api/auth/signin">
+                <Button className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2 font-medium text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
+                  Entrar
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

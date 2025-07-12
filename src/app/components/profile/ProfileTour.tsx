@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { RefreshCcw } from "lucide-react";
+import { PlayCircle } from "lucide-react";
 import { driver } from "driver.js";
+import { motion } from "framer-motion";
 import "driver.js/dist/driver.css";
 
 export function ProfileTour() {
@@ -113,16 +114,40 @@ export function ProfileTour() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <Button
-        onClick={restartTour}
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-2 bg-white shadow-md hover:bg-gray-100"
-      >
-        <RefreshCcw size={16} />
-        <span>Reiniciar Tour</span>
-      </Button>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 1 }}
+      className="fixed bottom-6 right-6 z-50"
+    >
+      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+        <Button
+          onClick={restartTour}
+          className="flex items-center gap-2 rounded-full border-2 border-white/20 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          >
+            <PlayCircle size={18} />
+          </motion.div>
+          <span className="font-medium">Tour Guiado</span>
+        </Button>
+      </motion.div>
+
+      {/* Floating animation ring */}
+      <motion.div
+        className="absolute inset-0 rounded-full border-2 border-blue-400/30"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.5, 0, 0.5],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+    </motion.div>
   );
 }
