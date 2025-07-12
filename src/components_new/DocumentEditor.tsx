@@ -124,6 +124,7 @@ interface EditorProps {
   initialContent?: string | undefined;
   isReadOnly?: boolean;
   notebookId?: Id<"notebooks">;
+  sessionToken?: string; // For private notebook authentication
 }
 
 export function DocumentEditor({
@@ -131,6 +132,7 @@ export function DocumentEditor({
   initialContent,
   isReadOnly,
   notebookId,
+  sessionToken,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -851,10 +853,21 @@ export function DocumentEditor({
     // Mark persistence as ready immediately (no IndexedDB)
     setIsPersistenceReady(true);
 
-    // Create new WebSocket provider with the current Y.js document
+    // Create new WebSocket provider with the current Y.js document and session authentication
     console.log("🔗 Creating WebSocket provider for:", docName);
+    
+    // Build WebSocket URL with authentication parameters
+    const wsUrlWithAuth = new URL(wsUrl);
+    if (sessionToken) {
+      wsUrlWithAuth.searchParams.set('sessionToken', sessionToken);
+      console.log("🔐 Adding session token to WebSocket connection");
+    }
+    if (convexUserId) {
+      wsUrlWithAuth.searchParams.set('userId', convexUserId);
+    }
+    
     const newProvider = new HocuspocusProvider({
-      url: wsUrl,
+      url: wsUrlWithAuth.toString(),
       name: docName,
       document: ydocRef.current,
     });

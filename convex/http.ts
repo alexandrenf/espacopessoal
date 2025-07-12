@@ -537,4 +537,122 @@ http.route({
   handler: getYjsState,
 });
 
+// Validate document session for WebSocket connections
+const validateDocumentSession = httpAction(async (ctx, request) => {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  try {
+    const { documentId, sessionToken, userId } = await request.json();
+
+    if (!documentId) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Document ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate document ID format
+    if (!isValidConvexId(documentId)) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Invalid document ID format" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get document information to check if it's in a private notebook
+    const document = await ctx.runQuery(internal.documents.getByIdInternal, {
+      id: documentId,
+    });
+
+    if (!document) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Document not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // If document is not in a notebook, access is allowed
+    if (!document.notebookId) {
+      return new Response(
+        JSON.stringify({ valid: true }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get notebook information
+    const notebook = await ctx.runQuery(internal.notebooks.getByIdInternal, {
+      notebookId: document.notebookId,
+    });
+
+    if (!notebook) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Notebook not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // If notebook is not private, access is allowed
+    if (!notebook.isPrivate) {
+      return new Response(
+        JSON.stringify({ valid: true }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // If notebook is private but doesn't have a password, only owner can access
+    if (!notebook.password) {
+      const isOwner = userId && notebook.ownerId === userId;
+      return new Response(
+        JSON.stringify({ 
+          valid: isOwner, 
+          reason: isOwner ? undefined : "Private notebook - owner access only"
+        }),
+        { status: isOwner ? 200 : 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Notebook is private and has password - validate session token
+    if (!sessionToken) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Session token required for private notebook" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate session token
+    const sessionValidation = await ctx.runQuery(internal.notebooks.validateSessionInternal, {
+      sessionToken,
+      notebookId: notebook._id,
+    });
+
+    if (!sessionValidation.valid) {
+      return new Response(
+        JSON.stringify({ valid: false, reason: sessionValidation.reason }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // If we get here, access is allowed
+    return new Response(
+      JSON.stringify({ valid: true }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("Error validating document session:", error);
+    return new Response(
+      JSON.stringify({ valid: false, reason: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+http.route({
+  path: "/validateDocumentSession",
+  method: "POST",
+  handler: validateDocumentSession,
+});
+
 export default http;

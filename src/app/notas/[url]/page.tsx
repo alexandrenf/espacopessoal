@@ -35,17 +35,102 @@ import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import Link from "next/link";
 import { FileExplorer } from "~/app/components/FileExplorer";
 
-// Password storage helper
-const STORAGE_KEY = "notebook_passwords";
+// Type guards for Convex query results
+type NotebookData = {
+  _id: string;
+  title: string;
+  description?: string;
+  url: string;
+  isPrivate: boolean;
+  createdAt: number;
+  updatedAt: number;
+  ownerId: string;
+  isOwner?: boolean;
+  password?: string;
+};
 
-const getStoredPasswords = (): Record<string, string> => {
+type NotebookMetadata = {
+  _id: string;
+  title: string;
+  description?: string;
+  url: string;
+  isPrivate: boolean;
+  hasPassword: boolean;
+  createdAt: number;
+  updatedAt: number;
+  ownerId: string;
+};
+
+type PasswordVerificationResult = {
+  valid: boolean;
+  sessionToken?: string;
+  expiresAt?: number;
+  notebook?: NotebookData;
+};
+
+const isNotebookData = (data: unknown): data is NotebookData => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    '_id' in data &&
+    'title' in data &&
+    'url' in data &&
+    'isPrivate' in data &&
+    'createdAt' in data &&
+    'ownerId' in data
+  );
+};
+
+const isNotebookMetadata = (data: unknown): data is NotebookMetadata => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    '_id' in data &&
+    'title' in data &&
+    'url' in data &&
+    'isPrivate' in data &&
+    'hasPassword' in data &&
+    'createdAt' in data &&
+    'ownerId' in data
+  );
+};
+
+const isPasswordVerificationResult = (data: unknown): data is PasswordVerificationResult => {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    'valid' in obj &&
+    typeof obj.valid === 'boolean' &&
+    (!obj.sessionToken || typeof obj.sessionToken === 'string') &&
+    (!obj.expiresAt || typeof obj.expiresAt === 'number')
+  );
+};
+
+// Secure session storage helper (replaces password storage)
+const SESSION_STORAGE_KEY = "secure_notebook_sessions";
+
+const getStoredSessions = (): Record<string, { token: string; expiresAt: number }> => {
   if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(SESSION_STORAGE_KEY);
   try {
     if (!stored) return {};
-    const parsed = JSON.parse(stored) as Record<string, string>;
+    const parsed = JSON.parse(stored) as Record<string, { token: string; expiresAt: number }>;
     if (typeof parsed === "object" && parsed !== null) {
-      return parsed;
+      // Clean up expired sessions
+      const now = Date.now();
+      const validSessions: Record<string, { token: string; expiresAt: number }> = {};
+      for (const [key, session] of Object.entries(parsed)) {
+        if (session.expiresAt > now) {
+          validSessions[key] = session;
+        }
+      }
+      
+      // Update storage with cleaned sessions
+      if (Object.keys(validSessions).length !== Object.keys(parsed).length) {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(validSessions));
+      }
+      
+      return validSessions;
     }
     return {};
   } catch {
@@ -53,10 +138,45 @@ const getStoredPasswords = (): Record<string, string> => {
   }
 };
 
-const storePassword = (url: string, password: string) => {
-  const passwords = getStoredPasswords();
-  passwords[url] = password;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
+const storeSession = (url: string, sessionToken: string, expiresAt: number) => {
+  const sessions = getStoredSessions();
+  sessions[url] = { token: sessionToken, expiresAt };
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
+};
+
+const removeSession = (url: string) => {
+  const sessions = getStoredSessions();
+  delete sessions[url];
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
+};
+
+// Device fingerprinting for enhanced security
+const generateDeviceFingerprint = (): string => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('Device fingerprint', 2, 2);
+  }
+  
+  const fingerprint = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+    canvas.toDataURL(),
+  ].join('|');
+  
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i++) {
+    const char = fingerprint.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return hash.toString(36);
 };
 
 // Password input component
@@ -158,94 +278,66 @@ function NotebookPageContent() {
     }
   }, [normalizedUrl, router]);
 
-  // Load stored password on mount
-  useEffect(() => {
-    if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
-      const passwords = getStoredPasswords();
-      const storedPassword = passwords[normalizedUrl];
-      console.log("Checking stored password for:", normalizedUrl, {
-        storedPassword: storedPassword ? "***EXISTS***" : "none",
-        allStoredPasswords: Object.keys(passwords),
-      });
+  // Note: Legacy password loading code removed in favor of secure session management
+  // Sessions are now handled in the secure session management useEffect below
 
-      // For now, we'll just note if there's a stored password
-      // The validation will happen in a separate effect after verifyPassword is available
-    }
-  }, [normalizedUrl]);
-
-  // Try to get notebook information using Convex
-  const [hasValidPassword, setHasValidPassword] = useState(false);
-  const [isPasswordValidationComplete, setIsPasswordValidationComplete] =
+  // Try to get notebook information using Convex with secure session management
+  const [hasValidSession, setHasValidSession] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isSessionValidationComplete, setIsSessionValidationComplete] =
     useState(false);
 
-  // Verify password mutation using Convex (moved up to be available in useEffect)
+  // Verify password mutation using Convex (now returns session token)
   const verifyPassword = useMutation(convexApi.notebooks.validatePassword);
 
-  // Validate stored password with server after verifyPassword is available
+  // Validate stored session token with server after verifyPassword is available
   useEffect(() => {
     if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
-      const passwords = getStoredPasswords();
-      const storedPassword = passwords[normalizedUrl];
+      const sessions = getStoredSessions();
+      const storedSession = sessions[normalizedUrl];
 
       if (
-        storedPassword &&
-        !hasValidPassword &&
-        !isPasswordValidationComplete
+        storedSession &&
+        !hasValidSession &&
+        !isSessionValidationComplete
       ) {
-        console.log("Found stored password, validating with server...");
-        // Validate stored password with server instead of trusting it blindly
-        verifyPassword({
-          url: normalizedUrl,
-          password: storedPassword,
-        })
-          .then((result) => {
-            console.log("Stored password validation result:", result);
-            if (result.valid) {
-              console.log(
-                "Stored password is valid, setting hasValidPassword to true",
-              );
-              setHasValidPassword(true);
-            } else {
-              console.log("Stored password is invalid, removing from storage");
-              // Remove invalid stored password
-              const passwords = getStoredPasswords();
-              delete passwords[normalizedUrl];
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
-            }
-            // Mark validation as complete regardless of result
-            setIsPasswordValidationComplete(true);
-          })
-          .catch((error) => {
-            console.error("Error validating stored password:", error);
-            // Remove invalid stored password
-            const passwords = getStoredPasswords();
-            delete passwords[normalizedUrl];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
-            // Mark validation as complete even on error
-            setIsPasswordValidationComplete(true);
-          });
-      } else if (!storedPassword) {
-        // No stored password, mark validation as complete immediately
-        console.log("No stored password found, marking validation complete");
-        setIsPasswordValidationComplete(true);
+        console.log("Found stored session, checking expiration...");
+        
+        // Check if session is expired
+        if (storedSession.expiresAt <= Date.now()) {
+          console.log("Stored session is expired, removing from storage");
+          removeSession(normalizedUrl);
+          setIsSessionValidationComplete(true);
+          return;
+        }
+        
+        console.log("Session is valid, setting up for notebook access");
+        setSessionToken(storedSession.token);
+        setHasValidSession(true);
+        setIsSessionValidationComplete(true);
+      } else if (!storedSession) {
+        // No stored session, mark validation as complete immediately
+        console.log("No stored session found, marking validation complete");
+        setIsSessionValidationComplete(true);
       }
     }
   }, [
     normalizedUrl,
-    verifyPassword,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    isSessionValidationComplete,
   ]);
 
-  // Debug effect to track hasValidPassword changes
+  // Debug effect to track hasValidSession changes
   useEffect(() => {
     console.log(
-      "hasValidPassword changed to:",
-      hasValidPassword,
+      "hasValidSession changed to:",
+      hasValidSession,
       "validation complete:",
-      isPasswordValidationComplete,
+      isSessionValidationComplete,
+      "sessionToken:",
+      sessionToken ? "***EXISTS***" : "none",
     );
-  }, [hasValidPassword, isPasswordValidationComplete]);
+  }, [hasValidSession, isSessionValidationComplete, sessionToken]);
 
   // Get notebook metadata first (this works for all notebooks)
   const notebookMetadata = useQuery(
@@ -253,18 +345,19 @@ function NotebookPageContent() {
     normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
   );
 
-  // Get full notebook information using Convex (only after password validation or for public/owned notebooks)
+  // Get full notebook information using Convex with secure session validation
   const notebookQueryEnabled =
     normalizedUrl.length > 0 &&
-    isPasswordValidationComplete && // Wait for stored password validation to complete
-    (hasValidPassword ||
+    isSessionValidationComplete && // Wait for stored session validation to complete
+    (hasValidSession ||
       !notebookMetadata?.hasPassword ||
       notebookMetadata?.ownerId === convexUserId);
 
   console.log("Notebook query state:", {
     normalizedUrl,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
+    isSessionValidationComplete,
     hasPassword: notebookMetadata?.hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
@@ -278,51 +371,62 @@ function NotebookPageContent() {
       "Query conditions changed - notebookQueryEnabled:",
       notebookQueryEnabled,
       {
-        hasValidPassword,
-        isPasswordValidationComplete,
+        hasValidSession,
+        isSessionValidationComplete,
         hasPassword: notebookMetadata?.hasPassword,
         isOwner: notebookMetadata?.ownerId === convexUserId,
       },
     );
   }, [
     notebookQueryEnabled,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    isSessionValidationComplete,
     notebookMetadata?.hasPassword,
     notebookMetadata?.ownerId,
     convexUserId,
   ]);
 
-  // Force query to re-run when hasValidPassword changes by including it in the condition
+  // Use secure session-based query arguments
   const notebookQueryArgs = notebookQueryEnabled
     ? {
         url: normalizedUrl,
         userId: convexUserId ?? undefined,
-        hasValidPassword,
+        sessionToken: sessionToken ?? undefined,
       }
     : "skip";
 
-  console.log("About to run notebook query with args:", notebookQueryArgs, {
+  console.log("About to run notebook query with args:", notebookQueryArgs === "skip" ? "SKIP" : {
+    url: typeof notebookQueryArgs === "object" && notebookQueryArgs !== null ? notebookQueryArgs.url : undefined,
+    userId: typeof notebookQueryArgs === "object" && notebookQueryArgs !== null ? notebookQueryArgs.userId : undefined,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
+  }, {
     enabled: notebookQueryEnabled,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    isSessionValidationComplete,
   });
 
-  const notebook = useQuery(
-    convexApi.notebooks.getByUrlWithPassword,
+  const notebookQueryResult = useQuery(
+    convexApi.notebooks.getByUrlWithSession,
     notebookQueryArgs,
-  );
+  ) as unknown;
+
+  // Type guard the notebook result - handle loading, error, and success states
+  const notebook = (notebookQueryResult !== undefined && isNotebookData(notebookQueryResult)) ? notebookQueryResult : null;
 
   // Get documents in notebook (if we have access)
   const documentsQueryArgs = notebook
     ? {
         userId: convexUserId ?? undefined,
         notebookId: notebook._id as Id<"notebooks">,
-        hasValidPassword, // Pass password validation status
+        sessionToken: sessionToken ?? undefined, // Pass session token for validation
       }
     : "skip";
 
-  console.log("About to run documents query with args:", documentsQueryArgs);
+  console.log("About to run documents query with args:", documentsQueryArgs === "skip" ? "SKIP" : {
+    userId: typeof documentsQueryArgs === "object" && documentsQueryArgs !== null ? documentsQueryArgs.userId : undefined,
+    notebookId: typeof documentsQueryArgs === "object" && documentsQueryArgs !== null ? documentsQueryArgs.notebookId : undefined,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
+  });
 
   const documents = useQuery(
     convexApi.documents.getAllForTreeLegacy,
@@ -338,23 +442,47 @@ function NotebookPageContent() {
   // Update document mutation
   const updateDocument = useMutation(convexApi.documents.updateById);
 
-  // Handle password submission
+  // Handle password submission with secure session creation
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
       console.log("Verifying password for:", normalizedUrl);
+      
+      // Generate device fingerprint for enhanced security
+      const deviceFingerprint = generateDeviceFingerprint();
+      
       const result = await verifyPassword({
         url: normalizedUrl,
         password: enteredPassword,
+        deviceFingerprint,
+        userAgent: navigator.userAgent,
+        ipAddress: undefined, // Will be handled server-side
       });
 
-      console.log("Password verification result:", result);
+      if (!isPasswordVerificationResult(result)) {
+        throw new Error("Invalid password verification result");
+      }
 
-      if (result.valid) {
-        console.log("Password is valid, setting hasValidPassword to true");
-        storePassword(normalizedUrl, enteredPassword);
+      console.log("Password verification result:", {
+        valid: result.valid,
+        hasSessionToken: !!result.sessionToken,
+        expiresAt: result.expiresAt ? new Date(result.expiresAt as number) : undefined,
+      });
+
+      if (result.valid && result.sessionToken && result.expiresAt) {
+        const sessionToken = result.sessionToken as string;
+        const expiresAt = result.expiresAt as number;
+
+        console.log("Password is valid, storing secure session");
+
+        // Store secure session token instead of password
+        storeSession(normalizedUrl, sessionToken, expiresAt);
+
+        // Update state
+        setSessionToken(sessionToken);
         setShowPasswordPrompt(false);
-        setHasValidPassword(true);
-        setIsPasswordValidationComplete(true); // Mark validation as complete
+        setHasValidSession(true);
+        setIsSessionValidationComplete(true);
+        
         toast({
           title: "Acesso liberado",
           description: "Senha correta! Você pode agora acessar o notebook.",
@@ -381,14 +509,15 @@ function NotebookPageContent() {
   const needsPassword =
     notebookMetadata?.hasPassword &&
     notebookMetadata.ownerId !== convexUserId &&
-    !hasValidPassword;
+    !hasValidSession;
 
   console.log("Password prompt logic:", {
     hasPassword: notebookMetadata?.hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
     isOwner: notebookMetadata?.ownerId === convexUserId,
-    hasValidPassword,
+    hasValidSession,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
     needsPassword,
     showPasswordPrompt,
   });
@@ -533,7 +662,7 @@ function NotebookPageContent() {
   }
 
   // Use notebook data or fallback to metadata for display
-  const notebookData = notebook ?? notebookMetadata;
+  const notebookData = notebook ?? (isNotebookMetadata(notebookMetadata) ? notebookMetadata : null);
 
   // If authenticated user but no convexUserId, show error
   if (isAuthenticated && !convexUserId && !isUserLoading) {
@@ -549,7 +678,7 @@ function NotebookPageContent() {
 
   // Handle create document (only for authenticated users)
   const handleCreateDocument = async () => {
-    if (!convexUserId || !notebookData?._id) {
+    if (!convexUserId || !notebookData) {
       toast({
         title: "Authentication required",
         description: "You need to be logged in to create documents.",
@@ -584,7 +713,7 @@ function NotebookPageContent() {
 
   // Handle create folder
   const handleCreateFolder = async () => {
-    if (!convexUserId || !notebookData?._id) {
+    if (!convexUserId || !notebookData) {
       toast({
         title: "Autenticação necessária",
         description: "Você precisa estar logado para criar pastas.",
@@ -706,9 +835,9 @@ function NotebookPageContent() {
   };
 
   // Determine access level for display
-  const accessLevel = !notebookData.isPrivate
+  const accessLevel = (notebookData && !notebookData.isPrivate)
     ? "public"
-    : notebookMetadata.hasPassword
+    : (notebookMetadata && 'hasPassword' in notebookMetadata && notebookMetadata.hasPassword)
       ? "password"
       : "private";
 
@@ -737,7 +866,7 @@ function NotebookPageContent() {
                 </div>
                 <div>
                   <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent">
-                    {notebookData.title}
+                    {notebookData?.title ?? 'Loading...'}
                   </h1>
                   <div className="flex items-center space-x-3 text-sm text-slate-600">
                     <div className="flex items-center space-x-1">
@@ -757,7 +886,7 @@ function NotebookPageContent() {
                       </span>
                     </div>
                     <span>•</span>
-                    <span>Criado em {formatDate(notebookData.createdAt)}</span>
+                    <span>Criado em {notebookData?.createdAt ? formatDate(notebookData.createdAt) : 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -799,7 +928,7 @@ function NotebookPageContent() {
                 )}
               </div>
             </div>
-            {notebookData.description && (
+            {(notebookData && 'description' in notebookData && notebookData.description) && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

@@ -38,12 +38,12 @@ function DocumentPageContent() {
   const isPublicNotebook = !notebookMetadata?.isPrivate;
 
   const notebook = useQuery(
-    convexApi.notebooks.getByUrlWithPassword,
+    convexApi.notebooks.getByUrlWithSession,
     normalizedUrl.length > 0 && (isPublicNotebook || isOwner)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
-          hasValidPassword: false,
+          sessionToken: undefined, // No session token needed for owner/public access
         }
       : "skip",
   );
