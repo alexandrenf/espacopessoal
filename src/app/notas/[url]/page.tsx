@@ -118,31 +118,131 @@ import {
 
 // Device fingerprinting for enhanced security
 const generateDeviceFingerprint = (): string => {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.textBaseline = "top";
-    ctx.font = "14px Arial";
-    ctx.fillText("Device fingerprint", 2, 2);
+  const fingerprintComponents: string[] = [];
+
+  // Safely get user agent
+  try {
+    fingerprintComponents.push(navigator.userAgent ?? 'unknown');
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get user agent:', error);
+    }
+    fingerprintComponents.push('unknown');
   }
 
-  const fingerprint = [
-    navigator.userAgent,
-    navigator.language,
-    screen.width + "x" + screen.height,
-    new Date().getTimezoneOffset(),
-    canvas.toDataURL(),
-  ].join("|");
+  // Safely get language
+  try {
+    fingerprintComponents.push(navigator.language ?? 'unknown');
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get language:', error);
+    }
+    fingerprintComponents.push('unknown');
+  }
 
-  // Simple hash function
-  let hash = 0;
+  // Safely get screen dimensions
+  try {
+    const width = screen.width ?? 0;
+    const height = screen.height ?? 0;
+    fingerprintComponents.push(`${width}x${height}`);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get screen dimensions:', error);
+    }
+    fingerprintComponents.push('0x0');
+  }
+
+  // Safely get timezone offset
+  try {
+    const timezoneOffset = new Date().getTimezoneOffset();
+    fingerprintComponents.push(timezoneOffset.toString());
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get timezone offset:', error);
+    }
+    fingerprintComponents.push('0');
+  }
+
+  // Safely generate canvas fingerprint with comprehensive error handling
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 200;
+    canvas.height = 50;
+    const ctx = canvas.getContext("2d");
+
+    if (ctx) {
+      try {
+        // Set canvas properties with error handling
+        ctx.textBaseline = "top";
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("Device fingerprint 🔒", 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+        ctx.fillText("Security check", 4, 35);
+
+        // Try to get canvas data
+        const canvasData = canvas.toDataURL();
+        fingerprintComponents.push(canvasData);
+      } catch (canvasError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Canvas operations failed:', canvasError);
+        }
+        fingerprintComponents.push('canvas_blocked');
+      }
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Canvas context not available');
+      }
+      fingerprintComponents.push('no_canvas_context');
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Canvas creation failed:', error);
+    }
+    fingerprintComponents.push('canvas_unavailable');
+  }
+
+  // Additional fingerprinting components with error handling
+  try {
+    // Use userAgentData if available (modern browsers), fallback to deprecated platform
+    const navigatorWithUserAgentData = navigator as Navigator & {
+      userAgentData?: {
+        platform?: string;
+      };
+    };
+
+    if (navigatorWithUserAgentData.userAgentData?.platform) {
+      fingerprintComponents.push(navigatorWithUserAgentData.userAgentData.platform);
+    } else {
+      // Fallback to deprecated platform property with proper typing
+      const navigatorWithPlatform = navigator as Navigator & {
+        platform?: string;
+      };
+      fingerprintComponents.push(navigatorWithPlatform.platform ?? 'unknown');
+    }
+  } catch {
+    fingerprintComponents.push('unknown');
+  }
+
+  try {
+    fingerprintComponents.push(navigator.cookieEnabled ? 'cookies_enabled' : 'cookies_disabled');
+  } catch {
+    fingerprintComponents.push('cookies_unknown');
+  }
+
+  const fingerprint = fingerprintComponents.join("|");
+
+  // Robust hash function using FNV-1a algorithm for better distribution
+  let hash = 2166136261; // FNV offset basis
   for (let i = 0; i < fingerprint.length; i++) {
-    const char = fingerprint.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash ^= fingerprint.charCodeAt(i);
+    hash = Math.imul(hash, 16777619); // FNV prime
   }
 
-  return hash.toString(36);
+  // Convert to unsigned 32-bit integer and then to base36
+  return (hash >>> 0).toString(36);
 };
 
 // Password input component
