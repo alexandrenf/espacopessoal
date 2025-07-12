@@ -785,17 +785,19 @@ export const createProfilePicture = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // Deactivate any existing profile pictures for this user
     const existingPictures = await ctx.db
       .query("profilePictures")
-      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .withIndex("by_user_active", (q) =>
+        q.eq("userId", args.userId).eq("isActive", true),
+      )
       .collect();
-    
+
     for (const picture of existingPictures) {
       await ctx.db.patch(picture._id, { isActive: false });
     }
-    
+
     // Create new profile picture record
     const profilePictureId = await ctx.db.insert("profilePictures", {
       userId: args.userId,
@@ -807,7 +809,7 @@ export const createProfilePicture = mutation({
       uploadedAt: now,
       lastAccessedAt: now,
     });
-    
+
     return profilePictureId;
   },
 });
@@ -820,7 +822,9 @@ export const getActiveProfilePicture = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("profilePictures")
-      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .withIndex("by_user_active", (q) =>
+        q.eq("userId", args.userId).eq("isActive", true),
+      )
       .first();
   },
 });
@@ -858,7 +862,7 @@ export const updateProfilePictureAccess = mutation({
       .query("profilePictures")
       .withIndex("by_storage_id", (q) => q.eq("storageId", args.storageId))
       .first();
-    
+
     if (profilePicture) {
       await ctx.db.patch(profilePicture._id, {
         lastAccessedAt: Date.now(),
@@ -897,9 +901,11 @@ export const updateProfileImage = mutation({
     // Deactivate any existing profile pictures for this user
     const existingPictures = await ctx.db
       .query("profilePictures")
-      .withIndex("by_user_active", (q) => q.eq("userId", args.userId).eq("isActive", true))
+      .withIndex("by_user_active", (q) =>
+        q.eq("userId", args.userId).eq("isActive", true),
+      )
       .collect();
-    
+
     for (const picture of existingPictures) {
       if (picture.storageId !== args.storageId) {
         await ctx.db.patch(picture._id, { isActive: false });
@@ -940,17 +946,17 @@ export const cleanupUnusedProfilePictures = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
-    
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+
     // Find inactive profile pictures that haven't been accessed in 30 days
     const oldProfilePictures = await ctx.db
       .query("profilePictures")
       .withIndex("by_last_accessed")
-      .filter((q) => 
+      .filter((q) =>
         q.and(
           q.eq(q.field("isActive"), false),
-          q.lt(q.field("lastAccessedAt"), thirtyDaysAgo)
-        )
+          q.lt(q.field("lastAccessedAt"), thirtyDaysAgo),
+        ),
       )
       .collect();
 
@@ -962,19 +968,24 @@ export const cleanupUnusedProfilePictures = internalMutation({
       try {
         // Delete the file from Convex storage
         await ctx.storage.delete(picture.storageId);
-        
+
         // Remove the database record
         await ctx.db.delete(picture._id);
-        
+
         deletedCount++;
       } catch (error) {
-        console.error(`Failed to delete profile picture ${picture._id}:`, error);
+        console.error(
+          `Failed to delete profile picture ${picture._id}:`,
+          error,
+        );
         failedCount++;
       }
     }
 
-    console.log(`Profile picture cleanup completed: ${deletedCount} deleted, ${failedCount} failed`);
-    
+    console.log(
+      `Profile picture cleanup completed: ${deletedCount} deleted, ${failedCount} failed`,
+    );
+
     return {
       deletedCount,
       failedCount,

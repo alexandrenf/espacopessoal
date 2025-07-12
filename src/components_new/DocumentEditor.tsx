@@ -153,10 +153,9 @@ export function DocumentEditor({
   const { data: session } = useSession();
 
   // Get user profile from Convex for updated profile image
-  const { data: userProfile } = api.users.getUserProfile.useQuery(
-    undefined,
-    { enabled: !!convexUserId }
-  );
+  const { data: userProfile } = api.users.getUserProfile.useQuery(undefined, {
+    enabled: !!convexUserId,
+  });
 
   // OPTIMIZED: Use consolidated optimized queries instead of individual ones
   const currentDocument = useOptimizedDocument(
@@ -1416,7 +1415,7 @@ export function DocumentEditor({
                       variant="ghost"
                       className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
                     >
-                      {userProfile?.image ?? session?.user?.image ? (
+                      {(userProfile?.image ?? session?.user?.image) ? (
                         <Image
                           className="h-8 w-8 rounded-full object-cover"
                           src={userProfile?.image ?? session?.user?.image ?? ""}

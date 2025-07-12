@@ -232,11 +232,16 @@ export const usersConvexRouter = createTRPCRouter({
         });
       }
 
-      const uploadUrl = await ctx.convex.mutation(api.users.generateUploadUrl, {});
+      const uploadUrl = await ctx.convex.mutation(
+        api.users.generateUploadUrl,
+        {},
+      );
       return { uploadUrl };
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to generate upload URL";
+        error instanceof Error
+          ? error.message
+          : "Failed to generate upload URL";
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: errorMessage,
@@ -279,7 +284,9 @@ export const usersConvexRouter = createTRPCRouter({
         return user;
       } catch (error: unknown) {
         const errorMessage =
-          error instanceof Error ? error.message : "Failed to update profile image";
+          error instanceof Error
+            ? error.message
+            : "Failed to update profile image";
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: errorMessage,
@@ -358,7 +365,9 @@ export const usersConvexRouter = createTRPCRouter({
         return user;
       } catch (error: unknown) {
         const errorMessage =
-          error instanceof Error ? error.message : "Failed to refetch auth provider image";
+          error instanceof Error
+            ? error.message
+            : "Failed to refetch auth provider image";
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: errorMessage,

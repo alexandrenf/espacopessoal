@@ -8,14 +8,17 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ storageId: string }> }
+  { params }: { params: Promise<{ storageId: string }> },
 ) {
   const { storageId } = await params;
   try {
     // Check if profile picture exists in database first
-    const profilePicture = await convex.query(api.users.getProfilePictureByStorageId, {
-      storageId: storageId as Id<"_storage">,
-    });
+    const profilePicture = await convex.query(
+      api.users.getProfilePictureByStorageId,
+      {
+        storageId: storageId as Id<"_storage">,
+      },
+    );
 
     if (!profilePicture) {
       return new NextResponse("Profile picture not found", { status: 404 });
@@ -37,7 +40,7 @@ export async function GET(
 
     // Fetch the image from Convex storage
     const imageResponse = await fetch(imageUrl);
-    
+
     if (!imageResponse.ok) {
       return new NextResponse("Failed to fetch image", { status: 500 });
     }
