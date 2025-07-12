@@ -68,7 +68,7 @@ describe("Profile Picture System", () => {
       const externalUrl = "https://example.com/image.jpg";
       const result = createCachedImageUrl(externalUrl, true);
 
-      expect(result).toMatch(/https:\/\/example\.com\/image\.jpg\?_t=\d+/);
+      expect(result).toMatch(/https:\/\/example\.com\/image\.jpg\?v=\d+/);
     });
 
     it("should handle empty URLs", () => {
