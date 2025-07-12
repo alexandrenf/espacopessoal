@@ -479,17 +479,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   // Handle folder click
   const handleFolderClick = (folder: Document) => {
-    console.log("Opening folder:", folder.title, "ID:", folder._id);
-    console.log("All available documents:", documents);
     setSelectedFolder(folder);
     setShowFolderModal(true);
   };
 
   // Get documents inside a folder
   const getFolderDocuments = (folderId: string) => {
-    const folderDocs = documents.filter((doc) => doc.parentId === folderId);
-    console.log(`Folder ${folderId} contents:`, folderDocs.length, "documents", folderDocs);
-    return folderDocs;
+    return documents.filter((doc) => doc.parentId === folderId);
   };
 
   // Process and filter documents (only show root level documents in main view)
