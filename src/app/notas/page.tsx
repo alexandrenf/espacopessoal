@@ -143,7 +143,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="h-12 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
           <Plus className="h-4 w-4" />
           Novo Notebook
         </Button>
@@ -318,15 +318,15 @@ const NotebookCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -4, scale: 1.02 }}
       className="group"
     >
-      <Card className="h-full transition-all duration-300 hover:shadow-lg">
+      <Card className="h-full border-slate-200/50 bg-white/80 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 rounded-lg bg-blue-100 p-2">
-                <Notebook className="h-5 w-5 text-blue-600" />
+              <div className="flex-shrink-0 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 p-2">
+                <Notebook className="h-5 w-5 text-white" />
               </div>
               <div>
                 <CardTitle className="text-lg">{notebook.title}</CardTitle>
@@ -467,11 +467,28 @@ export default function NotasPage() {
 
   if (status === "loading" || (status === "authenticated" && isLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="text-center">
-          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin" />
-          <p className="text-muted-foreground">Carregando notebooks...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative text-center"
+        >
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+          <h3 className="mb-2 text-xl font-semibold text-slate-900">
+            Carregando notebooks...
+          </h3>
+          <p className="text-slate-600">Preparando seu espaço digital</p>
+        </motion.div>
       </div>
     );
   }
@@ -485,145 +502,217 @@ export default function NotasPage() {
     ) ?? [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="mb-2 text-4xl font-bold text-gray-900">
-            {status === "authenticated" ? "Meus Notebooks" : "Notebooks"}
-          </h1>
-          <p className="text-lg text-gray-600">
-            {status === "authenticated"
-              ? "Organize suas ideias em coleções temáticas"
-              : "Acesse notebooks públicos ou entre para gerenciar os seus próprios"}
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Authentication Status Bar */}
-        {status === "unauthenticated" && (
-          <div className="mb-8">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <User className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-blue-900">
-                        Você não está logado
-                      </p>
-                      <p className="text-sm text-blue-700">
-                        Faça login para criar e gerenciar seus próprios
-                        notebooks
-                      </p>
-                    </div>
-                  </div>
-                  <Button asChild>
-                    <Link
-                      href="/api/auth/signin"
-                      className="flex items-center gap-2"
-                    >
-                      <LogIn className="h-4 w-4" />
-                      Entrar
-                    </Link>
-                  </Button>
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <div className="container relative mx-auto px-4 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12"
+          >
+            <div className="mx-auto max-w-4xl text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="mb-8"
+              >
+                <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm text-blue-700 ring-1 ring-blue-200">
+                  <Notebook className="h-4 w-4" />
+                  {status === "authenticated"
+                    ? "Seus Notebooks"
+                    : "Notebooks Públicos"}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </motion.div>
 
-        {/* Search and Actions */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={
-                status === "authenticated"
-                  ? "Buscar meus notebooks..."
-                  : "Digite a URL de um notebook para acessar"
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {status === "authenticated" && (
-            <CreateNotebookDialog onSuccess={() => refetch()} />
+              <h1 className="mb-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
+                {status === "authenticated" ? "Meus Notebooks" : "Notebooks"}
+              </h1>
+              <p className="mx-auto max-w-2xl text-lg text-slate-600">
+                {status === "authenticated"
+                  ? "Organize suas ideias em coleções temáticas"
+                  : "Acesse notebooks públicos ou entre para gerenciar os seus próprios"}
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Authentication Status Bar */}
+          {status === "unauthenticated" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="mb-8"
+            >
+              <Card className="border-blue-200/50 bg-white/80 shadow-lg backdrop-blur-sm">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-2">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          Você não está logado
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          Faça login para criar e gerenciar seus próprios
+                          notebooks
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      asChild
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      <Link
+                        href="/api/auth/signin"
+                        className="flex items-center gap-2"
+                      >
+                        <LogIn className="h-4 w-4" />
+                        Entrar
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
-          {status === "unauthenticated" && searchTerm && (
-            <Button asChild>
-              <Link href={`/notas/${searchTerm}`}>Acessar Notebook</Link>
-            </Button>
+
+          {/* Search and Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mb-8 flex flex-col gap-4 sm:flex-row"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder={
+                  status === "authenticated"
+                    ? "Buscar meus notebooks..."
+                    : "Digite a URL de um notebook para acessar"
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-12 border-slate-200/50 bg-white/80 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20"
+              />
+            </div>
+            {status === "authenticated" && (
+              <CreateNotebookDialog onSuccess={() => refetch()} />
+            )}
+            {status === "unauthenticated" && searchTerm && (
+              <Button
+                asChild
+                className="h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
+                <Link href={`/notas/${searchTerm}`}>Acessar Notebook</Link>
+              </Button>
+            )}
+          </motion.div>
+
+          {/* Notebooks Grid */}
+          {status === "authenticated" ? (
+            // Authenticated user view - show their notebooks
+            filteredNotebooks.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="py-16 text-center"
+              >
+                <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+                  <Notebook className="h-12 w-12 text-blue-600" />
+                </div>
+                <h3 className="mb-4 text-2xl font-semibold text-slate-900">
+                  {searchTerm
+                    ? "Nenhum notebook encontrado"
+                    : "Nenhum notebook ainda"}
+                </h3>
+                <p className="mx-auto mb-8 max-w-md text-slate-600">
+                  {searchTerm
+                    ? "Tente ajustar sua busca ou criar um novo notebook"
+                    : "Comece criando seu primeiro notebook para organizar suas ideias"}
+                </p>
+                {!searchTerm && (
+                  <CreateNotebookDialog onSuccess={() => refetch()} />
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+              >
+                <AnimatePresence>
+                  {filteredNotebooks.map((notebook) => {
+                    // Determine access level for display
+                    const accessLevel = !notebook.isPrivate
+                      ? "public"
+                      : notebook.password
+                        ? "password"
+                        : "private";
+
+                    return (
+                      <NotebookCard
+                        key={notebook._id}
+                        notebook={{
+                          ...notebook,
+                          accessLevel,
+                          hasAccess: true,
+                          isOwner: true,
+                        }}
+                        onDeleted={() => refetch()}
+                      />
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.div>
+            )
+          ) : (
+            // Unauthenticated user view - show instructions
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="py-16 text-center"
+            >
+              <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+                <Notebook className="h-12 w-12 text-blue-600" />
+              </div>
+              <h3 className="mb-4 text-2xl font-semibold text-slate-900">
+                Acesse um Notebook
+              </h3>
+              <p className="mx-auto mb-8 max-w-md text-slate-600">
+                Digite a URL de um notebook no campo de busca acima para
+                acessá-lo.
+                <br />
+                Para criar e gerenciar seus próprios notebooks, faça login.
+              </p>
+              <div className="flex justify-center gap-4">
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Link href="/api/auth/signin">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Fazer Login
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
           )}
         </div>
-
-        {/* Notebooks Grid */}
-        {status === "authenticated" ? (
-          // Authenticated user view - show their notebooks
-          filteredNotebooks.length === 0 ? (
-            <div className="py-12 text-center">
-              <Notebook className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-              <h3 className="mb-2 text-xl font-semibold">
-                {searchTerm
-                  ? "Nenhum notebook encontrado"
-                  : "Nenhum notebook ainda"}
-              </h3>
-              <p className="mb-6 text-muted-foreground">
-                {searchTerm
-                  ? "Tente ajustar sua busca ou criar um novo notebook"
-                  : "Comece criando seu primeiro notebook para organizar suas ideias"}
-              </p>
-              {!searchTerm && (
-                <CreateNotebookDialog onSuccess={() => refetch()} />
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <AnimatePresence>
-                {filteredNotebooks.map((notebook) => {
-                  // Determine access level for display
-                  const accessLevel = !notebook.isPrivate
-                    ? "public"
-                    : notebook.password
-                      ? "password"
-                      : "private";
-
-                  return (
-                    <NotebookCard
-                      key={notebook._id}
-                      notebook={{
-                        ...notebook,
-                        accessLevel,
-                        hasAccess: true,
-                        isOwner: true,
-                      }}
-                      onDeleted={() => refetch()}
-                    />
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          )
-        ) : (
-          // Unauthenticated user view - show instructions
-          <div className="py-12 text-center">
-            <Notebook className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-            <h3 className="mb-2 text-xl font-semibold">Acesse um Notebook</h3>
-            <p className="mb-6 text-muted-foreground">
-              Digite a URL de um notebook no campo de busca acima para
-              acessá-lo.
-              <br />
-              Para criar e gerenciar seus próprios notebooks, faça login.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button asChild variant="outline">
-                <Link href="/api/auth/signin">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Fazer Login
-                </Link>
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

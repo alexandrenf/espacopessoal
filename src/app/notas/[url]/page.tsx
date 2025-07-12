@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { motion } from "framer-motion";
 import { useQuery, useMutation } from "convex/react";
 import { api as convexApi } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -76,48 +77,65 @@ const PasswordPrompt = ({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-            <KeyRound className="h-6 w-6 text-yellow-600" />
-          </div>
-          <CardTitle>Notebook Protegido</CardTitle>
-          <CardDescription>
-            Este notebook é protegido por senha. Digite a senha para continuar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Digite a senha do notebook"
-                required
-                disabled={isLoading}
-              />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Background grid pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+      {/* Background gradient orbs */}
+      <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+      <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6 }}
+        className="relative w-full max-w-md"
+      >
+        <Card className="border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-sm">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500">
+              <KeyRound className="h-8 w-8 text-white" />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading || !password.trim()}
-            >
-              {isLoading ? (
-                <>
-                  <LoadingSpinner className="mr-2 h-4 w-4" />
-                  Verificando...
-                </>
-              ) : (
-                "Acessar Notebook"
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <CardTitle className="text-2xl font-bold text-slate-900">
+              Notebook Protegido
+            </CardTitle>
+            <CardDescription className="text-slate-600">
+              Este notebook é protegido por senha. Digite a senha para
+              continuar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Digite a senha do notebook"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                disabled={isLoading || !password.trim()}
+              >
+                {isLoading ? (
+                  <>
+                    <LoadingSpinner className="mr-2 h-4 w-4" />
+                    Verificando...
+                  </>
+                ) : (
+                  "Acessar Notebook"
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };
@@ -299,7 +317,6 @@ function NotebookPageContent() {
   const documentsQueryArgs = notebook
     ? {
         userId: convexUserId ?? undefined,
-        parentId: undefined, // Get root level documents
         notebookId: notebook._id as Id<"notebooks">,
         hasValidPassword, // Pass password validation status
       }
@@ -308,7 +325,7 @@ function NotebookPageContent() {
   console.log("About to run documents query with args:", documentsQueryArgs);
 
   const documents = useQuery(
-    convexApi.documents.getHierarchical,
+    convexApi.documents.getAllForTreeLegacy,
     documentsQueryArgs,
   );
 
@@ -391,11 +408,30 @@ function NotebookPageContent() {
   // Check if user is authenticated and user data is loading
   if (status === "loading" || (isAuthenticated && isUserLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner className="h-8 w-8" />
-        <span className="ml-2 text-sm text-gray-600">
-          {status === "loading" ? "Authenticating..." : "Loading user data..."}
-        </span>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative text-center"
+        >
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+            <LoadingSpinner className="h-8 w-8 text-blue-600" />
+          </div>
+          <h3 className="mb-2 text-xl font-semibold text-slate-900">
+            {status === "loading"
+              ? "Autenticando..."
+              : "Carregando dados do usuário..."}
+          </h3>
+          <p className="text-slate-600">Preparando seu notebook</p>
+        </motion.div>
       </div>
     );
   }
@@ -403,9 +439,28 @@ function NotebookPageContent() {
   // Check if notebook metadata is loading
   if (notebookMetadata === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner className="h-8 w-8" />
-        <span className="ml-2 text-sm text-gray-600">Loading notebook...</span>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative text-center"
+        >
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+            <LoadingSpinner className="h-8 w-8 text-blue-600" />
+          </div>
+          <h3 className="mb-2 text-xl font-semibold text-slate-900">
+            Carregando notebook...
+          </h3>
+          <p className="text-slate-600">Acessando seu espaço digital</p>
+        </motion.div>
       </div>
     );
   }
@@ -439,9 +494,28 @@ function NotebookPageContent() {
   // Check if notebook is loading
   if (notebook === undefined && !needsPassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingSpinner className="h-8 w-8" />
-        <span className="ml-2 text-sm text-gray-600">Loading notebook...</span>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative text-center"
+        >
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+            <LoadingSpinner className="h-8 w-8 text-blue-600" />
+          </div>
+          <h3 className="mb-2 text-xl font-semibold text-slate-900">
+            Carregando notebook...
+          </h3>
+          <p className="text-slate-600">Preparando documentos</p>
+        </motion.div>
       </div>
     );
   }
@@ -545,12 +619,12 @@ function NotebookPageContent() {
   // Handle document/folder click
   const handleDocumentClick = (documentId: string, isFolder: boolean) => {
     if (isFolder) {
-      // For folders, you could implement navigation into the folder
-      // For now, we'll show a message that folders can't be opened like documents
+      // Folders are now handled by the FileExplorer modal
+      // This shouldn't be called for folders anymore, but keeping as fallback
       toast({
-        title: "Pasta selecionada",
+        title: "Pasta aberta",
         description:
-          "As pastas não podem ser abertas como documentos. Use o menu de contexto para gerenciar a pasta.",
+          "A pasta foi aberta em uma janela modal. Clique nos documentos dentro dela para acessá-los.",
         variant: "default",
       });
     } else {
@@ -639,121 +713,160 @@ function NotebookPageContent() {
       : "private";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500 text-white">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {notebookData.title}
-                </h1>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
-                  {accessLevel === "private" ? (
-                    <Lock className="h-4 w-4" />
-                  ) : accessLevel === "password" ? (
-                    <KeyRound className="h-4 w-4" />
-                  ) : (
-                    <Globe className="h-4 w-4" />
-                  )}
-                  <span>
-                    {accessLevel === "private"
-                      ? "Private"
-                      : accessLevel === "password"
-                        ? "Password Protected"
-                        : "Public"}{" "}
-                    notebook
-                  </span>
-                  <span>•</span>
-                  <span>Created {formatDate(notebookData.createdAt)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              {!isAuthenticated && (
-                <Button asChild variant="outline">
-                  <Link href="/api/auth/signin">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login para Criar Documentos
-                  </Link>
-                </Button>
-              )}
-              {isAuthenticated && (
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleCreateFolder}
-                    variant="outline"
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                  >
-                    <FolderPlus className="mr-2 h-4 w-4" />
-                    Nova Pasta
-                  </Button>
-                  <Button
-                    onClick={handleCreateDocument}
-                    disabled={isCreatingDocument}
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    {isCreatingDocument ? (
-                      <LoadingSpinner className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Plus className="mr-2 h-4 w-4" />
-                    )}
-                    Novo Documento
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-          {notebookData.description && (
-            <p className="mt-4 text-gray-600">{notebookData.description}</p>
-          )}
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Access info for non-authenticated users */}
-        {!isAuthenticated && (
-          <div className="mb-6">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="font-medium text-blue-900">
-                      Você está visualizando este notebook como visitante
-                    </p>
-                    <p className="text-sm text-blue-700">
-                      Você pode visualizar e editar os documentos existentes.
-                      Faça login para criar novos documentos.
-                    </p>
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+
+        <div className="container relative mx-auto max-w-6xl px-4 py-12">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
+                  <FileText className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent">
+                    {notebookData.title}
+                  </h1>
+                  <div className="flex items-center space-x-3 text-sm text-slate-600">
+                    <div className="flex items-center space-x-1">
+                      {accessLevel === "private" ? (
+                        <Lock className="h-4 w-4 text-slate-500" />
+                      ) : accessLevel === "password" ? (
+                        <KeyRound className="h-4 w-4 text-yellow-500" />
+                      ) : (
+                        <Globe className="h-4 w-4 text-green-500" />
+                      )}
+                      <span className="font-medium">
+                        {accessLevel === "private"
+                          ? "Privado"
+                          : accessLevel === "password"
+                            ? "Protegido por Senha"
+                            : "Público"}
+                      </span>
+                    </div>
+                    <span>•</span>
+                    <span>Criado em {formatDate(notebookData.createdAt)}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+              <div className="flex items-center space-x-2">
+                {!isAuthenticated && (
+                  <Button
+                    asChild
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    <Link href="/api/auth/signin">
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Login para Criar Documentos
+                    </Link>
+                  </Button>
+                )}
+                {isAuthenticated && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleCreateFolder}
+                      variant="outline"
+                      className="border-blue-200/50 bg-white/80 text-blue-700 backdrop-blur-sm hover:bg-blue-50"
+                    >
+                      <FolderPlus className="mr-2 h-4 w-4" />
+                      Nova Pasta
+                    </Button>
+                    <Button
+                      onClick={handleCreateDocument}
+                      disabled={isCreatingDocument}
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                    >
+                      {isCreatingDocument ? (
+                        <LoadingSpinner className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Plus className="mr-2 h-4 w-4" />
+                      )}
+                      Novo Documento
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {notebookData.description && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mt-6 rounded-lg bg-white/60 p-4 text-slate-700 backdrop-blur-sm"
+              >
+                {notebookData.description}
+              </motion.p>
+            )}
+          </motion.div>
 
-        {/* File Explorer */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Arquivos e Pastas
-            </h2>
-          </div>
+          {/* Access info for non-authenticated users */}
+          {!isAuthenticated && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="mb-8"
+            >
+              <Card className="border-blue-200/50 bg-white/80 shadow-lg backdrop-blur-sm">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-2">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        Você está visualizando este notebook como visitante
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Você pode visualizar e editar os documentos existentes.
+                        Faça login para criar novos documentos.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-          <FileExplorer
-            documents={documents ?? []}
-            onDocumentClick={handleDocumentClick}
-            onCreateDocument={handleCreateDocument}
-            onCreateFolder={handleCreateFolder}
-            onDeleteDocument={handleDeleteDocument}
-            onRenameDocument={handleRenameDocument}
-            isAuthenticated={!!isAuthenticated}
-            currentUserId={convexUserId ?? undefined}
-            isLoading={documents === undefined}
-          />
+          {/* File Explorer */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-2xl font-semibold text-transparent">
+                Arquivos e Pastas
+              </h2>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-6 shadow-lg backdrop-blur-sm">
+              <FileExplorer
+                documents={documents ?? []}
+                onDocumentClick={handleDocumentClick}
+                onCreateDocument={handleCreateDocument}
+                onCreateFolder={handleCreateFolder}
+                onDeleteDocument={handleDeleteDocument}
+                onRenameDocument={handleRenameDocument}
+                isAuthenticated={!!isAuthenticated}
+                currentUserId={convexUserId ?? undefined}
+                isLoading={documents === undefined}
+              />
+            </div>
+          </motion.div>
         </div>
       </div>
     </div>

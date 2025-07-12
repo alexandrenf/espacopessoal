@@ -36,6 +36,12 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -106,6 +112,7 @@ const FileItem = ({
   currentUserId,
   viewMode,
   level = 0,
+  onFolderClick,
 }: {
   document: Document;
   onDocumentClick: (documentId: string, isFolder: boolean) => void;
@@ -115,6 +122,7 @@ const FileItem = ({
   currentUserId?: string;
   viewMode: ViewMode;
   level?: number;
+  onFolderClick?: (folder: Document) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -125,7 +133,8 @@ const FileItem = ({
 
   const handleClick = () => {
     if (document.isFolder) {
-      setIsExpanded(!isExpanded);
+      // Open folder modal instead of calling onDocumentClick
+      onFolderClick?.(document);
     } else {
       onDocumentClick(document._id, document.isFolder);
     }
@@ -133,8 +142,8 @@ const FileItem = ({
 
   const handleDoubleClick = () => {
     if (document.isFolder) {
-      // You could implement navigation into folder here
-      onDocumentClick(document._id, document.isFolder);
+      // Open folder modal on double click too
+      onFolderClick?.(document);
     }
   };
 
@@ -151,8 +160,8 @@ const FileItem = ({
   };
 
   const getPreviewContent = () => {
-    if (!document.initialContent) return "";
-    return document.initialContent.replace(/<[^>]*>/g, "").slice(0, 100);
+    // Don't show preview content to keep interface clean
+    return "";
   };
 
   if (viewMode === "list") {
@@ -465,12 +474,31 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFolder, setSelectedFolder] = useState<Document | null>(null);
+  const [showFolderModal, setShowFolderModal] = useState(false);
 
-  // Process and filter documents
+  // Handle folder click
+  const handleFolderClick = (folder: Document) => {
+    console.log("Opening folder:", folder.title, "ID:", folder._id);
+    console.log("All available documents:", documents);
+    setSelectedFolder(folder);
+    setShowFolderModal(true);
+  };
+
+  // Get documents inside a folder
+  const getFolderDocuments = (folderId: string) => {
+    const folderDocs = documents.filter((doc) => doc.parentId === folderId);
+    console.log(`Folder ${folderId} contents:`, folderDocs.length, "documents", folderDocs);
+    return folderDocs;
+  };
+
+  // Process and filter documents (only show root level documents in main view)
   const processedDocuments = useMemo(() => {
-    const filtered = documents.filter((doc) =>
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    const filtered = documents
+      .filter((doc) => !doc.parentId) // Only root level documents
+      .filter((doc) =>
+        doc.title.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
 
     // Sort documents
     filtered.sort((a, b) => {
@@ -499,13 +527,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 animate-pulse rounded bg-slate-200" />
+      <div className="space-y-6">
+        <div className="h-12 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-slate-300" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-40 animate-pulse rounded-xl bg-slate-200"
+              className="h-40 animate-pulse rounded-xl bg-gradient-to-br from-slate-200 to-slate-300"
             />
           ))}
         </div>
@@ -524,7 +552,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               placeholder="Buscar arquivos e pastas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64 pl-10"
+              className="w-64 border-slate-200/70 bg-white/70 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20"
             />
           </div>
         </div>
@@ -670,6 +698,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               onDocumentClick={onDocumentClick}
               onDeleteDocument={onDeleteDocument}
               onRenameDocument={onRenameDocument}
+              onFolderClick={handleFolderClick}
               isAuthenticated={isAuthenticated}
               currentUserId={currentUserId}
               viewMode={viewMode}
@@ -685,6 +714,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               onDocumentClick={onDocumentClick}
               onDeleteDocument={onDeleteDocument}
               onRenameDocument={onRenameDocument}
+              onFolderClick={handleFolderClick}
               isAuthenticated={isAuthenticated}
               currentUserId={currentUserId}
               viewMode={viewMode}
@@ -692,6 +722,102 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           ))}
         </div>
       )}
+
+      {/* Folder Contents Modal */}
+      <Dialog open={showFolderModal} onOpenChange={setShowFolderModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 p-2">
+                <FolderOpen className="h-5 w-5 text-white" />
+              </div>
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                {selectedFolder?.title}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedFolder && (
+            <div className="mt-6">
+              {(() => {
+                const folderContents = getFolderDocuments(selectedFolder._id);
+
+                if (folderContents.length === 0) {
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="py-12 text-center"
+                    >
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200">
+                        <Folder className="h-8 w-8 text-slate-400" />
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                        Pasta vazia
+                      </h3>
+                      <p className="text-slate-600">
+                        Esta pasta não contém nenhum documento ainda.
+                      </p>
+                    </motion.div>
+                  );
+                }
+
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+                  >
+                    {folderContents.map((document) => (
+                      <motion.div
+                        key={document._id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileHover={{ y: -2, scale: 1.02 }}
+                        className="group cursor-pointer"
+                        onClick={() => {
+                          if (document.isFolder) {
+                            // Handle nested folder
+                            setSelectedFolder(document);
+                          } else {
+                            // Open document and close modal
+                            onDocumentClick(document._id, document.isFolder);
+                            setShowFolderModal(false);
+                          }
+                        }}
+                      >
+                        <div className="rounded-xl border border-slate-200/50 bg-white p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+                          <div className="mb-3 flex justify-center">
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <FileIcon
+                                isFolder={document.isFolder}
+                                isOpen={false}
+                                isHome={document.isHome}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <h3 className="truncate text-sm font-medium text-slate-900">
+                              {document.title}
+                            </h3>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {format(
+                                new Date(document.updatedAt),
+                                "dd/MM/yyyy",
+                                { locale: ptBR },
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                );
+              })()}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
