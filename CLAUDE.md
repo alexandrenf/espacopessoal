@@ -14,15 +14,24 @@ Espaço Pessoal is a Portuguese smart notepad application that provides synchron
 
 ### Build and Development
 - `bun run dev` - Start development server with Turbo and experimental HTTPS
-- `bun run build` - Build the application (includes Prisma migration deployment)
+- `bun run build` - Build the application (includes Convex deployment)
 - `bun run start` - Start production server
 - `bun run preview` - Build and start production server
 
 ### Database Operations
-- `bun run db:generate` - Generate Prisma migrations for development
-- `bun run db:migrate` - Deploy Prisma migrations to production
-- `bun run db:push` - Push database schema changes
-- `bun run db:studio` - Open Prisma Studio for database management
+- **Convex (Primary)**:
+  - Convex functions auto-deploy on save during development
+  - Use Convex dashboard for database management and monitoring
+- **Legacy Prisma (Migration Support)**:
+  - `bun run db:generate` - Generate Prisma migrations for development
+  - `bun run db:migrate` - Deploy Prisma migrations to production
+  - `bun run db:push` - Push database schema changes
+  - `bun run db:studio` - Open Prisma Studio for database management
+
+### Migration Commands
+- `bun run migrate:dry-run` - Test migration from Prisma to Convex (no changes)
+- `bun run migrate:to-convex` - Full migration from Prisma to Convex
+- `bun run migrate:users-only` - Migrate only users, accounts, and settings
 
 ### Code Quality
 - `bun run lint` - Run ESLint
@@ -34,19 +43,20 @@ Espaço Pessoal is a Portuguese smart notepad application that provides synchron
 
 ## Architecture Overview
 
-### Dual Database System
-The application uses a hybrid approach with two databases:
-- **Prisma + PostgreSQL**: Traditional data (users, settings, notifications, tasks, boards)
-- **Convex**: Real-time document collaboration and storage
+### Database Architecture
+The application has migrated from a dual database system to a **Convex-first architecture**:
+- **Convex**: Primary database for all data (users, documents, notebooks, authentication, settings)
+- **Prisma + PostgreSQL**: Legacy system (migration scripts available for data transfer)
 
 ### Key Technology Stack
 -   **Frontend**: Next.js 15 with App Router, React 18, TailwindCSS
--   **Authentication**: NextAuth.js with Google, Discord, and Email providers
+-   **Authentication**: NextAuth.js with Convex Adapter for Google, Discord, and Email providers
 -   **Real-time Collaboration**: Yjs + HocusPocus for document synchronization
--   **Database**: PostgreSQL via Prisma + Convex for real-time features
+-   **Database**: Convex (primary) with migration support from PostgreSQL/Prisma
 -   **Editor**: TipTap with collaborative extensions
 -   **State Management**: Zustand for client-side state
--   **API Layer**: tRPC for type-safe API calls
+-   **API Layer**: Convex queries/mutations + tRPC for legacy compatibility
+-   **Security**: bcrypt password hashing, secure session management
 -   **PWA**: Next-PWA for offline functionality
 
 ### Directory Structure
@@ -60,7 +70,7 @@ The application uses a hybrid approach with two databases:
 -   `server/` - Additional server configuration
 
 ### Authentication Flow
-NextAuth.js handles authentication with session management. User data is stored in Prisma, with session tokens managed by NextAuth. The system supports multiple OAuth providers and email authentication.
+NextAuth.js handles authentication with a custom Convex Adapter for session management. User data is stored in Convex, with session tokens managed by NextAuth through the ConvexAdapter. The system supports multiple OAuth providers and email authentication with secure bcrypt password hashing for protected notebooks.
 
 ### Document Management
 -   Documents are stored in Convex for real-time collaboration
@@ -76,16 +86,20 @@ NextAuth.js handles authentication with session management. User data is stored 
 -   WebSocket connections via HocusPocus provider
 
 ### Notable Patterns
--   Dual provider pattern: Components wrapped in both TRPCReactProvider and ConvexClientProvider
--   Migration in progress: `components/` (legacy) and `components_new/` (new document system)
+-   Convex-first architecture: Components primarily use ConvexClientProvider with TRPCReactProvider for legacy compatibility
+-   Migration completed: New document system in `components_new/` is now primary (legacy `components/` being phased out)
 -   PWA integration with service worker and manifest
 -   Spell check integration with custom dictionary management
 -   Task management system with boards and reminders
+-   Secure password handling with bcrypt hashing and session token generation
+-   Migration scripts available for Prisma-to-Convex data transfer
 
 ## Specific Development Memories
 
 ### TypeScript Best Practices
 - **Never set type as `any`** - Always use specific, well-defined types to maintain type safety and catch potential errors early in the development process.
+- **Use proper Convex types** - Use `QueryCtx` from `./_generated/server` instead of `any` for Convex context parameters.
+- **Security-first typing** - Ensure authentication and authorization types are properly defined and validated.
 
 ## 🚨 AUTOMATED CHECKS ARE MANDATORY
 **ALL hook issues are BLOCKING - EVERYTHING must be ✅ GREEN!**  
@@ -183,13 +197,14 @@ Your code must be 100% clean. No exceptions.
 ### Required Standards:
 -   **Delete** old code when replacing it, particularly from `src/components/`.
 -   **Meaningful names**: `userProfile`, `blogPostId`, `documentContent` not `data`, `id`.
--   **Early returns** for guard clauses in components and tRPC API routes.
--   **Concrete types/interfaces** for props, state, Convex queries, Prisma models, and tRPC responses.
--   **Simple error handling**: Return clear error messages from tRPC/API routes, use `try/catch` in client components, and leverage Next.js error boundaries.
+-   **Early returns** for guard clauses in components and Convex functions.
+-   **Concrete types/interfaces** for props, state, Convex queries, and responses. Use `QueryCtx` from `./_generated/server` instead of `any`.
+-   **Simple error handling**: Return clear error messages from Convex functions, use `try/catch` in client components, and leverage Next.js error boundaries.
 -   **Component-specific tests** (Jest, React Testing Library) and end-to-end tests (e.g., Playwright if introduced).
--   **Leverage Next.js features appropriately**: Server Components, Client Components (`use client`), `getServerSideProps` (if still using Pages Router), `getStaticProps`, `generateStaticParams`, App Router route handlers.
+-   **Leverage Next.js features appropriately**: Server Components, Client Components (`use client`), App Router route handlers.
 -   **Use `use client` directive correctly** for client-side interactivity, particularly within `src/components_new/` and editor components.
--   **Dual provider pattern**: Ensure components needing real-time data are correctly wrapped in both `TRPCReactProvider` and `ConvexClientProvider`.
+-   **Convex-first pattern**: Ensure components use ConvexClientProvider for real-time data, with TRPCReactProvider for legacy compatibility only.
+-   **Security-first approach**: Always use bcrypt for password hashing, server-side authentication validation, and proper session management.
 
 ## Implementation Standards
 
@@ -233,17 +248,20 @@ server/           # Additional server configuration
 -   Document components are primarily in `src/components_new/`.
 -   Real-time collaboration logic is centered in `DocumentEditor.tsx`.
 -   Convex functions for document operations are in `convex/documents.ts`.
+-   Notebook management (public/private) is in `convex/notebooks.ts` with secure password handling.
 -   For document switching, refer to the "Document Synchronization Fixes" section for critical logic.
 
 ### Adding New Features (API/Data)
--   Add tRPC router in `src/server/api/routers/`.
--   Register router in `src/server/api/root.ts`.
--   Use tRPC hooks in components via `api.routerName.procedureName.useMutation()` or `api.routerName.procedureName.useQuery()`.
--   For real-time data related to documents, consider Convex functions (`convex/`).
+-   **Primary**: Use Convex queries/mutations in `convex/` directory for new features
+-   **Legacy**: Add tRPC router in `src/server/api/routers/` for backward compatibility
+-   Register tRPC router in `src/server/api/root.ts`
+-   Use Convex hooks: `useQuery(api.moduleName.functionName, args)` or `useMutation(api.moduleName.functionName)`
+-   Use tRPC hooks: `api.routerName.procedureName.useMutation()` or `api.routerName.procedureName.useQuery()`
 
 ### Database Changes
--   **Prisma changes**: Modify `prisma/schema.prisma`, run `bun run db:generate`, and remember `bun run db:migrate` for production deployment.
--   **Convex changes**: Modify `convex/schema.ts` and relevant functions in `convex/` directory. Changes auto-deploy.
+-   **Convex (Primary)**: Modify `convex/schema.ts` and relevant functions in `convex/` directory. Changes auto-deploy during development.
+-   **Legacy Prisma**: Modify `prisma/schema.prisma`, run `bun run db:generate`, and `bun run db:migrate` for production deployment.
+-   **Migration**: Use migration scripts to transfer data from Prisma to Convex when needed.
 
 ### Testing
 -   Jest configuration in `jest.config.ts`.
@@ -267,7 +285,33 @@ The development server runs with experimental HTTPS support. SSL certificates ar
 -   Real-time features use efficient Y.js operational transforms.
 
 ### Migration Status
-The codebase is in active migration from legacy components to a new document system. **Prefer working with files in `components_new/` for document-related features and new development.**
+The codebase has completed migration from legacy components to a new document system and from Prisma to Convex. **Use `components_new/` for all document-related features and Convex for all new data operations.** Legacy Prisma code is maintained for backward compatibility and migration support only.
+
+## Security Improvements (2025-01-12) - CRITICAL UPDATES
+
+### Password Security Enhancements
+The application has implemented comprehensive security improvements for private notebooks:
+
+1. **bcrypt Password Hashing**:
+   - All new passwords are hashed using bcrypt with 12 salt rounds
+   - Legacy password migration automatically upgrades to bcrypt on validation
+   - Secure password verification with `bcrypt.compare()`
+
+2. **Session Token Security**:
+   - Server-side JWT token generation for authenticated sessions
+   - Secure session management with expiration and device fingerprinting
+   - Protection against client-side authentication bypass
+
+3. **Authentication Architecture**:
+   - NextAuth.js with custom Convex Adapter for secure session storage
+   - User data and sessions stored securely in Convex
+   - Proper type safety with `QueryCtx` from Convex server types
+
+### Security Best Practices Implemented
+- **Never use `any` types** - Always use proper TypeScript types like `QueryCtx` from `./_generated/server`
+- **Server-side validation** - All authentication checks happen server-side
+- **Secure password handling** - bcrypt hashing with automatic legacy migration
+- **Session management** - JWT tokens with proper expiration and validation
 
 ## Document Synchronization Fixes (2025-01-09) - CRITICAL CONTEXT
 
@@ -406,6 +450,27 @@ The document sidebar had several UX issues including poor mobile responsiveness,
 -   Intuitive create document flow when documents don't exist.
 -   Robust drag and drop functionality without runtime errors.
 
+## Migration and Data Management
+
+### Prisma to Convex Migration
+The project includes comprehensive migration scripts for transferring data from Prisma/PostgreSQL to Convex:
+
+1. **Migration Scripts**:
+   - `scripts/migrate-to-convex.ts` - Main migration script with dry-run support
+   - `convex/migrations.ts` - Convex-side migration functions and validation
+   - `MIGRATION_PROGRESS.md` - Detailed migration status and progress tracking
+
+2. **Migration Commands**:
+   - `bun run migrate:dry-run` - Test migration without making changes
+   - `bun run migrate:to-convex` - Full migration from Prisma to Convex
+   - `bun run migrate:users-only` - Migrate only users, accounts, and settings
+
+3. **Migration Features**:
+   - Comprehensive data validation and error handling
+   - Support for partial migrations (specific tables only)
+   - Automatic password hash migration from legacy formats to bcrypt
+   - Session and authentication data migration with proper type conversion
+
 ## Troubleshooting Document Sync Issues
 
 ### If documents don't switch properly:
@@ -425,11 +490,19 @@ The document sidebar had several UX issues including poor mobile responsiveness,
 -   Monitor Redis cache: `redis-cli monitor` (if using Redis locally).
 -   Check Y.js document states in browser DevTools (look for `Y.Doc` objects).
 -   Use `bun run test:watch` for rapid feedback on component and logic changes.
+-   Use Convex dashboard for real-time database monitoring and query debugging.
 
 ## Development Tools
 
 ### Package Management
--   **Always use `bun`** for package management, i.e., `bun install`, `bun add`, `bun remove`. Use `bunx` instead of `npx`.
+-   **Always use `bun`** for package management: `bun install`, `bun add`, `bun remove`. Use `bunx` instead of `npx`.
+-   **Key Dependencies**:
+    - `convex` - Primary database and real-time backend
+    - `next-auth` - Authentication with custom Convex adapter
+    - `bcryptjs` - Secure password hashing
+    - `@tiptap/react` - Rich text editor with collaboration
+    - `yjs` + `@hocuspocus/provider` - Real-time collaboration
+-   **Development Dependencies**: TypeScript, ESLint, Prettier, Jest for testing
 
 ## Problem-Solving Together
 

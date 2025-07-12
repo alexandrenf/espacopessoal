@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
     const url = searchParams.get("url");
 
     if (!url) {
-      return NextResponse.json({ error: "URL parameter is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "URL parameter is required" },
+        { status: 400 },
+      );
     }
 
     const cookieStore = await cookies();
@@ -40,11 +43,14 @@ export async function GET(request: NextRequest) {
 
     try {
       const sessionData = JSON.parse(sessionCookie.value) as SessionData;
-      
+
       // Check if session is expired
       if (sessionData.expiresAt && sessionData.expiresAt <= Date.now()) {
         // Session is expired, remove the cookie
-        const response = NextResponse.json({ hasSession: false, expired: true });
+        const response = NextResponse.json({
+          hasSession: false,
+          expired: true,
+        });
         response.cookies.delete(sessionCookieName);
         return response;
       }
@@ -62,20 +68,23 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error("Error getting session:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 // POST: Store session token for a specific notebook URL
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as SessionRequestBody;
+    const body = (await request.json()) as SessionRequestBody;
     const { url, sessionToken, expiresAt } = body;
 
     if (!url || !sessionToken || !expiresAt) {
       return NextResponse.json(
         { error: "url, sessionToken, and expiresAt are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -98,7 +107,10 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Error storing session:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -109,7 +121,10 @@ export async function DELETE(request: NextRequest) {
     const url = searchParams.get("url");
 
     if (!url) {
-      return NextResponse.json({ error: "URL parameter is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "URL parameter is required" },
+        { status: 400 },
+      );
     }
 
     const sessionCookieName = `${SESSION_COOKIE_PREFIX}${encodeURIComponent(url)}`;
@@ -119,6 +134,9 @@ export async function DELETE(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Error removing session:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

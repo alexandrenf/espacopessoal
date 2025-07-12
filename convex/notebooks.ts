@@ -1,5 +1,11 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+} from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 import bcrypt from "bcryptjs";
 
@@ -11,18 +17,24 @@ const hashPassword = async (password: string): Promise<string> => {
 
 // Verify password against hash with support for legacy formats
 const verifyHash = async (password: string, hash: string): Promise<boolean> => {
-  if (hash.startsWith('$2b$') || hash.startsWith('$2a$') || hash.startsWith('$2y$')) {
+  if (
+    hash.startsWith("$2b$") ||
+    hash.startsWith("$2a$") ||
+    hash.startsWith("$2y$")
+  ) {
     // bcrypt hash - use bcrypt.compare for secure verification
     return await bcrypt.compare(password, hash);
   }
 
-  if (hash.startsWith('$sha256$')) {
+  if (hash.startsWith("$sha256$")) {
     // Legacy SHA-256 hash - compute and compare (for migration)
     const encoder = new TextEncoder();
-    const data = encoder.encode(password + 'notebook-salt-2025');
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const data = encoder.encode(password + "notebook-salt-2025");
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const computedHash = '$sha256$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const computedHash =
+      "$sha256$" +
+      hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
     return computedHash === hash;
   }
 
@@ -32,10 +44,12 @@ const verifyHash = async (password: string, hash: string): Promise<boolean> => {
 
 // Check if password is already hashed
 const isHashed = (password: string): boolean => {
-  return password.startsWith('$2b$') ||
-         password.startsWith('$2a$') ||
-         password.startsWith('$2y$') ||
-         password.startsWith('$sha256$');
+  return (
+    password.startsWith("$2b$") ||
+    password.startsWith("$2a$") ||
+    password.startsWith("$2y$") ||
+    password.startsWith("$sha256$")
+  );
 };
 
 // Production-ready logging utility
@@ -75,14 +89,14 @@ const validateNotebookUrl = (url: string): boolean => {
 export const migratePasswordsToHash = internalMutation({
   handler: async (ctx) => {
     logger.log("Starting password migration to hash format...");
-    
+
     const notebooks = await ctx.db
       .query("notebooks")
-      .filter(q => q.neq(q.field("password"), undefined))
+      .filter((q) => q.neq(q.field("password"), undefined))
       .collect();
-    
+
     let migratedCount = 0;
-    
+
     for (const notebook of notebooks) {
       if (notebook.password) {
         let needsMigration = false;
@@ -90,13 +104,20 @@ export const migratePasswordsToHash = internalMutation({
 
         if (!isHashed(notebook.password)) {
           // Plaintext password - hash with bcrypt
-          logger.debug("Migrating plaintext password for notebook:", notebook.url);
+          logger.debug(
+            "Migrating plaintext password for notebook:",
+            notebook.url,
+          );
           newHashedPassword = await hashPassword(notebook.password);
           needsMigration = true;
-        } else if (notebook.password.startsWith('$sha256$')) {
+        } else if (notebook.password.startsWith("$sha256$")) {
           // SHA-256 hash - we can't migrate without the original password
           // This will be handled during password verification when user logs in
-          logger.debug("SHA-256 hash found for notebook:", notebook.url, "- will migrate on next verification");
+          logger.debug(
+            "SHA-256 hash found for notebook:",
+            notebook.url,
+            "- will migrate on next verification",
+          );
         }
 
         if (needsMigration) {
@@ -108,8 +129,10 @@ export const migratePasswordsToHash = internalMutation({
         }
       }
     }
-    
-    logger.log(`Password migration completed. Migrated ${migratedCount} notebooks.`);
+
+    logger.log(
+      `Password migration completed. Migrated ${migratedCount} notebooks.`,
+    );
     return { migratedCount };
   },
 });
@@ -279,7 +302,7 @@ export const update = mutation({
     if (args.description !== undefined)
       updateData.description = args.description;
     if (args.isPrivate !== undefined) updateData.isPrivate = args.isPrivate;
-    
+
     // Hash password if provided
     if (args.password !== undefined) {
       if (args.password) {
@@ -479,9 +502,12 @@ export const validatePassword = mutation({
 
     // Use secure hash verification
     const isValid = await verifyHash(args.password, notebook.password);
-    
+
     // If password is valid, upgrade legacy hashes to bcrypt
-    if (isValid && (notebook.password.startsWith('$sha256$') || !isHashed(notebook.password))) {
+    if (
+      isValid &&
+      (notebook.password.startsWith("$sha256$") || !isHashed(notebook.password))
+    ) {
       logger.debug("Password validated, upgrading to bcrypt format");
       const hashedPassword = await hashPassword(args.password);
       await ctx.db.patch(notebook._id, {
@@ -504,13 +530,13 @@ export const validatePassword = mutation({
     // Create secure session token
     const sessionToken = generateSessionToken();
     const now = Date.now();
-    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
 
     // Store session in database
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
       notebookId: notebook._id,
-      deviceFingerprint: args.deviceFingerprint ?? 'unknown',
+      deviceFingerprint: args.deviceFingerprint ?? "unknown",
       userAgent: args.userAgent,
       ipAddress: args.ipAddress,
       expiresAt,
@@ -621,15 +647,21 @@ export const getByUrlWithSession = query({
       // If it has a password, validate session token server-side
       if (notebook.password) {
         if (!args.sessionToken) {
-          throw new ConvexError("Session token required for private notebook access");
+          throw new ConvexError(
+            "Session token required for private notebook access",
+          );
         }
-        
+
         // Validate session token server-side
-        const sessionValidation = await validateSessionToken(ctx, args.sessionToken, notebook._id);
+        const sessionValidation = await validateSessionToken(
+          ctx,
+          args.sessionToken,
+          notebook._id,
+        );
         if (!sessionValidation.valid) {
           throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
         }
-        
+
         return {
           ...notebook,
           isOwner: false,
@@ -649,7 +681,11 @@ export const getByUrlWithSession = query({
 });
 
 // Server-side session token validation
-const validateSessionToken = async (ctx: QueryCtx, sessionToken: string, notebookId: Id<"notebooks">) => {
+const validateSessionToken = async (
+  ctx: QueryCtx,
+  sessionToken: string,
+  notebookId: Id<"notebooks">,
+) => {
   try {
     // Look up session in the database
     const session = await ctx.db

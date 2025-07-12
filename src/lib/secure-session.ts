@@ -17,19 +17,24 @@ interface SessionResponse {
 /**
  * Get stored session for a specific notebook URL using secure HTTP-only cookies
  */
-export const getStoredSession = async (url: string): Promise<SessionData | null> => {
+export const getStoredSession = async (
+  url: string,
+): Promise<SessionData | null> => {
   try {
-    const response = await fetch(`/api/session?url=${encodeURIComponent(url)}`, {
-      method: 'GET',
-      credentials: 'include', // Include cookies in the request
-    });
+    const response = await fetch(
+      `/api/session?url=${encodeURIComponent(url)}`,
+      {
+        method: "GET",
+        credentials: "include", // Include cookies in the request
+      },
+    );
 
     if (!response.ok) {
-      console.error('Failed to get session:', response.statusText);
+      console.error("Failed to get session:", response.statusText);
       return null;
     }
 
-    const data = await response.json() as SessionResponse;
+    const data = (await response.json()) as SessionResponse;
 
     if (data.hasSession && data.token && data.expiresAt) {
       return {
@@ -40,7 +45,7 @@ export const getStoredSession = async (url: string): Promise<SessionData | null>
 
     return null;
   } catch (error) {
-    console.error('Error getting stored session:', error);
+    console.error("Error getting stored session:", error);
     return null;
   }
 };
@@ -51,15 +56,15 @@ export const getStoredSession = async (url: string): Promise<SessionData | null>
 export const storeSession = async (
   url: string,
   sessionToken: string,
-  expiresAt: number
+  expiresAt: number,
 ): Promise<boolean> => {
   try {
-    const response = await fetch('/api/session', {
-      method: 'POST',
+    const response = await fetch("/api/session", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include', // Include cookies in the request
+      credentials: "include", // Include cookies in the request
       body: JSON.stringify({
         url,
         sessionToken,
@@ -68,13 +73,13 @@ export const storeSession = async (
     });
 
     if (!response.ok) {
-      console.error('Failed to store session:', response.statusText);
+      console.error("Failed to store session:", response.statusText);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error storing session:', error);
+    console.error("Error storing session:", error);
     return false;
   }
 };
@@ -84,19 +89,22 @@ export const storeSession = async (
  */
 export const removeSession = async (url: string): Promise<boolean> => {
   try {
-    const response = await fetch(`/api/session?url=${encodeURIComponent(url)}`, {
-      method: 'DELETE',
-      credentials: 'include', // Include cookies in the request
-    });
+    const response = await fetch(
+      `/api/session?url=${encodeURIComponent(url)}`,
+      {
+        method: "DELETE",
+        credentials: "include", // Include cookies in the request
+      },
+    );
 
     if (!response.ok) {
-      console.error('Failed to remove session:', response.statusText);
+      console.error("Failed to remove session:", response.statusText);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error removing session:', error);
+    console.error("Error removing session:", error);
     return false;
   }
 };
@@ -106,17 +114,17 @@ export const removeSession = async (url: string): Promise<boolean> => {
  */
 export const hasValidSession = async (url: string): Promise<boolean> => {
   const session = await getStoredSession(url);
-  
+
   if (!session) {
     return false;
   }
-  
+
   // Check if session is expired
   if (session.expiresAt <= Date.now()) {
     // Session is expired, remove it
     await removeSession(url);
     return false;
   }
-  
+
   return true;
 };

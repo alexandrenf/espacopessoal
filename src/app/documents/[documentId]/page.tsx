@@ -271,6 +271,7 @@ export default function DocumentPage() {
           <DocumentEditor
             document={initialDocument}
             notebookId={initialDocument.notebookId}
+            showSidebar={showSidebar}
           />
         )}
       </div>

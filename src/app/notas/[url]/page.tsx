@@ -9,6 +9,7 @@ import { api as convexApi } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
+import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -70,39 +71,41 @@ type PasswordVerificationResult = {
 
 const isNotebookData = (data: unknown): data is NotebookData => {
   return (
-    typeof data === 'object' &&
+    typeof data === "object" &&
     data !== null &&
-    '_id' in data &&
-    'title' in data &&
-    'url' in data &&
-    'isPrivate' in data &&
-    'createdAt' in data &&
-    'ownerId' in data
+    "_id" in data &&
+    "title" in data &&
+    "url" in data &&
+    "isPrivate" in data &&
+    "createdAt" in data &&
+    "ownerId" in data
   );
 };
 
 const isNotebookMetadata = (data: unknown): data is NotebookMetadata => {
   return (
-    typeof data === 'object' &&
+    typeof data === "object" &&
     data !== null &&
-    '_id' in data &&
-    'title' in data &&
-    'url' in data &&
-    'isPrivate' in data &&
-    'hasPassword' in data &&
-    'createdAt' in data &&
-    'ownerId' in data
+    "_id" in data &&
+    "title" in data &&
+    "url" in data &&
+    "isPrivate" in data &&
+    "hasPassword" in data &&
+    "createdAt" in data &&
+    "ownerId" in data
   );
 };
 
-const isPasswordVerificationResult = (data: unknown): data is PasswordVerificationResult => {
-  if (typeof data !== 'object' || data === null) return false;
+const isPasswordVerificationResult = (
+  data: unknown,
+): data is PasswordVerificationResult => {
+  if (typeof data !== "object" || data === null) return false;
   const obj = data as Record<string, unknown>;
   return (
-    'valid' in obj &&
-    typeof obj.valid === 'boolean' &&
-    (!obj.sessionToken || typeof obj.sessionToken === 'string') &&
-    (!obj.expiresAt || typeof obj.expiresAt === 'number')
+    "valid" in obj &&
+    typeof obj.valid === "boolean" &&
+    (!obj.sessionToken || typeof obj.sessionToken === "string") &&
+    (!obj.expiresAt || typeof obj.expiresAt === "number")
   );
 };
 
@@ -115,30 +118,30 @@ import {
 
 // Device fingerprinting for enhanced security
 const generateDeviceFingerprint = (): string => {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('Device fingerprint', 2, 2);
+    ctx.textBaseline = "top";
+    ctx.font = "14px Arial";
+    ctx.fillText("Device fingerprint", 2, 2);
   }
-  
+
   const fingerprint = [
     navigator.userAgent,
     navigator.language,
-    screen.width + 'x' + screen.height,
+    screen.width + "x" + screen.height,
     new Date().getTimezoneOffset(),
     canvas.toDataURL(),
-  ].join('|');
-  
+  ].join("|");
+
   // Simple hash function
   let hash = 0;
   for (let i = 0; i < fingerprint.length; i++) {
     const char = fingerprint.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
-  
+
   return hash.toString(36);
 };
 
@@ -160,65 +163,68 @@ const PasswordPrompt = ({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center ">
-      {/* Background grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <div className="flex flex-grow items-center justify-center">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-      {/* Background gradient orbs */}
-      <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-      <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6 }}
-        className="relative w-full max-w-md"
-      >
-        <Card className="border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500">
-              <KeyRound className="h-8 w-8 text-white" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-slate-900">
-              Notebook Protegido
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Este notebook é protegido por senha. Digite a senha para
-              continuar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite a senha do notebook"
-                  required
-                  disabled={isLoading}
-                />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative w-full max-w-md"
+        >
+          <Card className="border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-sm">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500">
+                <KeyRound className="h-8 w-8 text-white" />
               </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                disabled={isLoading || !password.trim()}
-              >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner className="mr-2 h-4 w-4" />
-                    Verificando...
-                  </>
-                ) : (
-                  "Acessar Notebook"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
+              <CardTitle className="text-2xl font-bold text-slate-900">
+                Notebook Protegido
+              </CardTitle>
+              <CardDescription className="text-slate-600">
+                Este notebook é protegido por senha. Digite a senha para
+                continuar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite a senha do notebook"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  disabled={isLoading || !password.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <LoadingSpinner className="mr-2 h-4 w-4" />
+                      Verificando...
+                    </>
+                  ) : (
+                    "Acessar Notebook"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 };
@@ -259,13 +265,13 @@ function NotebookPageContent() {
       const validateSession = async () => {
         if (!hasValidSession && !isSessionValidationComplete) {
           console.log("Checking for stored session...");
-          
+
           try {
             const storedSession = await getStoredSession(normalizedUrl);
-            
+
             if (storedSession) {
               console.log("Found stored session, checking expiration...");
-              
+
               // Check if session is expired
               if (storedSession.expiresAt <= Date.now()) {
                 console.log("Stored session is expired, removing from storage");
@@ -273,14 +279,16 @@ function NotebookPageContent() {
                 setIsSessionValidationComplete(true);
                 return;
               }
-              
+
               console.log("Session is valid, setting up for notebook access");
               setSessionToken(storedSession.token);
               setHasValidSession(true);
               setIsSessionValidationComplete(true);
             } else {
               // No stored session, mark validation as complete immediately
-              console.log("No stored session found, marking validation complete");
+              console.log(
+                "No stored session found, marking validation complete",
+              );
               setIsSessionValidationComplete(true);
             }
           } catch (error) {
@@ -289,14 +297,10 @@ function NotebookPageContent() {
           }
         }
       };
-      
+
       void validateSession();
     }
-  }, [
-    normalizedUrl,
-    hasValidSession,
-    isSessionValidationComplete,
-  ]);
+  }, [normalizedUrl, hasValidSession, isSessionValidationComplete]);
 
   // Debug effect to track hasValidSession changes
   useEffect(() => {
@@ -366,15 +370,27 @@ function NotebookPageContent() {
       }
     : "skip";
 
-  console.log("About to run notebook query with args:", notebookQueryArgs === "skip" ? "SKIP" : {
-    url: typeof notebookQueryArgs === "object" && notebookQueryArgs !== null ? notebookQueryArgs.url : undefined,
-    userId: typeof notebookQueryArgs === "object" && notebookQueryArgs !== null ? notebookQueryArgs.userId : undefined,
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-  }, {
-    enabled: notebookQueryEnabled,
-    hasValidSession,
-    isSessionValidationComplete,
-  });
+  console.log(
+    "About to run notebook query with args:",
+    notebookQueryArgs === "skip"
+      ? "SKIP"
+      : {
+          url:
+            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
+              ? notebookQueryArgs.url
+              : undefined,
+          userId:
+            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
+              ? notebookQueryArgs.userId
+              : undefined,
+          sessionToken: sessionToken ? "***EXISTS***" : "none",
+        },
+    {
+      enabled: notebookQueryEnabled,
+      hasValidSession,
+      isSessionValidationComplete,
+    },
+  );
 
   const notebookQueryResult = useQuery(
     convexApi.notebooks.getByUrlWithSession,
@@ -382,7 +398,10 @@ function NotebookPageContent() {
   );
 
   // Type guard the notebook result - handle loading, error, and success states
-  const notebook = (notebookQueryResult !== undefined && isNotebookData(notebookQueryResult)) ? notebookQueryResult : null;
+  const notebook =
+    notebookQueryResult !== undefined && isNotebookData(notebookQueryResult)
+      ? notebookQueryResult
+      : null;
 
   // Get documents in notebook (if we have access)
   const documentsQueryArgs = notebook
@@ -393,11 +412,24 @@ function NotebookPageContent() {
       }
     : "skip";
 
-  console.log("About to run documents query with args:", documentsQueryArgs === "skip" ? "SKIP" : {
-    userId: typeof documentsQueryArgs === "object" && documentsQueryArgs !== null ? documentsQueryArgs.userId : undefined,
-    notebookId: typeof documentsQueryArgs === "object" && documentsQueryArgs !== null ? documentsQueryArgs.notebookId : undefined,
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-  });
+  console.log(
+    "About to run documents query with args:",
+    documentsQueryArgs === "skip"
+      ? "SKIP"
+      : {
+          userId:
+            typeof documentsQueryArgs === "object" &&
+            documentsQueryArgs !== null
+              ? documentsQueryArgs.userId
+              : undefined,
+          notebookId:
+            typeof documentsQueryArgs === "object" &&
+            documentsQueryArgs !== null
+              ? documentsQueryArgs.notebookId
+              : undefined,
+          sessionToken: sessionToken ? "***EXISTS***" : "none",
+        },
+  );
 
   const documents = useQuery(
     convexApi.documents.getAllForTreeLegacy,
@@ -417,10 +449,10 @@ function NotebookPageContent() {
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
       console.log("Verifying password for:", normalizedUrl);
-      
+
       // Generate device fingerprint for enhanced security
       const deviceFingerprint = generateDeviceFingerprint();
-      
+
       const result = await verifyPassword({
         url: normalizedUrl,
         password: enteredPassword,
@@ -446,15 +478,19 @@ function NotebookPageContent() {
         console.log("Password is valid, storing secure session");
 
         // Store secure session token instead of password
-        const sessionStored = await storeSession(normalizedUrl, sessionToken, expiresAt);
-        
+        const sessionStored = await storeSession(
+          normalizedUrl,
+          sessionToken,
+          expiresAt,
+        );
+
         if (sessionStored) {
           // Update state
           setSessionToken(sessionToken);
           setShowPasswordPrompt(false);
           setHasValidSession(true);
           setIsSessionValidationComplete(true);
-          
+
           toast({
             title: "Acesso liberado",
             description: "Senha correta! Você pode agora acessar o notebook.",
@@ -517,30 +553,33 @@ function NotebookPageContent() {
   // Check if user is authenticated and user data is loading
   if (status === "loading" || (isAuthenticated && isUserLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            {status === "loading"
-              ? "Autenticando..."
-              : "Carregando dados do usuário..."}
-          </h3>
-          <p className="text-slate-600">Preparando seu notebook</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              {status === "loading"
+                ? "Autenticando..."
+                : "Carregando dados do usuário..."}
+            </h3>
+            <p className="text-slate-600">Preparando seu notebook</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -548,28 +587,31 @@ function NotebookPageContent() {
   // Check if notebook metadata is loading
   if (notebookMetadata === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            Carregando notebook...
-          </h3>
-          <p className="text-slate-600">Acessando seu espaço digital</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              Carregando notebook...
+            </h3>
+            <p className="text-slate-600">Acessando seu espaço digital</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -603,28 +645,31 @@ function NotebookPageContent() {
   // Check if notebook is loading
   if (notebook === undefined && !needsPassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            Carregando notebook...
-          </h3>
-          <p className="text-slate-600">Preparando documentos</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              Carregando notebook...
+            </h3>
+            <p className="text-slate-600">Preparando documentos</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -642,15 +687,20 @@ function NotebookPageContent() {
   }
 
   // Use notebook data or fallback to metadata for display
-  const notebookData = notebook ?? (isNotebookMetadata(notebookMetadata) ? notebookMetadata : null);
+  const notebookData =
+    notebook ??
+    (isNotebookMetadata(notebookMetadata) ? notebookMetadata : null);
 
   // If authenticated user but no convexUserId, show error
   if (isAuthenticated && !convexUserId && !isUserLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="mb-4 text-red-600">Error loading user data</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center">
+          <div className="text-center">
+            <p className="mb-4 text-red-600">Error loading user data</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
         </div>
       </div>
     );
@@ -815,14 +865,18 @@ function NotebookPageContent() {
   };
 
   // Determine access level for display
-  const accessLevel = (notebookData && !notebookData.isPrivate)
-    ? "public"
-    : (notebookMetadata && 'hasPassword' in notebookMetadata && notebookMetadata.hasPassword)
-      ? "password"
-      : "private";
+  const accessLevel =
+    notebookData && !notebookData.isPrivate
+      ? "public"
+      : notebookMetadata &&
+          "hasPassword" in notebookMetadata &&
+          notebookMetadata.hasPassword
+        ? "password"
+        : "private";
 
   return (
     <div className="flex min-h-screen flex-col">
+      <Header />
       <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Background grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
@@ -846,7 +900,7 @@ function NotebookPageContent() {
                 </div>
                 <div>
                   <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent">
-                    {notebookData?.title ?? 'Loading...'}
+                    {notebookData?.title ?? "Loading..."}
                   </h1>
                   <div className="flex items-center space-x-3 text-sm text-slate-600">
                     <div className="flex items-center space-x-1">
@@ -866,7 +920,12 @@ function NotebookPageContent() {
                       </span>
                     </div>
                     <span>•</span>
-                    <span>Criado em {notebookData?.createdAt ? formatDate(notebookData.createdAt) : 'N/A'}</span>
+                    <span>
+                      Criado em{" "}
+                      {notebookData?.createdAt
+                        ? formatDate(notebookData.createdAt)
+                        : "N/A"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -908,16 +967,18 @@ function NotebookPageContent() {
                 )}
               </div>
             </div>
-            {(notebookData && 'description' in notebookData && notebookData.description) && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-6 rounded-lg bg-white/60 p-4 text-slate-700 backdrop-blur-sm"
-              >
-                {notebookData.description}
-              </motion.p>
-            )}
+            {notebookData &&
+              "description" in notebookData &&
+              notebookData.description && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="mt-6 rounded-lg bg-white/60 p-4 text-slate-700 backdrop-blur-sm"
+                >
+                  {notebookData.description}
+                </motion.p>
+              )}
           </motion.div>
 
           {/* Access info for non-authenticated users */}

@@ -20,6 +20,7 @@ import {
   User,
   LogIn,
 } from "lucide-react";
+import Header from "~/app/components/Header";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
@@ -503,6 +504,7 @@ export default function NotasPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <Header />
       <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Background grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />

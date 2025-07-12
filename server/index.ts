@@ -1770,7 +1770,7 @@ const validateDocumentSession = async (
 
     if (!result.valid) {
       console.warn(
-        `[${new Date().toISOString()}] 🚫 Session validation rejected: ${result.reason || 'Unknown reason'}`,
+        `[${new Date().toISOString()}] 🚫 Session validation rejected: ${result.reason || "Unknown reason"}`,
       );
       return false;
     }
@@ -1789,10 +1789,14 @@ const validateDocumentSession = async (
 };
 
 // Enhanced document access logging for security audit
-const logDocumentAccess = (documentId: string, socketId: string, sessionToken?: string) => {
+const logDocumentAccess = (
+  documentId: string,
+  socketId: string,
+  sessionToken?: string,
+) => {
   const timestamp = new Date().toISOString();
-  const accessType = sessionToken ? 'AUTHENTICATED' : 'PUBLIC';
-  
+  const accessType = sessionToken ? "AUTHENTICATED" : "PUBLIC";
+
   console.log(
     `[${timestamp}] 🔍 SECURITY LOG: Document access - ${accessType} | Document: ${documentId} | Socket: ${socketId} | HasSession: ${!!sessionToken}`,
   );
@@ -1840,8 +1844,8 @@ const server = new Server({
     const { request, socketId, documentName } = data;
     const origin = request.headers.origin!;
     const url = new URL(request.url!, `http://${request.headers.host}`);
-    const sessionToken = url.searchParams.get('sessionToken');
-    const userId = url.searchParams.get('userId');
+    const sessionToken = url.searchParams.get("sessionToken");
+    const userId = url.searchParams.get("userId");
 
     // Validate origin for WebSocket connections
     if (!isOriginAllowed(origin)) {
@@ -1856,16 +1860,20 @@ const server = new Server({
       console.log(
         `[${new Date().toISOString()}] Validating session token for document: ${documentName}`,
       );
-      
+
       try {
-        const isSessionValid = await validateDocumentSession(documentName, sessionToken, userId);
+        const isSessionValid = await validateDocumentSession(
+          documentName,
+          sessionToken,
+          userId,
+        );
         if (!isSessionValid) {
           console.warn(
             `[${new Date().toISOString()}] Connection rejected: Invalid session token for document ${documentName}`,
           );
           throw new Error("Invalid session token for document access");
         }
-        
+
         console.log(
           `[${new Date().toISOString()}] Session validated successfully for document: ${documentName}`,
         );

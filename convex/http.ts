@@ -545,11 +545,11 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
 
   let requestBody: unknown;
   try {
-    requestBody = await request.json() as unknown;
+    requestBody = (await request.json()) as unknown;
   } catch (parseError) {
     return new Response(
       JSON.stringify({ valid: false, reason: "Invalid JSON in request body" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -563,15 +563,18 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
     if (!documentId) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Document ID required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // Add type validation for documentId
-    if (typeof documentId !== 'string') {
+    if (typeof documentId !== "string") {
       return new Response(
-        JSON.stringify({ valid: false, reason: "Document ID must be a string" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          valid: false,
+          reason: "Document ID must be a string",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -579,7 +582,7 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
     if (!isValidConvexId(documentId)) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Invalid document ID format" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -591,16 +594,16 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
     if (!document) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Document not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // If document is not in a notebook, access is allowed
     if (!document.notebookId) {
-      return new Response(
-        JSON.stringify({ valid: true }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ valid: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Get notebook information
@@ -611,70 +614,81 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
     if (!notebook) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Notebook not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // If notebook is not private, access is allowed
     if (!notebook.isPrivate) {
-      return new Response(
-        JSON.stringify({ valid: true }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ valid: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // If notebook is private but doesn't have a password, only owner can access
     if (!notebook.password) {
       const isOwner = userId && notebook.ownerId === userId;
       return new Response(
-        JSON.stringify({ 
-          valid: isOwner, 
-          reason: isOwner ? undefined : "Private notebook - owner access only"
+        JSON.stringify({
+          valid: isOwner,
+          reason: isOwner ? undefined : "Private notebook - owner access only",
         }),
-        { status: isOwner ? 200 : 401, headers: { "Content-Type": "application/json" } }
+        {
+          status: isOwner ? 200 : 401,
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
     // Notebook is private and has password - validate session token
     if (!sessionToken) {
       return new Response(
-        JSON.stringify({ valid: false, reason: "Session token required for private notebook" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          valid: false,
+          reason: "Session token required for private notebook",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // Add type validation for sessionToken
-    if (typeof sessionToken !== 'string') {
+    if (typeof sessionToken !== "string") {
       return new Response(
-        JSON.stringify({ valid: false, reason: "Session token must be a string" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          valid: false,
+          reason: "Session token must be a string",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // Validate session token
-    const sessionValidation = await ctx.runQuery(internal.notebooks.validateSessionInternal, {
-      sessionToken,
-      notebookId: notebook._id,
-    });
+    const sessionValidation = await ctx.runQuery(
+      internal.notebooks.validateSessionInternal,
+      {
+        sessionToken,
+        notebookId: notebook._id,
+      },
+    );
 
     if (!sessionValidation.valid) {
       return new Response(
         JSON.stringify({ valid: false, reason: sessionValidation.reason }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        { status: 401, headers: { "Content-Type": "application/json" } },
       );
     }
 
     // If we get here, access is allowed
-    return new Response(
-      JSON.stringify({ valid: true }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-
+    return new Response(JSON.stringify({ valid: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Error validating document session:", error);
     return new Response(
       JSON.stringify({ valid: false, reason: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

@@ -207,6 +207,7 @@ function DocumentPageContent() {
             document={document}
             notebookId={notebook._id as Id<"notebooks">}
             isReadOnly={false} // Public notebooks are now fully manageable
+            showSidebar={showSidebar}
           />
         </div>
       </div>
