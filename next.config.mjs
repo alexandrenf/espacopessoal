@@ -15,6 +15,8 @@ const config = {
     // Remove the deprecated turbo configuration
   },
   
+  transpilePackages: ["framer-motion"],
+  
   images: {
     remotePatterns: [
       {
