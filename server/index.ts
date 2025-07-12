@@ -1730,6 +1730,78 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
   return allowedOrigins.includes(origin);
 };
 
+// Session validation function for WebSocket connections
+const validateDocumentSession = async (
+  documentId: string,
+  sessionToken: string,
+  userId?: string | null,
+): Promise<boolean> => {
+  try {
+    const url = `${CONVEX_SITE_URL}/validateDocumentSession`;
+    const payload = {
+      documentId,
+      sessionToken,
+      userId: userId || undefined,
+    };
+
+    console.log(
+      `[${new Date().toISOString()}] 🔐 Validating session for document: ${documentId}`,
+    );
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[${new Date().toISOString()}] 🚫 Session validation failed: ${response.status} ${response.statusText}`,
+      );
+      return false;
+    }
+
+    const result = (await response.json()) as {
+      valid: boolean;
+      reason?: string;
+    };
+
+    if (!result.valid) {
+      console.warn(
+        `[${new Date().toISOString()}] 🚫 Session validation rejected: ${result.reason || "Unknown reason"}`,
+      );
+      return false;
+    }
+
+    console.log(
+      `[${new Date().toISOString()}] ✅ Session validation successful for document: ${documentId}`,
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] ❌ Error validating session for document ${documentId}:`,
+      error,
+    );
+    return false;
+  }
+};
+
+// Enhanced document access logging for security audit
+const logDocumentAccess = (
+  documentId: string,
+  socketId: string,
+  sessionToken?: string,
+) => {
+  const timestamp = new Date().toISOString();
+  const accessType = sessionToken ? "AUTHENTICATED" : "PUBLIC";
+
+  console.log(
+    `[${timestamp}] 🔍 SECURITY LOG: Document access - ${accessType} | Document: ${documentId} | Socket: ${socketId} | HasSession: ${!!sessionToken}`,
+  );
+};
+
 const server = new Server({
   port: PORT,
   timeout: TIMEOUT,
@@ -1767,10 +1839,13 @@ const server = new Server({
     return Promise.resolve();
   },
 
-  // Enhanced connection handling with origin validation and connection limits
+  // Enhanced connection handling with origin validation, session authentication, and connection limits
   async onConnect(data: onConnectPayload) {
     const { request, socketId, documentName } = data;
     const origin = request.headers.origin!;
+    const url = new URL(request.url!, `http://${request.headers.host}`);
+    const sessionToken = url.searchParams.get("sessionToken");
+    const userId = url.searchParams.get("userId");
 
     // Validate origin for WebSocket connections
     if (!isOriginAllowed(origin)) {
@@ -1780,9 +1855,43 @@ const server = new Server({
       throw new Error("Unauthorized origin");
     }
 
+    // Validate session token for private document access
+    if (sessionToken) {
+      console.log(
+        `[${new Date().toISOString()}] Validating session token for document: ${documentName}`,
+      );
+
+      try {
+        const isSessionValid = await validateDocumentSession(
+          documentName,
+          sessionToken,
+          userId,
+        );
+        if (!isSessionValid) {
+          console.warn(
+            `[${new Date().toISOString()}] Connection rejected: Invalid session token for document ${documentName}`,
+          );
+          throw new Error("Invalid session token for document access");
+        }
+
+        console.log(
+          `[${new Date().toISOString()}] Session validated successfully for document: ${documentName}`,
+        );
+      } catch (error) {
+        console.error(
+          `[${new Date().toISOString()}] Session validation error for document ${documentName}:`,
+          error,
+        );
+        throw new Error("Session validation failed");
+      }
+    }
+
     console.log(
       `[${new Date().toISOString()}] WebSocket connection accepted from ${origin} (${socketId}) for document: ${documentName}`,
     );
+
+    // Log document access for security audit
+    logDocumentAccess(documentName, socketId, sessionToken || undefined);
 
     // Initialize document state atomically to prevent race conditions
     initializeDocumentStateIfNeeded(documentName);

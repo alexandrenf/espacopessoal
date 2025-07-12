@@ -9,6 +9,7 @@ import { api as convexApi } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { LoadingSpinner } from "~/app/components/LoadingSpinner";
 import { ConvexClientProvider } from "~/components_new/ConvexClientProvider";
+import Header from "~/app/components/Header";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -35,28 +36,213 @@ import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import Link from "next/link";
 import { FileExplorer } from "~/app/components/FileExplorer";
 
-// Password storage helper
-const STORAGE_KEY = "notebook_passwords";
-
-const getStoredPasswords = (): Record<string, string> => {
-  if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem(STORAGE_KEY);
-  try {
-    if (!stored) return {};
-    const parsed = JSON.parse(stored) as Record<string, string>;
-    if (typeof parsed === "object" && parsed !== null) {
-      return parsed;
-    }
-    return {};
-  } catch {
-    return {};
-  }
+// Type guards for Convex query results
+type NotebookData = {
+  _id: string;
+  title: string;
+  description?: string;
+  url: string;
+  isPrivate: boolean;
+  createdAt: number;
+  updatedAt: number;
+  ownerId: string;
+  isOwner?: boolean;
+  password?: string;
 };
 
-const storePassword = (url: string, password: string) => {
-  const passwords = getStoredPasswords();
-  passwords[url] = password;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
+type NotebookMetadata = {
+  _id: string;
+  title: string;
+  description?: string;
+  url: string;
+  isPrivate: boolean;
+  hasPassword: boolean;
+  createdAt: number;
+  updatedAt: number;
+  ownerId: string;
+};
+
+type PasswordVerificationResult = {
+  valid: boolean;
+  sessionToken?: string;
+  expiresAt?: number;
+  notebook?: NotebookData;
+};
+
+const isNotebookData = (data: unknown): data is NotebookData => {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "_id" in data &&
+    "title" in data &&
+    "url" in data &&
+    "isPrivate" in data &&
+    "createdAt" in data &&
+    "ownerId" in data
+  );
+};
+
+const isNotebookMetadata = (data: unknown): data is NotebookMetadata => {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "_id" in data &&
+    "title" in data &&
+    "url" in data &&
+    "isPrivate" in data &&
+    "hasPassword" in data &&
+    "createdAt" in data &&
+    "ownerId" in data
+  );
+};
+
+const isPasswordVerificationResult = (
+  data: unknown,
+): data is PasswordVerificationResult => {
+  if (typeof data !== "object" || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    "valid" in obj &&
+    typeof obj.valid === "boolean" &&
+    (!obj.sessionToken || typeof obj.sessionToken === "string") &&
+    (!obj.expiresAt || typeof obj.expiresAt === "number")
+  );
+};
+
+// Import secure session management
+import {
+  getStoredSession,
+  storeSession,
+  removeSession,
+} from "~/lib/secure-session";
+
+// Device fingerprinting for enhanced security
+const generateDeviceFingerprint = (): string => {
+  const fingerprintComponents: string[] = [];
+
+  // Safely get user agent
+  try {
+    fingerprintComponents.push(navigator.userAgent ?? 'unknown');
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get user agent:', error);
+    }
+    fingerprintComponents.push('unknown');
+  }
+
+  // Safely get language
+  try {
+    fingerprintComponents.push(navigator.language ?? 'unknown');
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get language:', error);
+    }
+    fingerprintComponents.push('unknown');
+  }
+
+  // Safely get screen dimensions
+  try {
+    const width = screen.width ?? 0;
+    const height = screen.height ?? 0;
+    fingerprintComponents.push(`${width}x${height}`);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get screen dimensions:', error);
+    }
+    fingerprintComponents.push('0x0');
+  }
+
+  // Safely get timezone offset
+  try {
+    const timezoneOffset = new Date().getTimezoneOffset();
+    fingerprintComponents.push(timezoneOffset.toString());
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to get timezone offset:', error);
+    }
+    fingerprintComponents.push('0');
+  }
+
+  // Safely generate canvas fingerprint with comprehensive error handling
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 200;
+    canvas.height = 50;
+    const ctx = canvas.getContext("2d");
+
+    if (ctx) {
+      try {
+        // Set canvas properties with error handling
+        ctx.textBaseline = "top";
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("Device fingerprint 🔒", 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+        ctx.fillText("Security check", 4, 35);
+
+        // Try to get canvas data
+        const canvasData = canvas.toDataURL();
+        fingerprintComponents.push(canvasData);
+      } catch (canvasError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Canvas operations failed:', canvasError);
+        }
+        fingerprintComponents.push('canvas_blocked');
+      }
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Canvas context not available');
+      }
+      fingerprintComponents.push('no_canvas_context');
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Canvas creation failed:', error);
+    }
+    fingerprintComponents.push('canvas_unavailable');
+  }
+
+  // Additional fingerprinting components with error handling
+  try {
+    // Use userAgentData if available (modern browsers), fallback to deprecated platform
+    const navigatorWithUserAgentData = navigator as Navigator & {
+      userAgentData?: {
+        platform?: string;
+      };
+    };
+
+    if (navigatorWithUserAgentData.userAgentData?.platform) {
+      fingerprintComponents.push(navigatorWithUserAgentData.userAgentData.platform);
+    } else {
+      // Fallback to deprecated platform property with proper typing
+      const navigatorWithPlatform = navigator as Navigator & {
+        platform?: string;
+      };
+      fingerprintComponents.push(navigatorWithPlatform.platform ?? 'unknown');
+    }
+  } catch {
+    fingerprintComponents.push('unknown');
+  }
+
+  try {
+    fingerprintComponents.push(navigator.cookieEnabled ? 'cookies_enabled' : 'cookies_disabled');
+  } catch {
+    fingerprintComponents.push('cookies_unknown');
+  }
+
+  const fingerprint = fingerprintComponents.join("|");
+
+  // Robust hash function using FNV-1a algorithm for better distribution
+  let hash = 2166136261; // FNV offset basis
+  for (let i = 0; i < fingerprint.length; i++) {
+    hash ^= fingerprint.charCodeAt(i);
+    hash = Math.imul(hash, 16777619); // FNV prime
+  }
+
+  // Convert to unsigned 32-bit integer and then to base36
+  return (hash >>> 0).toString(36);
 };
 
 // Password input component
@@ -77,65 +263,68 @@ const PasswordPrompt = ({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center ">
-      {/* Background grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <div className="flex flex-grow items-center justify-center">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-      {/* Background gradient orbs */}
-      <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-      <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+        {/* Background gradient orbs */}
+        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6 }}
-        className="relative w-full max-w-md"
-      >
-        <Card className="border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500">
-              <KeyRound className="h-8 w-8 text-white" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-slate-900">
-              Notebook Protegido
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Este notebook é protegido por senha. Digite a senha para
-              continuar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite a senha do notebook"
-                  required
-                  disabled={isLoading}
-                />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative w-full max-w-md"
+        >
+          <Card className="border-slate-200/50 bg-white/80 shadow-xl backdrop-blur-sm">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-500">
+                <KeyRound className="h-8 w-8 text-white" />
               </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                disabled={isLoading || !password.trim()}
-              >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner className="mr-2 h-4 w-4" />
-                    Verificando...
-                  </>
-                ) : (
-                  "Acessar Notebook"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
+              <CardTitle className="text-2xl font-bold text-slate-900">
+                Notebook Protegido
+              </CardTitle>
+              <CardDescription className="text-slate-600">
+                Este notebook é protegido por senha. Digite a senha para
+                continuar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite a senha do notebook"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  disabled={isLoading || !password.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <LoadingSpinner className="mr-2 h-4 w-4" />
+                      Verificando...
+                    </>
+                  ) : (
+                    "Acessar Notebook"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 };
@@ -158,94 +347,72 @@ function NotebookPageContent() {
     }
   }, [normalizedUrl, router]);
 
-  // Load stored password on mount
-  useEffect(() => {
-    if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
-      const passwords = getStoredPasswords();
-      const storedPassword = passwords[normalizedUrl];
-      console.log("Checking stored password for:", normalizedUrl, {
-        storedPassword: storedPassword ? "***EXISTS***" : "none",
-        allStoredPasswords: Object.keys(passwords),
-      });
+  // Note: Legacy password loading code removed in favor of secure session management
+  // Sessions are now handled in the secure session management useEffect below
 
-      // For now, we'll just note if there's a stored password
-      // The validation will happen in a separate effect after verifyPassword is available
-    }
-  }, [normalizedUrl]);
-
-  // Try to get notebook information using Convex
-  const [hasValidPassword, setHasValidPassword] = useState(false);
-  const [isPasswordValidationComplete, setIsPasswordValidationComplete] =
+  // Try to get notebook information using Convex with secure session management
+  const [hasValidSession, setHasValidSession] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isSessionValidationComplete, setIsSessionValidationComplete] =
     useState(false);
 
-  // Verify password mutation using Convex (moved up to be available in useEffect)
+  // Verify password mutation using Convex (now returns session token)
   const verifyPassword = useMutation(convexApi.notebooks.validatePassword);
 
-  // Validate stored password with server after verifyPassword is available
+  // Validate stored session token using secure HTTP-only cookies
   useEffect(() => {
     if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
-      const passwords = getStoredPasswords();
-      const storedPassword = passwords[normalizedUrl];
+      const validateSession = async () => {
+        if (!hasValidSession && !isSessionValidationComplete) {
+          console.log("Checking for stored session...");
 
-      if (
-        storedPassword &&
-        !hasValidPassword &&
-        !isPasswordValidationComplete
-      ) {
-        console.log("Found stored password, validating with server...");
-        // Validate stored password with server instead of trusting it blindly
-        verifyPassword({
-          url: normalizedUrl,
-          password: storedPassword,
-        })
-          .then((result) => {
-            console.log("Stored password validation result:", result);
-            if (result.valid) {
-              console.log(
-                "Stored password is valid, setting hasValidPassword to true",
-              );
-              setHasValidPassword(true);
+          try {
+            const storedSession = await getStoredSession(normalizedUrl);
+
+            if (storedSession) {
+              console.log("Found stored session, checking expiration...");
+
+              // Check if session is expired
+              if (storedSession.expiresAt <= Date.now()) {
+                console.log("Stored session is expired, removing from storage");
+                await removeSession(normalizedUrl);
+                setIsSessionValidationComplete(true);
+                return;
+              }
+
+              console.log("Session is valid, setting up for notebook access");
+              setSessionToken(storedSession.token);
+              setHasValidSession(true);
+              setIsSessionValidationComplete(true);
             } else {
-              console.log("Stored password is invalid, removing from storage");
-              // Remove invalid stored password
-              const passwords = getStoredPasswords();
-              delete passwords[normalizedUrl];
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
+              // No stored session, mark validation as complete immediately
+              console.log(
+                "No stored session found, marking validation complete",
+              );
+              setIsSessionValidationComplete(true);
             }
-            // Mark validation as complete regardless of result
-            setIsPasswordValidationComplete(true);
-          })
-          .catch((error) => {
-            console.error("Error validating stored password:", error);
-            // Remove invalid stored password
-            const passwords = getStoredPasswords();
-            delete passwords[normalizedUrl];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords));
-            // Mark validation as complete even on error
-            setIsPasswordValidationComplete(true);
-          });
-      } else if (!storedPassword) {
-        // No stored password, mark validation as complete immediately
-        console.log("No stored password found, marking validation complete");
-        setIsPasswordValidationComplete(true);
-      }
-    }
-  }, [
-    normalizedUrl,
-    verifyPassword,
-    hasValidPassword,
-    isPasswordValidationComplete,
-  ]);
+          } catch (error) {
+            console.error("Error validating session:", error);
+            setIsSessionValidationComplete(true);
+          }
+        }
+      };
 
-  // Debug effect to track hasValidPassword changes
+      void validateSession();
+    }
+  }, [normalizedUrl, hasValidSession, isSessionValidationComplete]);
+
+  // Debug effect to track hasValidSession changes
   useEffect(() => {
     console.log(
-      "hasValidPassword changed to:",
-      hasValidPassword,
+      "hasValidSession changed to:",
+      hasValidSession,
       "validation complete:",
-      isPasswordValidationComplete,
+      isSessionValidationComplete,
+      "sessionToken:",
+      sessionToken ? "***EXISTS***" : "none",
     );
-  }, [hasValidPassword, isPasswordValidationComplete]);
+  }, [hasValidSession, isSessionValidationComplete, sessionToken]);
 
   // Get notebook metadata first (this works for all notebooks)
   const notebookMetadata = useQuery(
@@ -253,18 +420,19 @@ function NotebookPageContent() {
     normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
   );
 
-  // Get full notebook information using Convex (only after password validation or for public/owned notebooks)
+  // Get full notebook information using Convex with secure session validation
   const notebookQueryEnabled =
     normalizedUrl.length > 0 &&
-    isPasswordValidationComplete && // Wait for stored password validation to complete
-    (hasValidPassword ||
+    isSessionValidationComplete && // Wait for stored session validation to complete
+    (hasValidSession ||
       !notebookMetadata?.hasPassword ||
       notebookMetadata?.ownerId === convexUserId);
 
   console.log("Notebook query state:", {
     normalizedUrl,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
+    isSessionValidationComplete,
     hasPassword: notebookMetadata?.hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
@@ -278,51 +446,90 @@ function NotebookPageContent() {
       "Query conditions changed - notebookQueryEnabled:",
       notebookQueryEnabled,
       {
-        hasValidPassword,
-        isPasswordValidationComplete,
+        hasValidSession,
+        isSessionValidationComplete,
         hasPassword: notebookMetadata?.hasPassword,
         isOwner: notebookMetadata?.ownerId === convexUserId,
       },
     );
   }, [
     notebookQueryEnabled,
-    hasValidPassword,
-    isPasswordValidationComplete,
+    hasValidSession,
+    isSessionValidationComplete,
     notebookMetadata?.hasPassword,
     notebookMetadata?.ownerId,
     convexUserId,
   ]);
 
-  // Force query to re-run when hasValidPassword changes by including it in the condition
+  // Use secure session-based query arguments
   const notebookQueryArgs = notebookQueryEnabled
     ? {
         url: normalizedUrl,
         userId: convexUserId ?? undefined,
-        hasValidPassword,
+        sessionToken: sessionToken ?? undefined,
       }
     : "skip";
 
-  console.log("About to run notebook query with args:", notebookQueryArgs, {
-    enabled: notebookQueryEnabled,
-    hasValidPassword,
-    isPasswordValidationComplete,
-  });
+  console.log(
+    "About to run notebook query with args:",
+    notebookQueryArgs === "skip"
+      ? "SKIP"
+      : {
+          url:
+            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
+              ? notebookQueryArgs.url
+              : undefined,
+          userId:
+            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
+              ? notebookQueryArgs.userId
+              : undefined,
+          sessionToken: sessionToken ? "***EXISTS***" : "none",
+        },
+    {
+      enabled: notebookQueryEnabled,
+      hasValidSession,
+      isSessionValidationComplete,
+    },
+  );
 
-  const notebook = useQuery(
-    convexApi.notebooks.getByUrlWithPassword,
+  const notebookQueryResult = useQuery(
+    convexApi.notebooks.getByUrlWithSession,
     notebookQueryArgs,
   );
+
+  // Type guard the notebook result - handle loading, error, and success states
+  const notebook =
+    notebookQueryResult !== undefined && isNotebookData(notebookQueryResult)
+      ? notebookQueryResult
+      : null;
 
   // Get documents in notebook (if we have access)
   const documentsQueryArgs = notebook
     ? {
         userId: convexUserId ?? undefined,
         notebookId: notebook._id as Id<"notebooks">,
-        hasValidPassword, // Pass password validation status
+        sessionToken: sessionToken ?? undefined, // Pass session token for validation
       }
     : "skip";
 
-  console.log("About to run documents query with args:", documentsQueryArgs);
+  console.log(
+    "About to run documents query with args:",
+    documentsQueryArgs === "skip"
+      ? "SKIP"
+      : {
+          userId:
+            typeof documentsQueryArgs === "object" &&
+            documentsQueryArgs !== null
+              ? documentsQueryArgs.userId
+              : undefined,
+          notebookId:
+            typeof documentsQueryArgs === "object" &&
+            documentsQueryArgs !== null
+              ? documentsQueryArgs.notebookId
+              : undefined,
+          sessionToken: sessionToken ? "***EXISTS***" : "none",
+        },
+  );
 
   const documents = useQuery(
     convexApi.documents.getAllForTreeLegacy,
@@ -338,27 +545,64 @@ function NotebookPageContent() {
   // Update document mutation
   const updateDocument = useMutation(convexApi.documents.updateById);
 
-  // Handle password submission
+  // Handle password submission with secure session creation
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
       console.log("Verifying password for:", normalizedUrl);
+
+      // Generate device fingerprint for enhanced security
+      const deviceFingerprint = generateDeviceFingerprint();
+
       const result = await verifyPassword({
         url: normalizedUrl,
         password: enteredPassword,
+        deviceFingerprint,
+        userAgent: navigator.userAgent,
+        ipAddress: undefined, // Will be handled server-side
       });
 
-      console.log("Password verification result:", result);
+      if (!isPasswordVerificationResult(result)) {
+        throw new Error("Invalid password verification result");
+      }
 
-      if (result.valid) {
-        console.log("Password is valid, setting hasValidPassword to true");
-        storePassword(normalizedUrl, enteredPassword);
-        setShowPasswordPrompt(false);
-        setHasValidPassword(true);
-        setIsPasswordValidationComplete(true); // Mark validation as complete
-        toast({
-          title: "Acesso liberado",
-          description: "Senha correta! Você pode agora acessar o notebook.",
-        });
+      console.log("Password verification result:", {
+        valid: result.valid,
+        hasSessionToken: !!result.sessionToken,
+        expiresAt: result.expiresAt ? new Date(result.expiresAt) : undefined,
+      });
+
+      if (result.valid && result.sessionToken && result.expiresAt) {
+        const sessionToken = result.sessionToken;
+        const expiresAt = result.expiresAt;
+
+        console.log("Password is valid, storing secure session");
+
+        // Store secure session token instead of password
+        const sessionStored = await storeSession(
+          normalizedUrl,
+          sessionToken,
+          expiresAt,
+        );
+
+        if (sessionStored) {
+          // Update state
+          setSessionToken(sessionToken);
+          setShowPasswordPrompt(false);
+          setHasValidSession(true);
+          setIsSessionValidationComplete(true);
+
+          toast({
+            title: "Acesso liberado",
+            description: "Senha correta! Você pode agora acessar o notebook.",
+          });
+        } else {
+          console.error("Failed to store session");
+          toast({
+            title: "Erro",
+            description: "Falha ao salvar sessão. Tente novamente.",
+            variant: "destructive",
+          });
+        }
       } else {
         console.log("Password is invalid");
         toast({
@@ -381,14 +625,15 @@ function NotebookPageContent() {
   const needsPassword =
     notebookMetadata?.hasPassword &&
     notebookMetadata.ownerId !== convexUserId &&
-    !hasValidPassword;
+    !hasValidSession;
 
   console.log("Password prompt logic:", {
     hasPassword: notebookMetadata?.hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
     isOwner: notebookMetadata?.ownerId === convexUserId,
-    hasValidPassword,
+    hasValidSession,
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
     needsPassword,
     showPasswordPrompt,
   });
@@ -408,30 +653,33 @@ function NotebookPageContent() {
   // Check if user is authenticated and user data is loading
   if (status === "loading" || (isAuthenticated && isUserLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            {status === "loading"
-              ? "Autenticando..."
-              : "Carregando dados do usuário..."}
-          </h3>
-          <p className="text-slate-600">Preparando seu notebook</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              {status === "loading"
+                ? "Autenticando..."
+                : "Carregando dados do usuário..."}
+            </h3>
+            <p className="text-slate-600">Preparando seu notebook</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -439,28 +687,31 @@ function NotebookPageContent() {
   // Check if notebook metadata is loading
   if (notebookMetadata === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            Carregando notebook...
-          </h3>
-          <p className="text-slate-600">Acessando seu espaço digital</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              Carregando notebook...
+            </h3>
+            <p className="text-slate-600">Acessando seu espaço digital</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -494,28 +745,31 @@ function NotebookPageContent() {
   // Check if notebook is loading
   if (notebook === undefined && !needsPassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative text-center"
-        >
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-            <LoadingSpinner className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">
-            Carregando notebook...
-          </h3>
-          <p className="text-slate-600">Preparando documentos</p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative text-center"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+              <LoadingSpinner className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="mb-2 text-xl font-semibold text-slate-900">
+              Carregando notebook...
+            </h3>
+            <p className="text-slate-600">Preparando documentos</p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -533,15 +787,20 @@ function NotebookPageContent() {
   }
 
   // Use notebook data or fallback to metadata for display
-  const notebookData = notebook ?? notebookMetadata;
+  const notebookData =
+    notebook ??
+    (isNotebookMetadata(notebookMetadata) ? notebookMetadata : null);
 
   // If authenticated user but no convexUserId, show error
   if (isAuthenticated && !convexUserId && !isUserLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="mb-4 text-red-600">Error loading user data</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="flex flex-grow items-center justify-center">
+          <div className="text-center">
+            <p className="mb-4 text-red-600">Error loading user data</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
         </div>
       </div>
     );
@@ -549,7 +808,7 @@ function NotebookPageContent() {
 
   // Handle create document (only for authenticated users)
   const handleCreateDocument = async () => {
-    if (!convexUserId || !notebookData?._id) {
+    if (!convexUserId || !notebookData) {
       toast({
         title: "Authentication required",
         description: "You need to be logged in to create documents.",
@@ -584,7 +843,7 @@ function NotebookPageContent() {
 
   // Handle create folder
   const handleCreateFolder = async () => {
-    if (!convexUserId || !notebookData?._id) {
+    if (!convexUserId || !notebookData) {
       toast({
         title: "Autenticação necessária",
         description: "Você precisa estar logado para criar pastas.",
@@ -706,14 +965,18 @@ function NotebookPageContent() {
   };
 
   // Determine access level for display
-  const accessLevel = !notebookData.isPrivate
-    ? "public"
-    : notebookMetadata.hasPassword
-      ? "password"
-      : "private";
+  const accessLevel =
+    notebookData && !notebookData.isPrivate
+      ? "public"
+      : notebookMetadata &&
+          "hasPassword" in notebookMetadata &&
+          notebookMetadata.hasPassword
+        ? "password"
+        : "private";
 
   return (
     <div className="flex min-h-screen flex-col">
+      <Header />
       <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         {/* Background grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
@@ -737,7 +1000,7 @@ function NotebookPageContent() {
                 </div>
                 <div>
                   <h1 className="mb-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent">
-                    {notebookData.title}
+                    {notebookData?.title ?? "Loading..."}
                   </h1>
                   <div className="flex items-center space-x-3 text-sm text-slate-600">
                     <div className="flex items-center space-x-1">
@@ -757,7 +1020,12 @@ function NotebookPageContent() {
                       </span>
                     </div>
                     <span>•</span>
-                    <span>Criado em {formatDate(notebookData.createdAt)}</span>
+                    <span>
+                      Criado em{" "}
+                      {notebookData?.createdAt
+                        ? formatDate(notebookData.createdAt)
+                        : "N/A"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -799,16 +1067,18 @@ function NotebookPageContent() {
                 )}
               </div>
             </div>
-            {notebookData.description && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-6 rounded-lg bg-white/60 p-4 text-slate-700 backdrop-blur-sm"
-              >
-                {notebookData.description}
-              </motion.p>
-            )}
+            {notebookData &&
+              "description" in notebookData &&
+              notebookData.description && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="mt-6 rounded-lg bg-white/60 p-4 text-slate-700 backdrop-blur-sm"
+                >
+                  {notebookData.description}
+                </motion.p>
+              )}
           </motion.div>
 
           {/* Access info for non-authenticated users */}

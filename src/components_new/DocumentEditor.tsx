@@ -124,6 +124,8 @@ interface EditorProps {
   initialContent?: string | undefined;
   isReadOnly?: boolean;
   notebookId?: Id<"notebooks">;
+  sessionToken?: string; // For private notebook authentication
+  showSidebar?: boolean; // To control minimum margin when sidebar is retracted
 }
 
 export function DocumentEditor({
@@ -131,6 +133,8 @@ export function DocumentEditor({
   initialContent,
   isReadOnly,
   notebookId,
+  sessionToken,
+  showSidebar = true,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -851,10 +855,21 @@ export function DocumentEditor({
     // Mark persistence as ready immediately (no IndexedDB)
     setIsPersistenceReady(true);
 
-    // Create new WebSocket provider with the current Y.js document
+    // Create new WebSocket provider with the current Y.js document and session authentication
     console.log("🔗 Creating WebSocket provider for:", docName);
+
+    // Build WebSocket URL with authentication parameters
+    const wsUrlWithAuth = new URL(wsUrl);
+    if (sessionToken) {
+      wsUrlWithAuth.searchParams.set("sessionToken", sessionToken);
+      console.log("🔐 Adding session token to WebSocket connection");
+    }
+    if (convexUserId) {
+      wsUrlWithAuth.searchParams.set("userId", convexUserId);
+    }
+
     const newProvider = new HocuspocusProvider({
-      url: wsUrl,
+      url: wsUrlWithAuth.toString(),
       name: docName,
       document: ydocRef.current,
     });
@@ -1359,11 +1374,6 @@ export function DocumentEditor({
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                  <Link href="/">
-                    <ArrowLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
                 {isEditingTitle ? (
                   <input
                     type="text"
@@ -1371,12 +1381,12 @@ export function DocumentEditor({
                     onChange={(e) => setDocumentTitle(e.target.value)}
                     onBlur={() => void handleTitleSubmit()}
                     onKeyDown={handleTitleKeyDown}
-                    className="rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50"
+                    className={`${showSidebar ? "" : "ml-[40px] xl:ml-0"} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
                     autoFocus
                   />
                 ) : (
                   <h1
-                    className="cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50"
+                    className={`${showSidebar ? "" : "ml-[40px] xl:ml-0"} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
                     onClick={() => setIsEditingTitle(true)}
                   >
                     {documentTitle}

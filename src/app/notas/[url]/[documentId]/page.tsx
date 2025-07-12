@@ -38,12 +38,12 @@ function DocumentPageContent() {
   const isPublicNotebook = !notebookMetadata?.isPrivate;
 
   const notebook = useQuery(
-    convexApi.notebooks.getByUrlWithPassword,
+    convexApi.notebooks.getByUrlWithSession,
     normalizedUrl.length > 0 && (isPublicNotebook || isOwner)
       ? {
           url: normalizedUrl,
           userId: convexUserId ?? undefined,
-          hasValidPassword: false,
+          sessionToken: undefined, // No session token needed for owner/public access
         }
       : "skip",
   );
@@ -207,6 +207,7 @@ function DocumentPageContent() {
             document={document}
             notebookId={notebook._id as Id<"notebooks">}
             isReadOnly={false} // Public notebooks are now fully manageable
+            showSidebar={showSidebar}
           />
         </div>
       </div>
