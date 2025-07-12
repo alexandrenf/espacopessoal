@@ -59,7 +59,7 @@ describe("Profile Picture System", () => {
 
         if (bustCache) {
           const separator = url.includes("?") ? "&" : "?";
-          return `${url}${separator}v=${Date.now()}`;;
+          return `${url}${separator}v=${Date.now()}`;
         }
 
         return url;

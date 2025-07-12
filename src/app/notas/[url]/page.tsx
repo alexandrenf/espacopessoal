@@ -21,18 +21,18 @@ import {
 import {
   Plus,
   FileText,
-  Folder,
-  Calendar,
   Lock,
   Globe,
   KeyRound,
   LogIn,
   User,
+  FolderPlus,
 } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import { useConvexUser } from "~/hooks/use-convex-user";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
 import Link from "next/link";
+import { FileExplorer } from "~/app/components/FileExplorer";
 
 // Password storage helper
 const STORAGE_KEY = "notebook_passwords";
@@ -315,6 +315,12 @@ function NotebookPageContent() {
   // Create document mutation
   const createDocument = useMutation(convexApi.documents.create);
 
+  // Delete document mutation
+  const deleteDocument = useMutation(convexApi.documents.removeById);
+
+  // Update document mutation
+  const updateDocument = useMutation(convexApi.documents.updateById);
+
   // Handle password submission
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
@@ -481,7 +487,7 @@ function NotebookPageContent() {
     setIsCreatingDocument(true);
     try {
       const documentId = await createDocument({
-        title: "Untitled Document",
+        title: "Novo Documento",
         initialContent: "",
         userId: convexUserId,
         notebookId: notebookData._id as Id<"notebooks">,
@@ -490,10 +496,11 @@ function NotebookPageContent() {
 
       // Navigate to the new document
       router.push(`/notas/${normalizedUrl}/${documentId}`);
-    } catch {
+    } catch (error) {
+      console.error("Error creating document:", error);
       toast({
-        title: "Error",
-        description: "Failed to create document. Please try again.",
+        title: "Erro",
+        description: "Falha ao criar documento. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -501,9 +508,118 @@ function NotebookPageContent() {
     }
   };
 
-  // Handle document click
-  const handleDocumentClick = (documentId: string) => {
-    router.push(`/notas/${normalizedUrl}/${documentId}`);
+  // Handle create folder
+  const handleCreateFolder = async () => {
+    if (!convexUserId || !notebookData?._id) {
+      toast({
+        title: "Autenticação necessária",
+        description: "Você precisa estar logado para criar pastas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createDocument({
+        title: "Nova Pasta",
+        initialContent: "",
+        userId: convexUserId,
+        notebookId: notebookData._id as Id<"notebooks">,
+        isFolder: true,
+      });
+
+      toast({
+        title: "Pasta criada",
+        description: "Nova pasta foi criada com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao criar pasta. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle document/folder click
+  const handleDocumentClick = (documentId: string, isFolder: boolean) => {
+    if (isFolder) {
+      // For folders, you could implement navigation into the folder
+      // For now, we'll show a message that folders can't be opened like documents
+      toast({
+        title: "Pasta selecionada",
+        description:
+          "As pastas não podem ser abertas como documentos. Use o menu de contexto para gerenciar a pasta.",
+        variant: "default",
+      });
+    } else {
+      // Navigate to document
+      router.push(`/notas/${normalizedUrl}/${documentId}`);
+    }
+  };
+
+  // Handle delete document/folder
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!convexUserId) {
+      toast({
+        title: "Autenticação necessária",
+        description: "Você precisa estar logado para excluir arquivos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await deleteDocument({
+        id: documentId as Id<"documents">,
+        userId: convexUserId,
+      });
+
+      toast({
+        title: "Arquivo excluído",
+        description: "O arquivo foi excluído com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir arquivo. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle rename document/folder
+  const handleRenameDocument = async (documentId: string, newTitle: string) => {
+    if (!convexUserId) {
+      toast({
+        title: "Autenticação necessária",
+        description: "Você precisa estar logado para renomear arquivos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await updateDocument({
+        id: documentId as Id<"documents">,
+        userId: convexUserId,
+        title: newTitle,
+      });
+
+      toast({
+        title: "Arquivo renomeado",
+        description: "O arquivo foi renomeado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error renaming document:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao renomear arquivo. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Format date
@@ -562,23 +678,33 @@ function NotebookPageContent() {
                 <Button asChild variant="outline">
                   <Link href="/api/auth/signin">
                     <LogIn className="mr-2 h-4 w-4" />
-                    Login to Create Documents
+                    Login para Criar Documentos
                   </Link>
                 </Button>
               )}
               {isAuthenticated && (
-                <Button
-                  onClick={handleCreateDocument}
-                  disabled={isCreatingDocument}
-                  className="bg-blue-500 hover:bg-blue-600"
-                >
-                  {isCreatingDocument ? (
-                    <LoadingSpinner className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4" />
-                  )}
-                  New Document
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleCreateFolder}
+                    variant="outline"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    <FolderPlus className="mr-2 h-4 w-4" />
+                    Nova Pasta
+                  </Button>
+                  <Button
+                    onClick={handleCreateDocument}
+                    disabled={isCreatingDocument}
+                    className="bg-blue-500 hover:bg-blue-600"
+                  >
+                    {isCreatingDocument ? (
+                      <LoadingSpinner className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Plus className="mr-2 h-4 w-4" />
+                    )}
+                    Novo Documento
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -609,111 +735,25 @@ function NotebookPageContent() {
           </div>
         )}
 
-        {/* Documents List */}
+        {/* File Explorer */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
-            <div className="text-sm text-gray-500">
-              {documents?.length ?? 0}{" "}
-              {documents?.length === 1 ? "document" : "documents"}
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Arquivos e Pastas
+            </h2>
           </div>
 
-          {documents === undefined ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner className="h-8 w-8" />
-              <span className="ml-2 text-sm text-gray-600">
-                Loading documents...
-              </span>
-            </div>
-          ) : documents && documents.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {documents.map((document) => (
-                <Card
-                  key={document._id}
-                  className="cursor-pointer transition-all hover:shadow-md"
-                  onClick={() => handleDocumentClick(document._id)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {document.isFolder ? (
-                          <Folder className="h-5 w-5 text-yellow-500" />
-                        ) : (
-                          <FileText className="h-5 w-5 text-blue-500" />
-                        )}
-                        <CardTitle className="text-lg">
-                          {document.title}
-                        </CardTitle>
-                      </div>
-                      {document.isHome && (
-                        <div className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                          Home
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDate(document.updatedAt)}</span>
-                        </div>
-                      </div>
-                      {document.initialContent && (
-                        <p className="line-clamp-2 text-sm text-gray-600">
-                          {document.initialContent
-                            .replace(/<[^>]*>/g, "")
-                            .slice(0, 120)}
-                          ...
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="py-16">
-              <CardContent className="text-center">
-                <div className="mb-4 flex justify-center">
-                  <div className="rounded-full bg-gray-100 p-4">
-                    <FileText className="h-8 w-8 text-gray-400" />
-                  </div>
-                </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                  No documents yet
-                </h3>
-                <p className="mb-4 text-sm text-gray-600">
-                  {isAuthenticated
-                    ? "Start by creating your first document in this notebook."
-                    : "This notebook doesn't have any documents yet. Login to create the first document."}
-                </p>
-                {isAuthenticated ? (
-                  <Button
-                    onClick={handleCreateDocument}
-                    disabled={isCreatingDocument}
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    {isCreatingDocument ? (
-                      <LoadingSpinner className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Plus className="mr-2 h-4 w-4" />
-                    )}
-                    Create First Document
-                  </Button>
-                ) : (
-                  <Button asChild>
-                    <Link href="/api/auth/signin">
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Login to Create Documents
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <FileExplorer
+            documents={documents ?? []}
+            onDocumentClick={handleDocumentClick}
+            onCreateDocument={handleCreateDocument}
+            onCreateFolder={handleCreateFolder}
+            onDeleteDocument={handleDeleteDocument}
+            onRenameDocument={handleRenameDocument}
+            isAuthenticated={!!isAuthenticated}
+            currentUserId={convexUserId ?? undefined}
+            isLoading={documents === undefined}
+          />
         </div>
       </div>
     </div>
