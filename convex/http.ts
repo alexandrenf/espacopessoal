@@ -399,7 +399,7 @@ const updateYjsState = httpAction(async (ctx, request) => {
       {
         id: documentId,
         yjsState: yjsStateBytes,
-        userId: userId as string | undefined,
+        userId: userId,
       },
     );
 
@@ -543,12 +543,34 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  let requestBody: unknown;
   try {
-    const { documentId, sessionToken, userId } = await request.json();
+    requestBody = await request.json() as unknown;
+  } catch (parseError) {
+    return new Response(
+      JSON.stringify({ valid: false, reason: "Invalid JSON in request body" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const { documentId, sessionToken, userId } = requestBody as {
+      documentId: unknown;
+      sessionToken: unknown;
+      userId?: unknown;
+    };
 
     if (!documentId) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Document ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Add type validation for documentId
+    if (typeof documentId !== 'string') {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Document ID must be a string" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -618,6 +640,14 @@ const validateDocumentSession = httpAction(async (ctx, request) => {
       return new Response(
         JSON.stringify({ valid: false, reason: "Session token required for private notebook" }),
         { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Add type validation for sessionToken
+    if (typeof sessionToken !== 'string') {
+      return new Response(
+        JSON.stringify({ valid: false, reason: "Session token must be a string" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 

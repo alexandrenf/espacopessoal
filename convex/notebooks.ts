@@ -1,30 +1,41 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
+import bcrypt from "bcryptjs";
 
-// Simple hash function for password protection until bcrypt is available
-// Note: This is a temporary solution - replace with bcrypt in production
-const simpleHash = async (password: string, salt?: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + (salt || 'notebook-salt-2025'));
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return '$sha256$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+// Secure password hashing using bcrypt
+const hashPassword = async (password: string): Promise<string> => {
+  const saltRounds = 12; // Higher salt rounds for better security
+  return await bcrypt.hash(password, saltRounds);
 };
 
-// Verify password against hash
+// Verify password against hash with support for legacy formats
 const verifyHash = async (password: string, hash: string): Promise<boolean> => {
+  if (hash.startsWith('$2b$') || hash.startsWith('$2a$') || hash.startsWith('$2y$')) {
+    // bcrypt hash - use bcrypt.compare for secure verification
+    return await bcrypt.compare(password, hash);
+  }
+
   if (hash.startsWith('$sha256$')) {
-    const computedHash = await simpleHash(password);
+    // Legacy SHA-256 hash - compute and compare (for migration)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'notebook-salt-2025');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const computedHash = '$sha256$' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return computedHash === hash;
   }
-  // Legacy plaintext comparison
+
+  // Legacy plaintext comparison (for very old data)
   return password === hash;
 };
 
 // Check if password is already hashed
 const isHashed = (password: string): boolean => {
-  return password.startsWith('$sha256$') || password.startsWith('$2b$');
+  return password.startsWith('$2b$') ||
+         password.startsWith('$2a$') ||
+         password.startsWith('$2y$') ||
+         password.startsWith('$sha256$');
 };
 
 // Production-ready logging utility
@@ -73,16 +84,28 @@ export const migratePasswordsToHash = internalMutation({
     let migratedCount = 0;
     
     for (const notebook of notebooks) {
-      if (notebook.password && !isHashed(notebook.password)) {
-        logger.debug("Migrating password for notebook:", notebook.url);
-        
-        const hashedPassword = await simpleHash(notebook.password);
-        await ctx.db.patch(notebook._id, {
-          password: hashedPassword,
-          passwordUpdatedAt: Date.now(),
-        });
-        
-        migratedCount++;
+      if (notebook.password) {
+        let needsMigration = false;
+        let newHashedPassword = notebook.password;
+
+        if (!isHashed(notebook.password)) {
+          // Plaintext password - hash with bcrypt
+          logger.debug("Migrating plaintext password for notebook:", notebook.url);
+          newHashedPassword = await hashPassword(notebook.password);
+          needsMigration = true;
+        } else if (notebook.password.startsWith('$sha256$')) {
+          // SHA-256 hash - we can't migrate without the original password
+          // This will be handled during password verification when user logs in
+          logger.debug("SHA-256 hash found for notebook:", notebook.url, "- will migrate on next verification");
+        }
+
+        if (needsMigration) {
+          await ctx.db.patch(notebook._id, {
+            password: newHashedPassword,
+            passwordUpdatedAt: Date.now(),
+          });
+          migratedCount++;
+        }
       }
     }
     
@@ -135,7 +158,7 @@ export const create = mutation({
     // Hash password if provided
     let hashedPassword: string | undefined;
     if (args.password) {
-      hashedPassword = await simpleHash(args.password);
+      hashedPassword = await hashPassword(args.password);
       logger.debug("Password hashed for new notebook");
     }
 
@@ -260,7 +283,7 @@ export const update = mutation({
     // Hash password if provided
     if (args.password !== undefined) {
       if (args.password) {
-        updateData.password = await simpleHash(args.password);
+        updateData.password = await hashPassword(args.password);
         updateData.passwordUpdatedAt = now;
         logger.debug("Password updated and hashed for notebook");
       } else {
@@ -457,11 +480,11 @@ export const validatePassword = mutation({
     // Use secure hash verification
     const isValid = await verifyHash(args.password, notebook.password);
     
-    // If password is valid but not hashed, upgrade it
-    if (isValid && !isHashed(notebook.password)) {
-      logger.debug("Password validated, upgrading to hashed format");
-      const hashedPassword = await simpleHash(args.password);
-      await ctx.db.patch(notebook._id, { 
+    // If password is valid, upgrade legacy hashes to bcrypt
+    if (isValid && (notebook.password.startsWith('$sha256$') || !isHashed(notebook.password))) {
+      logger.debug("Password validated, upgrading to bcrypt format");
+      const hashedPassword = await hashPassword(args.password);
+      await ctx.db.patch(notebook._id, {
         password: hashedPassword,
         passwordUpdatedAt: Date.now(),
       });
@@ -487,7 +510,7 @@ export const validatePassword = mutation({
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
       notebookId: notebook._id,
-      deviceFingerprint: args.deviceFingerprint || 'unknown',
+      deviceFingerprint: args.deviceFingerprint ?? 'unknown',
       userAgent: args.userAgent,
       ipAddress: args.ipAddress,
       expiresAt,
@@ -626,12 +649,12 @@ export const getByUrlWithSession = query({
 });
 
 // Server-side session token validation
-const validateSessionToken = async (ctx: any, sessionToken: string, notebookId: Id<"notebooks">) => {
+const validateSessionToken = async (ctx: QueryCtx, sessionToken: string, notebookId: Id<"notebooks">) => {
   try {
     // Look up session in the database
     const session = await ctx.db
       .query("notebookSessions")
-      .withIndex("by_token", (q: any) => q.eq("sessionToken", sessionToken))
+      .withIndex("by_token", (q) => q.eq("sessionToken", sessionToken))
       .first();
 
     if (!session) {
@@ -1022,7 +1045,7 @@ export const updatePassword = mutation({
 
     if (args.newPassword) {
       // Setting or updating password - hash it securely
-      updateData.password = await simpleHash(args.newPassword);
+      updateData.password = await hashPassword(args.newPassword);
       updateData.passwordStrength = calculatePasswordStrength(args.newPassword);
       updateData.isPrivate = true; // Password-protected notebooks are private
       logger.debug("Password updated and hashed for notebook", notebook.url);

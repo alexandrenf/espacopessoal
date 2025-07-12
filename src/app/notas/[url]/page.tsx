@@ -106,49 +106,12 @@ const isPasswordVerificationResult = (data: unknown): data is PasswordVerificati
   );
 };
 
-// Secure session storage helper (replaces password storage)
-const SESSION_STORAGE_KEY = "secure_notebook_sessions";
-
-const getStoredSessions = (): Record<string, { token: string; expiresAt: number }> => {
-  if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-  try {
-    if (!stored) return {};
-    const parsed = JSON.parse(stored) as Record<string, { token: string; expiresAt: number }>;
-    if (typeof parsed === "object" && parsed !== null) {
-      // Clean up expired sessions
-      const now = Date.now();
-      const validSessions: Record<string, { token: string; expiresAt: number }> = {};
-      for (const [key, session] of Object.entries(parsed)) {
-        if (session.expiresAt > now) {
-          validSessions[key] = session;
-        }
-      }
-      
-      // Update storage with cleaned sessions
-      if (Object.keys(validSessions).length !== Object.keys(parsed).length) {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(validSessions));
-      }
-      
-      return validSessions;
-    }
-    return {};
-  } catch {
-    return {};
-  }
-};
-
-const storeSession = (url: string, sessionToken: string, expiresAt: number) => {
-  const sessions = getStoredSessions();
-  sessions[url] = { token: sessionToken, expiresAt };
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
-};
-
-const removeSession = (url: string) => {
-  const sessions = getStoredSessions();
-  delete sessions[url];
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions));
-};
+// Import secure session management
+import {
+  getStoredSession,
+  storeSession,
+  removeSession,
+} from "~/lib/secure-session";
 
 // Device fingerprinting for enhanced security
 const generateDeviceFingerprint = (): string => {
@@ -290,36 +253,44 @@ function NotebookPageContent() {
   // Verify password mutation using Convex (now returns session token)
   const verifyPassword = useMutation(convexApi.notebooks.validatePassword);
 
-  // Validate stored session token with server after verifyPassword is available
+  // Validate stored session token using secure HTTP-only cookies
   useEffect(() => {
     if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
-      const sessions = getStoredSessions();
-      const storedSession = sessions[normalizedUrl];
-
-      if (
-        storedSession &&
-        !hasValidSession &&
-        !isSessionValidationComplete
-      ) {
-        console.log("Found stored session, checking expiration...");
-        
-        // Check if session is expired
-        if (storedSession.expiresAt <= Date.now()) {
-          console.log("Stored session is expired, removing from storage");
-          removeSession(normalizedUrl);
-          setIsSessionValidationComplete(true);
-          return;
+      const validateSession = async () => {
+        if (!hasValidSession && !isSessionValidationComplete) {
+          console.log("Checking for stored session...");
+          
+          try {
+            const storedSession = await getStoredSession(normalizedUrl);
+            
+            if (storedSession) {
+              console.log("Found stored session, checking expiration...");
+              
+              // Check if session is expired
+              if (storedSession.expiresAt <= Date.now()) {
+                console.log("Stored session is expired, removing from storage");
+                await removeSession(normalizedUrl);
+                setIsSessionValidationComplete(true);
+                return;
+              }
+              
+              console.log("Session is valid, setting up for notebook access");
+              setSessionToken(storedSession.token);
+              setHasValidSession(true);
+              setIsSessionValidationComplete(true);
+            } else {
+              // No stored session, mark validation as complete immediately
+              console.log("No stored session found, marking validation complete");
+              setIsSessionValidationComplete(true);
+            }
+          } catch (error) {
+            console.error("Error validating session:", error);
+            setIsSessionValidationComplete(true);
+          }
         }
-        
-        console.log("Session is valid, setting up for notebook access");
-        setSessionToken(storedSession.token);
-        setHasValidSession(true);
-        setIsSessionValidationComplete(true);
-      } else if (!storedSession) {
-        // No stored session, mark validation as complete immediately
-        console.log("No stored session found, marking validation complete");
-        setIsSessionValidationComplete(true);
-      }
+      };
+      
+      void validateSession();
     }
   }, [
     normalizedUrl,
@@ -408,7 +379,7 @@ function NotebookPageContent() {
   const notebookQueryResult = useQuery(
     convexApi.notebooks.getByUrlWithSession,
     notebookQueryArgs,
-  ) as unknown;
+  );
 
   // Type guard the notebook result - handle loading, error, and success states
   const notebook = (notebookQueryResult !== undefined && isNotebookData(notebookQueryResult)) ? notebookQueryResult : null;
@@ -465,28 +436,37 @@ function NotebookPageContent() {
       console.log("Password verification result:", {
         valid: result.valid,
         hasSessionToken: !!result.sessionToken,
-        expiresAt: result.expiresAt ? new Date(result.expiresAt as number) : undefined,
+        expiresAt: result.expiresAt ? new Date(result.expiresAt) : undefined,
       });
 
       if (result.valid && result.sessionToken && result.expiresAt) {
-        const sessionToken = result.sessionToken as string;
-        const expiresAt = result.expiresAt as number;
+        const sessionToken = result.sessionToken;
+        const expiresAt = result.expiresAt;
 
         console.log("Password is valid, storing secure session");
 
         // Store secure session token instead of password
-        storeSession(normalizedUrl, sessionToken, expiresAt);
-
-        // Update state
-        setSessionToken(sessionToken);
-        setShowPasswordPrompt(false);
-        setHasValidSession(true);
-        setIsSessionValidationComplete(true);
+        const sessionStored = await storeSession(normalizedUrl, sessionToken, expiresAt);
         
-        toast({
-          title: "Acesso liberado",
-          description: "Senha correta! Você pode agora acessar o notebook.",
-        });
+        if (sessionStored) {
+          // Update state
+          setSessionToken(sessionToken);
+          setShowPasswordPrompt(false);
+          setHasValidSession(true);
+          setIsSessionValidationComplete(true);
+          
+          toast({
+            title: "Acesso liberado",
+            description: "Senha correta! Você pode agora acessar o notebook.",
+          });
+        } else {
+          console.error("Failed to store session");
+          toast({
+            title: "Erro",
+            description: "Falha ao salvar sessão. Tente novamente.",
+            variant: "destructive",
+          });
+        }
       } else {
         console.log("Password is invalid");
         toast({
