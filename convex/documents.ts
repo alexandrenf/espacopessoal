@@ -5,6 +5,7 @@ import {
   query,
   internalMutation,
   internalQuery,
+  type QueryCtx,
 } from "./_generated/server";
 import { type Id, type Doc } from "./_generated/dataModel";
 import { nanoid } from "nanoid";
@@ -34,6 +35,53 @@ const logger = {
       console.log(`[documents:debug] ${message}`, ...args);
     }
   },
+};
+
+// Helper function to check session status (handles both new and legacy fields)
+function isSessionActive(session: any): boolean {
+  if (!session) return false;
+  // Handle both new isActive field and legacy isRevoked field
+  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+}
+
+// Server-side session token validation for document access
+const validateNotebookSessionToken = async (
+  ctx: QueryCtx,
+  sessionToken: string,
+  notebookId: Id<"notebooks">,
+) => {
+  try {
+    // Look up session in the database by token
+    const session = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_token", (q) => q.eq("sessionToken", sessionToken))
+      .first();
+
+    if (!session) {
+      return { valid: false, reason: "Session not found" };
+    }
+
+    // Check if session belongs to the correct notebook
+    if (session.notebookId !== notebookId) {
+      return { valid: false, reason: "Session notebook mismatch" };
+    }
+
+    // Check if session is active
+    if (!isSessionActive(session)) {
+      return { valid: false, reason: "Session revoked" };
+    }
+
+    // Check if session is expired
+    const now = Date.now();
+    if (session.expiresAt < now) {
+      return { valid: false, reason: "Session expired" };
+    }
+
+    return { valid: true, session };
+  } catch (error) {
+    logger.error("Session validation error:", error);
+    return { valid: false, reason: "Session validation failed" };
+  }
 };
 
 // For backward compatibility during migration
@@ -398,24 +446,29 @@ export const getAllForTreeLegacy = query({
   handler: async (ctx, { limit, notebookId, userId, hasValidPassword, sessionToken }) => {
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
 
-    // TODO: Implement proper sessionToken validation for private notebook access
-    // For now, sessionToken is accepted but not used - relying on hasValidPassword flag
-
     // If no userId provided, only return documents in public notebooks or password-protected notebooks
     if (!userId) {
       if (!notebookId) {
         throw new ConvexError("User ID or notebook ID is required");
       }
 
-      // Check if the notebook is public or user has valid password
+      // Check if the notebook is public or user has valid session token
       const notebook = await ctx.db.get(notebookId);
       if (!notebook) {
         throw new ConvexError("Notebook not found");
       }
 
-      // Allow access if notebook is public OR if it's private but user has valid password
-      if (notebook.isPrivate && !hasValidPassword) {
-        throw new ConvexError("Access denied to private notebook");
+      // Allow access if notebook is public OR if it's private but user has valid session token
+      if (notebook.isPrivate) {
+        if (!sessionToken) {
+          throw new ConvexError("Session token required for private notebook access");
+        }
+        
+        // Validate session token for this notebook - use the same function from notebooks.ts
+        const sessionValidation = await validateNotebookSessionToken(ctx, sessionToken, notebookId);
+        if (!sessionValidation.valid) {
+          throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
+        }
       }
 
       // Return documents in accessible notebook
