@@ -361,17 +361,15 @@ export const create = mutation({
       );
     }
 
-    // Check if URL is already taken by this user
+    // Check if URL is already taken globally (URLs must be unique across all users)
     const existingNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) =>
-        q.eq("ownerId", userId as Id<"users">).eq("url", args.url),
-      )
+      .withIndex("by_url", (q) => q.eq("url", args.url))
       .first();
 
     if (existingNotebook) {
       throw new ConvexError(
-        "A notebook with this URL already exists in your account.",
+        "This URL is already taken. Please choose a different URL.",
       );
     }
 
@@ -610,18 +608,16 @@ export const checkUrlAvailability = query({
 
     const userId = args.userId ?? DEFAULT_USER_ID;
 
-    // Check if URL is already taken by this user
+    // Check if URL is already taken globally (URLs must be unique across all users)
     const existingNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) =>
-        q.eq("ownerId", userId as Id<"users">).eq("url", args.url),
-      )
+      .withIndex("by_url", (q) => q.eq("url", args.url))
       .first();
 
     if (existingNotebook) {
       return {
         available: false,
-        reason: "This URL is already used by one of your notebooks.",
+        reason: "This URL is already taken. Please choose a different URL.",
       };
     }
 
@@ -640,7 +636,7 @@ export const getOrCreateDefault = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // First, try to find existing default notebook
+    // First, try to find existing default notebook for this user
     const existingNotebook = await ctx.db
       .query("notebooks")
       .withIndex("by_owner_and_url", (q) =>
@@ -652,12 +648,10 @@ export const getOrCreateDefault = mutation({
       return existingNotebook;
     }
 
-    // Check if "main" URL is available
+    // Check if "main" URL is available globally
     const mainNotebook = await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_and_url", (q) =>
-        q.eq("ownerId", args.userId).eq("url", "main"),
-      )
+      .withIndex("by_url", (q) => q.eq("url", "main"))
       .first();
 
     const defaultUrl = mainNotebook ? `main-${Date.now()}` : "main";
