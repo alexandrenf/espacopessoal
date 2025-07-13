@@ -421,22 +421,28 @@ function NotebookPageContent() {
   );
 
   // Get full notebook information using Convex with secure session validation
+  const isOwner = notebookMetadata?.ownerId === convexUserId;
+  const isPublicNotebook = !notebookMetadata?.isPrivate;
+  const hasPassword = notebookMetadata?.hasPassword;
+  
   const notebookQueryEnabled =
     normalizedUrl.length > 0 &&
     isSessionValidationComplete && // Wait for stored session validation to complete
-    (hasValidSession ||
-      !notebookMetadata?.hasPassword ||
-      notebookMetadata?.ownerId === convexUserId);
+    (isOwner || // Owner can always access
+      isPublicNotebook || // Public notebooks don't need sessions
+      (!hasPassword && notebookMetadata?.isPrivate) || // Private notebooks without passwords (owner-only access handled above)
+      (hasPassword && hasValidSession && sessionToken)); // Private notebooks with passwords need valid session token
 
   console.log("Notebook query state:", {
     normalizedUrl,
     hasValidSession,
     sessionToken: sessionToken ? "***EXISTS***" : "none",
     isSessionValidationComplete,
-    hasPassword: notebookMetadata?.hasPassword,
+    hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
-    isOwner: notebookMetadata?.ownerId === convexUserId,
+    isOwner,
+    isPublicNotebook,
     queryEnabled: notebookQueryEnabled,
   });
 
@@ -448,17 +454,20 @@ function NotebookPageContent() {
       {
         hasValidSession,
         isSessionValidationComplete,
-        hasPassword: notebookMetadata?.hasPassword,
-        isOwner: notebookMetadata?.ownerId === convexUserId,
+        hasPassword,
+        isOwner,
+        isPublicNotebook,
+        sessionToken: sessionToken ? "***EXISTS***" : "none",
       },
     );
   }, [
     notebookQueryEnabled,
     hasValidSession,
     isSessionValidationComplete,
-    notebookMetadata?.hasPassword,
-    notebookMetadata?.ownerId,
-    convexUserId,
+    hasPassword,
+    isOwner,
+    isPublicNotebook,
+    sessionToken,
   ]);
 
   // Use secure session-based query arguments
@@ -623,15 +632,15 @@ function NotebookPageContent() {
 
   // Auto-show password prompt if needed
   const needsPassword =
-    notebookMetadata?.hasPassword &&
-    notebookMetadata.ownerId !== convexUserId &&
+    hasPassword &&
+    !isOwner &&
     !hasValidSession;
 
   console.log("Password prompt logic:", {
-    hasPassword: notebookMetadata?.hasPassword,
+    hasPassword,
     ownerId: notebookMetadata?.ownerId,
     convexUserId,
-    isOwner: notebookMetadata?.ownerId === convexUserId,
+    isOwner,
     hasValidSession,
     sessionToken: sessionToken ? "***EXISTS***" : "none",
     needsPassword,
