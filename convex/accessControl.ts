@@ -37,12 +37,22 @@ interface AccessResult {
 }
 
 /**
+ * Session data structure from authentication providers
+ */
+interface SessionData {
+  email?: string;
+  name?: string;
+  image?: string;
+  provider?: string;
+}
+
+/**
  * Session validation result
  */
 interface SessionValidation {
   valid: boolean;
   userId?: string;
-  sessionData?: any;
+  sessionData?: SessionData;
   reason?: string;
 }
 
@@ -277,8 +287,10 @@ export function withAccessControl(
   resourceType: ResourceType,
   requiredPermission: PermissionLevel = "read"
 ) {
-  return function<T extends (...args: any[]) => any>(handler: T): T {
-    return (async (ctx: any, args: any) => {
+  return function<TCtx extends QueryCtx | MutationCtx, TArgs extends Record<string, unknown>, TReturn>(
+    handler: (ctx: TCtx, args: TArgs) => TReturn
+  ): (ctx: TCtx, args: TArgs) => Promise<TReturn> {
+    return (async (ctx: TCtx, args: TArgs) => {
       // Validate user session
       const sessionValidation = await validateUserSession(ctx);
       
@@ -287,7 +299,7 @@ export function withAccessControl(
         resourceType,
         requiredPermission,
         userId: sessionValidation.userId,
-        resourceId: args.notebookId || args.documentId || args.id,
+        resourceId: (args as any).notebookId || (args as any).documentId || (args as any).id,
         sessionValid: sessionValidation.valid,
         timestamp: Date.now(),
       });
@@ -296,17 +308,18 @@ export function withAccessControl(
 
       // Check resource-specific access
       switch (resourceType) {
-        case "notebook":
-          if (!args.notebookId && !args.url) {
+        case "notebook": {
+          const notebookArgs = args as any;
+          if (!notebookArgs.notebookId && !notebookArgs.url) {
             throw new ConvexError("Notebook identifier required");
           }
           
-          let notebookId = args.notebookId;
-          if (!notebookId && args.url) {
+          let notebookId = notebookArgs.notebookId;
+          if (!notebookId && notebookArgs.url) {
             // Look up notebook by URL
             const notebook = await ctx.db
               .query("notebooks")
-              .withIndex("by_url", (q: any) => q.eq("url", args.url))
+              .withIndex("by_url", (q: any) => q.eq("url", notebookArgs.url))
               .first();
             notebookId = notebook?._id;
           }
@@ -319,32 +332,36 @@ export function withAccessControl(
             ctx,
             notebookId,
             sessionValidation.userId,
-            args.sessionToken
+            notebookArgs.sessionToken
           );
           break;
+        }
 
-        case "document":
-          if (!args.documentId) {
+        case "document": {
+          const documentArgs = args as any;
+          if (!documentArgs.documentId) {
             throw new ConvexError("Document identifier required");
           }
 
           accessResult = await checkDocumentAccess(
             ctx,
-            args.documentId,
+            documentArgs.documentId,
             sessionValidation.userId,
-            args.sessionToken
+            documentArgs.sessionToken
           );
           break;
+        }
 
-        case "user":
+        case "user": {
           // User resource access (profile, settings, etc.)
+          const userArgs = args as any;
           if (!sessionValidation.valid) {
             accessResult = {
               granted: false,
               permission: "none",
               reason: "Authentication required",
             };
-          } else if (args.userId && args.userId !== sessionValidation.userId) {
+          } else if (userArgs.userId && userArgs.userId !== sessionValidation.userId) {
             accessResult = {
               granted: false,
               permission: "none",
@@ -358,8 +375,9 @@ export function withAccessControl(
             };
           }
           break;
+        }
 
-        case "system":
+        case "system": {
           // System-level access (admin functions)
           // TODO: Implement admin role checking
           accessResult = {
@@ -368,6 +386,7 @@ export function withAccessControl(
             reason: sessionValidation.valid ? undefined : "Authentication required",
           };
           break;
+        }
 
         default:
           throw new ConvexError(`Unknown resource type: ${resourceType as string}`);
@@ -401,7 +420,7 @@ export function withAccessControl(
       };
 
       return handler(enhancedCtx, args);
-    }) as T;
+    });
   };
 }
 
@@ -530,7 +549,7 @@ export const revokeAccess = mutation({
 
     // Resource-specific revocation logic
     switch (resourceType) {
-      case "notebook":
+      case "notebook": {
         // Revoke all sessions for this notebook and user
         const sessions = await ctx.db
           .query("notebookSessions")
@@ -548,8 +567,9 @@ export const revokeAccess = mutation({
           });
         }
         break;
+      }
 
-      case "document":
+      case "document": {
         // Remove document permissions
         const permission = await ctx.db
           .query("documentPermissions")
@@ -565,6 +585,7 @@ export const revokeAccess = mutation({
           await ctx.db.delete(permission._id);
         }
         break;
+      }
     }
 
     return { success: true };
