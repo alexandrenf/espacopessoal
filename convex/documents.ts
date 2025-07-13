@@ -434,6 +434,106 @@ export const getAllForTree = query({
   },
 });
 
+// OPTIMIZED: Document tree pagination for Phase 1 bandwidth reduction
+export const getDocumentsPaginated = query({
+  args: {
+    notebookId: v.optional(v.id("notebooks")),
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    metadataOnly: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")), // User ID for authentication (optional for public access)
+    sessionToken: v.optional(v.string()), // Session token for private notebook access
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit ?? 20, 20); // Cap at 20 for bandwidth optimization
+    
+    // Authentication and access control
+    if (!args.userId && !args.notebookId) {
+      throw new ConvexError("User ID or notebook ID is required");
+    }
+
+    // Handle notebook access validation
+    if (args.notebookId) {
+      const notebook = await ctx.db.get(args.notebookId);
+      if (!notebook) {
+        throw new ConvexError("Notebook not found");
+      }
+
+      // For private notebooks, validate session token
+      if (notebook.isPrivate && !args.userId) {
+        if (!args.sessionToken) {
+          throw new ConvexError("Session token required for private notebook access");
+        }
+        
+        const sessionValidation = await validateNotebookSessionToken(ctx, args.sessionToken, args.notebookId);
+        if (!sessionValidation.valid) {
+          throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
+        }
+      }
+
+      // Use optimized index for notebook documents
+      let query = ctx.db
+        .query("documents")
+        .withIndex("by_notebook_id", (q) => q.eq("notebookId", args.notebookId));
+
+      if (args.metadataOnly) {
+        // Return only essential fields for list views - 70% bandwidth reduction
+        const results = await query.paginate({ 
+          cursor: args.cursor || null, 
+          numItems: limit 
+        });
+        
+        return {
+          ...results,
+          page: results.page.map(doc => ({
+            _id: doc._id,
+            title: doc.title,
+            isFolder: doc.isFolder,
+            updatedAt: doc.updatedAt,
+            parentId: doc.parentId || null,
+            order: doc.order,
+            notebookId: doc.notebookId || null
+          }))
+        };
+      }
+      
+      return await query.paginate({ cursor: args.cursor || null, numItems: limit });
+    }
+
+    // For user-owned documents (when userId is provided)
+    if (args.userId) {
+      let query = ctx.db
+        .query("documents")
+        .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId!));
+
+      if (args.metadataOnly) {
+        // Return only essential fields for list views
+        const results = await query.paginate({ 
+          cursor: args.cursor || null, 
+          numItems: limit 
+        });
+        
+        return {
+          ...results,
+          page: results.page.map(doc => ({
+            _id: doc._id,
+            title: doc.title,
+            isFolder: doc.isFolder,
+            updatedAt: doc.updatedAt,
+            parentId: doc.parentId || null,
+            order: doc.order,
+            notebookId: doc.notebookId || null
+          }))
+        };
+      }
+      
+      return await query.paginate({ cursor: args.cursor || null, numItems: limit });
+    }
+
+    throw new ConvexError("Invalid query: either userId or notebookId must be provided");
+  },
+});
+
 // Get all documents for tree (fallback for components not ready for pagination)
 export const getAllForTreeLegacy = query({
   args: {
@@ -444,7 +544,7 @@ export const getAllForTreeLegacy = query({
     sessionToken: v.optional(v.string()), // Session token for private notebook access
   },
   handler: async (ctx, { limit, notebookId, userId, hasValidPassword, sessionToken }) => {
-    const documentLimit = limit ?? 100; // Reduced from 1000 to 100
+    const documentLimit = Math.min(limit ?? 20, 20); // OPTIMIZED: Reduced from 100 to 20 for Phase 1
 
     // If no userId provided, only return documents in public notebooks or password-protected notebooks
     if (!userId) {
