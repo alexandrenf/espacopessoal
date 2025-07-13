@@ -38,10 +38,10 @@ const logger = {
 };
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: any): boolean {
+function isSessionActive(session: { isActive?: boolean; isRevoked?: boolean } | null | undefined): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
-  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+  return session.isActive ?? !session.isRevoked;
 }
 
 // Server-side session token validation for document access

@@ -33,6 +33,8 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Underline } from "@tiptap/extension-underline";
 import { ImageResize } from "tiptap-extension-resize-image";
+import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../../../../constants/margins";
+import { Ruler } from "../../../../components_new/Ruler";
 
 export default function SharedDocumentPage() {
   const { url } = useParams();
@@ -71,6 +73,10 @@ export default function SharedDocumentPage() {
   const [collaborativeContent, setCollaborativeContent] = useState<
     string | null
   >(null);
+  // Margin state for proper document layout (read-only, so setters are not used)
+  const [leftMargin] = useState(LEFT_MARGIN_DEFAULT);
+  const [rightMargin] = useState(RIGHT_MARGIN_DEFAULT);
+  
   const [connectionStatus, setConnectionStatus] = useState<
     "disconnected" | "connecting" | "connected"
   >("disconnected");
@@ -291,11 +297,12 @@ export default function SharedDocumentPage() {
       content: "<p>Loading document...</p>",
       editorProps: {
         attributes: {
-          class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pr-14 pb-10`,
+          style: `padding-left: ${leftMargin}px; padding-right: ${rightMargin}px;`,
+          class: `focus:outline-none print:border-0 bg-white border border-[#C7C7C7] flex flex-col min-h-[1054px] w-[816px] pt-10 pb-10`,
         },
       },
     },
-    [isYdocReady],
+    [isYdocReady, leftMargin, rightMargin],
   );
 
   // Update content when shared document loads or collaborative content changes
@@ -433,11 +440,17 @@ export default function SharedDocumentPage() {
       </header>
 
       {/* Document Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-[816px] py-4">
-          <div className="flex min-w-max justify-center">
-            <EditorContent editor={editor} />
-          </div>
+      <div className="flex-1 overflow-auto bg-[#F9FBFD] px-4 print:overflow-visible print:bg-white print:p-0">
+        <div className="mx-auto max-w-[816px]">
+          <Ruler
+            leftMargin={leftMargin}
+            rightMargin={rightMargin}
+            onLeftMarginChange={() => { /* Disabled for read-only mode */ }}
+            onRightMarginChange={() => { /* Disabled for read-only mode */ }}
+          />
+        </div>
+        <div className="mx-auto flex w-[816px] min-w-max justify-center py-4 print:w-full print:min-w-0 print:py-0">
+          <EditorContent editor={editor} />
         </div>
       </div>
     </div>
