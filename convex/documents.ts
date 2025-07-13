@@ -393,9 +393,13 @@ export const getAllForTreeLegacy = query({
     notebookId: v.optional(v.id("notebooks")), // Filter by notebook
     userId: v.optional(v.id("users")), // User ID for authentication (optional for public access)
     hasValidPassword: v.optional(v.boolean()), // Whether user has provided valid password for private notebook
+    sessionToken: v.optional(v.string()), // Session token for private notebook access
   },
-  handler: async (ctx, { limit, notebookId, userId, hasValidPassword }) => {
+  handler: async (ctx, { limit, notebookId, userId, hasValidPassword, sessionToken }) => {
     const documentLimit = limit ?? 100; // Reduced from 1000 to 100
+
+    // TODO: Implement proper sessionToken validation for private notebook access
+    // For now, sessionToken is accepted but not used - relying on hasValidPassword flag
 
     // If no userId provided, only return documents in public notebooks or password-protected notebooks
     if (!userId) {
