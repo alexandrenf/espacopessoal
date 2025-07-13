@@ -174,33 +174,7 @@ const config = {
           },
         ],
       },
-      {
-        // More restrictive headers for other API routes (excluding auth)
-        source: "/api/:path((?!auth).*)*",
-        headers: [
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self'",
-              "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud",
-              "object-src 'none'",
-            ].join("; "),
-          },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "Cache-Control",
-            value: "no-cache, no-store, must-revalidate",
-          },
-        ],
-      },
+
       {
         // Specific headers for static assets
         source: "/_next/static/(.*)",
