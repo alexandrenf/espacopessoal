@@ -400,12 +400,12 @@ export const create = mutation({
     url: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
-    userId: v.optional(v.id("users")),
+    userId: v.id("users"), // Make userId required for notebook creation
     isPrivate: v.optional(v.boolean()),
     password: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = args.userId ?? DEFAULT_USER_ID;
+    const userId = args.userId;
     const now = Date.now();
     const isPrivate = args.isPrivate ?? false;
 
@@ -445,7 +445,7 @@ export const create = mutation({
         url: args.url,
         title: args.title,
         description: args.description,
-        ownerId: userId as Id<"users">,
+        ownerId: userId,
         isPrivate,
         password: hashedPassword,
         passwordUpdatedAt: hashedPassword ? now : undefined,
@@ -481,8 +481,7 @@ export const getByUrl = query({
     }
 
     // Check if user has access to this notebook
-    const userId = args.userId ?? DEFAULT_USER_ID;
-    const isOwner = notebook.ownerId === userId;
+    const isOwner = args.userId ? notebook.ownerId === args.userId : false;
 
     // If notebook is private and user is not the owner, deny access
     if (notebook.isPrivate && !isOwner) {
@@ -499,14 +498,12 @@ export const getByUrl = query({
 // Get notebooks by owner
 export const getByOwner = query({
   args: {
-    userId: v.optional(v.id("users")),
+    userId: v.id("users"), // Make userId required
   },
   handler: async (ctx, args) => {
-    const userId = args.userId ?? DEFAULT_USER_ID;
-
     return await ctx.db
       .query("notebooks")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", userId as Id<"users">))
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .order("desc")
       .collect();
   },
@@ -660,8 +657,6 @@ export const checkUrlAvailability = query({
           "Invalid URL format. Must be 3-50 characters, alphanumeric, hyphens, and underscores only.",
       };
     }
-
-    const userId = args.userId ?? DEFAULT_USER_ID;
 
     // Check if URL is already taken globally (URLs must be unique across all users)
     const existingNotebook = await ctx.db
@@ -827,7 +822,7 @@ export const validatePassword = mutation({
     // Store session in database with new schema
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
-      userId: "anonymous" as Id<"users">, // TODO: Will be updated when user auth is integrated
+      userId: undefined, // No user ID for anonymous sessions
       notebookId: notebook._id,
       deviceFingerprint: args.deviceFingerprint ?? "unknown",
       ipAddress: args.ipAddress ?? "unknown",
@@ -1152,7 +1147,7 @@ export const createPasswordSession = mutation({
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
       notebookId: notebook._id,
-      userId: args.userId || ("anonymous" as Id<"users">),
+      userId: args.userId, // Use provided userId or undefined for anonymous
       deviceFingerprint: args.deviceFingerprint,
       ipAddress: args.ipAddress || "unknown",
       expiresAt: now + sessionDuration,
