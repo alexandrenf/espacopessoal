@@ -146,14 +146,16 @@ const config = {
         ],
       },
       {
-        // More permissive headers for API routes
-        source: "/api/(.*)",
+        // Permissive headers for NextAuth routes
+        source: "/api/auth/(.*)",
         headers: [
           {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https: blob:",
               "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud",
               "object-src 'none'",
             ].join("; "),
@@ -172,6 +174,7 @@ const config = {
           },
         ],
       },
+
       {
         // Specific headers for static assets
         source: "/_next/static/(.*)",
