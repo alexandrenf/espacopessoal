@@ -1181,8 +1181,7 @@ export const createSharedDocument = mutation({
           `URL collision detected (extremely rare), retry ${retryCount}/${maxRetries}`,
         );
 
-        // Add small delay to prevent tight retry loops
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        // Continue retry without delay (collisions are extremely rare with 12-char nanoid)
       }
 
       // If we still can't generate a unique URL after max retries, throw error
