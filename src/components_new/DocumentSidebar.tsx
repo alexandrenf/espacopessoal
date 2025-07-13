@@ -29,11 +29,10 @@ import {
 } from "../components_new/ui/dropdown-menu";
 import DocumentItem from "./DocumentItem";
 import FolderItem from "./FolderItem";
-import {
-  useOptimizedDocumentsTree,
-  useSmartDocumentActions,
-} from "~/hooks/useOptimizedConvex";
-import { useMutation } from "convex/react";
+// import {
+//   useSmartDocumentActions,
+// } from "~/hooks/useOptimizedConvex";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
@@ -59,6 +58,7 @@ interface DocumentSidebarProps {
   notebookTitle?: string;
   isPublicNotebook?: boolean;
   hasValidPassword?: boolean; // Whether user has provided valid password for private notebook
+  sessionToken?: string | null; // Session token for private notebook access
 }
 
 interface TreeDropInfo {
@@ -81,6 +81,7 @@ const DocumentSidebar = memo(
     notebookTitle,
     isPublicNotebook = false,
     hasValidPassword = false,
+    sessionToken = null,
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -104,17 +105,29 @@ const DocumentSidebar = memo(
       }
     }, [isUserLoading, convexUserId, isPublicNotebook]);
 
-    // OPTIMIZED: Use consolidated optimized queries and mutations
-    const documents = useOptimizedDocumentsTree(
-      notebookId ?? null,
-      convexUserId,
-      isUserLoading,
-      isPublicNotebook,
-      hasValidPassword,
+    // Use direct Convex query with session token support for private notebooks
+    const documentsQuery = useQuery(
+      api.documents.getAllForTreeLegacy,
+      notebookId && 
+      // For private notebooks, ensure we have session token when needed
+      (isPublicNotebook || convexUserId || (hasValidPassword && sessionToken))
+        ? {
+            notebookId,
+            userId: convexUserId ?? undefined,
+            limit: 200,
+            // Pass session token for private notebooks when user is not owner
+            sessionToken: (!isPublicNotebook && !convexUserId && hasValidPassword && sessionToken) 
+              ? sessionToken 
+              : undefined,
+          }
+        : "skip",
     );
 
+    // Memoize documents to prevent hook dependency warnings
+    const documents = useMemo(() => documentsQuery ?? [], [documentsQuery]);
+
     // OPTIMIZED: Use smart document actions that automatically choose the right mutations
-    const documentActions = useSmartDocumentActions(isPublicNotebook);
+    // const documentActions = useSmartDocumentActions(isPublicNotebook);
 
     // TODO: Gradually replace these with documentActions above for better performance
     // Legacy mutations - keeping for compatibility during transition

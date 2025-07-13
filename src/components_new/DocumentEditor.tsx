@@ -43,6 +43,7 @@ import {
   User,
   Settings,
   LogOut,
+  LogIn,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -66,7 +67,7 @@ import {
   MenubarTrigger,
 } from "../components_new/ui/menubar";
 import { useRouter } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { signOut, signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 
 // TipTap Extensions
@@ -1423,64 +1424,99 @@ export function DocumentEditor({
                   Save Info
                 </Button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
-                    >
-                      {(userProfile?.image ?? session?.user?.image) ? (
-                        <Image
-                          className="h-8 w-8 rounded-full object-cover"
-                          src={userProfile?.image ?? session?.user?.image ?? ""}
-                          alt={getUserDisplayName()}
-                          width={32}
-                          height={32}
-                        />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-medium text-white">
-                          {getUserInitials()}
+{convexUserId ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="relative h-8 w-8 rounded-full p-0 hover:bg-gray-100"
+                      >
+                        {(userProfile?.image ?? session?.user?.image) ? (
+                          <Image
+                            className="h-8 w-8 rounded-full object-cover"
+                            src={userProfile?.image ?? session?.user?.image ?? ""}
+                            alt={getUserDisplayName()}
+                            width={32}
+                            height={32}
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-medium text-white">
+                            {getUserInitials()}
+                          </div>
+                        )}
+                        <ChevronDown className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-white p-0.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="flex items-center justify-start gap-2 p-2">
+                        <div className="flex flex-col space-y-1 leading-none">
+                          {session?.user?.name && (
+                            <p className="font-medium">{session.user.name}</p>
+                          )}
+                          {session?.user?.email && (
+                            <p className="w-[200px] truncate text-sm text-muted-foreground">
+                              {session.user.email}
+                            </p>
+                          )}
                         </div>
-                      )}
-                      <ChevronDown className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-white p-0.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="flex items-center justify-start gap-2 p-2">
-                      <div className="flex flex-col space-y-1 leading-none">
-                        {session?.user?.name && (
-                          <p className="font-medium">{session.user.name}</p>
-                        )}
-                        {session?.user?.email && (
-                          <p className="w-[200px] truncate text-sm text-muted-foreground">
-                            {session.user.email}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="cursor-pointer"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings" className="cursor-pointer">
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>Settings</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-2 px-3 text-sm"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>Guest</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <div className="p-4 text-center">
+                        <User className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+                        <p className="mb-1 font-medium text-gray-900">
+                          Sign in to access all features
+                        </p>
+                        <p className="mb-3 text-sm text-gray-600">
+                          Create your own documents, collaborate in real-time, and save your work.
+                        </p>
+                        <Button
+                          onClick={() => signIn()}
+                          className="w-full gap-2"
+                          size="sm"
+                        >
+                          <LogIn className="h-4 w-4" />
+                          Sign in
+                        </Button>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
 

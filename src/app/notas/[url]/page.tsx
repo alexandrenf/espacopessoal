@@ -425,13 +425,21 @@ function NotebookPageContent() {
   const isPublicNotebook = !notebookMetadata?.isPrivate;
   const hasPassword = notebookMetadata?.hasPassword;
   
+  // Auto-show password prompt if needed
+  const needsPassword =
+    hasPassword &&
+    !isOwner &&
+    !hasValidSession;
+  
+  // Enhanced safety checks to prevent premature query execution
   const notebookQueryEnabled =
     normalizedUrl.length > 0 &&
+    notebookMetadata && // Ensure metadata is loaded first
     isSessionValidationComplete && // Wait for stored session validation to complete
     (isOwner || // Owner can always access
       isPublicNotebook || // Public notebooks don't need sessions
       (!hasPassword && notebookMetadata?.isPrivate) || // Private notebooks without passwords (owner-only access handled above)
-      (hasPassword && hasValidSession && sessionToken)); // Private notebooks with passwords need valid session token
+      (hasPassword && hasValidSession && sessionToken && !needsPassword)); // Private notebooks with passwords need valid session token AND no password prompt needed
 
   console.log("Notebook query state:", {
     normalizedUrl,
@@ -470,14 +478,30 @@ function NotebookPageContent() {
     sessionToken,
   ]);
 
-  // Use secure session-based query arguments
+  // Use secure session-based query arguments with enhanced validation
   const notebookQueryArgs = notebookQueryEnabled
     ? {
         url: normalizedUrl,
         userId: convexUserId ?? undefined,
-        sessionToken: sessionToken ?? undefined,
+        sessionToken: (hasPassword && !isOwner && !isPublicNotebook) ? (sessionToken ?? undefined) : undefined,
       }
     : "skip";
+
+  // Debug log to track exact query execution
+  console.log("QUERY EXECUTION DEBUG:", {
+    notebookQueryEnabled,
+    queryArgs: notebookQueryArgs,
+    conditions: {
+      normalizedUrl: normalizedUrl.length > 0,
+      isSessionValidationComplete,
+      isOwner,
+      isPublicNotebook,
+      hasPasswordButPrivate: hasPassword && notebookMetadata?.isPrivate,
+      hasValidSessionAndToken: hasValidSession && sessionToken,
+    },
+    willExecuteQuery: notebookQueryArgs !== "skip",
+    sessionToken: sessionToken ? "***EXISTS***" : "none",
+  });
 
   console.log(
     "About to run notebook query with args:",
@@ -629,12 +653,6 @@ function NotebookPageContent() {
       });
     }
   };
-
-  // Auto-show password prompt if needed
-  const needsPassword =
-    hasPassword &&
-    !isOwner &&
-    !hasValidSession;
 
   console.log("Password prompt logic:", {
     hasPassword,

@@ -159,7 +159,7 @@ SELECT url, password FROM notebooks WHERE isPrivate = true;
 -- Returns: plaintext passwords for all private notebooks
 ```
 
----
+---cl
 
 ## **📋 COMPREHENSIVE FIX PLAN**
 
