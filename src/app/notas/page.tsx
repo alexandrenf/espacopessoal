@@ -19,6 +19,7 @@ import {
   KeyRound,
   User,
   LogIn,
+  AlertCircle,
 } from "lucide-react";
 import Header from "~/app/components/Header";
 import Link from "next/link";
@@ -149,40 +150,56 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
           Novo Notebook
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Criar Novo Notebook</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-3">
             <Label htmlFor="url">URL do Notebook</Label>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">/notas/</span>
-              <Input
-                id="url"
-                value={formData.url}
-                onChange={(e) => handleUrlChange(e.target.value)}
-                placeholder="meu-notebook"
-                required
-                minLength={3}
-                maxLength={50}
-                className={cn(
-                  "flex-1",
-                  urlError && "border-red-500",
-                  checkUrlAvailability.data?.available === false &&
-                    "border-red-500",
-                  checkUrlAvailability.data?.available === true &&
-                    "border-green-500",
-                )}
-              />
+            <div className="relative">
+              <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors">
+                <div className="flex items-center bg-gray-50 px-3 py-2 border-r border-gray-200 rounded-l-md">
+                  <span className="text-sm font-medium text-gray-600">/notas/</span>
+                </div>
+                <Input
+                  id="url"
+                  value={formData.url}
+                  onChange={(e) => handleUrlChange(e.target.value)}
+                  placeholder="meu-notebook"
+                  required
+                  minLength={3}
+                  maxLength={50}
+                  className={cn(
+                    "border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-l-none flex-1",
+                    urlError && "text-red-600",
+                  )}
+                />
+              </div>
             </div>
-            {urlError && <p className="text-sm text-red-500">{urlError}</p>}
-            {checkUrlAvailability.data?.available === false && (
-              <p className="text-sm text-red-500">URL não disponível</p>
-            )}
-            {checkUrlAvailability.data?.available === true && (
-              <p className="text-sm text-green-500">URL disponível</p>
-            )}
+            <div className="min-h-[24px] mt-2">
+              {urlError ? (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{urlError}</span>
+                </div>
+              ) : checkUrlAvailability.data?.available === false ? (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>URL não disponível</span>
+                </div>
+              ) : checkUrlAvailability.data?.available === true ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-md border border-green-200">
+                  <div className="h-2 w-2 bg-green-500 rounded-full flex-shrink-0" />
+                  <span>URL disponível</span>
+                </div>
+              ) : formData.url.length >= 3 && checkUrlAvailability.isLoading ? (
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span>Verificando disponibilidade...</span>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -216,7 +233,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="accessLevel">Nível de Acesso</Label>
             <Select
               value={formData.accessLevel}
@@ -224,27 +241,47 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                 setFormData((prev) => ({ ...prev, accessLevel: value }))
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-12">
                 <SelectValue placeholder="Selecione o nível de acesso" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    Público - Qualquer pessoa com o link pode gerenciar
+              <SelectContent className="max-w-[400px]">
+                <SelectItem value="public" className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      <Globe className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Público</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Qualquer pessoa com o link pode gerenciar
+                      </div>
+                    </div>
                   </div>
                 </SelectItem>
-                <SelectItem value="password">
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="h-4 w-4" />
-                    Protegido por senha - Qualquer pessoa com o link e senha
-                    pode gerenciar
+                <SelectItem value="password" className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      <KeyRound className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Protegido por senha</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Qualquer pessoa com o link e senha pode gerenciar
+                      </div>
+                    </div>
                   </div>
                 </SelectItem>
-                <SelectItem value="private">
-                  <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4" />
-                    Privado - Apenas você pode gerenciar
+                <SelectItem value="private" className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      <Lock className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Privado</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Apenas você pode gerenciar
+                      </div>
+                    </div>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -252,8 +289,8 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
           </div>
 
           {formData.accessLevel === "password" && (
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+            <div className="space-y-3">
+              <Label htmlFor="password">Senha de Proteção</Label>
               <Input
                 id="password"
                 type="password"
@@ -261,17 +298,22 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
-                placeholder="Digite uma senha para proteger este notebook"
+                placeholder="Digite uma senha segura para proteger este notebook"
                 required
+                className="h-12"
               />
+              <p className="text-xs text-gray-500">
+                Esta senha será necessária para acessar e editar o notebook
+              </p>
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              className="h-11 px-6"
             >
               Cancelar
             </Button>
@@ -280,16 +322,22 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
               disabled={
                 createNotebook.isPending ||
                 !checkUrlAvailability.data?.available ||
-                (formData.accessLevel === "password" && !formData.password)
+                (formData.accessLevel === "password" && !formData.password) ||
+                !formData.title.trim() ||
+                !formData.url.trim()
               }
+              className="h-11 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
               {createNotebook.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando...
+                  Criando notebook...
                 </>
               ) : (
-                "Criar Notebook"
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Notebook
+                </>
               )}
             </Button>
           </div>

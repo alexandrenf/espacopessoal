@@ -1173,30 +1173,34 @@ export function DocumentEditor({
     }
 
     try {
-      // Check if this is a public notebook document
-      if (notebookId) {
-        // Use public notebook update function (no authentication required)
+      // Use appropriate update function based on authentication status
+      if (convexUserId) {
+        // User is authenticated - use regular update function (works for both public and private notebooks)
+        await updateDocument({
+          id: doc._id,
+          title: documentTitle.trim(),
+          userId: convexUserId,
+        });
+      } else if (notebookId) {
+        // User not authenticated but has notebookId - try public notebook update
         await updateDocumentInPublicNotebook({
           id: doc._id,
           title: documentTitle.trim(),
           notebookId,
         });
       } else {
-        // Use regular update function (requires authentication)
-        if (!convexUserId) {
-          toast.error("Please wait for authentication to complete");
-          return;
-        }
-        await updateDocument({
-          id: doc._id,
-          title: documentTitle.trim(),
-          userId: convexUserId,
-        });
+        toast.error("Please wait for authentication to complete");
+        return;
       }
       toast.success("Document title updated!");
       setIsEditingTitle(false);
-    } catch {
-      toast.error("Failed to update title");
+    } catch (error) {
+      console.error("Failed to update document title:", error);
+      if (error instanceof Error) {
+        toast.error(`Failed to update title: ${error.message}`);
+      } else {
+        toast.error("Failed to update title");
+      }
       setDocumentTitle(doc.title);
       setIsEditingTitle(false);
     }

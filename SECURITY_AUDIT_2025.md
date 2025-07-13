@@ -1447,6 +1447,53 @@ The application is now **production-ready** with enterprise-grade security:
 
 **Migration Status**: **READY** - Application supports both legacy and new session formats seamlessly.
 
+### **🔧 TypeScript Type Safety Improvements**
+
+**Issue Resolved**: Multiple TypeScript type safety violations in access control middleware.
+
+**Improvements Implemented**:
+1. **Defined SessionData interface** - Replaced `any` type with proper structure for session data (`email`, `name`, `image`, `provider`)
+2. **Enhanced generic type constraints** - Updated `withAccessControl` function with proper TypeScript generics for context and arguments
+3. **Added block scopes to switch cases** - Prevented variable leakage across switch statement cases with proper block scoping
+
+**Files Updated**:
+- `convex/accessControl.ts` - Complete type safety refactoring
+
+**Type Safety Status**: **ENHANCED** - All `any` types eliminated, proper generics implemented, variable scoping secured.
+
+### **🐛 Document Title Update Bug Fix**
+
+**Issue Resolved**: "Cannot edit documents in private notebooks" error when renaming documents via title editing.
+
+**Root Cause**: Incorrect logic in `DocumentEditor.tsx` that assumed any document with `notebookId` was in a public notebook, causing it to use `updateInPublicNotebook` function for private notebooks.
+
+**Solution Implemented**:
+- **Fixed authentication-based routing** - Now uses `updateDocument` for authenticated users (works for both public and private notebooks)
+- **Proper fallback logic** - Only uses `updateInPublicNotebook` for unauthenticated users in public notebooks
+- **Enhanced error handling** - Better error messages and logging for debugging
+
+**Logic Flow**:
+```typescript
+// BEFORE (Broken):
+if (notebookId) {
+  updateInPublicNotebook(); // ❌ Fails for private notebooks
+} else {
+  updateDocument(); // Only for non-notebook documents
+}
+
+// AFTER (Fixed):
+if (convexUserId) {
+  updateDocument(); // ✅ Works for all authenticated users
+} else if (notebookId) {
+  updateInPublicNotebook(); // ✅ Only for unauthenticated public access
+}
+```
+
+**Files Updated**:
+- `src/components_new/DocumentEditor.tsx` - Fixed title update logic and error handling
+
+**Result**: **FIXED** - Document title editing now works correctly for both public and private notebooks.
+
 ---
 
 **Document Classification**: Internal Security Assessment  
