@@ -175,8 +175,8 @@ const config = {
         ],
       },
       {
-        // More restrictive headers for other API routes
-        source: "/api/(?!auth)(.*)",
+        // More restrictive headers for other API routes (excluding auth)
+        source: "/api/:path((?!auth).*)*",
         headers: [
           {
             key: "Content-Security-Policy",
