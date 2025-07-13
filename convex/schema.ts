@@ -137,6 +137,8 @@ export default defineSchema({
     .index("by_organization_id", ["organizationId"])
     .index("by_parent_id", ["parentId"]) // New index for hierarchical queries
     .index("by_parent_and_order", ["parentId", "order"]) // New index for ordered queries
+    .index("by_owner_id_notebook_id", ["ownerId", "notebookId"]) // Optimized for user's notebook documents
+    .index("by_parent_id_owner_id", ["parentId", "ownerId"]) // Optimized for user's folder contents
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["ownerId", "notebookId", "organizationId"],
@@ -222,6 +224,7 @@ export default defineSchema({
   userSettings: defineTable({
     userId: v.id("users"),
     notePadUrl: v.optional(v.string()), // Legacy notepad URL
+    notePadUrlLower: v.optional(v.string()), // Lowercase version for optimized indexing
     privateOrPublicUrl: v.optional(v.boolean()), // Private if true
     password: v.optional(v.string()), // Password for private notepad
     fcmToken: v.optional(v.string()), // Firebase Cloud Messaging token
@@ -229,7 +232,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user_id", ["userId"])
-    .index("by_notepad_url", ["notePadUrl"]),
+    .index("by_notepad_url", ["notePadUrl"])
+    .index("by_notepad_url_lower", ["notePadUrlLower"]),
 
   // Task management boards
   boards: defineTable({
@@ -288,7 +292,8 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_scheduled_for", ["scheduledFor", "sent"])
-    .index("by_pending", ["sent", "scheduledFor"]),
+    .index("by_pending", ["sent", "scheduledFor"])
+    .index("by_user_id_sent", ["userId", "sent"]), // Optimized for user's notification queries
 
   // Legacy notepad system (for backward compatibility during migration)
   legacyNotepads: defineTable({

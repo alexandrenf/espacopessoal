@@ -45,8 +45,8 @@ const INITIAL_RETRY_DELAY = 1000; // 1 second
 const RETRY_BACKOFF_MULTIPLIER = 2;
 const MAX_RETRY_DELAY = 10000; // 10 seconds
 
-// OPTIMIZATION: Performance and cost optimization settings
-const SAVE_DELAY = safeParseInt(process.env.SAVE_DELAY, 15000); // 15 seconds (increased from 10s for cost optimization)
+// OPTIMIZATION: Performance and cost optimization settings - Phase 1 bandwidth reduction
+const SAVE_DELAY = safeParseInt(process.env.SAVE_DELAY, 45000); // 45 seconds (increased from 15s for 66% bandwidth reduction)
 const BATCH_SAVE_DELAY = safeParseInt(process.env.BATCH_SAVE_DELAY, 2000); // 2 seconds for batching multiple saves
 const MAX_BATCH_SIZE = safeParseInt(process.env.MAX_BATCH_SIZE, 10); // Maximum documents to save in one batch
 
