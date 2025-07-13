@@ -8,6 +8,13 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
+// Helper function to check session status (handles both new and legacy fields)
+function isSessionActive(session: any): boolean {
+  if (!session) return false;
+  // Handle both new isActive field and legacy isRevoked field
+  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+}
+
 /**
  * Permission levels for resources
  */
@@ -132,7 +139,7 @@ async function checkNotebookAccess(
         .withIndex("by_token", (q) => q.eq("sessionToken", sessionToken))
         .first();
 
-      if (!session || !session.isActive || session.expiresAt < Date.now()) {
+      if (!session || !isSessionActive(session) || session.expiresAt < Date.now()) {
         return {
           granted: false,
           permission: "none",

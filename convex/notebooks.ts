@@ -12,6 +12,52 @@ import bcrypt from "bcryptjs";
 // Rate limiting will be implemented by calling internal functions
 // import { validateSession, createSession } from "./sessions"; // TODO: Will be used in Phase 2 JWT implementation
 
+// Helper function to check session status (handles both new and legacy fields)
+function isSessionActive(session: any): boolean {
+  if (!session) return false;
+  // Handle both new isActive field and legacy isRevoked field
+  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+}
+
+// Migration function to upgrade legacy session fields to new schema
+export const migrateLegacySessions = internalMutation({
+  handler: async (ctx) => {
+    const sessions = await ctx.db.query("notebookSessions").collect();
+    let migratedCount = 0;
+    
+    for (const session of sessions) {
+      const updates: any = {};
+      let needsUpdate = false;
+      
+      // Convert isRevoked to isActive
+      if (session.isRevoked !== undefined && session.isActive === undefined) {
+        updates.isActive = !session.isRevoked;
+        needsUpdate = true;
+      }
+      
+      // Add default IP address for legacy sessions
+      if (!session.ipAddress) {
+        updates.ipAddress = "unknown";
+        needsUpdate = true;
+      }
+      
+      // Add default userId if missing
+      if (!session.userId) {
+        // For backward compatibility, we'll leave this empty as it's now optional
+        updates.userId = undefined;
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await ctx.db.patch(session._id, updates);
+        migratedCount++;
+      }
+    }
+    
+    return { migratedSessions: migratedCount };
+  },
+});
+
 // Simplified rate limiting for mutations only (queries will use separate approach)
 async function checkAndRecordRateLimit(
   ctx: MutationCtx,
@@ -925,7 +971,7 @@ const validateNotebookSessionToken = async (
     }
 
     // Check if session is active
-    if (!session.isActive) {
+    if (!isSessionActive(session)) {
       return { valid: false, reason: "Session revoked" };
     }
 
@@ -1100,7 +1146,7 @@ export const validateSession = query({
     }
 
     // Check if session is revoked
-    if (!session.isActive) {
+    if (!isSessionActive(session)) {
       return { valid: false, reason: "Session revoked" };
     }
 
@@ -1131,7 +1177,7 @@ export const updateSessionAccess = mutation({
       .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
       .first();
 
-    if (!session || !session.isActive || session.expiresAt < Date.now()) {
+    if (!session || !isSessionActive(session) || session.expiresAt < Date.now()) {
       return false;
     }
 
@@ -1153,7 +1199,7 @@ export const extendSession = mutation({
       .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
       .first();
 
-    if (!session || !session.isActive) {
+    if (!session || !isSessionActive(session)) {
       throw new ConvexError("Invalid or revoked session");
     }
 
@@ -1191,7 +1237,7 @@ export const revokeSessions = mutation({
           .withIndex("by_token", (q) => q.eq("sessionToken", token))
           .first();
 
-        if (session && session.isActive) {
+        if (session && isSessionActive(session)) {
           await ctx.db.patch(session._id, {
             isActive: false,
           });
@@ -1411,7 +1457,7 @@ export const validateSessionInternal = internalQuery({
       }
 
       // Check if session is revoked
-      if (!session.isActive) {
+      if (!isSessionActive(session)) {
         return { valid: false, reason: "Session revoked" };
       }
 

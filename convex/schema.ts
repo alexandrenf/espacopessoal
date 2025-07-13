@@ -49,13 +49,17 @@ export default defineSchema({
   // JWT-based notebook session management for password-protected access
   notebookSessions: defineTable({
     sessionToken: v.string(), // Session token for validation
-    userId: v.id("users"), // Required for JWT sessions  
+    userId: v.optional(v.id("users")), // Required for JWT sessions (optional for backward compatibility)
     notebookId: v.id("notebooks"),
     deviceFingerprint: v.string(), // Browser/device identification
-    ipAddress: v.string(), // IP address for security tracking
+    ipAddress: v.optional(v.string()), // IP address for security tracking (optional for backward compatibility)
     expiresAt: v.number(), // Session expiration timestamp
     createdAt: v.number(),
-    isActive: v.boolean(), // Session active status (for revocation)
+    isActive: v.optional(v.boolean()), // Session active status (optional for backward compatibility)
+    // Legacy fields for backward compatibility
+    isRevoked: v.optional(v.boolean()), // Legacy field
+    lastAccessedAt: v.optional(v.number()), // Legacy field
+    userAgent: v.optional(v.string()), // Legacy field
   })
     .index("by_token", ["sessionToken"])
     .index("by_notebook", ["notebookId"])
