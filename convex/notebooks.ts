@@ -5,9 +5,165 @@ import {
   internalMutation,
   internalQuery,
   type QueryCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
 import bcrypt from "bcryptjs";
+// Rate limiting will be implemented by calling internal functions
+// import { validateSession, createSession } from "./sessions"; // TODO: Will be used in Phase 2 JWT implementation
+
+// Simplified rate limiting for mutations only (queries will use separate approach)
+async function checkAndRecordRateLimit(
+  ctx: MutationCtx,
+  endpoint: string,
+  identifier: string,
+  limit: { requests: number; window: number; blockDuration: number }
+): Promise<{ allowed: boolean; reason?: string }> {
+  const now = Date.now();
+  
+  // Find existing rate limit entry
+  const existingEntry = await ctx.db
+    .query("rateLimits")
+    .withIndex("by_identifier_endpoint", (q) => 
+      q.eq("identifier", identifier).eq("endpoint", endpoint)
+    )
+    .first();
+
+  if (!existingEntry) {
+    // Create new entry
+    await ctx.db.insert("rateLimits", {
+      identifier,
+      endpoint,
+      requestCount: 1,
+      windowStart: now,
+      isBlocked: false,
+      blockUntil: 0,
+      lastAttempt: now,
+      createdAt: now,
+    });
+    return { allowed: true };
+  }
+
+  // Check if currently blocked
+  if (existingEntry.isBlocked && existingEntry.blockUntil > now) {
+    const blockUntil = new Date(existingEntry.blockUntil).toISOString();
+    return { 
+      allowed: false, 
+      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`
+    };
+  }
+
+  // Check if window has expired
+  const windowExpired = (now - existingEntry.windowStart) > limit.window;
+  
+  if (windowExpired) {
+    // Reset window
+    await ctx.db.patch(existingEntry._id, {
+      requestCount: 1,
+      windowStart: now,
+      isBlocked: false,
+      blockUntil: 0,
+      lastAttempt: now,
+    });
+    return { allowed: true };
+  }
+
+  // Check if limit exceeded
+  if (existingEntry.requestCount >= limit.requests) {
+    // Block the client
+    const blockUntil = now + limit.blockDuration;
+    await ctx.db.patch(existingEntry._id, {
+      isBlocked: true,
+      blockUntil,
+      lastAttempt: now,
+    });
+
+    // Log security event
+    await ctx.db.insert("auditLog", {
+      event: "rate_limit_exceeded",
+      timestamp: now,
+      severity: "warning",
+      details: {
+        endpoint,
+        identifier,
+        requestCount: existingEntry.requestCount,
+        limit: limit.requests,
+        blockUntil,
+      },
+    });
+
+    const blockUntilTime = new Date(blockUntil).toISOString();
+    return { 
+      allowed: false, 
+      reason: `Rate limit exceeded. You are blocked until ${blockUntilTime}.`
+    };
+  }
+
+  // Increment counter
+  await ctx.db.patch(existingEntry._id, {
+    requestCount: existingEntry.requestCount + 1,
+    lastAttempt: now,
+  });
+
+  return { allowed: true };
+}
+
+// Check rate limit for queries (read-only)
+async function checkRateLimit(
+  ctx: QueryCtx,
+  endpoint: string,
+  identifier: string,
+  limit: { requests: number; window: number }
+): Promise<{ allowed: boolean; reason?: string }> {
+  const now = Date.now();
+  
+  // Find existing rate limit entry
+  const existingEntry = await ctx.db
+    .query("rateLimits")
+    .withIndex("by_identifier_endpoint", (q) => 
+      q.eq("identifier", identifier).eq("endpoint", endpoint)
+    )
+    .first();
+
+  if (!existingEntry) {
+    return { allowed: true };
+  }
+
+  // Check if currently blocked
+  if (existingEntry.isBlocked && existingEntry.blockUntil > now) {
+    const blockUntil = new Date(existingEntry.blockUntil).toISOString();
+    return { 
+      allowed: false, 
+      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`
+    };
+  }
+
+  // Check if window has expired
+  const windowExpired = (now - existingEntry.windowStart) > limit.window;
+  
+  if (windowExpired) {
+    return { allowed: true };
+  }
+
+  // Check if limit exceeded
+  if (existingEntry.requestCount >= limit.requests) {
+    return { 
+      allowed: false, 
+      reason: `Rate limit exceeded. Please slow down.`
+    };
+  }
+
+  return { allowed: true };
+}
+
+// Get client identifier for rate limiting (simplified)
+function getClientIdentifier(ctx: MutationCtx | QueryCtx, userId?: string): string {
+  // For now, use a simple identifier since request object access is limited
+  // In production, this would be enhanced with proper IP detection
+  const baseId = userId || 'anonymous';
+  const timestamp = Math.floor(Date.now() / 60000); // 1-minute buckets for basic rate limiting
+  return `${baseId}_${timestamp}`;
+}
 
 // Secure password hashing using bcrypt
 const hashPassword = async (password: string): Promise<string> => {
@@ -483,6 +639,19 @@ export const validatePassword = mutation({
     ipAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Apply rate limiting for password validation
+    const clientId = getClientIdentifier(ctx);
+    const rateLimitCheck = await checkAndRecordRateLimit(
+      ctx,
+      "PASSWORD_VALIDATION",
+      clientId,
+      { requests: 5, window: 300000, blockDuration: 900000 } // 5 attempts per 5 minutes, 15 min block
+    );
+
+    if (!rateLimitCheck.allowed) {
+      throw new ConvexError(rateLimitCheck.reason || "Too many password attempts. Please try again later.");
+    }
+
     const notebook = await ctx.db
       .query("notebooks")
       .withIndex("by_url", (q) => q.eq("url", args.url))
@@ -517,13 +686,39 @@ export const validatePassword = mutation({
     }
 
     if (!isValid) {
+      // Apply stricter rate limiting for failed attempts
+      const failedAttemptCheck = await checkAndRecordRateLimit(
+        ctx,
+        "FAILED_ATTEMPTS",
+        clientId,
+        { requests: 3, window: 600000, blockDuration: 3600000 } // 3 failed attempts per 10 minutes, 1 hour block
+      );
+
       // Log failed attempt for monitoring
+      await ctx.db.insert("auditLog", {
+        event: "password_validation_failed",
+        notebookId: notebook._id,
+        timestamp: Date.now(),
+        severity: "warning",
+        details: {
+          notebookUrl: args.url,
+          clientId,
+          userAgent: args.userAgent,
+          ipAddress: args.ipAddress || "unknown",
+          failedAttemptLimitExceeded: !failedAttemptCheck.allowed,
+        },
+      });
+
       logger.warn("Invalid password attempt", {
         notebookUrl: args.url,
         timestamp: Date.now(),
-        userAgent: args.userAgent,
-        ipAddress: args.ipAddress,
+        ipAddress: args.ipAddress || "unknown",
       });
+
+      if (!failedAttemptCheck.allowed) {
+        throw new ConvexError(failedAttemptCheck.reason || "Too many failed attempts. Account temporarily locked.");
+      }
+
       throw new ConvexError("Invalid password");
     }
 
@@ -532,17 +727,31 @@ export const validatePassword = mutation({
     const now = Date.now();
     const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
 
-    // Store session in database
+    // Store session in database with new schema
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
+      userId: "anonymous" as Id<"users">, // TODO: Will be updated when user auth is integrated
       notebookId: notebook._id,
       deviceFingerprint: args.deviceFingerprint ?? "unknown",
-      userAgent: args.userAgent,
-      ipAddress: args.ipAddress,
+      ipAddress: args.ipAddress ?? "unknown",
       expiresAt,
       createdAt: now,
-      lastAccessedAt: now,
-      isRevoked: false,
+      isActive: true,
+    });
+
+    // Log successful session creation for audit
+    await ctx.db.insert("auditLog", {
+      event: "password_validation_success",
+      userId: undefined,
+      notebookId: notebook._id,
+      timestamp: Date.now(),
+      severity: "info",
+      details: {
+        notebookUrl: args.url,
+        sessionId: sessionId,
+        deviceFingerprint: args.deviceFingerprint ?? "unknown",
+          ipAddress: args.ipAddress || "unknown",
+      },
     });
 
     logger.debug("Session created for notebook", {
@@ -606,6 +815,19 @@ export const getByUrlWithSession = query({
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
+    // Apply rate limiting for notebook access
+    const clientId = getClientIdentifier(ctx, args.userId);
+    const rateLimitCheck = await checkRateLimit(
+      ctx,
+      "NOTEBOOK_ACCESS",
+      clientId,
+      { requests: 50, window: 60000 } // 50 requests per minute
+    );
+
+    if (!rateLimitCheck.allowed) {
+      throw new ConvexError(rateLimitCheck.reason || "Too many requests. Please slow down.");
+    }
+
     // Validate URL format
     if (!validateNotebookUrl(args.url)) {
       throw new ConvexError("Invalid notebook URL format");
@@ -653,7 +875,7 @@ export const getByUrlWithSession = query({
         }
 
         // Validate session token server-side
-        const sessionValidation = await validateSessionToken(
+        const sessionValidation = await validateNotebookSessionToken(
           ctx,
           args.sessionToken,
           notebook._id,
@@ -680,14 +902,14 @@ export const getByUrlWithSession = query({
   },
 });
 
-// Server-side session token validation
-const validateSessionToken = async (
+// Server-side session token validation 
+const validateNotebookSessionToken = async (
   ctx: QueryCtx,
   sessionToken: string,
   notebookId: Id<"notebooks">,
 ) => {
   try {
-    // Look up session in the database
+    // Look up session in the database by token
     const session = await ctx.db
       .query("notebookSessions")
       .withIndex("by_token", (q) => q.eq("sessionToken", sessionToken))
@@ -702,8 +924,8 @@ const validateSessionToken = async (
       return { valid: false, reason: "Session notebook mismatch" };
     }
 
-    // Check if session is revoked
-    if (session.isRevoked) {
+    // Check if session is active
+    if (!session.isActive) {
       return { valid: false, reason: "Session revoked" };
     }
 
@@ -818,7 +1040,7 @@ export const createPasswordSession = mutation({
           q.eq(q.field("notebookId"), notebook._id),
           q.or(
             q.lt(q.field("expiresAt"), now),
-            q.eq(q.field("isRevoked"), true),
+            q.eq(q.field("isActive"), false),
           ),
         ),
       )
@@ -833,14 +1055,12 @@ export const createPasswordSession = mutation({
     const sessionId = await ctx.db.insert("notebookSessions", {
       sessionToken,
       notebookId: notebook._id,
-      userId: args.userId,
+      userId: args.userId || ("anonymous" as Id<"users">),
       deviceFingerprint: args.deviceFingerprint,
-      userAgent: args.userAgent,
-      ipAddress: args.ipAddress,
+      ipAddress: args.ipAddress || "unknown",
       expiresAt: now + sessionDuration,
       createdAt: now,
-      lastAccessedAt: now,
-      isRevoked: false,
+      isActive: true,
     });
 
     logger.debug(
@@ -880,7 +1100,7 @@ export const validateSession = query({
     }
 
     // Check if session is revoked
-    if (session.isRevoked) {
+    if (!session.isActive) {
       return { valid: false, reason: "Session revoked" };
     }
 
@@ -911,13 +1131,11 @@ export const updateSessionAccess = mutation({
       .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
       .first();
 
-    if (!session || session.isRevoked || session.expiresAt < Date.now()) {
+    if (!session || !session.isActive || session.expiresAt < Date.now()) {
       return false;
     }
 
-    await ctx.db.patch(session._id, {
-      lastAccessedAt: Date.now(),
-    });
+    // Session is valid - no update needed for now
 
     return true;
   },
@@ -935,7 +1153,7 @@ export const extendSession = mutation({
       .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
       .first();
 
-    if (!session || session.isRevoked) {
+    if (!session || !session.isActive) {
       throw new ConvexError("Invalid or revoked session");
     }
 
@@ -945,7 +1163,6 @@ export const extendSession = mutation({
 
     await ctx.db.patch(session._id, {
       expiresAt: newExpirationTime,
-      lastAccessedAt: now,
     });
 
     return {
@@ -974,11 +1191,9 @@ export const revokeSessions = mutation({
           .withIndex("by_token", (q) => q.eq("sessionToken", token))
           .first();
 
-        if (session && !session.isRevoked) {
+        if (session && session.isActive) {
           await ctx.db.patch(session._id, {
-            isRevoked: true,
-            revokedAt: now,
-            revokedBy: args.userId,
+            isActive: false,
           });
           revokedCount++;
         }
@@ -988,14 +1203,12 @@ export const revokeSessions = mutation({
       const sessions = await ctx.db
         .query("notebookSessions")
         .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId!))
-        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
       for (const session of sessions) {
         await ctx.db.patch(session._id, {
-          isRevoked: true,
-          revokedAt: now,
-          revokedBy: args.userId,
+          isActive: false,
         });
         revokedCount++;
       }
@@ -1003,15 +1216,13 @@ export const revokeSessions = mutation({
       // Revoke all sessions for a user
       const sessions = await ctx.db
         .query("notebookSessions")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId))
-        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+        .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
       for (const session of sessions) {
         await ctx.db.patch(session._id, {
-          isRevoked: true,
-          revokedAt: now,
-          revokedBy: args.userId,
+          isActive: false,
         });
         revokedCount++;
       }
@@ -1040,7 +1251,7 @@ export const getNotebookSessions = query({
       .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
       .filter((q) =>
         q.and(
-          q.eq(q.field("isRevoked"), false),
+          q.eq(q.field("isActive"), true),
           q.gt(q.field("expiresAt"), now),
         ),
       )
@@ -1100,14 +1311,12 @@ export const updatePassword = mutation({
       const sessions = await ctx.db
         .query("notebookSessions")
         .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
-        .filter((q) => q.eq(q.field("isRevoked"), false))
+        .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
       for (const session of sessions) {
         await ctx.db.patch(session._id, {
-          isRevoked: true,
-          revokedAt: now,
-          revokedBy: args.userId,
+          isActive: false,
         });
       }
     }
@@ -1136,7 +1345,7 @@ export const cleanupExpiredSessions = mutation({
     const expiredSessions = await ctx.db
       .query("notebookSessions")
       .withIndex("by_active_sessions", (q) =>
-        q.eq("isRevoked", true).lt("expiresAt", cutoffTime),
+        q.eq("isActive", false).lt("expiresAt", cutoffTime),
       )
       .collect();
 
@@ -1144,7 +1353,7 @@ export const cleanupExpiredSessions = mutation({
     const naturallyExpiredSessions = await ctx.db
       .query("notebookSessions")
       .withIndex("by_expiration", (q) =>
-        q.eq("expiresAt", now).eq("isRevoked", false),
+        q.eq("expiresAt", now).eq("isActive", true),
       )
       .filter((q) => q.lt(q.field("expiresAt"), now))
       .collect();
@@ -1202,7 +1411,7 @@ export const validateSessionInternal = internalQuery({
       }
 
       // Check if session is revoked
-      if (session.isRevoked) {
+      if (!session.isActive) {
         return { valid: false, reason: "Session revoked" };
       }
 

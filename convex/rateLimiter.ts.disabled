@@ -1,0 +1,472 @@
+/**
+ * Rate Limiting System for Espaço Pessoal
+ * Implements sliding window rate limiting with IP-based and user-based controls
+ */
+
+import { v } from "convex/values";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { ConvexError } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
+
+// Rate limit configurations for different endpoints
+export const RATE_LIMITS = {
+  // Authentication endpoints
+  PASSWORD_VALIDATION: { 
+    requests: 5, 
+    window: 300000, // 5 minutes
+    blockDuration: 900000, // 15 minutes block after limit exceeded
+  },
+  SESSION_CREATION: { 
+    requests: 10, 
+    window: 600000, // 10 minutes
+    blockDuration: 1800000, // 30 minutes block
+  },
+  
+  // Document operations
+  DOCUMENT_ACCESS: { 
+    requests: 100, 
+    window: 60000, // 1 minute
+    blockDuration: 300000, // 5 minutes block
+  },
+  DOCUMENT_CREATION: { 
+    requests: 20, 
+    window: 300000, // 5 minutes
+    blockDuration: 600000, // 10 minutes block
+  },
+  
+  // Notebook operations
+  NOTEBOOK_ACCESS: { 
+    requests: 50, 
+    window: 60000, // 1 minute
+    blockDuration: 300000, // 5 minutes block
+  },
+  NOTEBOOK_CREATION: { 
+    requests: 5, 
+    window: 300000, // 5 minutes
+    blockDuration: 1800000, // 30 minutes block
+  },
+  
+  // General API endpoints
+  API_GENERAL: { 
+    requests: 200, 
+    window: 60000, // 1 minute
+    blockDuration: 300000, // 5 minutes block
+  },
+  
+  // Brute force protection
+  FAILED_ATTEMPTS: { 
+    requests: 3, 
+    window: 600000, // 10 minutes
+    blockDuration: 3600000, // 1 hour block
+  },
+} as const;
+
+export type RateLimitType = keyof typeof RATE_LIMITS;
+
+interface RateLimitEntry {
+  identifier: string;
+  endpoint: RateLimitType;
+  requestCount: number;
+  windowStart: number;
+  isBlocked: boolean;
+  blockUntil: number;
+  lastAttempt: number;
+  createdAt: number;
+}
+
+/**
+ * Get client identifier for rate limiting
+ * Combines IP address and user ID when available
+ */
+function getClientIdentifier(ctx: QueryCtx | MutationCtx, userId?: string): string {
+  // Get IP address from request headers
+  const forwardedFor = ctx.request?.headers?.['x-forwarded-for'];
+  const realIP = ctx.request?.headers?.['x-real-ip'];
+  const remoteAddress = ctx.request?.ip;
+  
+  const ip = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)
+    || realIP 
+    || remoteAddress 
+    || 'unknown';
+
+  // Combine IP and user ID for better tracking
+  return userId ? `${ip}:${userId}` : ip;
+}
+
+/**
+ * Check if a request should be rate limited
+ */
+export const checkRateLimit = internalQuery({
+  args: {
+    endpoint: v.string(),
+    identifier: v.string(),
+  },
+  handler: async (ctx, args): Promise<{
+    allowed: boolean;
+    remaining: number;
+    resetTime: number;
+    blocked: boolean;
+    blockUntil: number;
+  }> => {
+    const endpoint = args.endpoint as RateLimitType;
+    const limit = RATE_LIMITS[endpoint];
+    
+    if (!limit) {
+      throw new ConvexError(`Unknown rate limit endpoint: ${endpoint}`);
+    }
+
+    const now = Date.now();
+    
+    // Find existing rate limit entry
+    const existingEntry = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_identifier_endpoint", (q) => 
+        q.eq("identifier", args.identifier).eq("endpoint", endpoint)
+      )
+      .first();
+
+    if (!existingEntry) {
+      // No existing entry, request is allowed
+      return {
+        allowed: true,
+        remaining: limit.requests - 1,
+        resetTime: now + limit.window,
+        blocked: false,
+        blockUntil: 0,
+      };
+    }
+
+    // Check if currently blocked
+    if (existingEntry.isBlocked && existingEntry.blockUntil > now) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: existingEntry.windowStart + limit.window,
+        blocked: true,
+        blockUntil: existingEntry.blockUntil,
+      };
+    }
+
+    // Check if window has expired
+    const windowExpired = (now - existingEntry.windowStart) > limit.window;
+    
+    if (windowExpired) {
+      // Window expired, reset counter
+      return {
+        allowed: true,
+        remaining: limit.requests - 1,
+        resetTime: now + limit.window,
+        blocked: false,
+        blockUntil: 0,
+      };
+    }
+
+    // Within window, check if limit exceeded
+    const remaining = limit.requests - existingEntry.requestCount;
+    
+    if (remaining <= 0) {
+      // Rate limit exceeded, block the client
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: existingEntry.windowStart + limit.window,
+        blocked: true,
+        blockUntil: now + limit.blockDuration,
+      };
+    }
+
+    // Request allowed
+    return {
+      allowed: true,
+      remaining: remaining - 1,
+      resetTime: existingEntry.windowStart + limit.window,
+      blocked: false,
+      blockUntil: 0,
+    };
+  },
+});
+
+/**
+ * Record a rate limited request
+ */
+export const recordRequest = internalMutation({
+  args: {
+    endpoint: v.string(),
+    identifier: v.string(),
+    blocked: v.boolean(),
+    blockUntil: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const endpoint = args.endpoint as RateLimitType;
+    const limit = RATE_LIMITS[endpoint];
+    const now = Date.now();
+
+    // Find existing entry
+    const existingEntry = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_identifier_endpoint", (q) => 
+        q.eq("identifier", args.identifier).eq("endpoint", endpoint)
+      )
+      .first();
+
+    if (!existingEntry) {
+      // Create new entry
+      await ctx.db.insert("rateLimits", {
+        identifier: args.identifier,
+        endpoint: endpoint,
+        requestCount: 1,
+        windowStart: now,
+        isBlocked: args.blocked,
+        blockUntil: args.blockUntil || 0,
+        lastAttempt: now,
+        createdAt: now,
+      });
+      return;
+    }
+
+    // Check if window has expired
+    const windowExpired = (now - existingEntry.windowStart) > limit.window;
+    
+    if (windowExpired) {
+      // Reset window
+      await ctx.db.patch(existingEntry._id, {
+        requestCount: 1,
+        windowStart: now,
+        isBlocked: args.blocked,
+        blockUntil: args.blockUntil || 0,
+        lastAttempt: now,
+      });
+    } else {
+      // Increment counter
+      await ctx.db.patch(existingEntry._id, {
+        requestCount: existingEntry.requestCount + 1,
+        isBlocked: args.blocked,
+        blockUntil: args.blockUntil || existingEntry.blockUntil,
+        lastAttempt: now,
+      });
+    }
+
+    // Log rate limit event for security monitoring
+    await ctx.db.insert("auditLog", {
+      event: args.blocked ? "rate_limit_exceeded" : "rate_limit_request",
+      timestamp: now,
+      severity: args.blocked ? "warning" : "info",
+      details: {
+        endpoint: endpoint,
+        identifier: args.identifier,
+        requestCount: windowExpired ? 1 : existingEntry.requestCount + 1,
+        limit: limit.requests,
+        blocked: args.blocked,
+        blockUntil: args.blockUntil,
+      },
+    });
+  },
+});
+
+/**
+ * Rate limiting middleware wrapper for Convex functions
+ */
+export function withRateLimit(endpoint: RateLimitType, userId?: string) {
+  return function<T extends (...args: any[]) => any>(handler: T): T {
+    return (async (ctx: any, args: any) => {
+      const identifier = getClientIdentifier(ctx, userId);
+      
+      // Check rate limit
+      const rateLimitCheck = await checkRateLimit(ctx, {
+        endpoint: endpoint,
+        identifier: identifier,
+      });
+
+      if (!rateLimitCheck.allowed) {
+        // Record the blocked request
+        await recordRequest(ctx, {
+          endpoint: endpoint,
+          identifier: identifier,
+          blocked: true,
+          blockUntil: rateLimitCheck.blockUntil,
+        });
+
+        // Log security event for blocked request
+        await ctx.db.insert("auditLog", {
+          event: "rate_limit_violation",
+          timestamp: Date.now(),
+          severity: "warning",
+          details: {
+            endpoint: endpoint,
+            identifier: identifier,
+            blocked: true,
+            blockUntil: rateLimitCheck.blockUntil,
+            reason: rateLimitCheck.blocked ? "client_blocked" : "rate_exceeded",
+          },
+        });
+
+        if (rateLimitCheck.blocked) {
+          const blockedUntil = new Date(rateLimitCheck.blockUntil).toISOString();
+          throw new ConvexError(
+            `Too many requests. You are temporarily blocked until ${blockedUntil}. Please try again later.`
+          );
+        } else {
+          const resetTime = new Date(rateLimitCheck.resetTime).toISOString();
+          throw new ConvexError(
+            `Rate limit exceeded for ${endpoint}. Try again after ${resetTime}.`
+          );
+        }
+      }
+
+      // Record the allowed request
+      await recordRequest(ctx, {
+        endpoint: endpoint,
+        identifier: identifier,
+        blocked: false,
+      });
+
+      // Execute the original handler
+      return handler(ctx, args);
+    }) as T;
+  };
+}
+
+/**
+ * Cleanup expired rate limit entries (run periodically)
+ */
+export const cleanupExpiredEntries = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+
+    // Find expired entries
+    const expiredEntries = await ctx.db
+      .query("rateLimits")
+      .filter((q) => q.lt(q.field("lastAttempt"), oneDayAgo))
+      .collect();
+
+    // Delete expired entries
+    for (const entry of expiredEntries) {
+      await ctx.db.delete(entry._id);
+    }
+
+    // Log cleanup operation
+    if (expiredEntries.length > 0) {
+      await ctx.db.insert("auditLog", {
+        event: "rate_limit_cleanup",
+        timestamp: now,
+        severity: "info",
+        details: {
+          cleanedEntries: expiredEntries.length,
+        },
+      });
+    }
+
+    return { cleanedEntries: expiredEntries.length };
+  },
+});
+
+/**
+ * Get rate limit statistics for monitoring
+ */
+export const getRateLimitStats = query({
+  args: {
+    hours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const hours = args.hours || 24;
+    const timeRange = Date.now() - (hours * 60 * 60 * 1000);
+
+    // Get blocked clients in time range
+    const blockedEntries = await ctx.db
+      .query("rateLimits")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("isBlocked"), true),
+          q.gte(q.field("lastAttempt"), timeRange)
+        )
+      )
+      .collect();
+
+    // Get rate limit violations from audit log
+    const violations = await ctx.db
+      .query("auditLog")
+      .withIndex("by_event_timestamp", (q) => 
+        q.eq("event", "rate_limit_violation").gte("timestamp", timeRange)
+      )
+      .collect();
+
+    // Calculate statistics by endpoint
+    const statsByEndpoint: Record<string, {
+      totalRequests: number;
+      blockedRequests: number;
+      uniqueClients: number;
+      blockedClients: number;
+    }> = {};
+
+    for (const endpoint of Object.keys(RATE_LIMITS)) {
+      const endpointViolations = violations.filter(
+        (v) => v.details?.endpoint === endpoint
+      );
+      const endpointBlocked = blockedEntries.filter(
+        (e) => e.endpoint === endpoint
+      );
+
+      statsByEndpoint[endpoint] = {
+        totalRequests: endpointViolations.length,
+        blockedRequests: endpointViolations.filter((v) => v.details?.blocked).length,
+        uniqueClients: new Set(endpointViolations.map((v) => v.details?.identifier)).size,
+        blockedClients: endpointBlocked.length,
+      };
+    }
+
+    return {
+      timeRange: { start: timeRange, end: Date.now() },
+      totalViolations: violations.length,
+      totalBlockedClients: blockedEntries.length,
+      statsByEndpoint,
+    };
+  },
+});
+
+/**
+ * Manually unblock a client (admin function)
+ */
+export const unblockClient = mutation({
+  args: {
+    identifier: v.string(),
+    endpoint: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // TODO: Add admin authorization check
+    
+    const endpoint = args.endpoint as RateLimitType;
+    
+    const entry = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_identifier_endpoint", (q) => 
+        q.eq("identifier", args.identifier).eq("endpoint", endpoint)
+      )
+      .first();
+
+    if (!entry) {
+      throw new ConvexError("Rate limit entry not found");
+    }
+
+    await ctx.db.patch(entry._id, {
+      isBlocked: false,
+      blockUntil: 0,
+    });
+
+    // Log admin action
+    await ctx.db.insert("auditLog", {
+      event: "rate_limit_unblock",
+      timestamp: Date.now(),
+      severity: "info",
+      details: {
+        identifier: args.identifier,
+        endpoint: endpoint,
+        reason: args.reason || "manual_unblock",
+        adminAction: true,
+      },
+    });
+
+    return { success: true };
+  },
+});

@@ -46,28 +46,71 @@ export default defineSchema({
     .index("by_url", ["url"])
     .index("by_owner_and_url", ["ownerId", "url"]),
 
-  // Notebook session management for password-protected access
+  // JWT-based notebook session management for password-protected access
   notebookSessions: defineTable({
-    sessionToken: v.string(), // Cryptographically secure session token
+    sessionToken: v.string(), // Session token for validation
+    userId: v.id("users"), // Required for JWT sessions  
     notebookId: v.id("notebooks"),
-    userId: v.optional(v.id("users")), // null for non-logged-in users
     deviceFingerprint: v.string(), // Browser/device identification
-    userAgent: v.optional(v.string()), // Browser user agent for display
-    ipAddress: v.optional(v.string()), // IP address for security tracking
+    ipAddress: v.string(), // IP address for security tracking
     expiresAt: v.number(), // Session expiration timestamp
     createdAt: v.number(),
-    lastAccessedAt: v.number(),
-    isRevoked: v.boolean(), // Manual revocation capability
-    revokedAt: v.optional(v.number()), // When session was revoked
-    revokedBy: v.optional(v.id("users")), // Who revoked the session
+    isActive: v.boolean(), // Session active status (for revocation)
   })
     .index("by_token", ["sessionToken"])
     .index("by_notebook", ["notebookId"])
-    .index("by_user", ["userId"])
+    .index("by_user_id", ["userId"])
     .index("by_device", ["deviceFingerprint"])
-    .index("by_expiration", ["expiresAt", "isRevoked"])
+    .index("by_expiration", ["expiresAt", "isActive"])
     .index("by_notebook_user", ["notebookId", "userId"])
-    .index("by_active_sessions", ["isRevoked", "expiresAt"]),
+    .index("by_active_sessions", ["isActive", "expiresAt"]),
+
+  // Security audit log for comprehensive monitoring
+  auditLog: defineTable({
+    event: v.string(), // Event type (e.g., "session_created", "password_validation_failed")
+    userId: v.optional(v.string()), // User ID (string for compatibility)
+    notebookId: v.optional(v.id("notebooks")), // Related notebook
+    documentId: v.optional(v.id("documents")), // Related document
+    sessionId: v.optional(v.string()), // Related session ID
+    ipAddress: v.optional(v.string()), // Client IP address
+    userAgent: v.optional(v.string()), // Client user agent
+    deviceFingerprint: v.optional(v.string()), // Device fingerprint
+    timestamp: v.number(), // Event timestamp
+    severity: v.union(
+      v.literal("info"),
+      v.literal("warning"),
+      v.literal("error"),
+      v.literal("critical")
+    ),
+    details: v.any(), // Additional event-specific data
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_user_id", ["userId"])
+    .index("by_event", ["event"])
+    .index("by_severity", ["severity"])
+    .index("by_notebook_id", ["notebookId"])
+    .index("by_session_id", ["sessionId"])
+    .index("by_event_timestamp", ["event", "timestamp"])
+    .index("by_user_timestamp", ["userId", "timestamp"])
+    .index("by_severity_timestamp", ["severity", "timestamp"]),
+
+  // Rate limiting entries for API protection
+  rateLimits: defineTable({
+    identifier: v.string(), // IP address or IP:userId combination
+    endpoint: v.string(), // Rate limit endpoint type
+    requestCount: v.number(), // Current request count in window
+    windowStart: v.number(), // Window start timestamp
+    isBlocked: v.boolean(), // Whether client is currently blocked
+    blockUntil: v.number(), // Timestamp when block expires
+    lastAttempt: v.number(), // Last request timestamp
+    createdAt: v.number(), // Entry creation timestamp
+  })
+    .index("by_identifier_endpoint", ["identifier", "endpoint"])
+    .index("by_endpoint", ["endpoint"])
+    .index("by_blocked", ["isBlocked", "blockUntil"])
+    .index("by_last_attempt", ["lastAttempt"])
+    .index("by_window_start", ["windowStart"])
+    .index("by_cleanup", ["lastAttempt", "isBlocked"]),
 
   documents: defineTable({
     title: v.string(),

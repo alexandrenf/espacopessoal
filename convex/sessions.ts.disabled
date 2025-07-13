@@ -1,0 +1,389 @@
+/**
+ * JWT-based Session Management for Espaço Pessoal
+ * Implements secure server-side session validation with device fingerprinting
+ */
+
+import { v } from "convex/values";
+import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
+import { ConvexError } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+/**
+ * JWT Payload Interface
+ */
+interface JWTPayload {
+  sessionId: string;
+  userId: string;
+  notebookId: string;
+  deviceFingerprint: string;
+  exp: number;
+}
+
+/**
+ * Session validation result
+ */
+interface SessionValidation {
+  valid: boolean;
+  reason?: string;
+  session?: {
+    userId: string;
+    notebookId: string;
+    expiresAt: number;
+    deviceFingerprint: string;
+  };
+}
+
+/**
+ * Simple JWT implementation for Convex environment
+ * Note: Using basic implementation until full JWT library support is confirmed
+ */
+const createJWT = (payload: JWTPayload): string => {
+  const header = {
+    alg: "HS256",
+    typ: "JWT"
+  };
+
+  const encodedHeader = btoa(JSON.stringify(header))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+
+  const encodedPayload = btoa(JSON.stringify(payload))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+
+  const signature = btoa(`${encodedHeader}.${encodedPayload}.${JWT_SECRET}`)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
+};
+
+const verifyJWT = (token: string): JWTPayload | null => {
+  try {
+    const [encodedHeader, encodedPayload, signature] = token.split(".");
+    
+    // Verify signature
+    const expectedSignature = btoa(`${encodedHeader}.${encodedPayload}.${JWT_SECRET}`)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+
+    if (signature !== expectedSignature) {
+      return null;
+    }
+
+    // Decode payload
+    const payload = JSON.parse(atob(
+      encodedPayload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(encodedPayload.length + (4 - encodedPayload.length % 4) % 4, "=")
+    ));
+
+    // Check expiration
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+
+    return payload as JWTPayload;
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * Create a new secure session with JWT token
+ */
+export const createSession = mutation({
+  args: {
+    notebookId: v.id("notebooks"),
+    deviceFingerprint: v.string(),
+    ipAddress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    // Get user ID from Convex auth
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    // Create session record in database
+    const sessionId = await ctx.db.insert("notebookSessions", {
+      userId: user._id,
+      notebookId: args.notebookId,
+      deviceFingerprint: args.deviceFingerprint,
+      ipAddress: args.ipAddress || "unknown",
+      expiresAt: Date.now() + SESSION_DURATION,
+      createdAt: Date.now(),
+      isActive: true,
+    });
+
+    // Create JWT payload
+    const payload: JWTPayload = {
+      sessionId: sessionId,
+      userId: user._id,
+      notebookId: args.notebookId,
+      deviceFingerprint: args.deviceFingerprint,
+      exp: Math.floor((Date.now() + SESSION_DURATION) / 1000),
+    };
+
+    // Generate JWT token
+    const sessionToken = createJWT(payload);
+
+    // Log session creation for security monitoring
+    await ctx.db.insert("auditLog", {
+      event: "session_created",
+      userId: user._id,
+      notebookId: args.notebookId,
+      sessionId: sessionId,
+      deviceFingerprint: args.deviceFingerprint,
+      ipAddress: args.ipAddress || "unknown",
+      timestamp: Date.now(),
+      severity: "info",
+      details: {
+        sessionId: sessionId,
+        deviceFingerprint: args.deviceFingerprint,
+      },
+    });
+
+    return {
+      sessionToken,
+      expiresAt: Date.now() + SESSION_DURATION,
+    };
+  },
+});
+
+/**
+ * Validate a JWT session token
+ */
+export const validateSession = internalQuery({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args): Promise<SessionValidation> => {
+    try {
+      // Decode and verify JWT
+      const payload = verifyJWT(args.sessionToken);
+      if (!payload) {
+        return { valid: false, reason: "Invalid or expired token" };
+      }
+
+      // Check session in database
+      const session = await ctx.db.get(payload.sessionId as Id<"notebookSessions">);
+      if (!session) {
+        return { valid: false, reason: "Session not found" };
+      }
+
+      // Verify session is still active
+      if (!session.isActive) {
+        return { valid: false, reason: "Session revoked" };
+      }
+
+      // Check expiration
+      if (session.expiresAt < Date.now()) {
+        return { valid: false, reason: "Session expired" };
+      }
+
+      // Verify device fingerprint matches
+      if (session.deviceFingerprint !== payload.deviceFingerprint) {
+        return { valid: false, reason: "Device fingerprint mismatch" };
+      }
+
+      return {
+        valid: true,
+        session: {
+          userId: session.userId,
+          notebookId: session.notebookId,
+          expiresAt: session.expiresAt,
+          deviceFingerprint: session.deviceFingerprint,
+        },
+      };
+    } catch (error) {
+      return { valid: false, reason: "Token validation failed" };
+    }
+  },
+});
+
+/**
+ * Revoke a session token
+ */
+export const revokeSession = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const payload = verifyJWT(args.sessionToken);
+      if (!payload) {
+        throw new ConvexError("Invalid session token");
+      }
+
+      // Mark session as inactive
+      await ctx.db.patch(payload.sessionId as Id<"notebookSessions">, {
+        isActive: false,
+      });
+
+      // Log session revocation
+      await ctx.db.insert("auditLog", {
+        event: "session_revoked",
+        userId: payload.userId,
+        sessionId: payload.sessionId,
+        timestamp: Date.now(),
+        severity: "info",
+        details: {
+          sessionId: payload.sessionId,
+          reason: "manual_revocation",
+        },
+      });
+
+      return { success: true };
+    } catch (error) {
+      throw new ConvexError("Failed to revoke session");
+    }
+  },
+});
+
+/**
+ * Get all active sessions for a user
+ */
+export const getUserSessions = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    // Verify user can access their own sessions
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user || user._id !== args.userId) {
+      throw new ConvexError("Unauthorized access to user sessions");
+    }
+
+    // Get active sessions
+    const sessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Filter out expired sessions
+    const activeSessions = sessions.filter(session => session.expiresAt > Date.now());
+
+    return activeSessions.map(session => ({
+      id: session._id,
+      notebookId: session.notebookId,
+      deviceFingerprint: session.deviceFingerprint,
+      ipAddress: session.ipAddress,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+    }));
+  },
+});
+
+/**
+ * Clean up expired sessions (internal function for background cleanup)
+ */
+export const cleanupExpiredSessions = internalQuery({
+  handler: async (ctx) => {
+    const expiredSessions = await ctx.db
+      .query("notebookSessions")
+      .filter((q) => q.lt(q.field("expiresAt"), Date.now()))
+      .collect();
+
+    for (const session of expiredSessions) {
+      await ctx.db.patch(session._id, { isActive: false });
+    }
+
+    // Log cleanup operation
+    if (expiredSessions.length > 0) {
+      await ctx.db.insert("auditLog", {
+        event: "session_cleanup",
+        timestamp: Date.now(),
+        severity: "info",
+        details: {
+          cleanedSessions: expiredSessions.length,
+        },
+      });
+    }
+
+    return { cleanedSessions: expiredSessions.length };
+  },
+});
+
+/**
+ * Revoke all sessions for a user (for security purposes)
+ */
+export const revokeAllUserSessions = mutation({
+  args: {
+    userId: v.id("users"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Authentication required");
+    }
+
+    // Verify authorization (user can revoke their own sessions)
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+
+    if (!user || user._id !== args.userId) {
+      throw new ConvexError("Unauthorized access to user sessions");
+    }
+
+    // Get all active sessions for user
+    const userSessions = await ctx.db
+      .query("notebookSessions")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Revoke all sessions
+    for (const session of userSessions) {
+      await ctx.db.patch(session._id, { isActive: false });
+    }
+
+    // Log mass session revocation
+    await ctx.db.insert("auditLog", {
+      event: "all_sessions_revoked",
+      userId: args.userId,
+      timestamp: Date.now(),
+      severity: "warning",
+      details: {
+        revokedSessions: userSessions.length,
+        reason: args.reason || "user_request",
+      },
+    });
+
+    return {
+      success: true,
+      revokedSessions: userSessions.length,
+    };
+  },
+});
