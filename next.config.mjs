@@ -146,8 +146,37 @@ const config = {
         ],
       },
       {
-        // More permissive headers for API routes
-        source: "/api/(.*)",
+        // Permissive headers for NextAuth routes
+        source: "/api/auth/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https: blob:",
+              "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud",
+              "object-src 'none'",
+            ].join("; "),
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
+      {
+        // More restrictive headers for other API routes
+        source: "/api/(?!auth)(.*)",
         headers: [
           {
             key: "Content-Security-Policy",
