@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as accessControl from "../accessControl.js";
 import type * as boards from "../boards.js";
 import type * as crons from "../crons.js";
 import type * as dictionary from "../dictionary.js";
@@ -35,6 +36,7 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  accessControl: typeof accessControl;
   boards: typeof boards;
   crons: typeof crons;
   dictionary: typeof dictionary;
