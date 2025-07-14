@@ -102,14 +102,10 @@ async function isAdmin(ctx: QueryCtx | MutationCtx, userId?: string): Promise<bo
 
   const user = await ctx.db.get(userId as Id<"users">);
 
-  // Check for custom claims or a role field
-  // This is a placeholder for where you would check for admin role
-  // For example, if you add a 'role' field to your user document:
+  // Check if the user has the 'admin' role
+  // This implementation assumes a 'role' field exists on the user object:
   // return user?.role === "admin";
-
-  // Or, if you are using Firebase Auth custom claims, you might need
-  // to retrieve them when the user authenticates and store them in the session.
-  // For now, we'll assume a 'role' field on the user object.
+  // If additional role-checking logic is needed, it can be added here.
   return (user as User)?.role === "admin";
 }
 
