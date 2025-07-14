@@ -110,7 +110,7 @@ async function isAdmin(ctx: QueryCtx | MutationCtx, userId?: string): Promise<bo
   // Or, if you are using Firebase Auth custom claims, you might need
   // to retrieve them when the user authenticates and store them in the session.
   // For now, we'll assume a 'role' field on the user object.
-  return (user as any)?.role === "admin";
+  return (user as User)?.role === "admin";
 }
 
 /**
