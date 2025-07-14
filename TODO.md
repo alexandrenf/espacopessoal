@@ -5,7 +5,7 @@
      ☒ Fix inaccurate document count on /notas page - truly fixed
      ☒ Fix mobile sidebar UI/UX overlap with document title -- not fixed yet
      ☒ Implement case-insensitive notebook URLs -- truly fixed
-     ☐ Fix PDF export functionality
+     ☒ Fix PDF export functionality -- truly fixed
      ☐ Investigate and fix Deno deployment failures
      ☐ Allow spaces in document titles when editing
      ☐ Make header visible on document pages (/notas/url/id)
