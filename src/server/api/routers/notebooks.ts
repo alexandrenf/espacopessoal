@@ -6,7 +6,45 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+
+// Type definition for notebook document based on Convex schema
+type NotebookDocument = Doc<"notebooks"> & {
+  isOwner?: boolean;
+  password?: string | undefined;
+};
+
+// Type guard to check if a value is a valid notebook document
+function isNotebookDocument(value: unknown): value is NotebookDocument {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  return (
+    "_id" in obj &&
+    "url" in obj &&
+    "title" in obj &&
+    "ownerId" in obj &&
+    "isPrivate" in obj &&
+    "createdAt" in obj &&
+    "updatedAt" in obj &&
+    typeof obj.url === "string" &&
+    typeof obj.title === "string" &&
+    typeof obj.ownerId === "string" &&
+    typeof obj.isPrivate === "boolean" &&
+    typeof obj.createdAt === "number" &&
+    typeof obj.updatedAt === "number"
+  );
+}
+
+// Type for extended notebook response with access control
+type NotebookWithAccess = NotebookDocument & {
+  accessLevel: "public" | "password" | "private";
+  hasAccess: boolean;
+  isOwner: boolean;
+};
 
 export const notebooksRouter = createTRPCRouter({
   // Create a new notebook
@@ -81,10 +119,19 @@ export const notebooksRouter = createTRPCRouter({
       }
 
       try {
-        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
           userId: ctx.session?.user?.id as Id<"users">,
         });
+
+        if (!isNotebookDocument(notebookResult)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid notebook data format",
+          });
+        }
+
+        const notebook = notebookResult;
 
         // If notebook is private and password is provided, validate it
         if (notebook.isPrivate && input.password) {
@@ -137,6 +184,38 @@ export const notebooksRouter = createTRPCRouter({
       return await ctx.convex.query(api.notebooks.getByOwner, {
         userId: ctx.session.user.id as Id<"users">,
       });
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          error instanceof Error ? error.message : "Failed to fetch notebooks",
+      });
+    }
+  }),
+
+  // Get notebooks owned by user with document counts
+  getByOwnerWithDocumentCounts: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to view your notebooks",
+      });
+    }
+
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
+
+    try {
+      return await ctx.convex.query(
+        api.notebooks.getByOwnerWithDocumentCounts,
+        {
+          userId: ctx.session.user.id as Id<"users">,
+        },
+      );
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -359,10 +438,19 @@ export const notebooksRouter = createTRPCRouter({
       }
 
       try {
-        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
           userId: ctx.session?.user?.id as Id<"users">,
         });
+
+        if (!isNotebookDocument(notebookResult)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid notebook data format",
+          });
+        }
+
+        const notebook = notebookResult;
 
         // Determine access level based on isPrivate and password fields
         let accessLevel: "public" | "password" | "private";
@@ -408,12 +496,14 @@ export const notebooksRouter = createTRPCRouter({
           }
         }
 
-        return {
+        const result: NotebookWithAccess = {
           ...notebook,
           accessLevel,
           hasAccess: true,
           isOwner,
         };
+
+        return result;
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -450,10 +540,19 @@ export const notebooksRouter = createTRPCRouter({
 
       try {
         // First get the notebook to check access
-        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
           userId: ctx.session?.user?.id as Id<"users">,
         });
+
+        if (!isNotebookDocument(notebookResult)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid notebook data format",
+          });
+        }
+
+        const notebook = notebookResult;
 
         // Determine access level
         let accessLevel: "public" | "password" | "private";
@@ -550,10 +649,19 @@ export const notebooksRouter = createTRPCRouter({
 
       try {
         // First get the notebook to check ownership
-        const notebook = await ctx.convex.query(api.notebooks.getByUrl, {
+        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
           url: input.url,
           userId: ctx.session.user.id as Id<"users">,
         });
+
+        if (!isNotebookDocument(notebookResult)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid notebook data format",
+          });
+        }
+
+        const notebook = notebookResult;
 
         // Only the owner can delete a notebook
         const isOwner = ctx.session.user.id === notebook.ownerId;

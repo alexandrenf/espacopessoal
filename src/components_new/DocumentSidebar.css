@@ -187,6 +187,17 @@
   .custom-tree-container .rc-tree-node-content-wrapper {
     margin: 4px 0;
   }
+  
+  /* Ensure mobile sidebar header doesn't overlap with document header */
+  .sidebar-fade-in {
+    /* Add small delay to ensure smooth transition */
+    transition-delay: 0.1s;
+  }
+  
+  /* Improved mobile sidebar padding */
+  .sidebar-fade-in .custom-tree-container {
+    padding: 20px 0;
+  }
 }
 
 /* Custom scrollbar for webkit browsers */

@@ -29,7 +29,6 @@ import {
   Bold,
   ChevronDown,
   Code,
-  FileDown,
   Highlighter,
   ImageIcon,
   Italic,
@@ -52,76 +51,6 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-
-function ExportButton() {
-  const handleExport = async () => {
-    const editorContent = document.querySelector<HTMLElement>(".ProseMirror");
-    if (!editorContent) {
-      console.error("Editor content not found");
-      return;
-    }
-
-    const elementsToHide = document.querySelectorAll<HTMLElement>(".no-export");
-    elementsToHide.forEach((el) => {
-      el.style.display = "none";
-    });
-
-    try {
-      const canvas = await html2canvas(editorContent, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = canvasWidth / canvasHeight;
-      const imgWidth = pdfWidth;
-      const imgHeight = imgWidth / ratio;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save("document.pdf");
-    } catch (error) {
-      console.error("Error exporting to PDF:", error);
-    } finally {
-      elementsToHide.forEach((el) => {
-        el.style.display = "";
-      });
-    }
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm px-1.5 hover:bg-neutral-200/80">
-          <FileDown className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={handleExport}>
-          Exportar como PDF
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 function LineHeightButton() {
   const { editor } = useEditorStore();
@@ -787,8 +716,6 @@ export function Toolbar() {
       {sections[0]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
-      <Separator orientation="vertical" className="h-6 bg-neutral-300" />
-      <ExportButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
       <FontFamilyButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />

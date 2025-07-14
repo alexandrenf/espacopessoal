@@ -7,7 +7,7 @@ import {
   type QueryCtx,
   type MutationCtx,
 } from "./_generated/server";
-import { type Id } from "./_generated/dataModel";
+import { type Id, type Doc } from "./_generated/dataModel";
 // Note: Using Web Crypto API instead of bcryptjs to avoid setTimeout issues in Convex
 // import bcrypt from "bcryptjs";
 // Rate limiting will be implemented by calling internal functions
@@ -21,10 +21,10 @@ interface NotebookSessionUpdates {
 }
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: any): boolean {
+function isSessionActive(session: Doc<"notebookSessions"> | null): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
-  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+  return session.isActive ?? !session.isRevoked;
 }
 
 // Migration function to upgrade legacy session fields to new schema
@@ -65,6 +65,63 @@ export const migrateLegacySessions = internalMutation({
     return { migratedSessions: migratedCount };
   },
 });
+
+// Migration function to add urlLower field to existing notebooks
+export const migrateNotebookUrlsToLowercase = internalMutation({
+  handler: async (ctx) => {
+    const notebooks = await ctx.db.query("notebooks").collect();
+    let migratedCount = 0;
+
+    for (const notebook of notebooks) {
+      if (!notebook.urlLower) {
+        await ctx.db.patch(notebook._id, {
+          urlLower: notebook.url.toLowerCase(),
+        });
+        migratedCount++;
+      }
+    }
+
+    return { migratedNotebooks: migratedCount };
+  },
+});
+
+// Helper function to find notebook by URL (case-insensitive)
+async function findNotebookByUrl(
+  ctx: QueryCtx | MutationCtx,
+  url: string,
+): Promise<Doc<"notebooks"> | null> {
+  const lowerUrl = url.toLowerCase();
+
+  // First try to find by urlLower (preferred method)
+  const notebookByLower = await ctx.db
+    .query("notebooks")
+    .withIndex("by_url_lower", (q) => q.eq("urlLower", lowerUrl))
+    .first();
+
+  if (notebookByLower) {
+    return notebookByLower;
+  }
+
+  // Fallback: search by original URL for backwards compatibility
+  // This handles notebooks created before the urlLower field was added
+  const notebookByOriginal = await ctx.db
+    .query("notebooks")
+    .withIndex("by_url", (q) => q.eq("url", url))
+    .first();
+
+  if (notebookByOriginal) {
+    // If we found a notebook by original URL but it doesn't have urlLower,
+    // update it to have urlLower for future lookups (only if we have mutation context)
+    if (!notebookByOriginal.urlLower && "patch" in ctx.db) {
+      await ctx.db.patch(notebookByOriginal._id, {
+        urlLower: notebookByOriginal.url.toLowerCase(),
+      });
+    }
+    return notebookByOriginal;
+  }
+
+  return null;
+}
 
 // Simplified rate limiting for mutations only (queries will use separate approach)
 async function checkAndRecordRateLimit(
@@ -444,10 +501,8 @@ export const create = mutation({
     }
 
     // Check if URL is already taken globally (URLs must be unique across all users)
-    const existingNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    // Use case-insensitive lookup to prevent duplicates with different casing
+    const existingNotebook = await findNotebookByUrl(ctx, args.url);
 
     if (existingNotebook) {
       throw new ConvexError(
@@ -470,6 +525,7 @@ export const create = mutation({
     try {
       return await ctx.db.insert("notebooks", {
         url: args.url,
+        urlLower: args.url.toLowerCase(), // Store lowercase URL for case-insensitive lookups
         title: args.title,
         description: args.description,
         ownerId: userId,
@@ -494,21 +550,18 @@ export const getPublicNotebook = query({
   handler: async (ctx, args) => {
     // Validate URL format
     if (!validateNotebookUrl(args.url)) {
-      throw new ConvexError("Invalid notebook URL format");
+      return null; // Return null for invalid URLs instead of throwing
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
-      throw new ConvexError("Notebook not found");
+      return null; // Return null when notebook not found instead of throwing
     }
 
     // Only allow access to truly public notebooks
     if (notebook.isPrivate) {
-      throw new ConvexError("This notebook is private");
+      return null; // Return null for private notebooks instead of throwing
     }
 
     return {
@@ -531,10 +584,7 @@ export const getByUrl = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -566,6 +616,38 @@ export const getByOwner = query({
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .order("desc")
       .collect();
+  },
+});
+
+// Get notebooks by owner with document counts
+export const getByOwnerWithDocumentCounts = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const notebooks = await ctx.db
+      .query("notebooks")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .order("desc")
+      .collect();
+
+    // Add document count for each notebook
+    const notebooksWithCounts = await Promise.all(
+      notebooks.map(async (notebook) => {
+        const documentCount = await ctx.db
+          .query("documents")
+          .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebook._id))
+          .filter((q) => q.eq(q.field("isFolder"), false)) // Only count actual documents, not folders
+          .collect();
+
+        return {
+          ...notebook,
+          documentCount: documentCount.length,
+        };
+      }),
+    );
+
+    return notebooksWithCounts;
   },
 });
 
@@ -719,10 +801,8 @@ export const checkUrlAvailability = query({
     }
 
     // Check if URL is already taken globally (URLs must be unique across all users)
-    const existingNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    // Use case-insensitive lookup to prevent duplicates with different casing
+    const existingNotebook = await findNotebookByUrl(ctx, args.url);
 
     if (existingNotebook) {
       return {
@@ -758,17 +838,15 @@ export const getOrCreateDefault = mutation({
       return existingNotebook;
     }
 
-    // Check if "main" URL is available globally
-    const mainNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", "main"))
-      .first();
+    // Check if "main" URL is available globally using case-insensitive lookup
+    const mainNotebook = await findNotebookByUrl(ctx, "main");
 
     const defaultUrl = mainNotebook ? `main-${Date.now()}` : "main";
 
     // Create default notebook
     return await ctx.db.insert("notebooks", {
       url: defaultUrl,
+      urlLower: defaultUrl.toLowerCase(), // Store lowercase URL for case-insensitive lookups
       title: "My Notebook",
       description: "Your personal notebook for organizing thoughts and ideas",
       ownerId: args.userId,
@@ -800,15 +878,12 @@ export const validatePassword = mutation({
 
     if (!rateLimitCheck.allowed) {
       throw new ConvexError(
-        rateLimitCheck.reason ||
+        rateLimitCheck.reason ??
           "Too many password attempts. Please try again later.",
       );
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -859,7 +934,7 @@ export const validatePassword = mutation({
           notebookUrl: args.url,
           clientId,
           userAgent: args.userAgent,
-          ipAddress: args.ipAddress || "unknown",
+          ipAddress: args.ipAddress ?? "unknown",
           failedAttemptLimitExceeded: !failedAttemptCheck.allowed,
         },
       });
@@ -867,12 +942,12 @@ export const validatePassword = mutation({
       logger.warn("Invalid password attempt", {
         notebookUrl: args.url,
         timestamp: Date.now(),
-        ipAddress: args.ipAddress || "unknown",
+        ipAddress: args.ipAddress ?? "unknown",
       });
 
       if (!failedAttemptCheck.allowed) {
         throw new ConvexError(
-          failedAttemptCheck.reason ||
+          failedAttemptCheck.reason ??
             "Too many failed attempts. Account temporarily locked.",
         );
       }
@@ -908,7 +983,7 @@ export const validatePassword = mutation({
         notebookUrl: args.url,
         sessionId: sessionId,
         deviceFingerprint: args.deviceFingerprint ?? "unknown",
-        ipAddress: args.ipAddress || "unknown",
+        ipAddress: args.ipAddress ?? "unknown",
       },
     });
 
@@ -941,13 +1016,10 @@ export const getMetadataByUrl = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
-      throw new ConvexError("Notebook not found");
+      return null;
     }
 
     // Return metadata without sensitive content
@@ -984,7 +1056,7 @@ export const getByUrlWithSession = query({
 
     if (!rateLimitCheck.allowed) {
       throw new ConvexError(
-        rateLimitCheck.reason || "Too many requests. Please slow down.",
+        rateLimitCheck.reason ?? "Too many requests. Please slow down.",
       );
     }
 
@@ -993,10 +1065,7 @@ export const getByUrlWithSession = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -1007,7 +1076,7 @@ export const getByUrlWithSession = query({
     try {
       const identity = await ctx.auth.getUserIdentity();
       authenticatedUserId = identity?.subject as Id<"users"> | undefined;
-    } catch (error) {
+    } catch {
       // For anonymous users, this is expected to fail
       logger.debug("No authenticated user identity found (anonymous user)");
     }
@@ -1044,9 +1113,11 @@ export const getByUrlWithSession = query({
     if (notebook.isPrivate && !isOwner) {
       if (notebook.password) {
         if (!args.sessionToken) {
-          throw new ConvexError(
-            "Session token required for private notebook access",
-          );
+          return {
+            error: "unauthorized",
+            reason: "This notebook is password-protected",
+            requiresPassword: true,
+          };
         }
 
         // Validate session token server-side
@@ -1056,7 +1127,12 @@ export const getByUrlWithSession = query({
           notebook._id,
         );
         if (!sessionValidation.valid) {
-          throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
+          return {
+            error: "unauthorized",
+            reason:
+              "Invalid or expired session. Please enter the password again.",
+            requiresPassword: true,
+          };
         }
 
         return {
@@ -1066,7 +1142,12 @@ export const getByUrlWithSession = query({
         };
       }
       // Private notebook without password - owner only
-      throw new ConvexError("Access denied");
+      return {
+        error: "unauthorized",
+        reason:
+          "This notebook is private and you don't have permission to access it",
+        requiresPassword: false,
+      };
     }
 
     return {
@@ -1177,10 +1258,7 @@ export const createPasswordSession = mutation({
     logger.debug("Creating password session for notebook:", args.notebookUrl);
 
     // Find notebook by URL
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.notebookUrl))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.notebookUrl);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -1232,7 +1310,7 @@ export const createPasswordSession = mutation({
       notebookId: notebook._id,
       userId: args.userId, // Use provided userId or undefined for anonymous
       deviceFingerprint: args.deviceFingerprint,
-      ipAddress: args.ipAddress || "unknown",
+      ipAddress: args.ipAddress ?? "unknown",
       expiresAt: now + sessionDuration,
       createdAt: now,
       isActive: true,
@@ -1394,7 +1472,7 @@ export const revokeSessions = mutation({
       // Revoke all sessions for a user
       const sessions = await ctx.db
         .query("notebookSessions")
-        .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+        .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
