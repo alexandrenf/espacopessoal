@@ -128,6 +128,7 @@ interface EditorProps {
   sessionToken?: string; // For private notebook authentication
   showSidebar?: boolean; // To control minimum margin when sidebar is retracted
   onToggleSidebar?: () => void;
+  isMobile: boolean; // Passed down from the parent component
 }
 
 export function DocumentEditor({
