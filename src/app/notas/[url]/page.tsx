@@ -34,7 +34,7 @@ import {
 import { toast } from "~/hooks/use-toast";
 import { useConvexUser } from "~/hooks/use-convex-user";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
-import NotebookSettingsDialog from "~/components_new/NotebookSettingsDialog";
+import { NotebookDialog } from "~/components_new/NotebookEditDialog";
 import Link from "next/link";
 import { FileExplorer } from "~/app/components/FileExplorer";
 
@@ -342,7 +342,8 @@ function NotebookPageContent() {
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(null);
 
   const normalizedUrl = typeof url === "string" ? url : "";
   const isAuthenticated = status === "authenticated" && session;
@@ -536,6 +537,12 @@ function NotebookPageContent() {
     convexApi.notebooks.getByUrlWithSession,
     notebookQueryArgs,
   );
+
+  // Refetch function for after editing
+  const refetchNotebook = () => {
+    // Convex queries automatically refetch when mutations complete
+    // This will be called when the edit dialog closes successfully
+  };
 
   // Type guard the notebook result - handle loading, error, and success states
   const notebook =
@@ -1078,9 +1085,12 @@ function NotebookPageContent() {
                 {isAuthenticated && (
                   <div className="flex gap-2">
                     {/* Settings button - only show for notebook owners */}
-                    {isOwner && (
+                    {isOwner && notebookData && (
                       <Button
-                        onClick={() => setShowSettingsDialog(true)}
+                        onClick={() => {
+                          setEditingNotebook(notebookData);
+                          setShowEditDialog(true);
+                        }}
                         variant="outline"
                         className="border-blue-200/50 bg-white/80 text-blue-700 backdrop-blur-sm hover:bg-blue-50"
                       >
@@ -1185,23 +1195,16 @@ function NotebookPageContent() {
         </div>
       </div>
 
-      {/* Notebook Settings Dialog */}
-      {notebookData && (
-        <NotebookSettingsDialog
-          notebook={{
-            _id: notebookData._id as Id<"notebooks">,
-            title: notebookData.title,
-            description: notebookData.description,
-            isPrivate: notebookData.isPrivate,
-            password:
-              "password" in notebookData ? notebookData.password : undefined,
-            url: notebookData.url,
-          }}
-          open={showSettingsDialog}
-          onOpenChange={setShowSettingsDialog}
-          userId={convexUserId ?? undefined}
-        />
-      )}
+      {/* Notebook Edit Dialog */}
+      <NotebookDialog
+        editingNotebook={editingNotebook}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={() => {
+          refetchNotebook();
+          setEditingNotebook(null);
+        }}
+      />
     </div>
   );
 }

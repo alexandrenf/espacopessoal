@@ -47,7 +47,6 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useConvexUser } from "~/hooks/use-convex-user";
 import { NotebookDialog, CreateNotebookDialog } from "~/components_new/NotebookEditDialog";
 
 interface NotebookData {
@@ -228,7 +227,6 @@ const NotebookCard = ({
 
 export default function NotasPage() {
   const { status } = useSession();
-  const { convexUserId } = useConvexUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(null);
