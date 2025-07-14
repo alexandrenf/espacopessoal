@@ -140,6 +140,37 @@ export const notebooksRouter = createTRPCRouter({
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch notebooks",
+      });
+    }
+  }),
+
+  // Get notebooks owned by user with document counts
+  getByOwnerWithDocumentCounts: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "You must be logged in to view your notebooks",
+      });
+    }
+
+    if (!ctx.convex) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Convex client not available",
+      });
+    }
+
+    try {
+      return await ctx.convex.query(
+        api.notebooks.getByOwnerWithDocumentCounts,
+        {
+          userId: ctx.session.user.id as Id<"users">,
+        },
+      );
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
         message:
           error instanceof Error ? error.message : "Failed to fetch notebooks",
       });

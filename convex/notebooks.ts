@@ -569,6 +569,38 @@ export const getByOwner = query({
   },
 });
 
+// Get notebooks by owner with document counts
+export const getByOwnerWithDocumentCounts = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const notebooks = await ctx.db
+      .query("notebooks")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
+      .order("desc")
+      .collect();
+
+    // Add document count for each notebook
+    const notebooksWithCounts = await Promise.all(
+      notebooks.map(async (notebook) => {
+        const documentCount = await ctx.db
+          .query("documents")
+          .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebook._id))
+          .filter((q) => q.eq(q.field("isFolder"), false)) // Only count actual documents, not folders
+          .collect();
+
+        return {
+          ...notebook,
+          documentCount: documentCount.length,
+        };
+      }),
+    );
+
+    return notebooksWithCounts;
+  },
+});
+
 // Update notebook
 export const update = mutation({
   args: {

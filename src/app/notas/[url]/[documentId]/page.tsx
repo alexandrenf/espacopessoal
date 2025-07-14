@@ -209,9 +209,12 @@ function DocumentPageContent() {
   );
 
   // Extract notebook data or error from query result
-  const notebook = notebookQueryResult && typeof notebookQueryResult === "object" && "_id" in notebookQueryResult
-    ? notebookQueryResult
-    : null;
+  const notebook =
+    notebookQueryResult &&
+    typeof notebookQueryResult === "object" &&
+    "_id" in notebookQueryResult
+      ? notebookQueryResult
+      : null;
 
   const hasValidPassword = !isPublicNotebook && !isOwner && !!notebook; // If it's private, user is not owner, but notebook loaded successfully
 
@@ -304,7 +307,10 @@ function DocumentPageContent() {
   }
 
   // Check for structured error responses
-  if (notebookQueryResult !== undefined && isNotebookError(notebookQueryResult)) {
+  if (
+    notebookQueryResult !== undefined &&
+    isNotebookError(notebookQueryResult)
+  ) {
     if (notebookQueryResult.requiresPassword) {
       // Redirect to notebook page for password entry
       return (

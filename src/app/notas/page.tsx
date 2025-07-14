@@ -64,6 +64,7 @@ interface NotebookData {
   accessLevel?: "public" | "password" | "private";
   hasAccess?: boolean;
   isOwner?: boolean;
+  documentCount?: number;
 }
 
 const NotebookCard = ({
@@ -177,7 +178,10 @@ const NotebookCard = ({
             </div>
             <div className="flex items-center space-x-1">
               <FileText className="h-3 w-3" />
-              <span>0 documentos</span>
+              <span>
+                {notebook.documentCount ?? 0}{" "}
+                {(notebook.documentCount ?? 0) === 1 ? "documento" : "documentos"}
+              </span>
             </div>
           </div>
           <Button asChild variant="outline" className="group w-full">
@@ -246,7 +250,7 @@ export default function NotasPage() {
     data: notebooks,
     isLoading,
     refetch,
-  } = api.notebooks.getByOwner.useQuery(undefined, {
+  } = api.notebooks.getByOwnerWithDocumentCounts.useQuery(undefined, {
     enabled: status === "authenticated",
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
