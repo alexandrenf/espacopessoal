@@ -436,15 +436,41 @@ function NotebookPageContent() {
   // Auto-show password prompt if needed
   const needsPassword = hasPassword && !isOwner && !hasValidSession;
 
-  // Enhanced safety checks to prevent premature query execution
-  const notebookQueryEnabled =
+  // Use different queries based on notebook type
+  const publicNotebook = useQuery(
+    convexApi.notebooks.getPublicNotebook,
+    isPublicNotebook && normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
+  );
+
+  // Enhanced safety checks to prevent premature query execution for private notebooks
+  const privateNotebookQueryEnabled =
     normalizedUrl.length > 0 &&
     notebookMetadata && // Ensure metadata is loaded first
+    !isPublicNotebook && // Only for private notebooks
     isSessionValidationComplete && // Wait for stored session validation to complete
     (isOwner || // Owner can always access
-      isPublicNotebook || // Public notebooks don't need sessions
       (!hasPassword && notebookMetadata?.isPrivate) || // Private notebooks without passwords (owner-only access handled above)
       (hasPassword && hasValidSession && sessionToken && !needsPassword)); // Private notebooks with passwords need valid session token AND no password prompt needed
+
+  // Use secure session-based query arguments with enhanced validation
+  const privateNotebookQueryArgs = privateNotebookQueryEnabled
+    ? {
+        url: normalizedUrl,
+        userId: convexUserId ?? undefined,
+        sessionToken:
+          hasPassword && !isOwner
+            ? (sessionToken ?? undefined)
+            : undefined,
+      }
+    : "skip";
+
+  const privateNotebook = useQuery(
+    convexApi.notebooks.getByUrlWithSession,
+    privateNotebookQueryArgs,
+  );
+
+  // Use the appropriate notebook data
+  const notebookQueryResult = isPublicNotebook ? publicNotebook : privateNotebook;
 
   console.log("Notebook query state:", {
     normalizedUrl,
@@ -456,87 +482,8 @@ function NotebookPageContent() {
     convexUserId,
     isOwner,
     isPublicNotebook,
-    queryEnabled: notebookQueryEnabled,
+    queryEnabled: isPublicNotebook ? (publicNotebook !== undefined) : privateNotebookQueryEnabled,
   });
-
-  // Track when query conditions change
-  useEffect(() => {
-    console.log(
-      "Query conditions changed - notebookQueryEnabled:",
-      notebookQueryEnabled,
-      {
-        hasValidSession,
-        isSessionValidationComplete,
-        hasPassword,
-        isOwner,
-        isPublicNotebook,
-        sessionToken: sessionToken ? "***EXISTS***" : "none",
-      },
-    );
-  }, [
-    notebookQueryEnabled,
-    hasValidSession,
-    isSessionValidationComplete,
-    hasPassword,
-    isOwner,
-    isPublicNotebook,
-    sessionToken,
-  ]);
-
-  // Use secure session-based query arguments with enhanced validation
-  const notebookQueryArgs = notebookQueryEnabled
-    ? {
-        url: normalizedUrl,
-        userId: convexUserId ?? undefined,
-        sessionToken:
-          hasPassword && !isOwner && !isPublicNotebook
-            ? (sessionToken ?? undefined)
-            : undefined,
-      }
-    : "skip";
-
-  // Debug log to track exact query execution
-  console.log("QUERY EXECUTION DEBUG:", {
-    notebookQueryEnabled,
-    queryArgs: notebookQueryArgs,
-    conditions: {
-      normalizedUrl: normalizedUrl.length > 0,
-      isSessionValidationComplete,
-      isOwner,
-      isPublicNotebook,
-      hasPasswordButPrivate: hasPassword && notebookMetadata?.isPrivate,
-      hasValidSessionAndToken: hasValidSession && sessionToken,
-    },
-    willExecuteQuery: notebookQueryArgs !== "skip",
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-  });
-
-  console.log(
-    "About to run notebook query with args:",
-    notebookQueryArgs === "skip"
-      ? "SKIP"
-      : {
-          url:
-            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
-              ? notebookQueryArgs.url
-              : undefined,
-          userId:
-            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
-              ? notebookQueryArgs.userId
-              : undefined,
-          sessionToken: sessionToken ? "***EXISTS***" : "none",
-        },
-    {
-      enabled: notebookQueryEnabled,
-      hasValidSession,
-      isSessionValidationComplete,
-    },
-  );
-
-  const notebookQueryResult = useQuery(
-    convexApi.notebooks.getByUrlWithSession,
-    notebookQueryArgs,
-  );
 
   // Refetch function for after editing
   const refetchNotebook = () => {

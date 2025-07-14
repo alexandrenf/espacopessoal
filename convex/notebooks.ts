@@ -208,11 +208,16 @@ function getClientIdentifier(
   ctx: MutationCtx | QueryCtx,
   userId?: string,
 ): string {
-  // For now, use a simple identifier since request object access is limited
-  // In production, this would be enhanced with proper IP detection
-  const baseId = userId || "anonymous";
-  const timestamp = Math.floor(Date.now() / 60000); // 1-minute buckets for basic rate limiting
-  return `${baseId}_${timestamp}`;
+  if (userId) {
+    // For authenticated users, use their ID
+    return `user_${userId}`;
+  }
+  
+  // For anonymous users, create a more unique identifier to avoid shared rate limiting
+  // In production, you'd want to use IP address or other identifying factors
+  const randomId = Math.random().toString(36).substring(2, 15);
+  const timestamp = Math.floor(Date.now() / 300000); // 5-minute buckets for anonymous users
+  return `anon_${timestamp}_${randomId}`;
 }
 
 // Secure password hashing using Web Crypto API
@@ -347,8 +352,6 @@ const logger = {
   },
 };
 
-// For backward compatibility during migration
-const DEFAULT_USER_ID = "demo-user";
 
 // Validate notebook URL format
 const validateNotebookUrl = (url: string): boolean => {
@@ -474,6 +477,39 @@ export const create = mutation({
       logger.error("Notebook creation failed:", error);
       throw new ConvexError("Failed to create notebook");
     }
+  },
+});
+
+// Simplified public notebook access without complex session validation
+export const getPublicNotebook = query({
+  args: {
+    url: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate URL format
+    if (!validateNotebookUrl(args.url)) {
+      throw new ConvexError("Invalid notebook URL format");
+    }
+
+    const notebook = await ctx.db
+      .query("notebooks")
+      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .first();
+
+    if (!notebook) {
+      throw new ConvexError("Notebook not found");
+    }
+
+    // Only allow access to truly public notebooks
+    if (notebook.isPrivate) {
+      throw new ConvexError("This notebook is private");
+    }
+
+    return {
+      ...notebook,
+      isOwner: false,
+      password: undefined, // Never return password
+    };
   },
 });
 
@@ -960,8 +996,15 @@ export const getByUrlWithSession = query({
       throw new ConvexError("Notebook not found");
     }
 
-    const identity = await ctx.auth.getUserIdentity();
-    const authenticatedUserId = identity?.subject as Id<"users"> | undefined;
+    // Safely get authenticated user identity
+    let authenticatedUserId: Id<"users"> | undefined;
+    try {
+      const identity = await ctx.auth.getUserIdentity();
+      authenticatedUserId = identity?.subject as Id<"users"> | undefined;
+    } catch (error) {
+      // For anonymous users, this is expected to fail
+      logger.debug("No authenticated user identity found (anonymous user)");
+    }
 
     // Use the authenticated user ID from context, but also consider the provided userId
     const effectiveUserId = authenticatedUserId ?? args.userId;
@@ -982,14 +1025,20 @@ export const getByUrlWithSession = query({
       hasSessionToken: !!args.sessionToken,
     });
 
-    // If notebook is private and user is not the owner
+    // Handle public notebooks first (simplest case)
+    if (!notebook.isPrivate) {
+      return {
+        ...notebook,
+        isOwner,
+        password: undefined,
+      };
+    }
+
+    // For private notebooks, handle authentication
     if (notebook.isPrivate && !isOwner) {
-      // If it has a password, validate session token server-side
       if (notebook.password) {
         if (!args.sessionToken) {
-          throw new ConvexError(
-            "Session token required for private notebook access",
-          );
+          throw new ConvexError("Session token required for private notebook access");
         }
 
         // Validate session token server-side
@@ -1008,7 +1057,7 @@ export const getByUrlWithSession = query({
           password: undefined, // Don't return password
         };
       }
-      // Otherwise deny access
+      // Private notebook without password - owner only
       throw new ConvexError("Access denied");
     }
 
@@ -1302,7 +1351,6 @@ export const revokeSessions = mutation({
     revokeAll: v.optional(v.boolean()), // Revoke all user's sessions
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
     let revokedCount = 0;
 
     if (args.sessionTokens) {
