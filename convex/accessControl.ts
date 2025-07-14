@@ -93,6 +93,27 @@ async function validateUserSession(ctx: QueryCtx | MutationCtx): Promise<Session
 }
 
 /**
+ * Check if a user has the 'admin' role
+ */
+async function isAdmin(ctx: QueryCtx | MutationCtx, userId?: string): Promise<boolean> {
+  if (!userId) {
+    return false;
+  }
+
+  const user = await ctx.db.get(userId as Id<"users">);
+
+  // Check for custom claims or a role field
+  // This is a placeholder for where you would check for admin role
+  // For example, if you add a 'role' field to your user document:
+  // return user?.role === "admin";
+
+  // Or, if you are using Firebase Auth custom claims, you might need
+  // to retrieve them when the user authenticates and store them in the session.
+  // For now, we'll assume a 'role' field on the user object.
+  return (user as any)?.role === "admin";
+}
+
+/**
  * Check if user has permission to access a notebook
  */
 async function checkNotebookAccess(
@@ -379,12 +400,28 @@ export function withAccessControl(
 
         case "system": {
           // System-level access (admin functions)
-          // TODO: Implement admin role checking
-          accessResult = {
-            granted: sessionValidation.valid,
-            permission: sessionValidation.valid ? "read" : "none",
-            reason: sessionValidation.valid ? undefined : "Authentication required",
-          };
+          if (!sessionValidation.valid) {
+            accessResult = {
+              granted: false,
+              permission: "none",
+              reason: "Authentication required",
+            };
+          } else {
+            const userIsAdmin = await isAdmin(ctx, sessionValidation.userId);
+            if (userIsAdmin) {
+              accessResult = {
+                granted: true,
+                permission: "admin",
+                userId: sessionValidation.userId,
+              };
+            } else {
+              accessResult = {
+                granted: false,
+                permission: "none",
+                reason: "You do not have permission to access this resource",
+              };
+            }
+          }
           break;
         }
 
