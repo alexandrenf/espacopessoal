@@ -40,13 +40,22 @@ function DocumentPageContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-  const normalizedUrl = typeof params.url === "string" ? params.url : "";
+  const rawUrl = typeof params.url === "string" ? params.url : "";
+  const normalizedUrl = rawUrl.toLowerCase();
   const normalizedDocumentId =
     typeof params.documentId === "string" ? params.documentId : "";
   const isAuthenticated = status === "authenticated" && session;
   const [showSidebar, setShowSidebar] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Redirect to lowercase URL if the original URL contains uppercase letters
+  useEffect(() => {
+    if (rawUrl && rawUrl !== normalizedUrl) {
+      router.replace(`/notas/${normalizedUrl}/${normalizedDocumentId}`);
+      return;
+    }
+  }, [rawUrl, normalizedUrl, normalizedDocumentId, router]);
 
   // Session management for private notebooks (similar to notebook page)
   const [hasValidSession, setHasValidSession] = useState(false);

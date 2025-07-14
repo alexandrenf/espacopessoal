@@ -7,7 +7,7 @@ import {
   type QueryCtx,
   type MutationCtx,
 } from "./_generated/server";
-import { type Id } from "./_generated/dataModel";
+import { type Id, type Doc } from "./_generated/dataModel";
 // Note: Using Web Crypto API instead of bcryptjs to avoid setTimeout issues in Convex
 // import bcrypt from "bcryptjs";
 // Rate limiting will be implemented by calling internal functions
@@ -21,10 +21,10 @@ interface NotebookSessionUpdates {
 }
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: any): boolean {
+function isSessionActive(session: Doc<"notebookSessions"> | null): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
-  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+  return session.isActive ?? !session.isRevoked;
 }
 
 // Migration function to upgrade legacy session fields to new schema
@@ -89,7 +89,7 @@ export const migrateNotebookUrlsToLowercase = internalMutation({
 async function findNotebookByUrl(
   ctx: QueryCtx | MutationCtx,
   url: string,
-): Promise<any> {
+): Promise<Doc<"notebooks"> | null> {
   const lowerUrl = url.toLowerCase();
 
   // First try to find by urlLower (preferred method)
@@ -550,18 +550,18 @@ export const getPublicNotebook = query({
   handler: async (ctx, args) => {
     // Validate URL format
     if (!validateNotebookUrl(args.url)) {
-      throw new ConvexError("Invalid notebook URL format");
+      return null; // Return null for invalid URLs instead of throwing
     }
 
     const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
-      throw new ConvexError("Notebook not found");
+      return null; // Return null when notebook not found instead of throwing
     }
 
     // Only allow access to truly public notebooks
     if (notebook.isPrivate) {
-      throw new ConvexError("This notebook is private");
+      return null; // Return null for private notebooks instead of throwing
     }
 
     return {
@@ -878,7 +878,7 @@ export const validatePassword = mutation({
 
     if (!rateLimitCheck.allowed) {
       throw new ConvexError(
-        rateLimitCheck.reason ||
+        rateLimitCheck.reason ??
           "Too many password attempts. Please try again later.",
       );
     }
@@ -934,7 +934,7 @@ export const validatePassword = mutation({
           notebookUrl: args.url,
           clientId,
           userAgent: args.userAgent,
-          ipAddress: args.ipAddress || "unknown",
+          ipAddress: args.ipAddress ?? "unknown",
           failedAttemptLimitExceeded: !failedAttemptCheck.allowed,
         },
       });
@@ -942,12 +942,12 @@ export const validatePassword = mutation({
       logger.warn("Invalid password attempt", {
         notebookUrl: args.url,
         timestamp: Date.now(),
-        ipAddress: args.ipAddress || "unknown",
+        ipAddress: args.ipAddress ?? "unknown",
       });
 
       if (!failedAttemptCheck.allowed) {
         throw new ConvexError(
-          failedAttemptCheck.reason ||
+          failedAttemptCheck.reason ??
             "Too many failed attempts. Account temporarily locked.",
         );
       }
@@ -983,7 +983,7 @@ export const validatePassword = mutation({
         notebookUrl: args.url,
         sessionId: sessionId,
         deviceFingerprint: args.deviceFingerprint ?? "unknown",
-        ipAddress: args.ipAddress || "unknown",
+        ipAddress: args.ipAddress ?? "unknown",
       },
     });
 
@@ -1056,7 +1056,7 @@ export const getByUrlWithSession = query({
 
     if (!rateLimitCheck.allowed) {
       throw new ConvexError(
-        rateLimitCheck.reason || "Too many requests. Please slow down.",
+        rateLimitCheck.reason ?? "Too many requests. Please slow down.",
       );
     }
 
@@ -1076,7 +1076,7 @@ export const getByUrlWithSession = query({
     try {
       const identity = await ctx.auth.getUserIdentity();
       authenticatedUserId = identity?.subject as Id<"users"> | undefined;
-    } catch (error) {
+    } catch {
       // For anonymous users, this is expected to fail
       logger.debug("No authenticated user identity found (anonymous user)");
     }
@@ -1310,7 +1310,7 @@ export const createPasswordSession = mutation({
       notebookId: notebook._id,
       userId: args.userId, // Use provided userId or undefined for anonymous
       deviceFingerprint: args.deviceFingerprint,
-      ipAddress: args.ipAddress || "unknown",
+      ipAddress: args.ipAddress ?? "unknown",
       expiresAt: now + sessionDuration,
       createdAt: now,
       isActive: true,
@@ -1472,7 +1472,7 @@ export const revokeSessions = mutation({
       // Revoke all sessions for a user
       const sessions = await ctx.db
         .query("notebookSessions")
-        .withIndex("by_user_id", (q) => q.eq("userId", args.userId!))
+        .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 

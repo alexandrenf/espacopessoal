@@ -475,6 +475,16 @@ export function DocumentEditor({
     URL.revokeObjectURL(url);
   };
 
+  const onSavePDF = async () => {
+    if (!editor) return;
+    try {
+      const { exportToPdf } = await import("~/lib/pdf-export");
+      await exportToPdf({ documentTitle: doc.title });
+    } catch (error) {
+      console.error("PDF export failed:", error);
+    }
+  };
+
   const onNewDocument = () => {
     window.open("/", "_blank");
   };
@@ -1563,7 +1573,7 @@ export function DocumentEditor({
                               <Globe className="mr-2 size-4" />
                               HTML
                             </MenubarItem>
-                            <MenubarItem onClick={() => window.print()}>
+                            <MenubarItem onClick={onSavePDF}>
                               <Printer className="mr-2 size-4" />
                               PDF
                             </MenubarItem>

@@ -364,8 +364,17 @@ function NotebookPageContent() {
     null,
   );
 
-  const normalizedUrl = typeof url === "string" ? url : "";
+  const rawUrl = typeof url === "string" ? url : "";
+  const normalizedUrl = rawUrl.toLowerCase();
   const isAuthenticated = status === "authenticated" && session;
+
+  // Redirect to lowercase URL if the original URL contains uppercase letters
+  useEffect(() => {
+    if (rawUrl && rawUrl !== normalizedUrl) {
+      router.replace(`/notas/${normalizedUrl}`);
+      return;
+    }
+  }, [rawUrl, normalizedUrl, router]);
 
   // Redirect to main notas page if URL is empty or just a slash
   useEffect(() => {

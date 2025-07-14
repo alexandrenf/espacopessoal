@@ -1,3 +1,23 @@
+⏺ Update Todos
+
+  ⎿  ☒ Implement graceful 'Notebook Not Found' error handling   
+     ☒ Fix private notebook error handling (unauthorized access)
+     ☒ Fix inaccurate document count on /notas page - truly fixed
+     ☒ Fix mobile sidebar UI/UX overlap with document title
+     ☒ Implement case-insensitive notebook URLs
+     ☐ Fix PDF export functionality
+     ☐ Investigate and fix Deno deployment failures
+     ☐ Allow spaces in document titles when editing
+     ☐ Make header visible on document pages (/notas/url/id)
+     ☐ Implement persistent sidebar state across navigation
+     ☐ Move PDF export button from toolbar to menubar
+     ☐ Add Markdown export feature
+     ☐ Implement new user onboarding flow
+     ☐ Optimize saving with diff-based logic
+     ☐ Remove save info display on document page
+     ☐ Add conditional logging in DocumentEditor.tsx
+     ☐ Add conditional logging in notebook page
+
 # Project Improvement Plan
 
 This document outlines the plan to address known issues and implement new features.

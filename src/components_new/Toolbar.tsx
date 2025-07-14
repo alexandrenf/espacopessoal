@@ -52,58 +52,16 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { exportToPdf, getDocumentTitle } from "~/lib/pdf-export";
 
 function ExportButton() {
   const handleExport = async () => {
-    const editorContent = document.querySelector<HTMLElement>(".ProseMirror");
-    if (!editorContent) {
-      console.error("Editor content not found");
-      return;
-    }
-
-    const elementsToHide = document.querySelectorAll<HTMLElement>(".no-export");
-    elementsToHide.forEach((el) => {
-      el.style.display = "none";
-    });
-
     try {
-      const canvas = await html2canvas(editorContent, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = canvasWidth / canvasHeight;
-      const imgWidth = pdfWidth;
-      const imgHeight = imgWidth / ratio;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save("document.pdf");
+      const documentTitle = getDocumentTitle();
+      await exportToPdf({ documentTitle });
     } catch (error) {
-      console.error("Error exporting to PDF:", error);
-    } finally {
-      elementsToHide.forEach((el) => {
-        el.style.display = "";
-      });
+      // Error handling is done in the exportToPdf function
+      console.error("PDF export failed:", error);
     }
   };
 

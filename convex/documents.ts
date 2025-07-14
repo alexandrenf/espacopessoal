@@ -480,7 +480,7 @@ export const getDocumentsPaginated = query({
       }
 
       // Use optimized index for notebook documents
-      let query = ctx.db
+      const query = ctx.db
         .query("documents")
         .withIndex("by_notebook_id", (q) =>
           q.eq("notebookId", args.notebookId),
@@ -489,7 +489,7 @@ export const getDocumentsPaginated = query({
       if (args.metadataOnly) {
         // Return only essential fields for list views - 70% bandwidth reduction
         const results = await query.paginate({
-          cursor: args.cursor || null,
+          cursor: args.cursor ?? null,
           numItems: limit,
         });
 
@@ -500,29 +500,29 @@ export const getDocumentsPaginated = query({
             title: doc.title,
             isFolder: doc.isFolder,
             updatedAt: doc.updatedAt,
-            parentId: doc.parentId || null,
+            parentId: doc.parentId ?? null,
             order: doc.order,
-            notebookId: doc.notebookId || null,
+            notebookId: doc.notebookId ?? null,
           })),
         };
       }
 
       return await query.paginate({
-        cursor: args.cursor || null,
+        cursor: args.cursor ?? null,
         numItems: limit,
       });
     }
 
     // For user-owned documents (when userId is provided)
     if (args.userId) {
-      let query = ctx.db
+      const query = ctx.db
         .query("documents")
         .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId!));
 
       if (args.metadataOnly) {
         // Return only essential fields for list views
         const results = await query.paginate({
-          cursor: args.cursor || null,
+          cursor: args.cursor ?? null,
           numItems: limit,
         });
 
@@ -533,15 +533,15 @@ export const getDocumentsPaginated = query({
             title: doc.title,
             isFolder: doc.isFolder,
             updatedAt: doc.updatedAt,
-            parentId: doc.parentId || null,
+            parentId: doc.parentId ?? null,
             order: doc.order,
-            notebookId: doc.notebookId || null,
+            notebookId: doc.notebookId ?? null,
           })),
         };
       }
 
       return await query.paginate({
-        cursor: args.cursor || null,
+        cursor: args.cursor ?? null,
         numItems: limit,
       });
     }
