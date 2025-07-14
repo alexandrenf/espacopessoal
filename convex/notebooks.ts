@@ -13,6 +13,13 @@ import { type Id } from "./_generated/dataModel";
 // Rate limiting will be implemented by calling internal functions
 // import { validateSession, createSession } from "./sessions"; // TODO: Will be used in Phase 2 JWT implementation
 
+// Interface for notebook session updates during migration
+interface NotebookSessionUpdates {
+  isActive?: boolean;
+  ipAddress?: string;
+  userId?: Id<"users"> | undefined;
+}
+
 // Helper function to check session status (handles both new and legacy fields)
 function isSessionActive(session: any): boolean {
   if (!session) return false;
@@ -27,7 +34,7 @@ export const migrateLegacySessions = internalMutation({
     let migratedCount = 0;
 
     for (const session of sessions) {
-      const updates: any = {};
+      const updates: NotebookSessionUpdates = {};
       let needsUpdate = false;
 
       // Convert isRevoked to isActive
@@ -205,7 +212,7 @@ async function checkRateLimit(
 
 // Get client identifier for rate limiting (simplified)
 function getClientIdentifier(
-  ctx: MutationCtx | QueryCtx,
+  _ctx: MutationCtx | QueryCtx,
   userId?: string,
 ): string {
   if (userId) {

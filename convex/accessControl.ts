@@ -7,17 +7,15 @@ import { ConvexError, v } from "convex/values";
 import {
   mutation,
   query,
-  internalMutation,
-  internalQuery,
 } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: any): boolean {
+function isSessionActive(session: { isActive?: boolean; isRevoked?: boolean } | null | undefined): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
-  return session.isActive !== undefined ? session.isActive : !session.isRevoked;
+  return session.isActive ?? !session.isRevoked;
 }
 
 /**
@@ -75,7 +73,7 @@ async function validateUserSession(
       // User is authenticated via NextAuth
       const user = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", identity.email || ""))
+        .withIndex("by_email", (q) => q.eq("email", identity.email ?? ""))
         .first();
 
       if (user) {
@@ -91,7 +89,7 @@ async function validateUserSession(
       valid: false,
       reason: "No valid authentication session found",
     };
-  } catch (error) {
+  } catch {
     return {
       valid: false,
       reason: "Session validation failed",
@@ -192,7 +190,7 @@ async function checkNotebookAccess(
       reason: "Access denied",
       resourceId: notebookId,
     };
-  } catch (error) {
+  } catch {
     return {
       granted: false,
       permission: "none",
@@ -253,7 +251,7 @@ async function checkDocumentAccess(
       return {
         granted: false,
         permission: "none",
-        reason: notebookAccess.reason || "No access to parent notebook",
+        reason: notebookAccess.reason ?? "No access to parent notebook",
         resourceId: documentId,
       };
     }
@@ -281,7 +279,7 @@ async function checkDocumentAccess(
       reason: "No permission to access this document",
       resourceId: documentId,
     };
-  } catch (error) {
+  } catch {
     return {
       granted: false,
       permission: "none",
@@ -289,6 +287,25 @@ async function checkDocumentAccess(
       resourceId: documentId,
     };
   }
+}
+
+/**
+ * Arguments interface for access control middleware
+ */
+interface AccessControlArgs {
+  notebookId?: Id<"notebooks"> | string;
+  documentId?: Id<"documents"> | string;
+  id?: string;
+  url?: string;
+  sessionToken?: string;
+  userId?: Id<"users"> | string;
+}
+
+/**
+ * Type guard to check if args conform to AccessControlArgs
+ */
+function isAccessControlArgs(args: unknown): args is AccessControlArgs {
+  return typeof args === "object" && args !== null;
 }
 
 /**
@@ -309,15 +326,17 @@ export function withAccessControl(
       // Validate user session
       const sessionValidation = await validateUserSession(ctx);
 
+      // Type-safe argument extraction
+      if (!isAccessControlArgs(args)) {
+        throw new ConvexError("Invalid arguments structure");
+      }
+
       // Log access attempt
       await logAccessAttempt(ctx, {
         resourceType,
         requiredPermission,
         userId: sessionValidation.userId,
-        resourceId:
-          (args as any).notebookId ||
-          (args as any).documentId ||
-          (args as any).id,
+        resourceId: (args.notebookId ?? args.documentId ?? args.id) as string | undefined,
         sessionValid: sessionValidation.valid,
         timestamp: Date.now(),
       });
@@ -327,17 +346,16 @@ export function withAccessControl(
       // Check resource-specific access
       switch (resourceType) {
         case "notebook": {
-          const notebookArgs = args as any;
-          if (!notebookArgs.notebookId && !notebookArgs.url) {
+          if (!args.notebookId && !args.url) {
             throw new ConvexError("Notebook identifier required");
           }
 
-          let notebookId = notebookArgs.notebookId;
-          if (!notebookId && notebookArgs.url) {
+          let notebookId = args.notebookId;
+          if (!notebookId && args.url) {
             // Look up notebook by URL
             const notebook = await ctx.db
               .query("notebooks")
-              .withIndex("by_url", (q: any) => q.eq("url", notebookArgs.url))
+              .withIndex("by_url", (q) => q.eq("url", args.url as string))
               .first();
             notebookId = notebook?._id;
           }
@@ -348,31 +366,29 @@ export function withAccessControl(
 
           accessResult = await checkNotebookAccess(
             ctx,
-            notebookId,
+            notebookId as Id<"notebooks">,
             sessionValidation.userId,
-            notebookArgs.sessionToken,
+            args.sessionToken as string | undefined,
           );
           break;
         }
 
         case "document": {
-          const documentArgs = args as any;
-          if (!documentArgs.documentId) {
+          if (!args.documentId) {
             throw new ConvexError("Document identifier required");
           }
 
           accessResult = await checkDocumentAccess(
             ctx,
-            documentArgs.documentId,
+            args.documentId as Id<"documents">,
             sessionValidation.userId,
-            documentArgs.sessionToken,
+            args.sessionToken as string | undefined,
           );
           break;
         }
 
         case "user": {
           // User resource access (profile, settings, etc.)
-          const userArgs = args as any;
           if (!sessionValidation.valid) {
             accessResult = {
               granted: false,
@@ -380,8 +396,8 @@ export function withAccessControl(
               reason: "Authentication required",
             };
           } else if (
-            userArgs.userId &&
-            userArgs.userId !== sessionValidation.userId
+            args.userId &&
+            args.userId !== sessionValidation.userId
           ) {
             accessResult = {
               granted: false,
@@ -419,7 +435,7 @@ export function withAccessControl(
 
       // Check if access is granted and permission level is sufficient
       if (!accessResult.granted) {
-        throw new ConvexError(accessResult.reason || "Access denied");
+        throw new ConvexError(accessResult.reason ?? "Access denied");
       }
 
       // Check permission level
@@ -588,7 +604,7 @@ export const revokeAccess = mutation({
         resourceType,
         resourceId: args.resourceId,
         revokedBy: "admin", // TODO: Get actual admin user ID
-        reason: args.reason || "manual_revocation",
+        reason: args.reason ?? "manual_revocation",
       },
     });
 

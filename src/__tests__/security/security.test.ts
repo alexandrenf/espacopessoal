@@ -10,7 +10,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { describe, it, expect, beforeEach } from "@jest/globals";
+import * as crypto from "node:crypto";
 import bcrypt from "bcryptjs";
+
+// Set up Web Crypto API for Node.js testing environment
+Object.defineProperty(globalThis, "crypto", {
+  value: {
+    getRandomValues: (array: Uint8Array) => crypto.randomFillSync(array),
+    subtle: crypto.webcrypto.subtle,
+  },
+  writable: true,
+});
 
 // Mock Convex context and functions
 const mockConvexContext = {
@@ -663,7 +673,8 @@ function calculatePasswordStrength(password: string): string {
 
 function generateSessionToken(): string {
   const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
+  // Use the crypto from our setup
+  globalThis.crypto.getRandomValues(array);
   return btoa(String.fromCharCode(...array))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
