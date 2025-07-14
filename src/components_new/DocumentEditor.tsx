@@ -1535,7 +1535,7 @@ export function DocumentEditor({
                     {isMobile && (
                       <MenubarMenu>
                         <MenubarTrigger
-                          onClick={onToggleSidebar}
+                          onClick={onToggleSidebar || noop}
                           className="h-auto rounded-sm px-[7px] py-0.5 text-sm font-normal hover:bg-muted"
                         >
                           <PanelLeft className="h-4 w-4" />
