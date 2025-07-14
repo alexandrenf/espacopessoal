@@ -30,12 +30,12 @@ class AuthCache {
   get<T>(key: string): T | null {
     const entry = this.cache.get(key) as CacheEntry<T> | undefined;
     if (!entry) return null;
-    
+
     if (Date.now() > entry.expiry) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return entry.data;
   }
 
@@ -56,10 +56,10 @@ class AuthCache {
 
 export function ConvexAdapter(convexUrl: string): Adapter {
   const convex = new ConvexHttpClient(convexUrl);
-  
+
   // OPTIMIZATION: Single cache instance for all auth operations
   const authCache = new AuthCache();
-  
+
   // Cleanup expired cache entries every 10 minutes
   setInterval(() => {
     authCache.cleanup();
@@ -116,7 +116,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
     async getUserByAccount({ providerAccountId, provider }) {
       // OPTIMIZATION: Cache key for account-user lookup (40% bandwidth reduction)
       const cacheKey = `account:${provider}:${providerAccountId}`;
-      
+
       // Check cache first
       const cached = authCache.get<{
         id: string;
@@ -125,7 +125,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         image: string | null;
         emailVerified: Date | null;
       }>(cacheKey);
-      
+
       if (cached) {
         return cached;
       }
@@ -144,7 +144,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
       const user = await convex.query(api.users.getById, {
         id: account.userId,
       });
-      
+
       if (!user) {
         // Cache null result for orphaned accounts
         authCache.set(cacheKey, null);
@@ -158,10 +158,10 @@ export function ConvexAdapter(convexUrl: string): Adapter {
         image: user.image,
         emailVerified: user.emailVerified ? new Date(user.emailVerified) : null,
       };
-      
+
       // Cache successful result
       authCache.set(cacheKey, result);
-      
+
       return result;
     },
 
@@ -239,7 +239,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
     async getSessionAndUser(sessionToken) {
       // OPTIMIZATION: Cache key for session-user lookup
       const cacheKey = `session:${sessionToken}`;
-      
+
       // Check cache first
       const cached = authCache.get<{
         session: {
@@ -255,7 +255,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
           emailVerified: Date | null;
         };
       }>(cacheKey);
-      
+
       if (cached) {
         return cached;
       }
@@ -263,7 +263,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
       const session = await convex.query(api.users.getSessionByToken, {
         sessionToken,
       });
-      
+
       if (!session) {
         // Cache null result to avoid repeated queries for invalid sessions
         authCache.set(cacheKey, null);
@@ -273,7 +273,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
       const user = await convex.query(api.users.getById, {
         id: session.userId,
       });
-      
+
       if (!user) {
         // Cache null result for orphaned sessions
         authCache.set(cacheKey, null);
@@ -296,10 +296,10 @@ export function ConvexAdapter(convexUrl: string): Adapter {
             : null,
         },
       };
-      
+
       // Cache successful result with shorter TTL for sessions (2 minutes)
       authCache.set(cacheKey, result);
-      
+
       return result;
     },
 
@@ -325,7 +325,7 @@ export function ConvexAdapter(convexUrl: string): Adapter {
 
     async deleteSession(sessionToken) {
       await convex.mutation(api.users.deleteAuthSession, { sessionToken });
-      
+
       // OPTIMIZATION: Clear specific session cache entry
       const cacheKey = `session:${sessionToken}`;
       authCache.set(cacheKey, null);

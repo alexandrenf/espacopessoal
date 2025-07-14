@@ -33,7 +33,10 @@ import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Underline } from "@tiptap/extension-underline";
 import { ImageResize } from "tiptap-extension-resize-image";
-import { LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../../../../constants/margins";
+import {
+  LEFT_MARGIN_DEFAULT,
+  RIGHT_MARGIN_DEFAULT,
+} from "../../../../constants/margins";
 import { Ruler } from "../../../../components_new/Ruler";
 
 export default function SharedDocumentPage() {
@@ -76,7 +79,7 @@ export default function SharedDocumentPage() {
   // Margin state for proper document layout (read-only, so setters are not used)
   const [leftMargin] = useState(LEFT_MARGIN_DEFAULT);
   const [rightMargin] = useState(RIGHT_MARGIN_DEFAULT);
-  
+
   const [connectionStatus, setConnectionStatus] = useState<
     "disconnected" | "connecting" | "connected"
   >("disconnected");
@@ -445,8 +448,12 @@ export default function SharedDocumentPage() {
           <Ruler
             leftMargin={leftMargin}
             rightMargin={rightMargin}
-            onLeftMarginChange={() => { /* Disabled for read-only mode */ }}
-            onRightMarginChange={() => { /* Disabled for read-only mode */ }}
+            onLeftMarginChange={() => {
+              /* Disabled for read-only mode */
+            }}
+            onRightMarginChange={() => {
+              /* Disabled for read-only mode */
+            }}
           />
         </div>
         <div className="mx-auto flex w-[816px] min-w-max justify-center py-4 print:w-full print:min-w-0 print:py-0">

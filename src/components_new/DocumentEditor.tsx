@@ -1424,7 +1424,7 @@ export function DocumentEditor({
                   Save Info
                 </Button>
 
-{convexUserId ? (
+                {convexUserId ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -1434,7 +1434,9 @@ export function DocumentEditor({
                         {(userProfile?.image ?? session?.user?.image) ? (
                           <Image
                             className="h-8 w-8 rounded-full object-cover"
-                            src={userProfile?.image ?? session?.user?.image ?? ""}
+                            src={
+                              userProfile?.image ?? session?.user?.image ?? ""
+                            }
                             alt={getUserDisplayName()}
                             width={32}
                             height={32}
@@ -1503,7 +1505,8 @@ export function DocumentEditor({
                           Sign in to access all features
                         </p>
                         <p className="mb-3 text-sm text-gray-600">
-                          Create your own documents, collaborate in real-time, and save your work.
+                          Create your own documents, collaborate in real-time,
+                          and save your work.
                         </p>
                         <Button
                           onClick={() => signIn()}

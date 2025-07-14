@@ -29,6 +29,7 @@ import {
   Bold,
   ChevronDown,
   Code,
+  FileDown,
   Highlighter,
   ImageIcon,
   Italic,
@@ -51,6 +52,74 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
+function ExportButton() {
+  const handleExport = async () => {
+    const editorContent = document.querySelector<HTMLElement>(".ProseMirror");
+    if (!editorContent) {
+      console.error("Editor content not found");
+      return;
+    }
+
+    const elementsToHide = document.querySelectorAll<HTMLElement>(".no-export");
+    elementsToHide.forEach((el) => {
+      el.style.display = "none";
+    });
+
+    try {
+      const canvas = await html2canvas(editorContent, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasWidth / canvasHeight;
+      const imgWidth = pdfWidth;
+      const imgHeight = imgWidth / ratio;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save("document.pdf");
+    } catch (error) {
+      console.error("Error exporting to PDF:", error);
+    } finally {
+      elementsToHide.forEach((el) => {
+        el.style.display = "";
+      });
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm px-1.5 hover:bg-neutral-200/80">
+          <FileDown className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={handleExport}>Export as PDF</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function LineHeightButton() {
   const { editor } = useEditorStore();
@@ -608,16 +677,19 @@ function ToolbarButton({
   onClick,
   isActive,
   icon: Icon,
+  disabled,
 }: {
   onClick?: () => void;
   isActive?: boolean;
   icon: LucideIcon;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex h-7 min-w-7 items-center justify-center rounded-sm text-sm hover:bg-neutral-200/80",
+        "flex h-7 min-w-7 items-center justify-center rounded-sm text-sm hover:bg-neutral-200/80 disabled:cursor-not-allowed disabled:opacity-50",
         isActive && "bg-neutral-200/80",
       )}
     >
@@ -627,32 +699,27 @@ function ToolbarButton({
 }
 
 export function Toolbar() {
-  const { editor, undoManager } = useEditorStore();
+  const { editor } = useEditorStore();
 
   const sections: {
     label: string;
     icon: LucideIcon;
     onClick: () => void;
     isActive?: boolean;
+    disabled?: boolean;
   }[][] = [
     [
       {
         label: "Undo",
         icon: Undo2,
-        onClick: () => {
-          if (undoManager?.canUndo()) {
-            undoManager.undo();
-          }
-        },
+        onClick: () => editor?.chain().focus().undo().run(),
+        disabled: !editor?.can().undo(),
       },
       {
         label: "Redo",
         icon: Redo2,
-        onClick: () => {
-          if (undoManager?.canRedo()) {
-            undoManager.redo();
-          }
-        },
+        onClick: () => editor?.chain().focus().redo().run(),
+        disabled: !editor?.can().redo(),
       },
     ],
     [
@@ -714,10 +781,12 @@ export function Toolbar() {
   ];
 
   return (
-    <div className="flex min-h-[40px] items-center gap-x-0.5 overflow-x-auto rounded-sm border bg-[#F1F4F9] px-2.5 py-0.5">
+    <div className="no-export flex min-h-[40px] items-center gap-x-0.5 overflow-x-auto rounded-sm border bg-[#F1F4F9] px-2.5 py-0.5">
       {sections[0]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
+      <Separator orientation="vertical" className="h-6 bg-neutral-300" />
+      <ExportButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
       <FontFamilyButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />

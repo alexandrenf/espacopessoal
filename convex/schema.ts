@@ -84,7 +84,7 @@ export default defineSchema({
       v.literal("info"),
       v.literal("warning"),
       v.literal("error"),
-      v.literal("critical")
+      v.literal("critical"),
     ),
     details: v.any(), // Additional event-specific data
   })

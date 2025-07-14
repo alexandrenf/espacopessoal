@@ -29,10 +29,12 @@ import {
   LogIn,
   User,
   FolderPlus,
+  Settings,
 } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import { useConvexUser } from "~/hooks/use-convex-user";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
+import { NotebookDialog } from "~/components_new/NotebookEditDialog";
 import Link from "next/link";
 import { FileExplorer } from "~/app/components/FileExplorer";
 
@@ -122,22 +124,22 @@ const generateDeviceFingerprint = (): string => {
 
   // Safely get user agent
   try {
-    fingerprintComponents.push(navigator.userAgent ?? 'unknown');
+    fingerprintComponents.push(navigator.userAgent ?? "unknown");
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get user agent:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get user agent:", error);
     }
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   // Safely get language
   try {
-    fingerprintComponents.push(navigator.language ?? 'unknown');
+    fingerprintComponents.push(navigator.language ?? "unknown");
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get language:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get language:", error);
     }
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   // Safely get screen dimensions
@@ -146,10 +148,10 @@ const generateDeviceFingerprint = (): string => {
     const height = screen.height ?? 0;
     fingerprintComponents.push(`${width}x${height}`);
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get screen dimensions:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get screen dimensions:", error);
     }
-    fingerprintComponents.push('0x0');
+    fingerprintComponents.push("0x0");
   }
 
   // Safely get timezone offset
@@ -157,10 +159,10 @@ const generateDeviceFingerprint = (): string => {
     const timezoneOffset = new Date().getTimezoneOffset();
     fingerprintComponents.push(timezoneOffset.toString());
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get timezone offset:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get timezone offset:", error);
     }
-    fingerprintComponents.push('0');
+    fingerprintComponents.push("0");
   }
 
   // Safely generate canvas fingerprint with comprehensive error handling
@@ -186,22 +188,22 @@ const generateDeviceFingerprint = (): string => {
         const canvasData = canvas.toDataURL();
         fingerprintComponents.push(canvasData);
       } catch (canvasError) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Canvas operations failed:', canvasError);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Canvas operations failed:", canvasError);
         }
-        fingerprintComponents.push('canvas_blocked');
+        fingerprintComponents.push("canvas_blocked");
       }
     } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Canvas context not available');
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Canvas context not available");
       }
-      fingerprintComponents.push('no_canvas_context');
+      fingerprintComponents.push("no_canvas_context");
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Canvas creation failed:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Canvas creation failed:", error);
     }
-    fingerprintComponents.push('canvas_unavailable');
+    fingerprintComponents.push("canvas_unavailable");
   }
 
   // Additional fingerprinting components with error handling
@@ -214,22 +216,26 @@ const generateDeviceFingerprint = (): string => {
     };
 
     if (navigatorWithUserAgentData.userAgentData?.platform) {
-      fingerprintComponents.push(navigatorWithUserAgentData.userAgentData.platform);
+      fingerprintComponents.push(
+        navigatorWithUserAgentData.userAgentData.platform,
+      );
     } else {
       // Fallback to deprecated platform property with proper typing
       const navigatorWithPlatform = navigator as Navigator & {
         platform?: string;
       };
-      fingerprintComponents.push(navigatorWithPlatform.platform ?? 'unknown');
+      fingerprintComponents.push(navigatorWithPlatform.platform ?? "unknown");
     }
   } catch {
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   try {
-    fingerprintComponents.push(navigator.cookieEnabled ? 'cookies_enabled' : 'cookies_disabled');
+    fingerprintComponents.push(
+      navigator.cookieEnabled ? "cookies_enabled" : "cookies_disabled",
+    );
   } catch {
-    fingerprintComponents.push('cookies_unknown');
+    fingerprintComponents.push("cookies_unknown");
   }
 
   const fingerprint = fingerprintComponents.join("|");
@@ -336,6 +342,8 @@ function NotebookPageContent() {
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(null);
 
   const normalizedUrl = typeof url === "string" ? url : "";
   const isAuthenticated = status === "authenticated" && session;
@@ -424,22 +432,45 @@ function NotebookPageContent() {
   const isOwner = notebookMetadata?.ownerId === convexUserId;
   const isPublicNotebook = !notebookMetadata?.isPrivate;
   const hasPassword = notebookMetadata?.hasPassword;
-  
+
   // Auto-show password prompt if needed
-  const needsPassword =
-    hasPassword &&
-    !isOwner &&
-    !hasValidSession;
-  
-  // Enhanced safety checks to prevent premature query execution
-  const notebookQueryEnabled =
+  const needsPassword = hasPassword && !isOwner && !hasValidSession;
+
+  // Use different queries based on notebook type
+  const publicNotebook = useQuery(
+    convexApi.notebooks.getPublicNotebook,
+    isPublicNotebook && normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
+  );
+
+  // Enhanced safety checks to prevent premature query execution for private notebooks
+  const privateNotebookQueryEnabled =
     normalizedUrl.length > 0 &&
     notebookMetadata && // Ensure metadata is loaded first
+    !isPublicNotebook && // Only for private notebooks
     isSessionValidationComplete && // Wait for stored session validation to complete
     (isOwner || // Owner can always access
-      isPublicNotebook || // Public notebooks don't need sessions
       (!hasPassword && notebookMetadata?.isPrivate) || // Private notebooks without passwords (owner-only access handled above)
       (hasPassword && hasValidSession && sessionToken && !needsPassword)); // Private notebooks with passwords need valid session token AND no password prompt needed
+
+  // Use secure session-based query arguments with enhanced validation
+  const privateNotebookQueryArgs = privateNotebookQueryEnabled
+    ? {
+        url: normalizedUrl,
+        userId: convexUserId ?? undefined,
+        sessionToken:
+          hasPassword && !isOwner
+            ? (sessionToken ?? undefined)
+            : undefined,
+      }
+    : "skip";
+
+  const privateNotebook = useQuery(
+    convexApi.notebooks.getByUrlWithSession,
+    privateNotebookQueryArgs,
+  );
+
+  // Use the appropriate notebook data
+  const notebookQueryResult = isPublicNotebook ? publicNotebook : privateNotebook;
 
   console.log("Notebook query state:", {
     normalizedUrl,
@@ -451,84 +482,14 @@ function NotebookPageContent() {
     convexUserId,
     isOwner,
     isPublicNotebook,
-    queryEnabled: notebookQueryEnabled,
+    queryEnabled: isPublicNotebook ? (publicNotebook !== undefined) : privateNotebookQueryEnabled,
   });
 
-  // Track when query conditions change
-  useEffect(() => {
-    console.log(
-      "Query conditions changed - notebookQueryEnabled:",
-      notebookQueryEnabled,
-      {
-        hasValidSession,
-        isSessionValidationComplete,
-        hasPassword,
-        isOwner,
-        isPublicNotebook,
-        sessionToken: sessionToken ? "***EXISTS***" : "none",
-      },
-    );
-  }, [
-    notebookQueryEnabled,
-    hasValidSession,
-    isSessionValidationComplete,
-    hasPassword,
-    isOwner,
-    isPublicNotebook,
-    sessionToken,
-  ]);
-
-  // Use secure session-based query arguments with enhanced validation
-  const notebookQueryArgs = notebookQueryEnabled
-    ? {
-        url: normalizedUrl,
-        userId: convexUserId ?? undefined,
-        sessionToken: (hasPassword && !isOwner && !isPublicNotebook) ? (sessionToken ?? undefined) : undefined,
-      }
-    : "skip";
-
-  // Debug log to track exact query execution
-  console.log("QUERY EXECUTION DEBUG:", {
-    notebookQueryEnabled,
-    queryArgs: notebookQueryArgs,
-    conditions: {
-      normalizedUrl: normalizedUrl.length > 0,
-      isSessionValidationComplete,
-      isOwner,
-      isPublicNotebook,
-      hasPasswordButPrivate: hasPassword && notebookMetadata?.isPrivate,
-      hasValidSessionAndToken: hasValidSession && sessionToken,
-    },
-    willExecuteQuery: notebookQueryArgs !== "skip",
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-  });
-
-  console.log(
-    "About to run notebook query with args:",
-    notebookQueryArgs === "skip"
-      ? "SKIP"
-      : {
-          url:
-            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
-              ? notebookQueryArgs.url
-              : undefined,
-          userId:
-            typeof notebookQueryArgs === "object" && notebookQueryArgs !== null
-              ? notebookQueryArgs.userId
-              : undefined,
-          sessionToken: sessionToken ? "***EXISTS***" : "none",
-        },
-    {
-      enabled: notebookQueryEnabled,
-      hasValidSession,
-      isSessionValidationComplete,
-    },
-  );
-
-  const notebookQueryResult = useQuery(
-    convexApi.notebooks.getByUrlWithSession,
-    notebookQueryArgs,
-  );
+  // Refetch function for after editing
+  const refetchNotebook = () => {
+    // Convex queries automatically refetch when mutations complete
+    // This will be called when the edit dialog closes successfully
+  };
 
   // Type guard the notebook result - handle loading, error, and success states
   const notebook =
@@ -1070,6 +1031,20 @@ function NotebookPageContent() {
                 )}
                 {isAuthenticated && (
                   <div className="flex gap-2">
+                    {/* Settings button - only show for notebook owners */}
+                    {isOwner && notebookData && (
+                      <Button
+                        onClick={() => {
+                          setEditingNotebook(notebookData);
+                          setShowEditDialog(true);
+                        }}
+                        variant="outline"
+                        className="border-blue-200/50 bg-white/80 text-blue-700 backdrop-blur-sm hover:bg-blue-50"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configurações
+                      </Button>
+                    )}
                     <Button
                       onClick={handleCreateFolder}
                       variant="outline"
@@ -1166,6 +1141,17 @@ function NotebookPageContent() {
           </motion.div>
         </div>
       </div>
+
+      {/* Notebook Edit Dialog */}
+      <NotebookDialog
+        editingNotebook={editingNotebook}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={() => {
+          refetchNotebook();
+          setEditingNotebook(null);
+        }}
+      />
     </div>
   );
 }
