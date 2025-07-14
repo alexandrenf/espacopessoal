@@ -13,7 +13,7 @@ interface SearchInputProps {
 // OPTIMIZATION: Debounce utility for search optimization
 function debounce<T extends (...args: Parameters<T>) => void>(
   func: T,
-  delay: number
+  delay: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: NodeJS.Timeout;
   return (...args: Parameters<T>) => {
@@ -25,7 +25,7 @@ function debounce<T extends (...args: Parameters<T>) => void>(
 export function SearchInput({ search, setSearch }: SearchInputProps) {
   const [value, setValue] = useState(search);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   // OPTIMIZATION: Client-side cache for recent searches (Phase 1 bandwidth reduction)
   const searchCache = useRef<Map<string, boolean>>(new Map());
 
@@ -41,10 +41,10 @@ export function SearchInput({ search, setSearch }: SearchInputProps) {
       if (searchCache.current.has(query.toLowerCase())) {
         return;
       }
-      
+
       // Add to cache and set search
       searchCache.current.set(query.toLowerCase(), true);
-      
+
       // Limit cache size to prevent memory leaks
       if (searchCache.current.size > 100) {
         const firstKey = searchCache.current.keys().next().value;
@@ -52,16 +52,16 @@ export function SearchInput({ search, setSearch }: SearchInputProps) {
           searchCache.current.delete(firstKey);
         }
       }
-      
+
       setSearch(query);
     }, 300), // 300ms debounce for optimal user experience
-    [setSearch]
+    [setSearch],
   );
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value;
     setValue(newValue);
-    
+
     // OPTIMIZATION: Apply debounced search for real-time typing
     if (newValue.trim()) {
       debouncedSearch(newValue.trim());

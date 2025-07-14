@@ -25,36 +25,36 @@ export const migrateLegacySessions = internalMutation({
   handler: async (ctx) => {
     const sessions = await ctx.db.query("notebookSessions").collect();
     let migratedCount = 0;
-    
+
     for (const session of sessions) {
       const updates: any = {};
       let needsUpdate = false;
-      
+
       // Convert isRevoked to isActive
       if (session.isRevoked !== undefined && session.isActive === undefined) {
         updates.isActive = !session.isRevoked;
         needsUpdate = true;
       }
-      
+
       // Add default IP address for legacy sessions
       if (!session.ipAddress) {
         updates.ipAddress = "unknown";
         needsUpdate = true;
       }
-      
+
       // Add default userId if missing
       if (!session.userId) {
         // For backward compatibility, we'll leave this empty as it's now optional
         updates.userId = undefined;
         needsUpdate = true;
       }
-      
+
       if (needsUpdate) {
         await ctx.db.patch(session._id, updates);
         migratedCount++;
       }
     }
-    
+
     return { migratedSessions: migratedCount };
   },
 });
@@ -64,15 +64,15 @@ async function checkAndRecordRateLimit(
   ctx: MutationCtx,
   endpoint: string,
   identifier: string,
-  limit: { requests: number; window: number; blockDuration: number }
+  limit: { requests: number; window: number; blockDuration: number },
 ): Promise<{ allowed: boolean; reason?: string }> {
   const now = Date.now();
-  
+
   // Find existing rate limit entry
   const existingEntry = await ctx.db
     .query("rateLimits")
-    .withIndex("by_identifier_endpoint", (q) => 
-      q.eq("identifier", identifier).eq("endpoint", endpoint)
+    .withIndex("by_identifier_endpoint", (q) =>
+      q.eq("identifier", identifier).eq("endpoint", endpoint),
     )
     .first();
 
@@ -94,15 +94,15 @@ async function checkAndRecordRateLimit(
   // Check if currently blocked
   if (existingEntry.isBlocked && existingEntry.blockUntil > now) {
     const blockUntil = new Date(existingEntry.blockUntil).toISOString();
-    return { 
-      allowed: false, 
-      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`
+    return {
+      allowed: false,
+      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`,
     };
   }
 
   // Check if window has expired
-  const windowExpired = (now - existingEntry.windowStart) > limit.window;
-  
+  const windowExpired = now - existingEntry.windowStart > limit.window;
+
   if (windowExpired) {
     // Reset window
     await ctx.db.patch(existingEntry._id, {
@@ -140,9 +140,9 @@ async function checkAndRecordRateLimit(
     });
 
     const blockUntilTime = new Date(blockUntil).toISOString();
-    return { 
-      allowed: false, 
-      reason: `Rate limit exceeded. You are blocked until ${blockUntilTime}.`
+    return {
+      allowed: false,
+      reason: `Rate limit exceeded. You are blocked until ${blockUntilTime}.`,
     };
   }
 
@@ -160,15 +160,15 @@ async function checkRateLimit(
   ctx: QueryCtx,
   endpoint: string,
   identifier: string,
-  limit: { requests: number; window: number }
+  limit: { requests: number; window: number },
 ): Promise<{ allowed: boolean; reason?: string }> {
   const now = Date.now();
-  
+
   // Find existing rate limit entry
   const existingEntry = await ctx.db
     .query("rateLimits")
-    .withIndex("by_identifier_endpoint", (q) => 
-      q.eq("identifier", identifier).eq("endpoint", endpoint)
+    .withIndex("by_identifier_endpoint", (q) =>
+      q.eq("identifier", identifier).eq("endpoint", endpoint),
     )
     .first();
 
@@ -179,24 +179,24 @@ async function checkRateLimit(
   // Check if currently blocked
   if (existingEntry.isBlocked && existingEntry.blockUntil > now) {
     const blockUntil = new Date(existingEntry.blockUntil).toISOString();
-    return { 
-      allowed: false, 
-      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`
+    return {
+      allowed: false,
+      reason: `You are temporarily blocked until ${blockUntil}. Please try again later.`,
     };
   }
 
   // Check if window has expired
-  const windowExpired = (now - existingEntry.windowStart) > limit.window;
-  
+  const windowExpired = now - existingEntry.windowStart > limit.window;
+
   if (windowExpired) {
     return { allowed: true };
   }
 
   // Check if limit exceeded
   if (existingEntry.requestCount >= limit.requests) {
-    return { 
-      allowed: false, 
-      reason: `Rate limit exceeded. Please slow down.`
+    return {
+      allowed: false,
+      reason: `Rate limit exceeded. Please slow down.`,
     };
   }
 
@@ -204,10 +204,13 @@ async function checkRateLimit(
 }
 
 // Get client identifier for rate limiting (simplified)
-function getClientIdentifier(ctx: MutationCtx | QueryCtx, userId?: string): string {
+function getClientIdentifier(
+  ctx: MutationCtx | QueryCtx,
+  userId?: string,
+): string {
   // For now, use a simple identifier since request object access is limited
   // In production, this would be enhanced with proper IP detection
-  const baseId = userId || 'anonymous';
+  const baseId = userId || "anonymous";
   const timestamp = Math.floor(Date.now() / 60000); // 1-minute buckets for basic rate limiting
   return `${baseId}_${timestamp}`;
 }
@@ -218,21 +221,28 @@ const hashPassword = async (password: string): Promise<string> => {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
-  
+
   // Perform multiple rounds of hashing for security (similar to bcrypt)
-  let hash = await crypto.subtle.digest("SHA-256", new Uint8Array([...salt, ...data]));
-  
+  let hash = await crypto.subtle.digest(
+    "SHA-256",
+    new Uint8Array([...salt, ...data]),
+  );
+
   // Additional rounds for security (equivalent to bcrypt rounds)
   for (let i = 0; i < 12; i++) {
     hash = await crypto.subtle.digest("SHA-256", hash);
   }
-  
+
   // Convert to base64 and prepend salt
   const hashArray = Array.from(new Uint8Array(hash));
   const saltArray = Array.from(salt);
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  const saltHex = saltArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const saltHex = saltArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
   return `$webcrypto$${saltHex}$${hashHex}`;
 };
 
@@ -242,32 +252,37 @@ const verifyHash = async (password: string, hash: string): Promise<boolean> => {
     // New Web Crypto hash format
     const parts = hash.split("$");
     if (parts.length !== 4) return false;
-    
+
     const saltHex = parts[2];
     const hashHex = parts[3];
-    
+
     if (!saltHex || !hashHex) return false;
-    
+
     // Convert salt from hex
     const saltBytes = saltHex.match(/.{2}/g);
     if (!saltBytes || saltBytes.length === 0) return false;
-    const salt = new Uint8Array(saltBytes.map(byte => parseInt(byte, 16)));
-    
+    const salt = new Uint8Array(saltBytes.map((byte) => parseInt(byte, 16)));
+
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
-    
+
     // Perform the same hashing process
-    let computedHash = await crypto.subtle.digest("SHA-256", new Uint8Array([...salt, ...data]));
-    
+    let computedHash = await crypto.subtle.digest(
+      "SHA-256",
+      new Uint8Array([...salt, ...data]),
+    );
+
     // Additional rounds for security
     for (let i = 0; i < 12; i++) {
       computedHash = await crypto.subtle.digest("SHA-256", computedHash);
     }
-    
+
     // Convert to hex and compare
     const computedHashArray = Array.from(new Uint8Array(computedHash));
-    const computedHashHex = computedHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
+    const computedHashHex = computedHashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
     return computedHashHex === hashHex;
   }
 
@@ -367,7 +382,10 @@ export const migratePasswordsToHash = internalMutation({
           );
           newHashedPassword = await hashPassword(notebook.password);
           needsMigration = true;
-        } else if (notebook.password.startsWith("$sha256$") || notebook.password.startsWith("$2b$")) {
+        } else if (
+          notebook.password.startsWith("$sha256$") ||
+          notebook.password.startsWith("$2b$")
+        ) {
           // Legacy hash formats - we can't migrate without the original password
           // This will be handled during password verification when user logs in
           logger.debug(
@@ -735,11 +753,14 @@ export const validatePassword = mutation({
       ctx,
       "PASSWORD_VALIDATION",
       clientId,
-      { requests: 5, window: 300000, blockDuration: 900000 } // 5 attempts per 5 minutes, 15 min block
+      { requests: 5, window: 300000, blockDuration: 900000 }, // 5 attempts per 5 minutes, 15 min block
     );
 
     if (!rateLimitCheck.allowed) {
-      throw new ConvexError(rateLimitCheck.reason || "Too many password attempts. Please try again later.");
+      throw new ConvexError(
+        rateLimitCheck.reason ||
+          "Too many password attempts. Please try again later.",
+      );
     }
 
     const notebook = await ctx.db
@@ -765,9 +786,9 @@ export const validatePassword = mutation({
     // If password is valid, upgrade legacy hashes to Web Crypto format
     if (
       isValid &&
-      (notebook.password.startsWith("$sha256$") || 
-       notebook.password.startsWith("$2b$") ||
-       !isHashed(notebook.password))
+      (notebook.password.startsWith("$sha256$") ||
+        notebook.password.startsWith("$2b$") ||
+        !isHashed(notebook.password))
     ) {
       logger.debug("Password validated, upgrading to Web Crypto format");
       const hashedPassword = await hashPassword(args.password);
@@ -783,7 +804,7 @@ export const validatePassword = mutation({
         ctx,
         "FAILED_ATTEMPTS",
         clientId,
-        { requests: 3, window: 600000, blockDuration: 3600000 } // 3 failed attempts per 10 minutes, 1 hour block
+        { requests: 3, window: 600000, blockDuration: 3600000 }, // 3 failed attempts per 10 minutes, 1 hour block
       );
 
       // Log failed attempt for monitoring
@@ -808,7 +829,10 @@ export const validatePassword = mutation({
       });
 
       if (!failedAttemptCheck.allowed) {
-        throw new ConvexError(failedAttemptCheck.reason || "Too many failed attempts. Account temporarily locked.");
+        throw new ConvexError(
+          failedAttemptCheck.reason ||
+            "Too many failed attempts. Account temporarily locked.",
+        );
       }
 
       throw new ConvexError("Invalid password");
@@ -842,7 +866,7 @@ export const validatePassword = mutation({
         notebookUrl: args.url,
         sessionId: sessionId,
         deviceFingerprint: args.deviceFingerprint ?? "unknown",
-          ipAddress: args.ipAddress || "unknown",
+        ipAddress: args.ipAddress || "unknown",
       },
     });
 
@@ -913,11 +937,13 @@ export const getByUrlWithSession = query({
       ctx,
       "NOTEBOOK_ACCESS",
       clientId,
-      { requests: 50, window: 60000 } // 50 requests per minute
+      { requests: 50, window: 60000 }, // 50 requests per minute
     );
 
     if (!rateLimitCheck.allowed) {
-      throw new ConvexError(rateLimitCheck.reason || "Too many requests. Please slow down.");
+      throw new ConvexError(
+        rateLimitCheck.reason || "Too many requests. Please slow down.",
+      );
     }
 
     // Validate URL format
@@ -994,7 +1020,7 @@ export const getByUrlWithSession = query({
   },
 });
 
-// Server-side session token validation 
+// Server-side session token validation
 const validateNotebookSessionToken = async (
   ctx: QueryCtx,
   sessionToken: string,
@@ -1223,7 +1249,11 @@ export const updateSessionAccess = mutation({
       .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
       .first();
 
-    if (!session || !isSessionActive(session) || session.expiresAt < Date.now()) {
+    if (
+      !session ||
+      !isSessionActive(session) ||
+      session.expiresAt < Date.now()
+    ) {
       return false;
     }
 
@@ -1342,10 +1372,7 @@ export const getNotebookSessions = query({
       .query("notebookSessions")
       .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId))
       .filter((q) =>
-        q.and(
-          q.eq(q.field("isActive"), true),
-          q.gt(q.field("expiresAt"), now),
-        ),
+        q.and(q.eq(q.field("isActive"), true), q.gt(q.field("expiresAt"), now)),
       )
       .collect();
 

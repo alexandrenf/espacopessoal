@@ -150,7 +150,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
           Novo Notebook
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-y-auto sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Criar Novo Notebook</DialogTitle>
         </DialogHeader>
@@ -158,9 +158,11 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
           <div className="space-y-3">
             <Label htmlFor="url">URL do Notebook</Label>
             <div className="relative">
-              <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors">
-                <div className="flex items-center bg-gray-50 px-3 py-2 border-r border-gray-200 rounded-l-md">
-                  <span className="text-sm font-medium text-gray-600">/notas/</span>
+              <div className="flex items-center rounded-md border border-input bg-background transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500">
+                <div className="flex items-center rounded-l-md border-r border-gray-200 bg-gray-50 px-3 py-2">
+                  <span className="text-sm font-medium text-gray-600">
+                    /notas/
+                  </span>
                 </div>
                 <Input
                   id="url"
@@ -171,31 +173,31 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                   minLength={3}
                   maxLength={50}
                   className={cn(
-                    "border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-l-none flex-1",
+                    "flex-1 rounded-l-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
                     urlError && "text-red-600",
                   )}
                 />
               </div>
             </div>
-            <div className="min-h-[24px] mt-2">
+            <div className="mt-2 min-h-[24px]">
               {urlError ? (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   <span>{urlError}</span>
                 </div>
               ) : checkUrlAvailability.data?.available === false ? (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   <span>URL não disponível</span>
                 </div>
               ) : checkUrlAvailability.data?.available === true ? (
-                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-md border border-green-200">
-                  <div className="h-2 w-2 bg-green-500 rounded-full flex-shrink-0" />
+                <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  <div className="h-2 w-2 flex-shrink-0 rounded-full bg-green-500" />
                   <span>URL disponível</span>
                 </div>
               ) : formData.url.length >= 3 && checkUrlAvailability.isLoading ? (
-                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
-                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-600">
+                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
                   <span>Verificando disponibilidade...</span>
                 </div>
               ) : null}
@@ -252,7 +254,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                     </div>
                     <div>
                       <div className="font-medium">Público</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="mt-1 text-xs text-gray-500">
                         Qualquer pessoa com o link pode gerenciar
                       </div>
                     </div>
@@ -265,7 +267,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                     </div>
                     <div>
                       <div className="font-medium">Protegido por senha</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="mt-1 text-xs text-gray-500">
                         Qualquer pessoa com o link e senha pode gerenciar
                       </div>
                     </div>
@@ -278,7 +280,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                     </div>
                     <div>
                       <div className="font-medium">Privado</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="mt-1 text-xs text-gray-500">
                         Apenas você pode gerenciar
                       </div>
                     </div>
@@ -308,7 +310,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+          <div className="flex justify-end space-x-3 border-t border-gray-100 pt-6">
             <Button
               type="button"
               variant="outline"
@@ -326,7 +328,7 @@ const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
                 !formData.title.trim() ||
                 !formData.url.trim()
               }
-              className="h-11 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              className="h-11 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 hover:from-blue-700 hover:to-indigo-700"
             >
               {createNotebook.isPending ? (
                 <>

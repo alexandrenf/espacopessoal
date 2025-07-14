@@ -29,10 +29,12 @@ import {
   LogIn,
   User,
   FolderPlus,
+  Settings,
 } from "lucide-react";
 import { toast } from "~/hooks/use-toast";
 import { useConvexUser } from "~/hooks/use-convex-user";
 import { DocumentNotFound } from "~/components_new/DocumentNotFound";
+import NotebookSettingsDialog from "~/components_new/NotebookSettingsDialog";
 import Link from "next/link";
 import { FileExplorer } from "~/app/components/FileExplorer";
 
@@ -122,22 +124,22 @@ const generateDeviceFingerprint = (): string => {
 
   // Safely get user agent
   try {
-    fingerprintComponents.push(navigator.userAgent ?? 'unknown');
+    fingerprintComponents.push(navigator.userAgent ?? "unknown");
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get user agent:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get user agent:", error);
     }
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   // Safely get language
   try {
-    fingerprintComponents.push(navigator.language ?? 'unknown');
+    fingerprintComponents.push(navigator.language ?? "unknown");
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get language:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get language:", error);
     }
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   // Safely get screen dimensions
@@ -146,10 +148,10 @@ const generateDeviceFingerprint = (): string => {
     const height = screen.height ?? 0;
     fingerprintComponents.push(`${width}x${height}`);
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get screen dimensions:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get screen dimensions:", error);
     }
-    fingerprintComponents.push('0x0');
+    fingerprintComponents.push("0x0");
   }
 
   // Safely get timezone offset
@@ -157,10 +159,10 @@ const generateDeviceFingerprint = (): string => {
     const timezoneOffset = new Date().getTimezoneOffset();
     fingerprintComponents.push(timezoneOffset.toString());
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to get timezone offset:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Failed to get timezone offset:", error);
     }
-    fingerprintComponents.push('0');
+    fingerprintComponents.push("0");
   }
 
   // Safely generate canvas fingerprint with comprehensive error handling
@@ -186,22 +188,22 @@ const generateDeviceFingerprint = (): string => {
         const canvasData = canvas.toDataURL();
         fingerprintComponents.push(canvasData);
       } catch (canvasError) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Canvas operations failed:', canvasError);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Canvas operations failed:", canvasError);
         }
-        fingerprintComponents.push('canvas_blocked');
+        fingerprintComponents.push("canvas_blocked");
       }
     } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Canvas context not available');
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Canvas context not available");
       }
-      fingerprintComponents.push('no_canvas_context');
+      fingerprintComponents.push("no_canvas_context");
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Canvas creation failed:', error);
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Canvas creation failed:", error);
     }
-    fingerprintComponents.push('canvas_unavailable');
+    fingerprintComponents.push("canvas_unavailable");
   }
 
   // Additional fingerprinting components with error handling
@@ -214,22 +216,26 @@ const generateDeviceFingerprint = (): string => {
     };
 
     if (navigatorWithUserAgentData.userAgentData?.platform) {
-      fingerprintComponents.push(navigatorWithUserAgentData.userAgentData.platform);
+      fingerprintComponents.push(
+        navigatorWithUserAgentData.userAgentData.platform,
+      );
     } else {
       // Fallback to deprecated platform property with proper typing
       const navigatorWithPlatform = navigator as Navigator & {
         platform?: string;
       };
-      fingerprintComponents.push(navigatorWithPlatform.platform ?? 'unknown');
+      fingerprintComponents.push(navigatorWithPlatform.platform ?? "unknown");
     }
   } catch {
-    fingerprintComponents.push('unknown');
+    fingerprintComponents.push("unknown");
   }
 
   try {
-    fingerprintComponents.push(navigator.cookieEnabled ? 'cookies_enabled' : 'cookies_disabled');
+    fingerprintComponents.push(
+      navigator.cookieEnabled ? "cookies_enabled" : "cookies_disabled",
+    );
   } catch {
-    fingerprintComponents.push('cookies_unknown');
+    fingerprintComponents.push("cookies_unknown");
   }
 
   const fingerprint = fingerprintComponents.join("|");
@@ -336,6 +342,7 @@ function NotebookPageContent() {
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   const normalizedUrl = typeof url === "string" ? url : "";
   const isAuthenticated = status === "authenticated" && session;
@@ -424,13 +431,10 @@ function NotebookPageContent() {
   const isOwner = notebookMetadata?.ownerId === convexUserId;
   const isPublicNotebook = !notebookMetadata?.isPrivate;
   const hasPassword = notebookMetadata?.hasPassword;
-  
+
   // Auto-show password prompt if needed
-  const needsPassword =
-    hasPassword &&
-    !isOwner &&
-    !hasValidSession;
-  
+  const needsPassword = hasPassword && !isOwner && !hasValidSession;
+
   // Enhanced safety checks to prevent premature query execution
   const notebookQueryEnabled =
     normalizedUrl.length > 0 &&
@@ -483,7 +487,10 @@ function NotebookPageContent() {
     ? {
         url: normalizedUrl,
         userId: convexUserId ?? undefined,
-        sessionToken: (hasPassword && !isOwner && !isPublicNotebook) ? (sessionToken ?? undefined) : undefined,
+        sessionToken:
+          hasPassword && !isOwner && !isPublicNotebook
+            ? (sessionToken ?? undefined)
+            : undefined,
       }
     : "skip";
 
@@ -1070,6 +1077,17 @@ function NotebookPageContent() {
                 )}
                 {isAuthenticated && (
                   <div className="flex gap-2">
+                    {/* Settings button - only show for notebook owners */}
+                    {isOwner && (
+                      <Button
+                        onClick={() => setShowSettingsDialog(true)}
+                        variant="outline"
+                        className="border-blue-200/50 bg-white/80 text-blue-700 backdrop-blur-sm hover:bg-blue-50"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configurações
+                      </Button>
+                    )}
                     <Button
                       onClick={handleCreateFolder}
                       variant="outline"
@@ -1166,6 +1184,24 @@ function NotebookPageContent() {
           </motion.div>
         </div>
       </div>
+
+      {/* Notebook Settings Dialog */}
+      {notebookData && (
+        <NotebookSettingsDialog
+          notebook={{
+            _id: notebookData._id as Id<"notebooks">,
+            title: notebookData.title,
+            description: notebookData.description,
+            isPrivate: notebookData.isPrivate,
+            password:
+              "password" in notebookData ? notebookData.password : undefined,
+            url: notebookData.url,
+          }}
+          open={showSettingsDialog}
+          onOpenChange={setShowSettingsDialog}
+          userId={convexUserId ?? undefined}
+        />
+      )}
     </div>
   );
 }

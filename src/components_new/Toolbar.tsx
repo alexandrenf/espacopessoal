@@ -608,16 +608,19 @@ function ToolbarButton({
   onClick,
   isActive,
   icon: Icon,
+  disabled,
 }: {
   onClick?: () => void;
   isActive?: boolean;
   icon: LucideIcon;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex h-7 min-w-7 items-center justify-center rounded-sm text-sm hover:bg-neutral-200/80",
+        "flex h-7 min-w-7 items-center justify-center rounded-sm text-sm hover:bg-neutral-200/80 disabled:cursor-not-allowed disabled:opacity-50",
         isActive && "bg-neutral-200/80",
       )}
     >
@@ -627,32 +630,27 @@ function ToolbarButton({
 }
 
 export function Toolbar() {
-  const { editor, undoManager } = useEditorStore();
+  const { editor } = useEditorStore();
 
   const sections: {
     label: string;
     icon: LucideIcon;
     onClick: () => void;
     isActive?: boolean;
+    disabled?: boolean;
   }[][] = [
     [
       {
         label: "Undo",
         icon: Undo2,
-        onClick: () => {
-          if (undoManager?.canUndo()) {
-            undoManager.undo();
-          }
-        },
+        onClick: () => editor?.chain().focus().undo().run(),
+        disabled: !editor?.can().undo(),
       },
       {
         label: "Redo",
         icon: Redo2,
-        onClick: () => {
-          if (undoManager?.canRedo()) {
-            undoManager.redo();
-          }
-        },
+        onClick: () => editor?.chain().focus().redo().run(),
+        disabled: !editor?.can().redo(),
       },
     ],
     [

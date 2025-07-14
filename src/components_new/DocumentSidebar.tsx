@@ -108,17 +108,21 @@ const DocumentSidebar = memo(
     // Use direct Convex query with session token support for private notebooks
     const documentsQuery = useQuery(
       api.documents.getAllForTreeLegacy,
-      notebookId && 
-      // For private notebooks, ensure we have session token when needed
-      (isPublicNotebook || convexUserId || (hasValidPassword && sessionToken))
+      notebookId &&
+        // For private notebooks, ensure we have session token when needed
+        (isPublicNotebook || convexUserId || (hasValidPassword && sessionToken))
         ? {
             notebookId,
             userId: convexUserId ?? undefined,
             limit: 200,
             // Pass session token for private notebooks when user is not owner
-            sessionToken: (!isPublicNotebook && !convexUserId && hasValidPassword && sessionToken) 
-              ? sessionToken 
-              : undefined,
+            sessionToken:
+              !isPublicNotebook &&
+              !convexUserId &&
+              hasValidPassword &&
+              sessionToken
+                ? sessionToken
+                : undefined,
           }
         : "skip",
     );

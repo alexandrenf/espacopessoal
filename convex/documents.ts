@@ -38,7 +38,9 @@ const logger = {
 };
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: { isActive?: boolean; isRevoked?: boolean } | null | undefined): boolean {
+function isSessionActive(
+  session: { isActive?: boolean; isRevoked?: boolean } | null | undefined,
+): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
   return session.isActive ?? !session.isRevoked;
@@ -446,7 +448,7 @@ export const getDocumentsPaginated = query({
   },
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit ?? 20, 20); // Cap at 20 for bandwidth optimization
-    
+
     // Authentication and access control
     if (!args.userId && !args.notebookId) {
       throw new ConvexError("User ID or notebook ID is required");
@@ -462,10 +464,16 @@ export const getDocumentsPaginated = query({
       // For private notebooks, validate session token
       if (notebook.isPrivate && !args.userId) {
         if (!args.sessionToken) {
-          throw new ConvexError("Session token required for private notebook access");
+          throw new ConvexError(
+            "Session token required for private notebook access",
+          );
         }
-        
-        const sessionValidation = await validateNotebookSessionToken(ctx, args.sessionToken, args.notebookId);
+
+        const sessionValidation = await validateNotebookSessionToken(
+          ctx,
+          args.sessionToken,
+          args.notebookId,
+        );
         if (!sessionValidation.valid) {
           throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
         }
@@ -474,30 +482,35 @@ export const getDocumentsPaginated = query({
       // Use optimized index for notebook documents
       let query = ctx.db
         .query("documents")
-        .withIndex("by_notebook_id", (q) => q.eq("notebookId", args.notebookId));
+        .withIndex("by_notebook_id", (q) =>
+          q.eq("notebookId", args.notebookId),
+        );
 
       if (args.metadataOnly) {
         // Return only essential fields for list views - 70% bandwidth reduction
-        const results = await query.paginate({ 
-          cursor: args.cursor || null, 
-          numItems: limit 
+        const results = await query.paginate({
+          cursor: args.cursor || null,
+          numItems: limit,
         });
-        
+
         return {
           ...results,
-          page: results.page.map(doc => ({
+          page: results.page.map((doc) => ({
             _id: doc._id,
             title: doc.title,
             isFolder: doc.isFolder,
             updatedAt: doc.updatedAt,
             parentId: doc.parentId || null,
             order: doc.order,
-            notebookId: doc.notebookId || null
-          }))
+            notebookId: doc.notebookId || null,
+          })),
         };
       }
-      
-      return await query.paginate({ cursor: args.cursor || null, numItems: limit });
+
+      return await query.paginate({
+        cursor: args.cursor || null,
+        numItems: limit,
+      });
     }
 
     // For user-owned documents (when userId is provided)
@@ -508,29 +521,34 @@ export const getDocumentsPaginated = query({
 
       if (args.metadataOnly) {
         // Return only essential fields for list views
-        const results = await query.paginate({ 
-          cursor: args.cursor || null, 
-          numItems: limit 
+        const results = await query.paginate({
+          cursor: args.cursor || null,
+          numItems: limit,
         });
-        
+
         return {
           ...results,
-          page: results.page.map(doc => ({
+          page: results.page.map((doc) => ({
             _id: doc._id,
             title: doc.title,
             isFolder: doc.isFolder,
             updatedAt: doc.updatedAt,
             parentId: doc.parentId || null,
             order: doc.order,
-            notebookId: doc.notebookId || null
-          }))
+            notebookId: doc.notebookId || null,
+          })),
         };
       }
-      
-      return await query.paginate({ cursor: args.cursor || null, numItems: limit });
+
+      return await query.paginate({
+        cursor: args.cursor || null,
+        numItems: limit,
+      });
     }
 
-    throw new ConvexError("Invalid query: either userId or notebookId must be provided");
+    throw new ConvexError(
+      "Invalid query: either userId or notebookId must be provided",
+    );
   },
 });
 
@@ -543,7 +561,10 @@ export const getAllForTreeLegacy = query({
     hasValidPassword: v.optional(v.boolean()), // Whether user has provided valid password for private notebook
     sessionToken: v.optional(v.string()), // Session token for private notebook access
   },
-  handler: async (ctx, { limit, notebookId, userId, hasValidPassword, sessionToken }) => {
+  handler: async (
+    ctx,
+    { limit, notebookId, userId, hasValidPassword, sessionToken },
+  ) => {
     const documentLimit = Math.min(limit ?? 20, 20); // OPTIMIZED: Reduced from 100 to 20 for Phase 1
 
     // If no userId provided, only return documents in public notebooks or password-protected notebooks
@@ -561,11 +582,17 @@ export const getAllForTreeLegacy = query({
       // Allow access if notebook is public OR if it's private but user has valid session token
       if (notebook.isPrivate) {
         if (!sessionToken) {
-          throw new ConvexError("Session token required for private notebook access");
+          throw new ConvexError(
+            "Session token required for private notebook access",
+          );
         }
-        
+
         // Validate session token for this notebook - use the same function from notebooks.ts
-        const sessionValidation = await validateNotebookSessionToken(ctx, sessionToken, notebookId);
+        const sessionValidation = await validateNotebookSessionToken(
+          ctx,
+          sessionToken,
+          notebookId,
+        );
         if (!sessionValidation.valid) {
           throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
         }
