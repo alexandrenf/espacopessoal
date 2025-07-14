@@ -29,6 +29,19 @@ export default function DocumentPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileView = window.innerWidth < 768;
+      setIsMobile(isMobileView);
+      setShowSidebar(!isMobileView);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Get authenticated user
   const { convexUserId, isLoading: isUserLoading } = useConvexUser();
@@ -263,7 +276,7 @@ export default function DocumentPage() {
             currentDocument={initialDocument ?? undefined}
             setCurrentDocumentId={handleSetCurrentDocument}
             onToggleSidebar={handleToggleSidebar}
-            isMobile={false} // Assuming desktop view for this page
+            isMobile={isMobile}
             isPublicNotebook={false}
           />
         )}
@@ -272,6 +285,7 @@ export default function DocumentPage() {
             document={initialDocument}
             notebookId={initialDocument.notebookId}
             showSidebar={showSidebar}
+            onToggleSidebar={handleToggleSidebar}
           />
         )}
       </div>

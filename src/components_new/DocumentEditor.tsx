@@ -127,6 +127,7 @@ interface EditorProps {
   notebookId?: Id<"notebooks">;
   sessionToken?: string; // For private notebook authentication
   showSidebar?: boolean; // To control minimum margin when sidebar is retracted
+  onToggleSidebar?: () => void;
 }
 
 export function DocumentEditor({
@@ -136,6 +137,7 @@ export function DocumentEditor({
   notebookId,
   sessionToken,
   showSidebar = true,
+  onToggleSidebar,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -1528,6 +1530,16 @@ export function DocumentEditor({
               <Menubar className="h-auto border-none bg-transparent p-0 shadow-none">
                 {!isReadOnly && (
                   <>
+                    {isMobile && (
+                      <MenubarMenu>
+                        <MenubarTrigger
+                          onClick={onToggleSidebar}
+                          className="h-auto rounded-sm px-[7px] py-0.5 text-sm font-normal hover:bg-muted"
+                        >
+                          <PanelLeft className="h-4 w-4" />
+                        </MenubarTrigger>
+                      </MenubarMenu>
+                    )}
                     <MenubarMenu>
                       <MenubarTrigger className="h-auto rounded-sm px-[7px] py-0.5 text-sm font-normal hover:bg-muted">
                         Arquivo
