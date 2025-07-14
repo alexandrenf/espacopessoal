@@ -34,8 +34,9 @@ export async function exportToPdf(
     throw new Error("Editor content not found");
   }
 
+  let loadingToastId: string | number | undefined;
   if (showToast) {
-    toast.loading("Generating PDF...");
+    loadingToastId = toast.loading("Generating PDF...");
   }
 
   const elementsToHide = document.querySelectorAll<HTMLElement>(".no-export");
@@ -185,11 +186,17 @@ export async function exportToPdf(
     pdf.save(fileName);
 
     if (showToast) {
+      if (loadingToastId) {
+        toast.dismiss(loadingToastId);
+      }
       toast.success("PDF exported successfully!");
     }
   } catch (error) {
     console.error("Error exporting to PDF:", error);
     if (showToast) {
+      if (loadingToastId) {
+        toast.dismiss(loadingToastId);
+      }
       toast.error("Failed to export PDF. Please try again.");
     }
     throw error;
