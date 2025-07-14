@@ -15,7 +15,7 @@ import DocumentSidebar from "~/components_new/DocumentSidebar";
 import React, { useState, useEffect } from "react";
 import { getStoredSession } from "~/lib/secure-session";
 import { Button } from "~/components/ui/button";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, Menu } from "lucide-react";
 
 function DocumentPageContent() {
   const params = useParams<{ url: string; documentId: string }>();
@@ -27,12 +27,34 @@ function DocumentPageContent() {
     typeof params.documentId === "string" ? params.documentId : "";
   const isAuthenticated = status === "authenticated" && session;
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Session management for private notebooks (similar to notebook page)
   const [hasValidSession, setHasValidSession] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isSessionValidationComplete, setIsSessionValidationComplete] =
     useState(false);
+
+  // Mobile breakpoint detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768; // md breakpoint
+      setIsMobile(mobile);
+      // Hide mobile sidebar when switching to desktop
+      if (!mobile) {
+        setShowMobileSidebar(false);
+      }
+    };
+
+    // Check on mount
+    checkMobile();
+    
+    // Check on resize
+    window.addEventListener("resize", checkMobile);
+    
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Validate stored session token for private notebooks
   useEffect(() => {
@@ -313,16 +335,25 @@ function DocumentPageContent() {
 
   // Handler for sidebar toggle
   const handleToggleSidebar = () => {
-    setShowSidebar(!showSidebar);
+    if (isMobile) {
+      setShowMobileSidebar(!showMobileSidebar);
+    } else {
+      setShowSidebar(!showSidebar);
+    }
+  };
+
+  // Handler for mobile sidebar close
+  const handleCloseMobileSidebar = () => {
+    setShowMobileSidebar(false);
   };
 
   // Render the document editor with sidebar for public notebooks
   return (
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-grow">
-        {/* Show sidebar for public notebooks or when user is owner */}
+        {/* Desktop sidebar */}
         {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
-        {(isPublicNotebook || isOwner || hasValidPassword) && showSidebar && (
+        {(isPublicNotebook || isOwner || hasValidPassword) && showSidebar && !isMobile && (
           <div className="hidden md:block md:w-80 lg:w-96">
             <DocumentSidebar
               currentDocument={document}
@@ -339,11 +370,44 @@ function DocumentPageContent() {
           </div>
         )}
 
+        {/* Mobile sidebar */}
+        {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+        {(isPublicNotebook || isOwner || hasValidPassword) && showMobileSidebar && isMobile && (
+          <DocumentSidebar
+            currentDocument={document}
+            setCurrentDocumentId={handleDocumentSelect}
+            onToggleSidebar={handleCloseMobileSidebar}
+            showSidebar={showMobileSidebar}
+            isMobile={true}
+            notebookId={notebook._id as Id<"notebooks">}
+            notebookTitle={notebook.title}
+            isPublicNotebook={isPublicNotebook}
+            hasValidPassword={hasValidPassword}
+            sessionToken={sessionToken}
+          />
+        )}
+
         <div className="relative flex-grow">
-          {/* Sidebar toggle button when sidebar is hidden */}
+          {/* Mobile hamburger menu button */}
+          {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+          {(isPublicNotebook || isOwner || hasValidPassword) && isMobile && (
+            <div className="no-export absolute left-4 top-4 z-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleSidebar}
+                className="bg-white shadow-md hover:bg-gray-50"
+                title="Open sidebar"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Desktop sidebar toggle button when sidebar is hidden */}
           {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
           {(isPublicNotebook || isOwner || hasValidPassword) &&
-            !showSidebar && (
+            !showSidebar && !isMobile && (
               <div className="no-export absolute left-4 top-4 z-10">
                 <Button
                   variant="ghost"

@@ -954,12 +954,12 @@ const DocumentSidebar = memo(
                 {isPublicNotebook ? (
                   <>
                     <Eye className="h-3 w-3" />
-                    <span>Public Notebook (Manageable)</span>
+                    <span>Notas Públicas</span>
                   </>
                 ) : (
                   <>
                     <Lock className="h-3 w-3" />
-                    <span>Private Notebook</span>
+                    <span>Notas Privada</span>
                   </>
                 )}
               </div>
