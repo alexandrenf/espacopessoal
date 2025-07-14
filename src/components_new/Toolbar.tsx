@@ -29,7 +29,6 @@ import {
   Bold,
   ChevronDown,
   Code,
-  FileDown,
   Highlighter,
   ImageIcon,
   Italic,
@@ -52,34 +51,6 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
-import { exportToPdf, getDocumentTitle } from "~/lib/pdf-export";
-
-function ExportButton() {
-  const handleExport = async () => {
-    try {
-      const documentTitle = getDocumentTitle();
-      await exportToPdf({ documentTitle });
-    } catch (error) {
-      // Error handling is done in the exportToPdf function
-      console.error("PDF export failed:", error);
-    }
-  };
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm px-1.5 hover:bg-neutral-200/80">
-          <FileDown className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={handleExport}>
-          Exportar como PDF
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 function LineHeightButton() {
   const { editor } = useEditorStore();
@@ -745,8 +716,6 @@ export function Toolbar() {
       {sections[0]?.map((button, index) => (
         <ToolbarButton key={index} {...button} />
       ))}
-      <Separator orientation="vertical" className="h-6 bg-neutral-300" />
-      <ExportButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
       <FontFamilyButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300" />
