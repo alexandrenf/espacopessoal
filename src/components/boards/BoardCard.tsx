@@ -140,13 +140,7 @@ export function BoardCard({ board }: BoardCardProps) {
                       task.status === "DONE" && "bg-green-100 text-green-800",
                     )}
                   >
-                    {task.status === "TODO"
-                      ? "A FAZER"
-                      : task.status === "IN_PROGRESS"
-                        ? "EM ANDAMENTO"
-                        : task.status === "DONE"
-                          ? "CONCLUÍDA"
-                          : task.status}
+                    {statusLabels[task.status] || task.status}
                   </div>
                 </div>
                 {task.dueDate && (
