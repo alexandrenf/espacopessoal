@@ -1,10 +1,10 @@
 ⏺ Update Todos
 
-  ⎿  ☒ Implement graceful 'Notebook Not Found' error handling   
-     ☒ Fix private notebook error handling (unauthorized access)
+  ⎿  ☒ Implement graceful 'Notebook Not Found' error handling - truly fixed
+     ☒ Fix private notebook error handling (unauthorized access) -- access denied icon is weird
      ☒ Fix inaccurate document count on /notas page - truly fixed
-     ☒ Fix mobile sidebar UI/UX overlap with document title
-     ☒ Implement case-insensitive notebook URLs
+     ☒ Fix mobile sidebar UI/UX overlap with document title -- not fixed yet
+     ☒ Implement case-insensitive notebook URLs -- truly fixed
      ☐ Fix PDF export functionality
      ☐ Investigate and fix Deno deployment failures
      ☐ Allow spaces in document titles when editing
