@@ -139,6 +139,7 @@ export function DocumentEditor({
   sessionToken,
   showSidebar = true,
   onToggleSidebar,
+  isMobile,
 }: EditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
