@@ -235,10 +235,12 @@ export function DocumentEditor({
               documentInstances.current.delete(oldestDocId);
               documentCacheStats.current.evictions++;
             } catch (error) {
-              console.error(
-                `Error cleaning up document ${oldestDocId}:`,
-                error,
-              );
+              if (process.env.NODE_ENV === "development") {
+                console.error(
+                  `Error cleaning up document ${oldestDocId}:`,
+                  error,
+                );
+              }
               // Force removal even if destroy fails
               documentInstances.current.delete(oldestDocId);
             }
@@ -257,7 +259,9 @@ export function DocumentEditor({
             documentInstances.current.delete(docId);
           }
         } catch (error) {
-          console.error(`Error checking document ${docId}:`, error);
+          if (process.env.NODE_ENV === "development") {
+            console.error(`Error checking document ${docId}:`, error);
+          }
           documentInstances.current.delete(docId);
         }
       }
@@ -354,7 +358,9 @@ export function DocumentEditor({
           providerRef.current.disconnect();
           providerRef.current.destroy();
         } catch (error) {
-          console.error("Error destroying provider:", error);
+          if (process.env.NODE_ENV === "development") {
+            console.error("Error destroying provider:", error);
+          }
         }
         providerRef.current = null;
       }
@@ -365,7 +371,9 @@ export function DocumentEditor({
           console.log("🧹 Destroying Y.js document for:", docId);
           ydoc.destroy();
         } catch (error) {
-          console.error(`Error destroying Y.js document ${docId}:`, error);
+          if (process.env.NODE_ENV === "development") {
+            console.error(`Error destroying Y.js document ${docId}:`, error);
+          }
         }
       }
       documentInstances.current.clear();
@@ -796,7 +804,9 @@ export function DocumentEditor({
 
         console.log("🔄 Document switch initiated successfully");
       } catch (error) {
-        console.error("🔄 Critical error during document switch:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("🔄 Critical error during document switch:", error);
+        }
         // Reset states on error
         isSwitchingRef.current = false;
         setIsLoadingDocument(false);
@@ -828,7 +838,9 @@ export function DocumentEditor({
         existingProvider.disconnect();
         existingProvider.destroy();
       } catch (error) {
-        console.error("Error during forced cleanup:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error during forced cleanup:", error);
+        }
       }
       providerRef.current = null;
     }
@@ -841,7 +853,9 @@ export function DocumentEditor({
     // WebSocket configuration
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
     if (!wsUrl) {
-      console.error("WebSocket URL not configured");
+      if (process.env.NODE_ENV === "development") {
+        console.error("WebSocket URL not configured");
+      }
       toast.error("WebSocket configuration missing");
       setIsYdocReady(true);
       return;
@@ -956,7 +970,9 @@ export function DocumentEditor({
           newProvider.disconnect();
           newProvider.destroy();
         } catch (error) {
-          console.error("Error during cleanup:", error);
+          if (process.env.NODE_ENV === "development") {
+            console.error("Error during cleanup:", error);
+          }
         }
         providerRef.current = null;
       }
@@ -1196,7 +1212,9 @@ export function DocumentEditor({
       toast.success("Document title updated!");
       setIsEditingTitle(false);
     } catch (error) {
-      console.error("Failed to update document title:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to update document title:", error);
+      }
       if (error instanceof Error) {
         toast.error(`Failed to update title: ${error.message}`);
       } else {
@@ -1222,15 +1240,14 @@ export function DocumentEditor({
     );
   };
 
-  const handleSetCurrentDocument = (documentId: Id<"documents">) => {
-    void handleDocumentSwitch(documentId);
-  };
 
   const handleLogout = async () => {
     try {
       await signOut({ callbackUrl: "/" });
     } catch (error) {
-      console.error("Logout error:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Logout error:", error);
+      }
       toast.error("Failed to logout");
     }
   };

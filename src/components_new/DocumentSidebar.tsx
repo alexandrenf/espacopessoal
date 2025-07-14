@@ -85,7 +85,9 @@ const DocumentSidebar = memo(
   }: DocumentSidebarProps) => {
     // Get authenticated user
     const { convexUserId, isLoading: isUserLoading } = useConvexUser();
-    console.log(convexUserId);
+    if (process.env.NODE_ENV === "development") {
+      console.log(convexUserId);
+    }
 
     // Track if we've shown the authentication error to prevent spamming
     const hasShownAuthErrorRef = useRef(false);
@@ -191,7 +193,7 @@ const DocumentSidebar = memo(
     }, [currentDocument?.parentId, documents]);
 
     const handleExpand = useCallback(
-      (e: React.MouseEvent, node: EventDataNode<unknown>) => {
+      (_e: React.MouseEvent, node: EventDataNode<unknown>) => {
         const key = node.key as string;
         setExpandedKeys((prevKeys) => {
           const index = prevKeys.indexOf(key);
@@ -801,15 +803,19 @@ const DocumentSidebar = memo(
     };
 
     const handleDrop = (info: TreeDropInfo) => {
-      console.log("🖱️ Drop triggered:", info);
-      toast.info("Drop event triggered!"); // Visual feedback
+      if (process.env.NODE_ENV === "development") {
+        console.log("🖱️ Drop triggered:", info);
+        toast.info("Drop event triggered!"); // Visual feedback
+      }
 
       // Use the actual structure (node for onDrop, but access varies)
       const dropNode = info.node ?? info.dropNode;
 
       // Validate that required properties exist
       if (!dropNode?.key || !info.dragNode?.key || !dropNode?.pos) {
-        console.warn("Invalid drop info:", info);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Invalid drop info:", info);
+        }
         toast.error("Invalid drop info");
         return;
       }
@@ -837,7 +843,9 @@ const DocumentSidebar = memo(
 
       // Prevent dropping onto itself
       if (dragDocument._id === dropDocument._id) {
-        console.log("📁 Preventing drop onto self");
+        if (process.env.NODE_ENV === "development") {
+          console.log("📁 Preventing drop onto self");
+        }
         return;
       }
 
@@ -847,12 +855,14 @@ const DocumentSidebar = memo(
         return;
       }
 
-      console.log("📁 Drag and drop operation:", {
-        dragDocument: dragDocument.title,
-        dropDocument: dropDocument.title,
-        dropPosition,
-        isFolder: dropDocument.isFolder,
-      });
+      if (process.env.NODE_ENV === "development") {
+        console.log("📁 Drag and drop operation:", {
+          dragDocument: dragDocument.title,
+          dropDocument: dropDocument.title,
+          dropPosition,
+          isFolder: dropDocument.isFolder,
+        });
+      }
 
       const initialDocuments = documents.map((doc: DocumentWithTreeProps) => ({
         ...doc,
@@ -864,7 +874,9 @@ const DocumentSidebar = memo(
       // Only drop into folder if dropPosition is exactly 0 (dropping directly onto folder)
       // and not if it's -1 or 1 (dropping above or below the folder)
       if (dropPosition === 0 && dropDocument.isFolder && !info.dropToGap) {
-        console.log("🖱️ Dropping into folder:", dropDocument.title);
+        if (process.env.NODE_ENV === "development") {
+          console.log("🖱️ Dropping into folder:", dropDocument.title);
+        }
         newParentId = dropDocument._id;
         updatedDocuments = handleDropIntoFolder(
           initialDocuments,
@@ -872,7 +884,9 @@ const DocumentSidebar = memo(
           newParentId,
         );
       } else {
-        console.log("🖱️ Dropping between documents, position:", dropPosition);
+        if (process.env.NODE_ENV === "development") {
+          console.log("🖱️ Dropping between documents, position:", dropPosition);
+        }
         const result = handleDropBetweenDocuments(
           initialDocuments,
           dragDocument,
@@ -1039,18 +1053,24 @@ const DocumentSidebar = memo(
               }}
               onDrop={handleDrop}
               allowDrop={(info) => {
-                console.log("🖱️ AllowDrop check:", info);
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ AllowDrop check:", info);
+                }
 
                 // Check if required properties exist
                 if (!info.dragNode?.key) {
-                  console.log("🖱️ AllowDrop: No dragNode key");
+                  if (process.env.NODE_ENV === "development") {
+                    console.log("🖱️ AllowDrop: No dragNode key");
+                  }
                   return false;
                 }
 
                 // Access dropNode key (the structure uses dropNode in allowDrop)
                 const nodeKey = info.dropNode?.key;
                 if (!nodeKey) {
-                  console.log("🖱️ AllowDrop: No dropNode key");
+                  if (process.env.NODE_ENV === "development") {
+                    console.log("🖱️ AllowDrop: No dropNode key");
+                  }
                   return false;
                 }
 
@@ -1063,16 +1083,20 @@ const DocumentSidebar = memo(
                 );
 
                 if (!dragDocument || !dropDocument) {
-                  console.log("🖱️ AllowDrop: Document not found", {
-                    dragDocument,
-                    dropDocument,
-                  });
+                  if (process.env.NODE_ENV === "development") {
+                    console.log("🖱️ AllowDrop: Document not found", {
+                      dragDocument,
+                      dropDocument,
+                    });
+                  }
                   return false;
                 }
 
                 // Prevent dropping onto itself
                 if (dragDocument._id === dropDocument._id) {
-                  console.log("🖱️ AllowDrop: Dropping onto itself");
+                  if (process.env.NODE_ENV === "development") {
+                    console.log("🖱️ AllowDrop: Dropping onto itself");
+                  }
                   return false;
                 }
 
@@ -1081,31 +1105,43 @@ const DocumentSidebar = memo(
                   dragDocument.isFolder &&
                   dropDocument.parentId === dragDocument._id
                 ) {
-                  console.log(
-                    "🖱️ AllowDrop: Dropping folder into its own descendant",
-                  );
+                  if (process.env.NODE_ENV === "development") {
+                    console.log(
+                      "🖱️ AllowDrop: Dropping folder into its own descendant",
+                    );
+                  }
                   return false;
                 }
 
-                console.log("🖱️ AllowDrop: Allowed!");
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ AllowDrop: Allowed!");
+                }
                 return true;
               }}
               onDragStart={(info) => {
-                if (info.node?.key) {
+                if (info.node?.key && process.env.NODE_ENV === "development") {
                   console.log("🖱️ Drag started:", info.node.key);
                 }
               }}
               onDragEnd={() => {
-                console.log("🖱️ Drag ended");
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ Drag ended");
+                }
               }}
               onDragEnter={(info) => {
-                console.log("🖱️ Drag enter:", info.node?.key);
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ Drag enter:", info.node?.key);
+                }
               }}
               onDragLeave={(info) => {
-                console.log("🖱️ Drag leave:", info.node?.key);
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ Drag leave:", info.node?.key);
+                }
               }}
               onDragOver={(info) => {
-                console.log("🖱️ Drag over:", info.node?.key);
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ Drag over:", info.node?.key);
+                }
               }}
               onSelect={([selectedKey]) => {
                 if (selectedKey) {
@@ -1118,12 +1154,14 @@ const DocumentSidebar = memo(
                       selectedDoc._id !== lastSelectedIdRef.current &&
                       selectedDoc._id !== currentDocument?._id
                     ) {
-                      console.log(
-                        "📁 Sidebar selecting document:",
-                        selectedDoc._id,
-                        "title:",
-                        selectedDoc.title,
-                      );
+                      if (process.env.NODE_ENV === "development") {
+                        console.log(
+                          "📁 Sidebar selecting document:",
+                          selectedDoc._id,
+                          "title:",
+                          selectedDoc.title,
+                        );
+                      }
                       lastSelectedIdRef.current = selectedDoc._id;
                       setCurrentDocumentId(selectedDoc._id);
                       // Add smooth transition for mobile
@@ -1133,10 +1171,12 @@ const DocumentSidebar = memo(
                         }, 150); // Small delay for visual feedback
                       }
                     } else {
-                      console.log(
-                        "📁 Ignoring duplicate selection for document:",
-                        selectedDoc._id,
-                      );
+                      if (process.env.NODE_ENV === "development") {
+                        console.log(
+                          "📁 Ignoring duplicate selection for document:",
+                          selectedDoc._id,
+                        );
+                      }
                     }
                   }
                 }
@@ -1158,7 +1198,9 @@ const DocumentSidebar = memo(
               autoExpandParent={true}
               // Enhanced drag and drop props
               dropIndicatorRender={(props) => {
-                console.log("🖱️ Drop indicator render:", props);
+                if (process.env.NODE_ENV === "development") {
+                  console.log("🖱️ Drop indicator render:", props);
+                }
                 const { dropPosition, dropLevelOffset, indent } = props;
                 const style: React.CSSProperties = {
                   position: "absolute",
