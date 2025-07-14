@@ -286,6 +286,7 @@ export default function DocumentPage() {
             notebookId={initialDocument.notebookId}
             showSidebar={showSidebar}
             onToggleSidebar={handleToggleSidebar}
+            isMobile={isMobile}
           />
         )}
       </div>
