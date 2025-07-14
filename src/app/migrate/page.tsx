@@ -254,7 +254,7 @@ export default function MigratePage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      void router.push("/api/auth/signin");
+      void router.push("/auth/signin");
     }
   }, [status, router]);
 

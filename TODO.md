@@ -10,7 +10,6 @@
      ☐ Allow spaces in document titles when editing
      ☐ Make header visible on document pages (/notas/url/id)
      ☐ Implement persistent sidebar state across navigation
-     ☐ Move PDF export button from toolbar to menubar
      ☐ Add Markdown export feature
      ☐ Implement new user onboarding flow
      ☐ Optimize saving with diff-based logic

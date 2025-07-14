@@ -75,7 +75,7 @@ export default function HomePage() {
     if (status === "loading") return; // Wait for session to load
 
     if (status === "unauthenticated") {
-      safeNavigate("/api/auth/signin");
+      safeNavigate("/auth/signin");
       return;
     }
 
