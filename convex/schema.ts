@@ -11,7 +11,7 @@ export default defineSchema({
     // External provider IDs
     externalId: v.optional(v.string()), // For OAuth providers
     provider: v.optional(v.string()), // google, discord, email, etc.
-    role: v.optional(v.string()), // e.g., 'admin', 'member'
+    role: v.optional(v.union([v.literal("admin"), v.literal("member")])), // Restrict to 'admin' or 'member'
     createdAt: v.number(),
     updatedAt: v.number(),
   })
