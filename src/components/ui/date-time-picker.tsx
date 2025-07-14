@@ -114,7 +114,7 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {selectedDateTime ? (
-              format(selectedDateTime, "PPP")
+              format(selectedDateTime, "PPP", { locale: ptBR })
             ) : (
               <span>Escolher uma data</span>
             )}
