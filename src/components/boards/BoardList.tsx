@@ -41,10 +41,10 @@ export function BoardList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Your Boards</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Seus Quadros</h2>
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          New Board
+          Novo Quadro
         </Button>
       </div>
 

@@ -343,7 +343,9 @@ function NotebookPageContent() {
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(null);
+  const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(
+    null,
+  );
 
   const normalizedUrl = typeof url === "string" ? url : "";
   const isAuthenticated = status === "authenticated" && session;
@@ -439,7 +441,9 @@ function NotebookPageContent() {
   // Use different queries based on notebook type
   const publicNotebook = useQuery(
     convexApi.notebooks.getPublicNotebook,
-    isPublicNotebook && normalizedUrl.length > 0 ? { url: normalizedUrl } : "skip",
+    isPublicNotebook && normalizedUrl.length > 0
+      ? { url: normalizedUrl }
+      : "skip",
   );
 
   // Enhanced safety checks to prevent premature query execution for private notebooks
@@ -458,9 +462,7 @@ function NotebookPageContent() {
         url: normalizedUrl,
         userId: convexUserId ?? undefined,
         sessionToken:
-          hasPassword && !isOwner
-            ? (sessionToken ?? undefined)
-            : undefined,
+          hasPassword && !isOwner ? (sessionToken ?? undefined) : undefined,
       }
     : "skip";
 
@@ -470,7 +472,9 @@ function NotebookPageContent() {
   );
 
   // Use the appropriate notebook data
-  const notebookQueryResult = isPublicNotebook ? publicNotebook : privateNotebook;
+  const notebookQueryResult = isPublicNotebook
+    ? publicNotebook
+    : privateNotebook;
 
   console.log("Notebook query state:", {
     normalizedUrl,
@@ -482,7 +486,9 @@ function NotebookPageContent() {
     convexUserId,
     isOwner,
     isPublicNotebook,
-    queryEnabled: isPublicNotebook ? (publicNotebook !== undefined) : privateNotebookQueryEnabled,
+    queryEnabled: isPublicNotebook
+      ? publicNotebook !== undefined
+      : privateNotebookQueryEnabled,
   });
 
   // Refetch function for after editing

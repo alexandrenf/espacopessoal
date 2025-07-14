@@ -115,7 +115,9 @@ function ExportButton() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onClick={handleExport}>Export as PDF</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleExport}>
+          Exportar como PDF
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -125,7 +127,7 @@ function LineHeightButton() {
   const { editor } = useEditorStore();
   const lineHeights = [
     {
-      label: "Default",
+      label: "Padrão",
       value: "normal",
     },
     {
@@ -274,13 +276,13 @@ function ListButton() {
   const { editor } = useEditorStore();
   const lists = [
     {
-      label: "Bullet List",
+      label: "Lista com Marcadores",
       icon: List,
       isActive: editor?.isActive("bulletList"),
       onClick: () => editor?.chain().focus().toggleBulletList().run(),
     },
     {
-      label: "Numbered List",
+      label: "Lista Numerada",
       icon: List,
       isActive: editor?.isActive("orderedList"),
       onClick: () => editor?.chain().focus().toggleOrderedList().run(),
@@ -317,22 +319,22 @@ function AlignButton() {
   const { editor } = useEditorStore();
   const alignments = [
     {
-      label: "Left",
+      label: "Esquerda",
       value: "left",
       icon: AlignLeft,
     },
     {
-      label: "Center",
+      label: "Centro",
       value: "center",
       icon: AlignCenter,
     },
     {
-      label: "Right",
+      label: "Direita",
       value: "right",
       icon: AlignRight,
     },
     {
-      label: "Justify",
+      label: "Justificado",
       value: "justify",
       icon: AlignJustify,
     },
@@ -436,27 +438,27 @@ function ImageButton() {
         <DropdownMenuContent>
           <DropdownMenuItem onClick={onUpload}>
             <Upload className="mr-2 size-4" />
-            Upload
+            Enviar
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
             <Search className="mr-2 size-4" />
-            Paste URL
+            Colar URL
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Paste Image URL</DialogTitle>
+            <DialogTitle>Colar URL da Imagem</DialogTitle>
           </DialogHeader>
           <Input
-            placeholder="https://example.com/image.jpg"
+            placeholder="https://exemplo.com/imagem.jpg"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleImageUrlSubmit()}
           />
           <DialogFooter>
-            <Button onClick={handleImageUrlSubmit}>Add</Button>
+            <Button onClick={handleImageUrlSubmit}>Adicionar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -488,11 +490,11 @@ function LinkButton() {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="flex items-center gap-x-2 p-2.5">
         <Input
-          placeholder="https://example.com"
+          placeholder="https://exemplo.com"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
-        <Button onClick={() => onChange(value)}>Add</Button>
+        <Button onClick={() => onChange(value)}>Adicionar</Button>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -550,32 +552,32 @@ function HeadingLevelButton() {
   const { editor } = useEditorStore();
   const headings = [
     {
-      label: "Normal text",
+      label: "Texto normal",
       value: 0,
       fontSize: "16px",
     },
     {
-      label: "Heading 1",
+      label: "Título 1",
       value: 1,
       fontSize: "32px",
     },
     {
-      label: "Heading 2",
+      label: "Título 2",
       value: 2,
       fontSize: "24px",
     },
     {
-      label: "Heading 3",
+      label: "Título 3",
       value: 3,
       fontSize: "20px",
     },
     {
-      label: "Heading 4",
+      label: "Título 4",
       value: 4,
       fontSize: "18px",
     },
     {
-      label: "Heading 5",
+      label: "Título 5",
       value: 5,
       fontSize: "16px",
     },
@@ -587,10 +589,10 @@ function HeadingLevelButton() {
         heading.value > 0 &&
         editor?.isActive("heading", { level: heading.value })
       ) {
-        return `Heading ${heading.value}`;
+        return `Título ${heading.value}`;
       }
     }
-    return "Normal text";
+    return "Texto normal";
   };
 
   return (

@@ -1348,7 +1348,7 @@ export function DocumentEditor({
     <div className="flex min-h-screen bg-[#F9FBFD]">
       {/* Loading overlay for document switching */}
       {isLoadingDocument && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+        <div className="no-export fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
             <p className="text-muted-foreground">Loading document...</p>
@@ -1358,7 +1358,7 @@ export function DocumentEditor({
 
       {/* Loading overlay for content loading */}
       {isContentLoading && status === "connected" && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+        <div className="no-export fixed inset-0 z-40 flex items-center justify-center bg-white/60 backdrop-blur-sm">
           <div className="text-center">
             <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
             <p className="mb-1 text-sm font-medium text-gray-700">
@@ -1374,7 +1374,7 @@ export function DocumentEditor({
       {/* Main content */}
       <div className="min-w-0 flex-1">
         {/* Enhanced header with better status indicators */}
-        <header className="border-b bg-white px-4 py-3">
+        <header className="no-export border-b bg-white px-4 py-3">
           <div className="mx-auto max-w-6xl">
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">

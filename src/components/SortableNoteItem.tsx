@@ -49,7 +49,7 @@ export const NoteItem: React.FC<NoteItemProps> = ({
   isNested = false,
 }) => {
   const getFirstLine = (content: string) => {
-    return content.split("\n")[0]?.trim() ?? "Untitled";
+    return content.split("\n")[0]?.trim() ?? "Sem título";
   };
 
   return (
@@ -119,7 +119,7 @@ export const NoteItem: React.FC<NoteItemProps> = ({
               "pointer-events-auto z-10 hover:bg-gray-100",
               isNested ? "hover:bg-gray-200" : "hover:bg-gray-100",
             )}
-            aria-label="Delete note"
+            aria-label="Excluir nota"
           >
             {isDeletingId === note.id ? (
               <ImSpinner8 className="h-4 w-4 animate-spin text-red-500" />

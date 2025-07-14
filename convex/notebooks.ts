@@ -219,7 +219,7 @@ function getClientIdentifier(
     // For authenticated users, use their ID
     return `user_${userId}`;
   }
-  
+
   // For anonymous users, create a more unique identifier to avoid shared rate limiting
   // In production, you'd want to use IP address or other identifying factors
   const randomId = Math.random().toString(36).substring(2, 15);
@@ -358,7 +358,6 @@ const logger = {
     }
   },
 };
-
 
 // Validate notebook URL format
 const validateNotebookUrl = (url: string): boolean => {
@@ -1045,7 +1044,9 @@ export const getByUrlWithSession = query({
     if (notebook.isPrivate && !isOwner) {
       if (notebook.password) {
         if (!args.sessionToken) {
-          throw new ConvexError("Session token required for private notebook access");
+          throw new ConvexError(
+            "Session token required for private notebook access",
+          );
         }
 
         // Validate session token server-side

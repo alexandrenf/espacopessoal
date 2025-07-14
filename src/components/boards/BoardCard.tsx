@@ -98,7 +98,7 @@ export function BoardCard({ board }: BoardCardProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setIsDeleteModalOpen(true)}>
-                Delete Board
+                Excluir Quadro
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -113,7 +113,7 @@ export function BoardCard({ board }: BoardCardProps) {
                 onClick={() => setSelectedTaskId(task._id)}
                 tabIndex={0}
                 role="button"
-                aria-label={`View task: ${task.name}`}
+                aria-label={`Ver tarefa: ${task.name}`}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault(); // Prevent page scroll on space
@@ -140,15 +140,21 @@ export function BoardCard({ board }: BoardCardProps) {
                       task.status === "DONE" && "bg-green-100 text-green-800",
                     )}
                   >
-                    {task.status}
+                    {task.status === "TODO"
+                      ? "A FAZER"
+                      : task.status === "IN_PROGRESS"
+                        ? "EM ANDAMENTO"
+                        : task.status === "DONE"
+                          ? "CONCLUÍDA"
+                          : task.status}
                   </div>
                 </div>
                 {task.dueDate && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Due:{" "}
+                    Prazo:{" "}
                     {task.dueDate
                       ? format(new Date(task.dueDate), "MMM d, yyyy")
-                      : "No due date"}
+                      : "Sem prazo"}
                   </p>
                 )}
               </Card>
@@ -162,7 +168,7 @@ export function BoardCard({ board }: BoardCardProps) {
           onClick={() => setIsCreateTaskOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Task
+          Adicionar Tarefa
         </Button>
 
         <TaskDialog

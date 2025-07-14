@@ -39,12 +39,14 @@ export function DocumentActionsMenu({
 
   const handleDuplicate = async () => {
     if (isUserLoading) {
-      toast.error("Please wait for authentication to complete");
+      toast.error("Aguarde a autenticação ser concluída");
       return;
     }
 
     if (!convexUserId) {
-      toast.error("User authentication required to duplicate documents");
+      toast.error(
+        "Autenticação de usuário necessária para duplicar documentos",
+      );
       return;
     }
 
@@ -56,10 +58,10 @@ export function DocumentActionsMenu({
         initialContent: document.initialContent ?? "",
       });
 
-      toast.success("Document duplicated successfully!");
+      toast.success("Documento duplicado com sucesso!");
       router.refresh();
     } catch (error) {
-      toast.error("Failed to duplicate document");
+      toast.error("Falha ao duplicar documento");
     } finally {
       setIsDuplicating(false);
     }
@@ -67,18 +69,18 @@ export function DocumentActionsMenu({
 
   const handleDelete = async () => {
     if (isUserLoading) {
-      toast.error("Please wait for authentication to complete");
+      toast.error("Aguarde a autenticação ser concluída");
       return;
     }
 
     if (!convexUserId) {
-      toast.error("User authentication required to delete documents");
+      toast.error("Autenticação de usuário necessária para excluir documentos");
       return;
     }
 
     if (
       !confirm(
-        `Are you sure you want to delete "${document.title}"? This action cannot be undone.`,
+        `Tem certeza que deseja excluir "${document.title}"? Esta ação não pode ser desfeita.`,
       )
     ) {
       return;
@@ -87,10 +89,10 @@ export function DocumentActionsMenu({
     setIsDeleting(true);
     try {
       await deleteDocument({ id: document._id, userId: convexUserId });
-      toast.success("Document deleted successfully!");
+      toast.success("Documento excluído com sucesso!");
       router.refresh();
     } catch (error) {
-      toast.error("Failed to delete document");
+      toast.error("Falha ao excluir documento");
     } finally {
       setIsDeleting(false);
     }
@@ -111,20 +113,20 @@ export function DocumentActionsMenu({
           className="h-8 w-8 p-0 data-[state=open]:bg-muted"
         >
           <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">Open menu</span>
+          <span className="sr-only">Abrir menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[160px]">
         <DropdownMenuItem onClick={handleRename}>
           <Edit className="mr-2 h-4 w-4" />
-          Rename
+          Renomear
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={handleDuplicate}
           disabled={isDuplicating || isUserLoading}
         >
           <Copy className="mr-2 h-4 w-4" />
-          {isDuplicating ? "Duplicating..." : "Duplicate"}
+          {isDuplicating ? "Duplicando..." : "Duplicar"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -133,7 +135,7 @@ export function DocumentActionsMenu({
           className="text-red-600 focus:text-red-600"
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          {isDeleting ? "Deleting..." : "Delete"}
+          {isDeleting ? "Excluindo..." : "Excluir"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -93,34 +93,34 @@ export function CreateTaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>Criar Nova Tarefa</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="grid w-full gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Task Name</Label>
+              <Label htmlFor="name">Nome da Tarefa</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter task name"
+                placeholder="Digite o nome da tarefa"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Descrição</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add task description"
+                placeholder="Adicione a descrição da tarefa"
                 className="h-24"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label htmlFor="dueDate">Data de Vencimento</Label>
               <DateTimePicker
                 value={dueDate}
                 onChange={(date?: Date) => setDueDate(date)}
@@ -128,7 +128,7 @@ export function CreateTaskDialog({
             </div>
 
             <div className="flex items-center justify-between">
-              <Label htmlFor="reminder">Enable Reminder</Label>
+              <Label htmlFor="reminder">Habilitar Lembrete</Label>
               <Switch
                 id="reminder"
                 checked={reminderEnabled}
@@ -141,7 +141,9 @@ export function CreateTaskDialog({
             {reminderEnabled && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="reminderDateTime">Reminder Date & Time</Label>
+                  <Label htmlFor="reminderDateTime">
+                    Data e Hora do Lembrete
+                  </Label>
                   <DateTimePicker
                     value={reminderDateTime}
                     onChange={(date?: Date) => setReminderDateTime(date)}
@@ -149,7 +151,7 @@ export function CreateTaskDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="reminderFrequency">Repeat</Label>
+                  <Label htmlFor="reminderFrequency">Repetir</Label>
                   <Select
                     value={reminderFrequency}
                     onValueChange={(value: string) =>
@@ -157,13 +159,13 @@ export function CreateTaskDialog({
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select frequency" />
+                      <SelectValue placeholder="Selecione a frequência" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ONCE">Once</SelectItem>
-                      <SelectItem value="DAILY">Daily</SelectItem>
-                      <SelectItem value="WEEKLY">Weekly</SelectItem>
-                      <SelectItem value="MONTHLY">Monthly</SelectItem>
+                      <SelectItem value="ONCE">Uma vez</SelectItem>
+                      <SelectItem value="DAILY">Diariamente</SelectItem>
+                      <SelectItem value="WEEKLY">Semanalmente</SelectItem>
+                      <SelectItem value="MONTHLY">Mensalmente</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -177,10 +179,10 @@ export function CreateTaskDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Creating..." : "Create Task"}
+              {isPending ? "Criando..." : "Criar Tarefa"}
             </Button>
           </DialogFooter>
         </form>

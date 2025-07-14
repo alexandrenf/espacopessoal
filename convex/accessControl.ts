@@ -4,15 +4,14 @@
  */
 
 import { ConvexError, v } from "convex/values";
-import {
-  mutation,
-  query,
-} from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
 // Helper function to check session status (handles both new and legacy fields)
-function isSessionActive(session: { isActive?: boolean; isRevoked?: boolean } | null | undefined): boolean {
+function isSessionActive(
+  session: { isActive?: boolean; isRevoked?: boolean } | null | undefined,
+): boolean {
   if (!session) return false;
   // Handle both new isActive field and legacy isRevoked field
   return session.isActive ?? !session.isRevoked;
@@ -336,7 +335,9 @@ export function withAccessControl(
         resourceType,
         requiredPermission,
         userId: sessionValidation.userId,
-        resourceId: (args.notebookId ?? args.documentId ?? args.id) as string | undefined,
+        resourceId: (args.notebookId ?? args.documentId ?? args.id) as
+          | string
+          | undefined,
         sessionValid: sessionValidation.valid,
         timestamp: Date.now(),
       });
@@ -395,10 +396,7 @@ export function withAccessControl(
               permission: "none",
               reason: "Authentication required",
             };
-          } else if (
-            args.userId &&
-            args.userId !== sessionValidation.userId
-          ) {
+          } else if (args.userId && args.userId !== sessionValidation.userId) {
             accessResult = {
               granted: false,
               permission: "none",

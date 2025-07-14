@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Calendar } from "~/components/ui/calendar";
@@ -109,14 +110,14 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
             )}
             role="combobox"
             aria-expanded={isCalendarOpen}
-            aria-label="Select date"
+            aria-label="Selecionar data"
             type="button"
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {selectedDateTime ? (
-              format(selectedDateTime, "PPP")
+              format(selectedDateTime, "PPP", { locale: ptBR })
             ) : (
-              <span>Pick a date</span>
+              <span>Escolher uma data</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -139,14 +140,14 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
             )}
             role="combobox"
             aria-expanded={isTimeOpen}
-            aria-label="Select time"
+            aria-label="Selecionar hora"
             type="button"
           >
             <Clock className="mr-2 h-4 w-4" />
             {selectedDateTime ? (
               format(selectedDateTime, "h:mm a")
             ) : (
-              <span>Set time</span>
+              <span>Definir hora</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -154,7 +155,7 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
           <div className="grid grid-cols-2 gap-2 p-3">
             <div className="flex flex-col items-center gap-2">
               <div className="mb-1 text-sm font-medium text-muted-foreground">
-                Hours
+                Horas
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {hours.map((hour) => (
@@ -182,7 +183,7 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
             </div>
             <div className="flex flex-col items-center gap-2">
               <div className="mb-1 text-sm font-medium text-muted-foreground">
-                Minutes
+                Minutos
               </div>
               <div className="flex flex-col gap-1">
                 {minutes.map((minute) => (

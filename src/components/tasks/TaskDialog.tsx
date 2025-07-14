@@ -171,12 +171,14 @@ export function TaskDialog({
 
     if (reminderEnabled) {
       if (!reminderDateTime) {
-        setValidationError("Please select a reminder date and time");
+        setValidationError(
+          "Por favor, selecione uma data e hora para o lembrete",
+        );
         return;
       }
 
       if (reminderDateTime < new Date()) {
-        setValidationError("Reminder date must be in the future");
+        setValidationError("A data do lembrete deve estar no futuro");
         return;
       }
     }
@@ -220,7 +222,7 @@ export function TaskDialog({
         <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>
-              {isEditMode ? "Edit Task" : "Create New Task"}
+              {isEditMode ? "Editar Tarefa" : "Criar Nova Tarefa"}
             </DialogTitle>
           </DialogHeader>
           {isEditMode && isLoading ? (
@@ -232,23 +234,23 @@ export function TaskDialog({
               <div className="space-y-4 py-4">
                 <div className="grid w-full gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Task Name</Label>
+                    <Label htmlFor="name">Nome da Tarefa</Label>
                     <Input
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter task name"
+                      placeholder="Digite o nome da tarefa"
                       required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">Descrição</Label>
                     <Textarea
                       id="description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Add task description"
+                      placeholder="Adicione a descrição da tarefa"
                       className="h-24"
                     />
                   </div>
@@ -266,24 +268,24 @@ export function TaskDialog({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="TODO">To Do</SelectItem>
+                          <SelectItem value="TODO">A Fazer</SelectItem>
                           <SelectItem value="IN_PROGRESS">
-                            In Progress
+                            Em Andamento
                           </SelectItem>
-                          <SelectItem value="DONE">Done</SelectItem>
+                          <SelectItem value="DONE">Concluída</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Label htmlFor="dueDate">Data de Vencimento</Label>
                     <DateTimePicker value={dueDate} onChange={setDueDate} />
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="reminder">Enable Reminder</Label>
+                      <Label htmlFor="reminder">Habilitar Lembrete</Label>
                       <Switch
                         id="reminder"
                         checked={reminderEnabled}
@@ -295,7 +297,7 @@ export function TaskDialog({
                       <>
                         <div className="space-y-2">
                           <Label htmlFor="reminderDateTime">
-                            Reminder Date & Time
+                            Data e Hora do Lembrete
                           </Label>
                           <DateTimePicker
                             value={reminderDateTime}
@@ -304,7 +306,7 @@ export function TaskDialog({
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="reminderFrequency">Repeat</Label>
+                          <Label htmlFor="reminderFrequency">Repetir</Label>
                           <Select
                             value={reminderFrequency}
                             onValueChange={(value) =>
@@ -315,10 +317,14 @@ export function TaskDialog({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="ONCE">Once</SelectItem>
-                              <SelectItem value="DAILY">Daily</SelectItem>
-                              <SelectItem value="WEEKLY">Weekly</SelectItem>
-                              <SelectItem value="MONTHLY">Monthly</SelectItem>
+                              <SelectItem value="ONCE">Uma vez</SelectItem>
+                              <SelectItem value="DAILY">Diariamente</SelectItem>
+                              <SelectItem value="WEEKLY">
+                                Semanalmente
+                              </SelectItem>
+                              <SelectItem value="MONTHLY">
+                                Mensalmente
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -342,7 +348,7 @@ export function TaskDialog({
                     onClick={() => setIsDeleteModalOpen(true)}
                     disabled={isPending}
                   >
-                    Delete
+                    Excluir
                   </Button>
                 )}
                 <Button
@@ -351,7 +357,7 @@ export function TaskDialog({
                   onClick={() => onOpenChange(false)}
                   disabled={isPending}
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button
                   type="submit"
@@ -365,11 +371,11 @@ export function TaskDialog({
                 >
                   {(isPending ?? false)
                     ? isEditMode
-                      ? "Saving..."
-                      : "Creating..."
+                      ? "Salvando..."
+                      : "Criando..."
                     : isEditMode
-                      ? "Save Changes"
-                      : "Create Task"}
+                      ? "Salvar Alterações"
+                      : "Criar Tarefa"}
                 </Button>
               </DialogFooter>
             </form>
