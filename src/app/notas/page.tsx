@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Notebook,
-  Plus,
   Search,
   Trash2,
   Lock,
@@ -19,7 +18,7 @@ import {
   KeyRound,
   User,
   LogIn,
-  AlertCircle,
+  Settings,
 } from "lucide-react";
 import Header from "~/app/components/Header";
 import Link from "next/link";
@@ -33,14 +32,12 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import { Badge } from "~/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "~/components/ui/dialog";
 import {
   DropdownMenu,
@@ -48,25 +45,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
-import { Textarea } from "~/components/ui/textarea";
-import { cn } from "~/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface CreateNotebookFormData {
-  url: string;
-  title: string;
-  description: string;
-  accessLevel: "public" | "password" | "private";
-  password: string;
-}
+import { useConvexUser } from "~/hooks/use-convex-user";
+import { NotebookDialog, CreateNotebookDialog } from "~/components_new/NotebookEditDialog";
 
 interface NotebookData {
   _id: string;
@@ -82,279 +64,15 @@ interface NotebookData {
   isOwner?: boolean;
 }
 
-const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState<CreateNotebookFormData>({
-    url: "",
-    title: "",
-    description: "",
-    accessLevel: "public",
-    password: "",
-  });
-  const [urlError, setUrlError] = useState<string | null>(null);
-
-  const createNotebook = api.notebooks.create.useMutation({
-    onSuccess: () => {
-      onSuccess();
-      setOpen(false);
-      setFormData({
-        url: "",
-        title: "",
-        description: "",
-        accessLevel: "public",
-        password: "",
-      });
-      setUrlError(null);
-    },
-    onError: (error) => {
-      if (error.message.includes("URL")) {
-        setUrlError(error.message);
-      }
-    },
-  });
-
-  const checkUrlAvailability = api.notebooks.checkUrlAvailability.useQuery(
-    { url: formData.url },
-    {
-      enabled: formData.url.length >= 3,
-      retry: false,
-    },
-  );
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkUrlAvailability.data?.available) {
-      setUrlError("URL não disponível");
-      return;
-    }
-    createNotebook.mutate({
-      ...formData,
-      isPrivate: formData.accessLevel !== "public",
-      password:
-        formData.accessLevel === "password" ? formData.password : undefined,
-    });
-  };
-
-  const handleUrlChange = (value: string) => {
-    // Only allow alphanumeric characters, hyphens, and underscores
-    const cleanValue = value.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-    setFormData((prev) => ({ ...prev, url: cleanValue }));
-    setUrlError(null);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="h-12 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-          <Plus className="h-4 w-4" />
-          Novo Notebook
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-y-auto sm:max-w-[700px]">
-        <DialogHeader>
-          <DialogTitle>Criar Novo Notebook</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-3">
-            <Label htmlFor="url">URL do Notebook</Label>
-            <div className="relative">
-              <div className="flex items-center rounded-md border border-input bg-background transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500">
-                <div className="flex items-center rounded-l-md border-r border-gray-200 bg-gray-50 px-3 py-2">
-                  <span className="text-sm font-medium text-gray-600">
-                    /notas/
-                  </span>
-                </div>
-                <Input
-                  id="url"
-                  value={formData.url}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder="meu-notebook"
-                  required
-                  minLength={3}
-                  maxLength={50}
-                  className={cn(
-                    "flex-1 rounded-l-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-                    urlError && "text-red-600",
-                  )}
-                />
-              </div>
-            </div>
-            <div className="mt-2 min-h-[24px]">
-              {urlError ? (
-                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>{urlError}</span>
-                </div>
-              ) : checkUrlAvailability.data?.available === false ? (
-                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>URL não disponível</span>
-                </div>
-              ) : checkUrlAvailability.data?.available === true ? (
-                <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                  <div className="h-2 w-2 flex-shrink-0 rounded-full bg-green-500" />
-                  <span>URL disponível</span>
-                </div>
-              ) : formData.url.length >= 3 && checkUrlAvailability.isLoading ? (
-                <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-600">
-                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
-                  <span>Verificando disponibilidade...</span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="title">Título</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, title: e.target.value }))
-              }
-              placeholder="Meu Notebook Pessoal"
-              required
-              maxLength={100}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição (opcional)</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="Descreva o propósito deste notebook..."
-              maxLength={500}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <Label htmlFor="accessLevel">Nível de Acesso</Label>
-            <Select
-              value={formData.accessLevel}
-              onValueChange={(value: "public" | "password" | "private") =>
-                setFormData((prev) => ({ ...prev, accessLevel: value }))
-              }
-            >
-              <SelectTrigger className="h-12">
-                <SelectValue placeholder="Selecione o nível de acesso" />
-              </SelectTrigger>
-              <SelectContent className="max-w-[400px]">
-                <SelectItem value="public" className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      <Globe className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Público</div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Qualquer pessoa com o link pode gerenciar
-                      </div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="password" className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      <KeyRound className="h-4 w-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Protegido por senha</div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Qualquer pessoa com o link e senha pode gerenciar
-                      </div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="private" className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      <Lock className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Privado</div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Apenas você pode gerenciar
-                      </div>
-                    </div>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {formData.accessLevel === "password" && (
-            <div className="space-y-3">
-              <Label htmlFor="password">Senha de Proteção</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, password: e.target.value }))
-                }
-                placeholder="Digite uma senha segura para proteger este notebook"
-                required
-                className="h-12"
-              />
-              <p className="text-xs text-gray-500">
-                Esta senha será necessária para acessar e editar o notebook
-              </p>
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-3 border-t border-gray-100 pt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              className="h-11 px-6"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                createNotebook.isPending ||
-                !checkUrlAvailability.data?.available ||
-                (formData.accessLevel === "password" && !formData.password) ||
-                !formData.title.trim() ||
-                !formData.url.trim()
-              }
-              className="h-11 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 hover:from-blue-700 hover:to-indigo-700"
-            >
-              {createNotebook.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando notebook...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar Notebook
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 const NotebookCard = ({
   notebook,
   onDeleted,
+  onEditClick,
 }: {
   notebook: NotebookData;
   onDeleted: () => void;
+  onEditClick?: (notebook: NotebookData) => void;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const deleteNotebook = api.notebooks.delete.useMutation({
@@ -426,6 +144,12 @@ const NotebookCard = ({
                       Visualizar
                     </Link>
                   </DropdownMenuItem>
+                  {onEditClick && (
+                    <DropdownMenuItem onClick={() => onEditClick(notebook)}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configurações
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Excluir
@@ -504,7 +228,16 @@ const NotebookCard = ({
 
 export default function NotasPage() {
   const { status } = useSession();
+  const { convexUserId } = useConvexUser();
   const [searchTerm, setSearchTerm] = useState("");
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingNotebook, setEditingNotebook] = useState<NotebookData | null>(null);
+
+  // Handler for opening edit dialog
+  const handleEditClick = (notebook: NotebookData) => {
+    setEditingNotebook(notebook);
+    setShowEditDialog(true);
+  };
 
   // Only try to get user notebooks if authenticated
   const {
@@ -553,17 +286,18 @@ export default function NotasPage() {
     ) ?? [];
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        {/* Background grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+    <>
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <div className="relative flex-grow overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-        {/* Background gradient orbs */}
-        <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
+          {/* Background gradient orbs */}
+          <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-        <div className="container relative mx-auto px-4 py-12">
+          <div className="container relative mx-auto px-4 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -725,6 +459,7 @@ export default function NotasPage() {
                           isOwner: true,
                         }}
                         onDeleted={() => refetch()}
+                        onEditClick={status === "authenticated" ? handleEditClick : undefined}
                       />
                     );
                   })}
@@ -764,8 +499,20 @@ export default function NotasPage() {
               </div>
             </motion.div>
           )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Edit Notebook Dialog */}
+      <NotebookDialog
+        editingNotebook={editingNotebook}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={() => {
+          void refetch();
+          setEditingNotebook(null);
+        }}
+      />
+    </>
   );
 }
