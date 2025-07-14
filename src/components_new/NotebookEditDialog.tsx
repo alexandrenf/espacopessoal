@@ -179,7 +179,9 @@ export const NotebookDialog = ({
         ...formData,
         isPrivate: formData.accessLevel !== "public",
         password:
-          formData.accessLevel === "password" ? formData.password : undefined,
+          formData.accessLevel === "password" && formData.password
+            ? formData.password
+            : undefined,
       });
     } else {
       // For creating, check URL availability
@@ -192,7 +194,9 @@ export const NotebookDialog = ({
         ...formData,
         isPrivate: formData.accessLevel !== "public",
         password:
-          formData.accessLevel === "password" ? formData.password : undefined,
+          formData.accessLevel === "password" && formData.password
+            ? formData.password
+            : undefined,
       });
     }
   };

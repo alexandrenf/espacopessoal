@@ -344,7 +344,7 @@ function DocumentPageContent() {
           {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
           {(isPublicNotebook || isOwner || hasValidPassword) &&
             !showSidebar && (
-              <div className="absolute left-4 top-4 z-10">
+              <div className="no-export absolute left-4 top-4 z-10">
                 <Button
                   variant="ghost"
                   size="icon"

@@ -922,7 +922,7 @@ const DocumentSidebar = memo(
 
     return (
       <section
-        className={`flex h-full w-full flex-col border-r border-gray-200 bg-white md:h-screen ${isMobile ? "sidebar-fade-in fixed bottom-0 left-0 right-0 top-0 z-50 shadow-xl" : ""}`}
+        className={`no-export flex h-full w-full flex-col border-r border-gray-200 bg-white md:h-screen ${isMobile ? "sidebar-fade-in fixed bottom-0 left-0 right-0 top-0 z-50 shadow-xl" : ""}`}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white p-4">
           <div className="flex items-center gap-3">

@@ -20,7 +20,7 @@ export function ReplacementPopup({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="fixed left-1/2 top-[120px] z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md"
+      className="no-export fixed left-1/2 top-[120px] z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200/50 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md"
     >
       <div className="flex items-center gap-2 text-sm">
         <span className="text-red-500">{word}</span>
