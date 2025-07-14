@@ -84,6 +84,23 @@ const isNotebookData = (data: unknown): data is NotebookData => {
   );
 };
 
+type NotebookError = {
+  error: "unauthorized";
+  reason: string;
+  requiresPassword: boolean;
+};
+
+const isNotebookError = (data: unknown): data is NotebookError => {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    "reason" in data &&
+    "requiresPassword" in data &&
+    (data as NotebookError).error === "unauthorized"
+  );
+};
+
 const isNotebookMetadata = (data: unknown): data is NotebookMetadata => {
   return (
     typeof data === "object" &&
@@ -503,6 +520,12 @@ function NotebookPageContent() {
       ? notebookQueryResult
       : null;
 
+  // Check for error responses
+  const notebookError =
+    notebookQueryResult !== undefined && isNotebookError(notebookQueryResult)
+      ? notebookQueryResult
+      : null;
+
   // Get documents in notebook (if we have access)
   const documentsQueryArgs = notebook
     ? {
@@ -766,6 +789,83 @@ function NotebookPageContent() {
         </div>
       </div>
     );
+  }
+
+  // Handle structured error responses
+  if (notebookError) {
+    if (notebookError.requiresPassword) {
+      // Handle password-protected notebooks
+      return (
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <div className="flex flex-grow items-center justify-center">
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
+                <svg
+                  className="h-8 w-8 text-yellow-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m0 0v2m0-2h2m-2 0h-2m2-4V9a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2h4"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Password Required
+              </h2>
+              <p className="text-gray-600">{notebookError.reason}</p>
+              <button
+                onClick={() => setShowPasswordPrompt(true)}
+                className="rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+              >
+                Enter Password
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      // Handle private notebooks without password
+      return (
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <div className="flex flex-grow items-center justify-center">
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <svg
+                  className="h-8 w-8 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m0 0v2m0-2h2m-2 0h-2m2-4V9a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2h4"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Access Denied
+              </h2>
+              <p className="text-gray-600">{notebookError.reason}</p>
+              <Link
+                href="/notas"
+                className="inline-block rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+              >
+                Go to Notebooks
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 
   // Handle notebook not found or no access

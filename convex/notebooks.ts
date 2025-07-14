@@ -947,7 +947,7 @@ export const getMetadataByUrl = query({
       .first();
 
     if (!notebook) {
-      throw new ConvexError("Notebook not found");
+      return null;
     }
 
     // Return metadata without sensitive content
@@ -1044,9 +1044,11 @@ export const getByUrlWithSession = query({
     if (notebook.isPrivate && !isOwner) {
       if (notebook.password) {
         if (!args.sessionToken) {
-          throw new ConvexError(
-            "Session token required for private notebook access",
-          );
+          return {
+            error: "unauthorized",
+            reason: "This notebook is password-protected",
+            requiresPassword: true,
+          };
         }
 
         // Validate session token server-side
@@ -1056,7 +1058,12 @@ export const getByUrlWithSession = query({
           notebook._id,
         );
         if (!sessionValidation.valid) {
-          throw new ConvexError(`Access denied: ${sessionValidation.reason}`);
+          return {
+            error: "unauthorized",
+            reason:
+              "Invalid or expired session. Please enter the password again.",
+            requiresPassword: true,
+          };
         }
 
         return {
@@ -1066,7 +1073,12 @@ export const getByUrlWithSession = query({
         };
       }
       // Private notebook without password - owner only
-      throw new ConvexError("Access denied");
+      return {
+        error: "unauthorized",
+        reason:
+          "This notebook is private and you don't have permission to access it",
+        requiresPassword: false,
+      };
     }
 
     return {

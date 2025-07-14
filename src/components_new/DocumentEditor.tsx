@@ -1240,7 +1240,6 @@ export function DocumentEditor({
     );
   };
 
-
   const handleLogout = async () => {
     try {
       await signOut({ callbackUrl: "/" });
