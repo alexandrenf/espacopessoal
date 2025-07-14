@@ -115,7 +115,9 @@ function ExportButton() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onClick={handleExport}>Export as PDF</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleExport}>
+          Export as PDF
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

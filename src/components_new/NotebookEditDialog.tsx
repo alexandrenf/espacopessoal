@@ -61,19 +61,19 @@ interface NotebookDialogProps {
   children?: React.ReactNode;
 }
 
-export const NotebookDialog = ({ 
-  onSuccess, 
-  editingNotebook, 
-  open: controlledOpen, 
+export const NotebookDialog = ({
+  onSuccess,
+  editingNotebook,
+  open: controlledOpen,
   onOpenChange,
-  children 
+  children,
 }: NotebookDialogProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
-  
+
   const isEditing = !!editingNotebook;
-  
+
   const [formData, setFormData] = useState<CreateNotebookFormData>({
     url: "",
     title: "",
@@ -126,10 +126,12 @@ export const NotebookDialog = ({
   // Populate form when editing
   useEffect(() => {
     if (isEditing && editingNotebook) {
-      const accessLevel = editingNotebook.isPrivate 
-        ? (editingNotebook.password ? "password" : "private")
+      const accessLevel = editingNotebook.isPrivate
+        ? editingNotebook.password
+          ? "password"
+          : "private"
         : "public";
-      
+
       setFormData({
         url: editingNotebook.url,
         title: editingNotebook.title,
@@ -161,19 +163,23 @@ export const NotebookDialog = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isEditing) {
       // For editing, only check URL availability if URL has changed
-      if (formData.url !== editingNotebook?.url && !checkUrlAvailability.data?.available) {
+      if (
+        formData.url !== editingNotebook?.url &&
+        !checkUrlAvailability.data?.available
+      ) {
         setUrlError("URL não disponível");
         return;
       }
-      
+
       updateNotebook.mutate({
         id: editingNotebook?._id, // Will be converted to proper ID type
         ...formData,
         isPrivate: formData.accessLevel !== "public",
-        password: formData.accessLevel === "password" ? formData.password : undefined,
+        password:
+          formData.accessLevel === "password" ? formData.password : undefined,
       });
     } else {
       // For creating, check URL availability
@@ -181,11 +187,12 @@ export const NotebookDialog = ({
         setUrlError("URL não disponível");
         return;
       }
-      
+
       createNotebook.mutate({
         ...formData,
         isPrivate: formData.accessLevel !== "public",
-        password: formData.accessLevel === "password" ? formData.password : undefined,
+        password:
+          formData.accessLevel === "password" ? formData.password : undefined,
       });
     }
   };
@@ -202,7 +209,9 @@ export const NotebookDialog = ({
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-y-auto sm:max-w-[700px]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar Notebook" : "Criar Novo Notebook"}</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Editar Notebook" : "Criar Novo Notebook"}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-3">
@@ -355,15 +364,18 @@ export const NotebookDialog = ({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
-                placeholder={isEditing ? "Digite nova senha (deixe vazio para manter)" : "Digite uma senha segura"}
+                placeholder={
+                  isEditing
+                    ? "Digite nova senha (deixe vazio para manter)"
+                    : "Digite uma senha segura"
+                }
                 required={!isEditing}
                 className="h-12"
               />
               <p className="text-xs text-gray-500">
-                {isEditing 
+                {isEditing
                   ? "Deixe vazio para manter a senha atual"
-                  : "Esta senha será necessária para acessar e editar o notebook"
-                }
+                  : "Esta senha será necessária para acessar e editar o notebook"}
               </p>
             </div>
           )}
@@ -380,15 +392,21 @@ export const NotebookDialog = ({
             <Button
               type="submit"
               disabled={
-                (isEditing ? updateNotebook.isPending : createNotebook.isPending) ||
+                (isEditing
+                  ? updateNotebook.isPending
+                  : createNotebook.isPending) ||
                 (!isEditing && !checkUrlAvailability.data?.available) ||
-                (formData.accessLevel === "password" && !formData.password && !isEditing) ||
+                (formData.accessLevel === "password" &&
+                  !formData.password &&
+                  !isEditing) ||
                 !formData.title.trim() ||
                 !formData.url.trim()
               }
               className="h-11 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 hover:from-blue-700 hover:to-indigo-700"
             >
-              {(isEditing ? updateNotebook.isPending : createNotebook.isPending) ? (
+              {(
+                isEditing ? updateNotebook.isPending : createNotebook.isPending
+              ) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {isEditing ? "Salvando..." : "Criando notebook..."}
@@ -412,7 +430,11 @@ export const NotebookDialog = ({
 };
 
 // Wrapper for create mode with trigger button
-export const CreateNotebookDialog = ({ onSuccess }: { onSuccess: () => void }) => {
+export const CreateNotebookDialog = ({
+  onSuccess,
+}: {
+  onSuccess: () => void;
+}) => {
   return (
     <NotebookDialog onSuccess={onSuccess}>
       <Button className="h-12 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">

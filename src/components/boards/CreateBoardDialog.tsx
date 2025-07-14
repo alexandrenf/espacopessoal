@@ -22,16 +22,16 @@ interface CreateBoardDialogProps {
 type CreateBoardInput = RouterInputs["boards"]["createBoard"];
 
 const PASTEL_COLORS = [
-  { hex: "#FFB3BA", name: "Pastel Pink" },
-  { hex: "#BAFFC9", name: "Pastel Green" },
-  { hex: "#BAE1FF", name: "Pastel Blue" },
-  { hex: "#FFFFBA", name: "Pastel Yellow" },
-  { hex: "#FFD1DC", name: "Light Pink" },
-  { hex: "#E0FFE0", name: "Light Green" },
-  { hex: "#B5D8EB", name: "Light Blue" },
-  { hex: "#FFE4B5", name: "Pastel Orange" },
-  { hex: "#D8BFD8", name: "Pastel Purple" },
-  { hex: "#F0F8FF", name: "Light Sky Blue" },
+  { hex: "#FFB3BA", name: "Rosa Pastel" },
+  { hex: "#BAFFC9", name: "Verde Pastel" },
+  { hex: "#BAE1FF", name: "Azul Pastel" },
+  { hex: "#FFFFBA", name: "Amarelo Pastel" },
+  { hex: "#FFD1DC", name: "Rosa Claro" },
+  { hex: "#E0FFE0", name: "Verde Claro" },
+  { hex: "#B5D8EB", name: "Azul Claro" },
+  { hex: "#FFE4B5", name: "Laranja Pastel" },
+  { hex: "#D8BFD8", name: "Roxo Pastel" },
+  { hex: "#F0F8FF", name: "Azul Claro do Céu" },
 ];
 
 export function CreateBoardDialog({
@@ -69,20 +69,20 @@ export function CreateBoardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Board</DialogTitle>
+          <DialogTitle>Criar Novo Quadro</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">Nome</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter board name"
+              placeholder="Digite o nome do quadro"
             />
           </div>
           <div className="grid gap-2">
-            <Label>Color</Label>
+            <Label>Cor</Label>
             <div className="grid grid-cols-5 gap-2">
               {PASTEL_COLORS.map((pastelColor) => (
                 <button
@@ -105,7 +105,7 @@ export function CreateBoardDialog({
             onClick={() => createBoard({ name, color })}
             disabled={isPending || !name}
           >
-            Create Board
+            Criar Quadro
           </Button>
         </div>
       </DialogContent>
