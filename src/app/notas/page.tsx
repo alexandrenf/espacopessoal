@@ -180,7 +180,9 @@ const NotebookCard = ({
               <FileText className="h-3 w-3" />
               <span>
                 {notebook.documentCount ?? 0}{" "}
-                {(notebook.documentCount ?? 0) === 1 ? "documento" : "documentos"}
+                {(notebook.documentCount ?? 0) === 1
+                  ? "documento"
+                  : "documentos"}
               </span>
             </div>
           </div>

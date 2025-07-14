@@ -66,6 +66,63 @@ export const migrateLegacySessions = internalMutation({
   },
 });
 
+// Migration function to add urlLower field to existing notebooks
+export const migrateNotebookUrlsToLowercase = internalMutation({
+  handler: async (ctx) => {
+    const notebooks = await ctx.db.query("notebooks").collect();
+    let migratedCount = 0;
+
+    for (const notebook of notebooks) {
+      if (!notebook.urlLower) {
+        await ctx.db.patch(notebook._id, {
+          urlLower: notebook.url.toLowerCase(),
+        });
+        migratedCount++;
+      }
+    }
+
+    return { migratedNotebooks: migratedCount };
+  },
+});
+
+// Helper function to find notebook by URL (case-insensitive)
+async function findNotebookByUrl(
+  ctx: QueryCtx | MutationCtx,
+  url: string,
+): Promise<any> {
+  const lowerUrl = url.toLowerCase();
+
+  // First try to find by urlLower (preferred method)
+  const notebookByLower = await ctx.db
+    .query("notebooks")
+    .withIndex("by_url_lower", (q) => q.eq("urlLower", lowerUrl))
+    .first();
+
+  if (notebookByLower) {
+    return notebookByLower;
+  }
+
+  // Fallback: search by original URL for backwards compatibility
+  // This handles notebooks created before the urlLower field was added
+  const notebookByOriginal = await ctx.db
+    .query("notebooks")
+    .withIndex("by_url", (q) => q.eq("url", url))
+    .first();
+
+  if (notebookByOriginal) {
+    // If we found a notebook by original URL but it doesn't have urlLower,
+    // update it to have urlLower for future lookups (only if we have mutation context)
+    if (!notebookByOriginal.urlLower && "patch" in ctx.db) {
+      await ctx.db.patch(notebookByOriginal._id, {
+        urlLower: notebookByOriginal.url.toLowerCase(),
+      });
+    }
+    return notebookByOriginal;
+  }
+
+  return null;
+}
+
 // Simplified rate limiting for mutations only (queries will use separate approach)
 async function checkAndRecordRateLimit(
   ctx: MutationCtx,
@@ -444,10 +501,8 @@ export const create = mutation({
     }
 
     // Check if URL is already taken globally (URLs must be unique across all users)
-    const existingNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    // Use case-insensitive lookup to prevent duplicates with different casing
+    const existingNotebook = await findNotebookByUrl(ctx, args.url);
 
     if (existingNotebook) {
       throw new ConvexError(
@@ -470,6 +525,7 @@ export const create = mutation({
     try {
       return await ctx.db.insert("notebooks", {
         url: args.url,
+        urlLower: args.url.toLowerCase(), // Store lowercase URL for case-insensitive lookups
         title: args.title,
         description: args.description,
         ownerId: userId,
@@ -497,10 +553,7 @@ export const getPublicNotebook = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -531,10 +584,7 @@ export const getByUrl = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -751,10 +801,8 @@ export const checkUrlAvailability = query({
     }
 
     // Check if URL is already taken globally (URLs must be unique across all users)
-    const existingNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    // Use case-insensitive lookup to prevent duplicates with different casing
+    const existingNotebook = await findNotebookByUrl(ctx, args.url);
 
     if (existingNotebook) {
       return {
@@ -790,17 +838,15 @@ export const getOrCreateDefault = mutation({
       return existingNotebook;
     }
 
-    // Check if "main" URL is available globally
-    const mainNotebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", "main"))
-      .first();
+    // Check if "main" URL is available globally using case-insensitive lookup
+    const mainNotebook = await findNotebookByUrl(ctx, "main");
 
     const defaultUrl = mainNotebook ? `main-${Date.now()}` : "main";
 
     // Create default notebook
     return await ctx.db.insert("notebooks", {
       url: defaultUrl,
+      urlLower: defaultUrl.toLowerCase(), // Store lowercase URL for case-insensitive lookups
       title: "My Notebook",
       description: "Your personal notebook for organizing thoughts and ideas",
       ownerId: args.userId,
@@ -837,10 +883,7 @@ export const validatePassword = mutation({
       );
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -973,10 +1016,7 @@ export const getMetadataByUrl = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       return null;
@@ -1025,10 +1065,7 @@ export const getByUrlWithSession = query({
       throw new ConvexError("Invalid notebook URL format");
     }
 
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.url);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");
@@ -1221,10 +1258,7 @@ export const createPasswordSession = mutation({
     logger.debug("Creating password session for notebook:", args.notebookUrl);
 
     // Find notebook by URL
-    const notebook = await ctx.db
-      .query("notebooks")
-      .withIndex("by_url", (q) => q.eq("url", args.notebookUrl))
-      .first();
+    const notebook = await findNotebookByUrl(ctx, args.notebookUrl);
 
     if (!notebook) {
       throw new ConvexError("Notebook not found");

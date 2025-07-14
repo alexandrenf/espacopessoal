@@ -140,7 +140,8 @@ export const notebooksRouter = createTRPCRouter({
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch notebooks",
+        message:
+          error instanceof Error ? error.message : "Failed to fetch notebooks",
       });
     }
   }),

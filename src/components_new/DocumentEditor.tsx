@@ -1390,7 +1390,7 @@ export function DocumentEditor({
       {/* Main content */}
       <div className="min-w-0 flex-1">
         {/* Enhanced header with better status indicators */}
-        <header className="no-export border-b bg-white px-4 py-3">
+        <header className="no-export relative z-20 border-b bg-white px-4 py-3">
           <div className="mx-auto max-w-6xl">
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
@@ -1402,12 +1402,12 @@ export function DocumentEditor({
                     onChange={(e) => setDocumentTitle(e.target.value)}
                     onBlur={() => void handleTitleSubmit()}
                     onKeyDown={handleTitleKeyDown}
-                    className={`${showSidebar ? "" : "ml-[40px] xl:ml-0"} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
+                    className={`${showSidebar ? "" : "ml-[56px] md:ml-[40px] xl:ml-0"} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
                     autoFocus
                   />
                 ) : (
                   <h1
-                    className={`${showSidebar ? "" : "ml-[40px] xl:ml-0"} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
+                    className={`${showSidebar ? "" : "ml-[56px] md:ml-[40px] xl:ml-0"} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
                     onClick={() => setIsEditingTitle(true)}
                   >
                     {documentTitle}

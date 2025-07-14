@@ -493,7 +493,7 @@ function DocumentPageContent() {
           {/* Mobile hamburger menu button */}
           {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
           {(isPublicNotebook || isOwner || hasValidPassword) && isMobile && (
-            <div className="no-export absolute left-4 top-4 z-10">
+            <div className="no-export absolute left-4 top-4 z-30">
               <Button
                 variant="ghost"
                 size="icon"
@@ -511,7 +511,7 @@ function DocumentPageContent() {
           {(isPublicNotebook || isOwner || hasValidPassword) &&
             !showSidebar &&
             !isMobile && (
-              <div className="no-export absolute left-4 top-4 z-10">
+              <div className="no-export absolute left-4 top-4 z-30">
                 <Button
                   variant="ghost"
                   size="icon"

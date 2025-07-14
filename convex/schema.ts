@@ -30,6 +30,7 @@ export default defineSchema({
   // Notebooks for organizing documents
   notebooks: defineTable({
     url: v.string(), // Custom URL for notebook access (3-50 characters)
+    urlLower: v.optional(v.string()), // Lowercase version for case-insensitive lookups
     title: v.string(),
     description: v.optional(v.string()),
     ownerId: v.id("users"),
@@ -44,6 +45,7 @@ export default defineSchema({
   })
     .index("by_owner_id", ["ownerId"])
     .index("by_url", ["url"])
+    .index("by_url_lower", ["urlLower"]) // New index for case-insensitive lookups
     .index("by_owner_and_url", ["ownerId", "url"]),
 
   // JWT-based notebook session management for password-protected access
