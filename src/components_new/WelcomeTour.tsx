@@ -18,6 +18,7 @@ interface WelcomeTourProps {
   onStepChange?: (step: number) => void;
   debug?: boolean;
   theme?: 'light' | 'dark';
+  // TODO: Future feature - add progress indicator in welcome card
   showProgress?: boolean;
 }
 
@@ -29,7 +30,6 @@ export function WelcomeTour({
   onStepChange,
   debug = false,
   theme = 'light',
-  showProgress: _showProgress = true,
 }: WelcomeTourProps) {
   const [mounted, setMounted] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
@@ -37,8 +37,6 @@ export function WelcomeTour({
   const [isLoading, setIsLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
   const [tourProgress, setTourProgress] = useState(0);
-  const [_isActive, _setIsActive] = useState(false);
-  const [_completedSteps, setCompletedSteps] = useState(new Set<number>());
 
   useEffect(() => {
     setMounted(true);
@@ -89,7 +87,6 @@ export function WelcomeTour({
         const nextStepIndex = stepIndex + 1;
         setCurrentStep(nextStepIndex);
         setTourProgress(Math.round((nextStepIndex / tourSteps.length) * 100));
-        setCompletedSteps(prev => new Set([...prev, stepIndex]));
         
         onStepChange?.(nextStepIndex);
         

@@ -274,18 +274,46 @@ export const ConvexOptimizations = {
 
   // OPTIMIZATION: Smart debouncing for frequent updates
   createDebouncedQuery: <T>(
-    queryFn: () => T,
+    queryFn: () => T | Promise<T>,
     delay = 300,
   ) => {
     let timeoutId: NodeJS.Timeout;
-    let lastResult: T;
+    let pendingPromises: Array<{
+      resolve: (value: T) => void;
+      reject: (error: unknown) => void;
+    }> = [];
 
-    return (): T => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        lastResult = queryFn();
-      }, delay);
-      return lastResult;
+    return (): Promise<T> => {
+      return new Promise<T>((resolve, reject) => {
+        // Add this promise to the pending list
+        pendingPromises.push({ resolve, reject });
+
+        // Clear any existing timeout
+        clearTimeout(timeoutId);
+
+        // Set new timeout to execute the query after delay
+        timeoutId = setTimeout(() => {
+          // Use an async IIFE to handle the promise properly
+          void (async () => {
+            try {
+              // Execute the query function
+              const result = await queryFn();
+
+              // Resolve all pending promises with the fresh result
+              const currentPending = [...pendingPromises];
+              pendingPromises = []; // Clear the pending list
+
+              currentPending.forEach(({ resolve }) => resolve(result));
+            } catch (error) {
+              // Reject all pending promises with the error
+              const currentPending = [...pendingPromises];
+              pendingPromises = []; // Clear the pending list
+
+              currentPending.forEach(({ reject }) => reject(error));
+            }
+          })();
+        }, delay);
+      });
     };
   },
 
