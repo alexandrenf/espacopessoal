@@ -30,6 +30,8 @@ import {
   Printer,
   Undo2,
   Redo2,
+  Download,
+  Upload,
   Bold,
   Italic,
   Underline as UnderlineIcon,
@@ -261,7 +263,7 @@ export function DocumentEditor({
         try {
           // Check if document is still valid
           if (!doc || typeof doc.destroy !== "function") {
-            if (process.env.NODE_ENV=== "development") {
+            if (process.env.NODE_ENV === "development") {
               console.log("🧹 Removing invalid document instance:", docId);
             }
             documentInstances.current.delete(docId);
@@ -289,7 +291,9 @@ export function DocumentEditor({
       // Document loaded successfully, ensure switching state is reset
       if (isSwitchingRef.current) {
         if (process.env.NODE_ENV === "development") {
-          console.log("🔄 Document loaded successfully, resetting switching state");
+          console.log(
+            "🔄 Document loaded successfully, resetting switching state",
+          );
         }
         isSwitchingRef.current = false;
         setIsLoadingDocument(false);
@@ -346,7 +350,9 @@ export function DocumentEditor({
     // Component cleanup on unmount - enhanced memory management
     return () => {
       if (process.env.NODE_ENV === "development") {
-        console.log("🧹 Component unmounting, cleaning up Y.js documents and connections");
+        console.log(
+          "🧹 Component unmounting, cleaning up Y.js documents and connections",
+        );
       }
 
       // Clear all timeouts to prevent memory leaks
@@ -500,6 +506,73 @@ export function DocumentEditor({
         console.error("PDF export failed:", error);
       }
     }
+  };
+
+  const onSaveMarkdown = async () => {
+    if (!editor) return;
+    try {
+      const TurndownService = (await import("turndown")).default;
+      const turndownService = new TurndownService({
+        headingStyle: "atx",
+        bulletListMarker: "-",
+        codeBlockStyle: "fenced",
+      });
+
+      const html = editor.getHTML();
+      const markdown = turndownService.turndown(html);
+
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${doc.title}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("Documento exportado como Markdown!");
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("Markdown export failed:", error);
+      }
+      toast.error("Falha ao exportar como Markdown");
+    }
+  };
+
+  const onImportMarkdown = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".md,.markdown,text/markdown";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && editor) {
+        try {
+          const text = await file.text();
+
+          // Convert Markdown to HTML using showdown (already available in the project)
+          const { Converter } = await import("showdown");
+          const converter = new Converter({
+            tables: true,
+            strikethrough: true,
+            tasklists: true,
+            simpleLineBreaks: true,
+            openLinksInNewWindow: true,
+          });
+
+          const html = converter.makeHtml(text);
+
+          // Set the content in the editor
+          editor.commands.setContent(html);
+
+          toast.success("Arquivo Markdown importado com sucesso!");
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("Markdown import failed:", error);
+          }
+          toast.error("Falha ao importar arquivo Markdown");
+        }
+      }
+    };
+    input.click();
   };
 
   const onNewDocument = () => {
@@ -1478,7 +1551,11 @@ export function DocumentEditor({
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 {(() => {
-                  const titleMargin = isMobile ? "ml-[40px] mt-0.5" : showSidebar ? "" : "ml-[56px] md:ml-[40px] xl:ml-0";
+                  const titleMargin = isMobile
+                    ? "ml-[40px] mt-0.5"
+                    : showSidebar
+                      ? ""
+                      : "ml-[56px] md:ml-[40px] xl:ml-0";
 
                   return isEditingTitle ? (
                     <input
@@ -1666,6 +1743,10 @@ export function DocumentEditor({
                               <Globe className="mr-2 size-4" />
                               HTML
                             </MenubarItem>
+                            <MenubarItem onClick={onSaveMarkdown}>
+                              <Download className="mr-2 size-4" />
+                              Markdown
+                            </MenubarItem>
                             <MenubarItem onClick={onSavePDF}>
                               <Printer className="mr-2 size-4" />
                               PDF
@@ -1673,6 +1754,18 @@ export function DocumentEditor({
                             <MenubarItem onClick={onSaveText}>
                               <FileText className="mr-2 size-4" />
                               Text
+                            </MenubarItem>
+                          </MenubarSubContent>
+                        </MenubarSub>
+                        <MenubarSub>
+                          <MenubarSubTrigger>
+                            <Upload className="mr-2 size-4" />
+                            Importar
+                          </MenubarSubTrigger>
+                          <MenubarSubContent>
+                            <MenubarItem onClick={onImportMarkdown}>
+                              <Upload className="mr-2 size-4" />
+                              Markdown
                             </MenubarItem>
                           </MenubarSubContent>
                         </MenubarSub>
