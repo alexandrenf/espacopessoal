@@ -68,7 +68,7 @@ const config = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://us.i.posthog.com https://us-assets.i.posthog.com ws: wss:",
+              "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://us.i.posthog.com https://us-assets.i.posthog.com https://api.espacopessoal.com https://req.espacopessoal.com ws: wss:",
               "media-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
