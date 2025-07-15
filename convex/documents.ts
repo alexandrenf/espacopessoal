@@ -1654,28 +1654,28 @@ export const migrateDefaultUserDocuments = mutation({
   },
 });
 
-// Query to check if user has documents that need migration
+// Query to check if user has documents that need migration - OPTIMIZED
 export const checkForMigrationNeeded = query({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    // Count documents owned by DEFAULT_USER_ID
+    // OPTIMIZATION: Use .take() instead of .collect() for counting
+    // We only need to know if documents exist, not get all of them
     const defaultUserDocuments = await ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) =>
         q.eq("ownerId", DEFAULT_USER_ID as Id<"users">),
       )
-      .collect();
+      .take(1); // Only need to check if any exist
 
-    // Count documents owned by the actual user
     const userDocuments = await ctx.db
       .query("documents")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
-      .collect();
+      .take(100); // Reasonable limit for counting user documents
 
     return {
-      defaultUserDocumentsCount: defaultUserDocuments.length,
+      defaultUserDocumentsCount: defaultUserDocuments.length > 0 ? "1+" : "0", // Don't need exact count
       userDocumentsCount: userDocuments.length,
       migrationNeeded: defaultUserDocuments.length > 0,
     };

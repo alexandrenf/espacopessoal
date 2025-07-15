@@ -137,7 +137,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   return (
     <div
-      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
+      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 h-10 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -168,7 +168,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           />
         ) : (
           <span
-            className={`truncate text-sm font-medium transition-colors ${selected ? "font-semibold text-blue-900" : "text-gray-800"}`}
+            className={`truncate text-sm font-medium transition-colors ${selected ? "text-blue-900" : "text-gray-800"}`}
           >
             {document.title}
           </span>
@@ -182,10 +182,8 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-6 w-6 transition-opacity touch-manipulation ${
-                isMobile
-                  ? "opacity-100"
-                  : "opacity-0 group-hover:opacity-100"
+              className={`h-6 w-6 touch-manipulation transition-opacity ${
+                isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
               }`}
               onClick={(e) => {
                 e.preventDefault();

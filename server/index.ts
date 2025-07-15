@@ -30,6 +30,11 @@ const SERVER_NAME = process.env.SERVER_NAME ?? "EspacoPessoal Docs Server";
 const MAX_CONNECTIONS = safeParseInt(process.env.MAX_CONNECTIONS, 100);
 const TIMEOUT = safeParseInt(process.env.TIMEOUT, 30000);
 
+// OPTIMIZATION: Centralized logging configuration
+const LOG_LEVEL = process.env.LOG_LEVEL ?? (NODE_ENV === "production" ? "error" : "debug");
+const ENABLE_PERFORMANCE_LOGS = process.env.ENABLE_PERFORMANCE_LOGS === "true" || NODE_ENV === "development";
+// OPTIMIZATION: Removed unused ENABLE_FORMATTING_ANALYSIS
+
 // Convex configuration
 const CONVEX_URL =
   process.env.CONVEX_URL ?? "https://ardent-dolphin-114.convex.cloud";
@@ -47,8 +52,55 @@ const MAX_RETRY_DELAY = 10000; // 10 seconds
 
 // OPTIMIZATION: Performance and cost optimization settings - Phase 1 bandwidth reduction
 const SAVE_DELAY = safeParseInt(process.env.SAVE_DELAY, 45000); // 45 seconds (increased from 15s for 66% bandwidth reduction)
-const BATCH_SAVE_DELAY = safeParseInt(process.env.BATCH_SAVE_DELAY, 2000); // 2 seconds for batching multiple saves
-const MAX_BATCH_SIZE = safeParseInt(process.env.MAX_BATCH_SIZE, 10); // Maximum documents to save in one batch
+// OPTIMIZATION: Removed unused BATCH_SAVE_DELAY and MAX_BATCH_SIZE (reserved for future batch processing)
+
+// OPTIMIZATION: Centralized logging utility with performance optimizations
+class Logger {
+  private static timestampCache = "";
+  private static lastTimestampUpdate = 0;
+  private static readonly TIMESTAMP_CACHE_MS = 1000; // Cache timestamp for 1 second
+
+  private static getTimestamp(): string {
+    const now = Date.now();
+    if (now - this.lastTimestampUpdate > this.TIMESTAMP_CACHE_MS) {
+      this.timestampCache = new Date(now).toISOString();
+      this.lastTimestampUpdate = now;
+    }
+    return this.timestampCache;
+  }
+
+  static debug(message: string, ...args: unknown[]): void {
+    if (LOG_LEVEL === "debug") {
+      console.log(`[${this.getTimestamp()}] ${message}`, ...args);
+    }
+  }
+
+  static info(message: string, ...args: unknown[]): void {
+    if (LOG_LEVEL === "debug" || LOG_LEVEL === "info") {
+      console.log(`[${this.getTimestamp()}] ${message}`, ...args);
+    }
+  }
+
+  static warn(message: string, ...args: unknown[]): void {
+    if (LOG_LEVEL !== "error") {
+      console.warn(`[${this.getTimestamp()}] ${message}`, ...args);
+    }
+  }
+
+  static error(message: string, ...args: unknown[]): void {
+    console.error(`[${this.getTimestamp()}] ${message}`, ...args);
+  }
+
+  static performance(message: string, ...args: unknown[]): void {
+    if (ENABLE_PERFORMANCE_LOGS) {
+      console.log(`[${this.getTimestamp()}] 📊 ${message}`, ...args);
+    }
+  }
+
+  static security(message: string, ...args: unknown[]): void {
+    console.log(`[${this.getTimestamp()}] 🔐 ${message}`, ...args);
+  }
+}
 
 // Enhanced document state tracking with last saved content
 interface DocumentState {
@@ -67,31 +119,9 @@ interface SaveResult {
   type: "success" | "not_found" | "error";
 }
 
-// TypeScript interfaces for ProseMirror content
-interface ProseMirrorMark {
-  type: string;
-  attrs?: Record<string, unknown>;
-}
+// OPTIMIZATION: Removed unused ProseMirror interfaces
 
-interface ProseMirrorNode {
-  type: string;
-  content?: ProseMirrorNode[];
-  text?: string;
-  marks?: ProseMirrorMark[];
-  attrs?: Record<string, unknown>;
-}
-
-interface ProseMirrorDocument {
-  type: "doc";
-  content: ProseMirrorNode[];
-}
-
-class DocumentNotFoundError extends Error {
-  constructor(documentName: string) {
-    super(`Document ${documentName} not found`);
-    this.name = "DocumentNotFoundError";
-  }
-}
+// OPTIMIZATION: Removed unused ProseMirrorDocument interface and DocumentNotFoundError class
 
 const documentStates = new Map<string, DocumentState>();
 
@@ -125,220 +155,9 @@ const isRetryableError = (error: unknown, response?: Response): boolean => {
   return false;
 };
 
-// Utility functions for Convex API calls
-const saveDocumentToConvex = async (
-  documentName: string,
-  content: string,
-): Promise<SaveResult> => {
-  const url = `${CONVEX_SITE_URL}/updateDocumentContent`;
-  const payload = {
-    documentId: documentName,
-    content: content,
-    userId: SERVER_USER_ID,
-  };
+// OPTIMIZATION: Removed unused saveDocumentToConvex function (~140 lines) - we only use Y.js state now
 
-  console.log(`[${new Date().toISOString()}] 🔗 Attempting to save to: ${url}`);
-  console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
-  console.log(
-    `[${new Date().toISOString()}] 📝 Content length: ${content.length} chars`,
-  );
-
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
-    try {
-      // Log retry attempt if not the first attempt
-      if (attempt > 1) {
-        console.log(
-          `[${new Date().toISOString()}] 🔄 Retry attempt ${attempt}/${MAX_RETRY_ATTEMPTS} for document ${documentName}`,
-        );
-      }
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log(
-        `[${new Date().toISOString()}] 📡 Response status: ${response.status} ${response.statusText}`,
-      );
-      // Response processed inline
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `[${new Date().toISOString()}] ❌ HTTP Error: ${response.status} - ${errorText}`,
-        );
-
-        // Handle non-retryable errors immediately
-        if (response.status === 404) {
-          console.log(
-            `[${new Date().toISOString()}] 🚫 Document ${documentName} not found in Convex - document may not have been created through UI`,
-          );
-          return {
-            success: false,
-            error: `Document ${documentName} not found`,
-            type: "not_found",
-          };
-        }
-
-        // Check if this error is retryable
-        if (!isRetryableError(null, response)) {
-          console.log(
-            `[${new Date().toISOString()}] ❌ Non-retryable error for document ${documentName}, giving up`,
-          );
-          return {
-            success: false,
-            error: `HTTP ${response.status}: ${errorText}`,
-            type: "error",
-          };
-        }
-
-        // Store error for potential retry
-        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
-
-        // If this is the last attempt, don't retry
-        if (attempt === MAX_RETRY_ATTEMPTS) {
-          console.error(
-            `[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName}, giving up`,
-          );
-          return {
-            success: false,
-            error: `HTTP ${response.status}: ${errorText}`,
-            type: "error",
-          };
-        }
-
-        // Calculate delay for next attempt with exponential backoff
-        const delayMs = Math.min(
-          INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
-          MAX_RETRY_DELAY,
-        );
-
-        console.log(
-          `[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to ${response.status} error`,
-        );
-        await delay(delayMs);
-        continue;
-      }
-
-      // Success case
-      const result = (await response.json()) as {
-        success: boolean;
-        message: string;
-      };
-
-      if (attempt > 1) {
-        console.log(
-          `[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex after ${attempt} attempts`,
-        );
-      } else {
-        console.log(
-          `[${new Date().toISOString()}] ✅ Successfully saved document ${documentName} to Convex`,
-        );
-      }
-
-      return {
-        success: true,
-        type: "success",
-      };
-    } catch (error) {
-      lastError = error;
-      console.error(
-        `[${new Date().toISOString()}] Network error saving document ${documentName} to Convex:`,
-        error,
-      );
-
-      // Network errors are always retryable
-      if (attempt === MAX_RETRY_ATTEMPTS) {
-        console.error(
-          `[${new Date().toISOString()}] ❌ Max retries reached for document ${documentName} after network error, giving up`,
-        );
-        break;
-      }
-
-      // Calculate delay for next attempt with exponential backoff
-      const delayMs = Math.min(
-        INITIAL_RETRY_DELAY * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1),
-        MAX_RETRY_DELAY,
-      );
-
-      console.log(
-        `[${new Date().toISOString()}] ⏳ Retrying in ${delayMs}ms due to network error`,
-      );
-      await delay(delayMs);
-    }
-  }
-
-  // If we get here, all retries failed
-  return {
-    success: false,
-    error:
-      lastError instanceof Error
-        ? lastError.message
-        : "Unknown error after retries",
-    type: "error",
-  };
-};
-
-const loadDocumentFromConvex = async (
-  documentName: string,
-): Promise<string | null> => {
-  const url = `${CONVEX_SITE_URL}/getDocumentContent?documentId=${encodeURIComponent(documentName)}`;
-
-  console.log(
-    `[${new Date().toISOString()}] 🔍 Attempting to load from: ${url}`,
-  );
-  console.log(`[${new Date().toISOString()}] 📄 Document ID: ${documentName}`);
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    console.log(
-      `[${new Date().toISOString()}] 📡 Load response status: ${response.status} ${response.statusText}`,
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.log(
-          `[${new Date().toISOString()}] Document ${documentName} not found in Convex - will start with empty document`,
-        );
-        return null;
-      }
-      const errorText = await response.text();
-      console.error(
-        `[${new Date().toISOString()}] Failed to load document ${documentName}: ${response.status} ${errorText}`,
-      );
-      return null;
-    }
-
-    const result = (await response.json()) as {
-      success: boolean;
-      document: { content: string };
-    };
-    const content = result.document?.content ?? null;
-
-    console.log(
-      `[${new Date().toISOString()}] Successfully loaded document ${documentName} from Convex (${content?.length ?? 0} chars)`,
-    );
-
-    return content;
-  } catch (error) {
-    console.error(
-      `[${new Date().toISOString()}] Error loading document ${documentName} from Convex:`,
-      error,
-    );
-    return null;
-  }
-};
+// OPTIMIZATION: Removed unused loadDocumentFromConvex function - we only use Y.js state now
 
 // New functions for Y.js binary state management (perfect formatting preservation)
 const saveYjsStateToConvex = async (
@@ -441,20 +260,13 @@ const saveYjsStateToConvex = async (
         continue;
       }
 
-      // Success case
-      const result = (await response.json()) as {
-        success: boolean;
-        message: string;
-      };
+      // Success case - OPTIMIZATION: Remove unused result variable
+      await response.json(); // Consume response but don't store unused result
 
       if (attempt > 1) {
-        console.log(
-          `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex after ${attempt} attempts`,
-        );
+        Logger.info(`✅ Successfully saved Y.js state for document ${documentName} to Convex after ${attempt} attempts`);
       } else {
-        console.log(
-          `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex`,
-        );
+        Logger.debug(`✅ Successfully saved Y.js state for document ${documentName} to Convex`);
       }
 
       return {
@@ -613,10 +425,8 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
-  if (!state || !state.pendingSave) {
-    console.log(
-      `[${new Date().toISOString()}] Skipping save for ${documentName} - no pending changes`,
-    );
+  if (!state?.pendingSave) { // OPTIMIZATION: Use optional chaining
+    Logger.debug(`Skipping save for ${documentName} - no pending changes`);
     return;
   }
 
@@ -627,16 +437,12 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     // OPTIMIZATION: Content diffing - only save if content actually changed
     const yjsStateString = Buffer.from(yjsState).toString("base64");
     if (state.lastSavedContent === yjsStateString) {
-      console.log(
-        `[${new Date().toISOString()}] ⚡ Skipping save for ${documentName} - content unchanged (${yjsState.length} bytes)`,
-      );
+      Logger.performance(`⚡ Skipping save for ${documentName} - content unchanged (${yjsState.length} bytes)`);
       state.pendingSave = false;
       return;
     }
 
-    console.log(
-      `[${new Date().toISOString()}] Saving document ${documentName} (${yjsState.length} bytes Y.js state)`,
-    );
+    Logger.debug(`Saving document ${documentName} (${yjsState.length} bytes Y.js state)`);
 
     // Save Y.js binary state instead of HTML
     const result = await saveYjsStateToConvex(documentName, yjsState);
@@ -644,20 +450,12 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     if (result.success) {
       // OPTIMIZATION: Store the successfully saved content for future comparisons
       state.lastSavedContent = yjsStateString;
-      console.log(
-        `[${new Date().toISOString()}] ✅ Successfully saved Y.js state for document ${documentName} to Convex`,
-      );
+      Logger.debug(`✅ Successfully saved Y.js state for document ${documentName} to Convex`);
     } else {
-      console.error(
-        `[${new Date().toISOString()}] ❌ Failed to save Y.js state for document ${documentName}:`,
-        result.error,
-      );
+      Logger.error(`❌ Failed to save Y.js state for document ${documentName}:`, result.error);
     }
   } catch (error) {
-    console.error(
-      `[${new Date().toISOString()}] Error saving Y.js state for document ${documentName}:`,
-      error,
-    );
+    Logger.error(`Error saving Y.js state for document ${documentName}:`, error);
   } finally {
     // Reset state
     state.pendingSave = false;
@@ -668,1011 +466,25 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   }
 };
 
-// Enhanced function to extract document content from Y.js document
-const extractDocumentContent = (ydoc: Y.Doc): string => {
-  try {
-    console.log("🔍 Starting enhanced content extraction...");
+// OPTIMIZATION: Removed unused extractDocumentContent function - we only use Y.js binary state now
 
-    // Get all shared types in the document
-    const sharedTypes = Array.from(ydoc.share.keys());
-    console.log("🔍 Y.js shared types:", sharedTypes);
+// OPTIMIZATION: Removed unused logFormattingAnalysis function - only used for debugging
 
-    // Try multiple fragment names that TipTap might use
-    const fragmentNames = [
-      "default",
-      "prosemirror",
-      "document",
-      "content",
-      "editor",
-    ];
+// OPTIMIZATION: Removed unused convertXmlFragmentToHtml function
 
-    for (const fragmentName of fragmentNames) {
-      try {
-        const fragment = ydoc.getXmlFragment(fragmentName);
-        if (fragment) {
-          console.log(
-            `🔍 Found fragment '${fragmentName}' with ${fragment.length} children`,
-          );
+// OPTIMIZATION: Removed unused HTML conversion functions - we only use Y.js binary state now
 
-          if (fragment.length > 0) {
-            const content = convertXmlFragmentToHtml(fragment);
-            if (content && content !== "<p></p>") {
-              // Enhanced logging for formatting analysis
-              logFormattingAnalysis(fragment, content);
-              console.log(
-                `✅ Successfully extracted content from fragment '${fragmentName}':`,
-                content,
-              );
-              return content;
-            }
-          }
+// OPTIMIZATION: Removed unused elementHasContent function
 
-          // Also try to get the fragment's internal content
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const fragmentChildren = (fragment as any)._start;
-            if (fragmentChildren) {
-              console.log(
-                `🔍 Fragment '${fragmentName}' has internal children`,
-              );
-            }
-          } catch (error) {
-            console.log(
-              `🔍 Could not access internal children of fragment '${fragmentName}':`,
-              error,
-            );
-          }
-        }
-      } catch (error) {
-        console.warn(`🔍 Could not access fragment '${fragmentName}':`, error);
-      }
-    }
+// OPTIMIZATION: Removed large unused parseHtmlBlock function (~90 lines)
 
-    // Try to access Y.js shared types directly
-    for (const typeName of sharedTypes) {
-      try {
-        const sharedType = ydoc.get(typeName);
-        console.log(
-          `🔍 Examining shared type '${typeName}':`,
-          typeof sharedType,
-        );
+// OPTIMIZATION: Removed large unused parseTextWithFormatting function (~148 lines)
 
-        if (sharedType instanceof Y.XmlFragment) {
-          console.log(
-            `🔍 Shared type '${typeName}' is XmlFragment with ${sharedType.length} children`,
-          );
-          if (sharedType.length > 0) {
-            const content = convertXmlFragmentToHtml(sharedType);
-            if (content && content !== "<p></p>") {
-              // Enhanced logging for formatting analysis
-              logFormattingAnalysis(sharedType, content);
-              console.log(
-                `✅ Successfully extracted content from shared type '${typeName}':`,
-                content,
-              );
-              return content;
-            }
-          }
-        } else if (sharedType instanceof Y.XmlElement) {
-          console.log(`🔍 Shared type '${typeName}' is XmlElement`);
-          const content = convertXmlElementToHtml(sharedType);
-          if (content && content !== "<p></p>") {
-            console.log(
-              `✅ Successfully extracted content from XmlElement '${typeName}':`,
-              content,
-            );
-            return content;
-          }
-        } else if (sharedType instanceof Y.Map) {
-          console.log(
-            `🔍 Shared type '${typeName}' is Map with keys:`,
-            Array.from(sharedType.keys()),
-          );
-        } else if (sharedType instanceof Y.Array) {
-          console.log(
-            `🔍 Shared type '${typeName}' is Array with ${sharedType.length} items`,
-          );
-        } else if (sharedType instanceof Y.Text) {
-          console.log(
-            `🔍 Shared type '${typeName}' is Text:`,
-            sharedType.toString(),
-          );
-          const textContent = sharedType.toString();
-          if (textContent) {
-            return `<p>${textContent}</p>`;
-          }
-        }
-      } catch (error) {
-        console.warn(`🔍 Error examining shared type '${typeName}':`, error);
-      }
-    }
+// OPTIMIZATION: Removed unused getYjsElementName function
 
-    console.log("📄 No collaborative content found, returning empty document");
-    return "<p></p>";
-  } catch (error) {
-    console.error("💥 Error extracting document content:", error);
-    return "<p>Error extracting content</p>";
-  }
-};
+// OPTIMIZATION: Removed large unused convertXmlElementToHtml function (~159 lines)
 
-// Helper function to log formatting analysis for debugging (development only)
-const logFormattingAnalysis = (
-  fragment: Y.XmlFragment,
-  htmlContent: string,
-): void => {
-  // Only run formatting analysis in development environment
-  if (process.env.NODE_ENV === "production") {
-    return;
-  }
-
-  try {
-    console.log("🎨 === FORMATTING ANALYSIS ===");
-
-    // Count formatting elements in Y.js fragment
-    let textStyleCount = 0;
-    let highlightCount = 0;
-    let strongCount = 0;
-    let emCount = 0;
-    let underlineCount = 0;
-    let codeCount = 0;
-
-    const analyzeElement = (element: Y.XmlElement | Y.XmlFragment): void => {
-      if (element instanceof Y.XmlElement) {
-        switch (element.nodeName) {
-          case "textStyle": {
-            textStyleCount++;
-            const attrs = element.getAttributes();
-            console.log(`🎨 TextStyle attributes:`, attrs);
-            break;
-          }
-          case "highlight":
-            highlightCount++;
-            break;
-          case "strong":
-            strongCount++;
-            break;
-          case "em":
-            emCount++;
-            break;
-          case "underline":
-            underlineCount++;
-            break;
-          case "code":
-            codeCount++;
-            break;
-        }
-      }
-
-      // Recursively analyze children
-      element.forEach((child) => {
-        if (child instanceof Y.XmlElement) {
-          analyzeElement(child);
-        }
-      });
-    };
-
-    analyzeElement(fragment);
-
-    console.log(`🎨 Y.js Formatting Counts:`);
-    console.log(`  - TextStyle elements: ${textStyleCount}`);
-    console.log(`  - Highlight elements: ${highlightCount}`);
-    console.log(`  - Strong elements: ${strongCount}`);
-    console.log(`  - Em elements: ${emCount}`);
-    console.log(`  - Underline elements: ${underlineCount}`);
-    console.log(`  - Code elements: ${codeCount}`);
-
-    // Count formatting elements in HTML output
-    const htmlSpanCount = (htmlContent.match(/<span[^>]*>/g) || []).length;
-    const htmlMarkCount = (htmlContent.match(/<mark[^>]*>/g) || []).length;
-    const htmlStrongCount = (htmlContent.match(/<strong>/g) || []).length;
-    const htmlEmCount = (htmlContent.match(/<em>/g) || []).length;
-    const htmlUCount = (htmlContent.match(/<u>/g) || []).length;
-    const htmlCodeCount = (htmlContent.match(/<code>/g) || []).length;
-
-    console.log(`🎨 HTML Formatting Counts:`);
-    console.log(`  - Span elements: ${htmlSpanCount}`);
-    console.log(`  - Mark elements: ${htmlMarkCount}`);
-    console.log(`  - Strong elements: ${htmlStrongCount}`);
-    console.log(`  - Em elements: ${htmlEmCount}`);
-    console.log(`  - U elements: ${htmlUCount}`);
-    console.log(`  - Code elements: ${htmlCodeCount}`);
-
-    // Check for potential formatting loss
-    if (textStyleCount > htmlSpanCount) {
-      console.warn(
-        `⚠️ Potential formatting loss: ${textStyleCount} textStyle elements -> ${htmlSpanCount} span elements`,
-      );
-    }
-    if (highlightCount > htmlMarkCount) {
-      console.warn(
-        `⚠️ Potential formatting loss: ${highlightCount} highlight elements -> ${htmlMarkCount} mark elements`,
-      );
-    }
-
-    console.log("🎨 === END FORMATTING ANALYSIS ===");
-  } catch (error) {
-    console.error("Error in formatting analysis:", error);
-  }
-};
-
-// Helper function to convert Y.js XMLFragment to HTML
-const convertXmlFragmentToHtml = (fragment: Y.XmlFragment): string => {
-  let html = "";
-
-  try {
-    fragment.forEach((child, index) => {
-      if (!child) return;
-
-      console.log(`🔍 Processing child ${index}:`, child.constructor.name);
-
-      if (child instanceof Y.XmlElement) {
-        html += convertXmlElementToHtml(child);
-      } else if (child instanceof Y.XmlText) {
-        console.log(
-          `🔍 Processing direct text node at index ${index}:`,
-          child.toString(),
-        );
-        const textContent = child.toString();
-        if (textContent.trim()) {
-          html += `<p>${textContent}</p>`;
-        }
-      }
-    });
-  } catch (error) {
-    console.error("Error processing XML fragment:", error);
-  }
-
-  if (!html.trim()) {
-    html = "<p></p>";
-  }
-
-  console.log("📄 Fragment HTML result:", html);
-  return html;
-};
-
-// Helper function to convert HTML back to Y.js fragment (reverse of conversion)
-const convertHtmlToYjsFragment = (
-  htmlContent: string,
-  fragment: Y.XmlFragment,
-): void => {
-  try {
-    console.log(
-      `[${new Date().toISOString()}] Converting HTML to Y.js fragment:`,
-      htmlContent.substring(0, 200),
-    );
-
-    // CRITICAL: Clear the fragment first to prevent content insertion at cursor position
-    // This ensures we replace the entire document content, not append to it
-    fragment.delete(0, fragment.length);
-    console.log(
-      `[${new Date().toISOString()}] Cleared existing fragment content`,
-    );
-
-    // Enhanced HTML to Y.js conversion - handles headings, formatting, and structure
-    let content = htmlContent.trim();
-
-    // CRITICAL: Remove leading empty paragraphs from HTML before processing
-    // This handles cases like "<p></p><h1>Title</h1>" or "<p></p><p>Content</p>"
-    content = content.replace(/^(<p[^>]*><\/p>\s*)+/, "");
-
-    // Split content into blocks while preserving HTML structure
-    const blockRegex =
-      /<(h[1-6]|p|ul|ol|li|blockquote)[^>]*>.*?<\/\1>|<(h[1-6]|p)[^>]*>.*?(?=<(?:h[1-6]|p|ul|ol|blockquote)|$)/gs;
-    const blocks = content.match(blockRegex) ?? [];
-
-    if (blocks.length === 0) {
-      // Fallback: treat entire content as single block
-      const element = parseHtmlBlock(content);
-      if (element) {
-        fragment.insert(0, [element]);
-      }
-      return;
-    }
-
-    let hasNonEmptyContent = false;
-
-    for (const block of blocks) {
-      const element = parseHtmlBlock(block.trim(), !hasNonEmptyContent);
-      if (element) {
-        fragment.insert(fragment.length, [element]);
-        // Mark that we've found non-empty content
-        if (!hasNonEmptyContent && elementHasContent(element)) {
-          hasNonEmptyContent = true;
-        }
-      }
-    }
-
-    // Final cleanup: remove any leading empty paragraphs that might have slipped through
-    while (fragment.length > 0) {
-      const firstElement = fragment.get(0);
-      if (
-        firstElement instanceof Y.XmlElement &&
-        firstElement.nodeName === "paragraph" &&
-        !elementHasContent(firstElement)
-      ) {
-        console.log(
-          `[${new Date().toISOString()}] Removing leading empty paragraph to prevent blank line at start`,
-        );
-        fragment.delete(0, 1);
-      } else {
-        break; // Stop once we find non-empty content
-      }
-    }
-
-    console.log(
-      `[${new Date().toISOString()}] Successfully converted HTML to Y.js fragment with ${fragment.length} elements`,
-    );
-  } catch (error) {
-    console.error(
-      `[${new Date().toISOString()}] Error converting HTML to Y.js fragment:`,
-      error,
-    );
-
-    // Fallback: create a simple paragraph with the content as text
-    const paragraph = new Y.XmlElement("paragraph");
-    const cleanText = htmlContent.replace(/<[^>]*>/g, "").trim();
-    if (cleanText) {
-      paragraph.insert(0, [new Y.XmlText(cleanText)]);
-      fragment.insert(0, [paragraph]);
-    }
-  }
-};
-
-// Helper function to check if an element has actual content
-const elementHasContent = (element: Y.XmlElement): boolean => {
-  if (element.length === 0) return false;
-
-  // Check if any child has content
-  let hasContent = false;
-  element.forEach((child) => {
-    if (child instanceof Y.XmlText && child.toString().trim()) {
-      hasContent = true;
-    } else if (child instanceof Y.XmlElement && elementHasContent(child)) {
-      hasContent = true;
-    }
-  });
-
-  return hasContent;
-};
-
-// Helper function to parse individual HTML blocks into Y.js elements
-const parseHtmlBlock = (
-  blockHtml: string,
-  skipEmptyParagraphs = false,
-): Y.XmlElement | null => {
-  try {
-    const trimmed = blockHtml.trim();
-    if (!trimmed) return null;
-
-    // Handle headings
-    const headingMatch = trimmed.match(/^<h([1-6])[^>]*>(.*?)<\/h[1-6]>$/s);
-    if (headingMatch && headingMatch[1] && headingMatch[2] !== undefined) {
-      const level = headingMatch[1];
-      const content = headingMatch[2];
-
-      // Skip empty headings
-      if (!content.trim()) {
-        return null;
-      }
-
-      const heading = new Y.XmlElement("heading");
-      heading.setAttribute("level", level);
-
-      const textContent = parseTextWithFormatting(content);
-      if (textContent.length > 0) {
-        heading.insert(0, textContent);
-        return heading;
-      }
-
-      return null; // Don't create empty headings
-    }
-
-    // Handle paragraphs
-    const paragraphMatch =
-      trimmed.match(/^<p[^>]*>(.*?)<\/p>$/s) ??
-      trimmed.match(/^<p[^>]*>(.*?)$/s);
-    if (paragraphMatch?.[1] !== undefined) {
-      const content = paragraphMatch[1];
-
-      // Only skip empty paragraphs at the beginning of the document
-      if (!content.trim() && skipEmptyParagraphs) {
-        return null;
-      }
-
-      const paragraph = new Y.XmlElement("paragraph");
-      const textContent = parseTextWithFormatting(content);
-
-      // For empty paragraphs after content has started, create an empty paragraph
-      if (textContent.length === 0 && !skipEmptyParagraphs) {
-        // Create an empty paragraph (intentional spacing)
-        return paragraph;
-      } else if (textContent.length > 0) {
-        paragraph.insert(0, textContent);
-        return paragraph;
-      }
-
-      return null; // Don't create empty paragraphs at the beginning
-    }
-
-    // Handle blockquotes
-    const blockquoteMatch = trimmed.match(
-      /^<blockquote[^>]*>(.*?)<\/blockquote>$/s,
-    );
-    if (blockquoteMatch && blockquoteMatch[1] !== undefined) {
-      const content = blockquoteMatch[1];
-
-      // Skip empty blockquotes
-      if (!content.trim()) {
-        return null;
-      }
-
-      const blockquote = new Y.XmlElement("blockquote");
-      const textContent = parseTextWithFormatting(content);
-
-      if (textContent.length > 0) {
-        blockquote.insert(0, textContent);
-        return blockquote;
-      }
-
-      return null; // Don't create empty blockquotes
-    }
-
-    // Default: treat as paragraph, but only if it has content
-    const cleanedContent = trimmed.replace(/^<[^>]*>|<\/[^>]*>$/g, "").trim();
-    if (!cleanedContent) {
-      return null; // Don't create paragraphs for empty content
-    }
-
-    const paragraph = new Y.XmlElement("paragraph");
-    const textContent = parseTextWithFormatting(cleanedContent);
-
-    if (textContent.length > 0) {
-      paragraph.insert(0, textContent);
-      return paragraph;
-    }
-
-    return null; // Don't create empty paragraphs
-  } catch (error) {
-    console.error("Error parsing HTML block:", error);
-    return null;
-  }
-};
-
-// Helper function to parse text with inline formatting (bold, italic, etc.)
-const parseTextWithFormatting = (
-  html: string,
-): (Y.XmlText | Y.XmlElement)[] => {
-  try {
-    const result: (Y.XmlText | Y.XmlElement)[] = [];
-
-    // Enhanced approach: handle both basic formatting tags and span elements with style attributes
-    let remaining = html;
-
-    while (remaining) {
-      // Find the next formatting tag - including span elements with style attributes
-      const formatMatch = remaining.match(
-        /^(.*?)<(strong|b|em|i|u|code|mark|span)[^>]*>(.*?)<\/\2>(.*)$/s,
-      );
-
-      if (
-        formatMatch &&
-        formatMatch[1] !== undefined &&
-        formatMatch[2] &&
-        formatMatch[3] !== undefined &&
-        formatMatch[4] !== undefined
-      ) {
-        const [, before, tag, content, after] = formatMatch;
-
-        // Add text before the formatting
-        if (before) {
-          result.push(new Y.XmlText(before));
-        }
-
-        // Handle span elements with style attributes (TipTap textStyle)
-        if (tag === "span") {
-          const spanMatch = remaining.match(
-            /^(.*?)<span([^>]*)>(.*?)<\/span>(.*)$/s,
-          );
-          if (spanMatch && spanMatch[2] && spanMatch[3] !== undefined) {
-            const attributes = spanMatch[2];
-            const spanContent = spanMatch[3];
-
-            // Parse style attributes from span
-            const styleMatch = attributes.match(/style="([^"]*)"/i);
-            if (styleMatch && styleMatch[1]) {
-              const styleString = styleMatch[1];
-              const textStyleElement = new Y.XmlElement("textStyle");
-
-              // Parse individual CSS properties
-              const cssProperties = styleString
-                .split(";")
-                .map((prop) => prop.trim())
-                .filter((prop) => prop.length > 0);
-
-              for (const property of cssProperties) {
-                const [key, value] = property
-                  .split(":")
-                  .map((part) => part.trim());
-                if (key && value) {
-                  switch (key.toLowerCase()) {
-                    case "font-size":
-                      textStyleElement.setAttribute("fontSize", value);
-                      console.log(`🎨 Parsed fontSize: ${value}`);
-                      break;
-                    case "font-family":
-                      textStyleElement.setAttribute("fontFamily", value);
-                      console.log(`🎨 Parsed fontFamily: ${value}`);
-                      break;
-                    case "color":
-                      textStyleElement.setAttribute("color", value);
-                      console.log(`🎨 Parsed color: ${value}`);
-                      break;
-                    case "line-height":
-                      textStyleElement.setAttribute("lineHeight", value);
-                      console.log(`🎨 Parsed lineHeight: ${value}`);
-                      break;
-                    case "background-color":
-                      textStyleElement.setAttribute("backgroundColor", value);
-                      console.log(`🎨 Parsed backgroundColor: ${value}`);
-                      break;
-                    case "font-weight":
-                      textStyleElement.setAttribute("fontWeight", value);
-                      console.log(`🎨 Parsed fontWeight: ${value}`);
-                      break;
-                    case "font-style":
-                      textStyleElement.setAttribute("fontStyle", value);
-                      console.log(`🎨 Parsed fontStyle: ${value}`);
-                      break;
-                    case "text-decoration":
-                      textStyleElement.setAttribute("textDecoration", value);
-                      console.log(`🎨 Parsed textDecoration: ${value}`);
-                      break;
-                    default:
-                      console.log(`🎨 Unknown CSS property: ${key}`);
-                  }
-                }
-              }
-
-              // Add content to textStyle element
-              if (spanContent) {
-                const nestedContent = parseTextWithFormatting(spanContent);
-                textStyleElement.insert(0, nestedContent);
-              }
-
-              result.push(textStyleElement);
-              remaining = after;
-              continue;
-            }
-          }
-        }
-
-        // Handle mark elements with style attributes (highlight colors)
-        if (tag === "mark") {
-          const markMatch = remaining.match(
-            /^(.*?)<mark([^>]*)>(.*?)<\/mark>(.*)$/s,
-          );
-          if (markMatch && markMatch[2] && markMatch[3] !== undefined) {
-            const attributes = markMatch[2];
-            const markContent = markMatch[3];
-
-            // Parse style attributes from mark
-            const styleMatch = attributes.match(/style="([^"]*)"/i);
-            if (styleMatch && styleMatch[1]) {
-              const styleString = styleMatch[1];
-              const highlightElement = new Y.XmlElement("highlight");
-
-              // Parse background-color for highlights
-              const backgroundColorMatch = styleString.match(
-                /background-color:\s*([^;]+)/i,
-              );
-              if (backgroundColorMatch && backgroundColorMatch[1]) {
-                highlightElement.setAttribute(
-                  "backgroundColor",
-                  backgroundColorMatch[1].trim(),
-                );
-                console.log(
-                  `🎨 Parsed highlight backgroundColor: ${backgroundColorMatch[1].trim()}`,
-                );
-              }
-
-              // Add content to highlight element
-              if (markContent) {
-                const nestedContent = parseTextWithFormatting(markContent);
-                highlightElement.insert(0, nestedContent);
-              }
-
-              result.push(highlightElement);
-              remaining = after;
-              continue;
-            }
-          }
-        }
-
-        // Create formatted element for basic tags
-        const formattedElement = new Y.XmlElement(getYjsElementName(tag));
-        if (content) {
-          // Recursively handle nested formatting
-          const nestedContent = parseTextWithFormatting(content);
-          formattedElement.insert(0, nestedContent);
-        }
-        result.push(formattedElement);
-
-        remaining = after;
-      } else {
-        // No more formatting tags, add remaining text
-        if (remaining.trim()) {
-          const cleanText = remaining.replace(/<[^>]*>/g, ""); // Strip any remaining HTML
-          if (cleanText) {
-            result.push(new Y.XmlText(cleanText));
-          }
-        }
-        break;
-      }
-    }
-
-    return result;
-  } catch (error) {
-    console.error("Error parsing text with formatting:", error);
-    // Fallback: return plain text
-    const cleanText = html.replace(/<[^>]*>/g, "").trim();
-    return cleanText ? [new Y.XmlText(cleanText)] : [];
-  }
-};
-
-// Helper function to map HTML tags to Y.js element names
-const getYjsElementName = (htmlTag: string): string => {
-  switch (htmlTag.toLowerCase()) {
-    case "strong":
-    case "b":
-      return "strong";
-    case "em":
-    case "i":
-      return "em";
-    case "u":
-      return "underline";
-    case "code":
-      return "code";
-    case "mark":
-      return "highlight";
-    case "span":
-      return "textStyle";
-    default:
-      return htmlTag;
-  }
-};
-
-// Helper function to convert Y.js XMLElement to HTML
-const convertXmlElementToHtml = (element: Y.XmlElement): string => {
-  const nodeName = element.nodeName;
-  console.log(`🔍 Processing YXmlElement: ${nodeName}`);
-
-  let innerContent = "";
-
-  try {
-    element.forEach((child) => {
-      if (child instanceof Y.XmlText) {
-        innerContent += child.toString();
-      } else if (child instanceof Y.XmlElement) {
-        innerContent += convertXmlElementToHtml(child);
-      }
-    });
-  } catch (error) {
-    console.error(`Error processing XML element ${nodeName}:`, error);
-  }
-
-  // Map common TipTap/ProseMirror node types to HTML
-  switch (nodeName) {
-    case "paragraph":
-    case "p": {
-      return `<p>${innerContent}</p>`;
-    }
-    case "heading":
-    case "h1":
-    case "h2":
-    case "h3":
-    case "h4":
-    case "h5":
-    case "h6": {
-      const level = element.getAttribute("level") ?? nodeName.charAt(1) ?? "1";
-      return `<h${level}>${innerContent}</h${level}>`;
-    }
-    case "bulletList":
-    case "ul": {
-      return `<ul>${innerContent}</ul>`;
-    }
-    case "orderedList":
-    case "ol": {
-      return `<ol>${innerContent}</ol>`;
-    }
-    case "listItem":
-    case "li": {
-      return `<li>${innerContent}</li>`;
-    }
-    case "blockquote": {
-      return `<blockquote>${innerContent}</blockquote>`;
-    }
-    case "codeBlock":
-    case "pre": {
-      return `<pre><code>${innerContent}</code></pre>`;
-    }
-    case "hardBreak":
-    case "br": {
-      return "<br>";
-    }
-    case "horizontalRule":
-    case "hr": {
-      return "<hr>";
-    }
-    case "strong":
-    case "b": {
-      return `<strong>${innerContent}</strong>`;
-    }
-    case "em":
-    case "i": {
-      return `<em>${innerContent}</em>`;
-    }
-    case "u":
-    case "underline": {
-      return `<u>${innerContent}</u>`;
-    }
-    case "code": {
-      return `<code>${innerContent}</code>`;
-    }
-    case "highlight":
-    case "mark": {
-      // Handle highlight with color attributes
-      const backgroundColor =
-        element.getAttribute("backgroundColor") ||
-        element.getAttribute("color");
-      if (backgroundColor) {
-        return `<mark style="background-color: ${backgroundColor}">${innerContent}</mark>`;
-      }
-      return `<mark>${innerContent}</mark>`;
-    }
-    case "textStyle":
-    case "span": {
-      // Handle TipTap textStyle elements with comprehensive formatting attributes
-      const styleAttributes: string[] = [];
-
-      // Font size
-      const fontSize = element.getAttribute("fontSize");
-      if (fontSize) {
-        styleAttributes.push(`font-size: ${fontSize}`);
-      }
-
-      // Font family
-      const fontFamily = element.getAttribute("fontFamily");
-      if (fontFamily) {
-        styleAttributes.push(`font-family: ${fontFamily}`);
-      }
-
-      // Text color
-      const color = element.getAttribute("color");
-      if (color) {
-        styleAttributes.push(`color: ${color}`);
-      }
-
-      // Line height
-      const lineHeight = element.getAttribute("lineHeight");
-      if (lineHeight) {
-        styleAttributes.push(`line-height: ${lineHeight}`);
-      }
-
-      // Background color for highlights
-      const backgroundColor = element.getAttribute("backgroundColor");
-      if (backgroundColor) {
-        styleAttributes.push(`background-color: ${backgroundColor}`);
-      }
-
-      // Additional text decorations
-      const textDecoration = element.getAttribute("textDecoration");
-      if (textDecoration) {
-        styleAttributes.push(`text-decoration: ${textDecoration}`);
-      }
-
-      // Font weight
-      const fontWeight = element.getAttribute("fontWeight");
-      if (fontWeight) {
-        styleAttributes.push(`font-weight: ${fontWeight}`);
-      }
-
-      // Font style
-      const fontStyle = element.getAttribute("fontStyle");
-      if (fontStyle) {
-        styleAttributes.push(`font-style: ${fontStyle}`);
-      }
-
-      if (styleAttributes.length > 0) {
-        const styleString = styleAttributes.join("; ");
-        console.log(`🎨 Converting textStyle with attributes: ${styleString}`);
-        return `<span style="${styleString}">${innerContent}</span>`;
-      }
-
-      // If no style attributes, return content without wrapper
-      return innerContent;
-    }
-    case "text": {
-      return innerContent;
-    }
-    default: {
-      console.log(`🔍 Unknown element type: ${nodeName}, treating as div`);
-      return innerContent ? `<div>${innerContent}</div>` : "";
-    }
-  }
-};
-
-// Helper function to convert a ProseMirror node to HTML
-const convertNodeToHtml = (node: ProseMirrorNode): string => {
-  if (!node || typeof node !== "object") return "";
-  switch (node.type) {
-    case "paragraph": {
-      const content = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<p>${content}</p>`;
-    }
-    case "text": {
-      let text = node.text ?? "";
-      // Apply marks (bold, italic, textStyle, etc.)
-      if (node.marks && Array.isArray(node.marks)) {
-        // Collect style attributes from textStyle marks
-        const styleAttributes: string[] = [];
-        let hasTextStyle = false;
-
-        for (const mark of node.marks) {
-          switch (mark.type) {
-            case "bold":
-              text = `<strong>${text}</strong>`;
-              break;
-            case "italic":
-              text = `<em>${text}</em>`;
-              break;
-            case "underline":
-              text = `<u>${text}</u>`;
-              break;
-            case "code":
-              text = `<code>${text}</code>`;
-              break;
-            case "textStyle": {
-              // Handle TipTap textStyle marks with comprehensive formatting
-              hasTextStyle = true;
-              const attrs = mark.attrs || {};
-
-              // Font size
-              if (attrs.fontSize) {
-                styleAttributes.push(`font-size: ${attrs.fontSize}`);
-              }
-
-              // Font family
-              if (attrs.fontFamily) {
-                styleAttributes.push(`font-family: ${attrs.fontFamily}`);
-              }
-
-              // Text color
-              if (attrs.color) {
-                styleAttributes.push(`color: ${attrs.color}`);
-              }
-
-              // Line height
-              if (attrs.lineHeight) {
-                styleAttributes.push(`line-height: ${attrs.lineHeight}`);
-              }
-
-              // Font weight
-              if (attrs.fontWeight) {
-                styleAttributes.push(`font-weight: ${attrs.fontWeight}`);
-              }
-
-              // Font style
-              if (attrs.fontStyle) {
-                styleAttributes.push(`font-style: ${attrs.fontStyle}`);
-              }
-
-              // Text decoration
-              if (attrs.textDecoration) {
-                styleAttributes.push(
-                  `text-decoration: ${attrs.textDecoration}`,
-                );
-              }
-
-              console.log(
-                `🎨 Processing textStyle mark with attributes:`,
-                attrs,
-              );
-              break;
-            }
-            case "highlight": {
-              // Handle highlight marks with color attributes
-              const attrs = mark.attrs || {};
-              if (attrs.color) {
-                text = `<mark style="background-color: ${attrs.color}">${text}</mark>`;
-              } else {
-                text = `<mark>${text}</mark>`;
-              }
-              break;
-            }
-            // Add more marks as needed
-          }
-        }
-
-        // Apply textStyle span wrapper if we have style attributes
-        if (hasTextStyle && styleAttributes.length > 0) {
-          const styleString = styleAttributes.join("; ");
-          console.log(`🎨 Applying textStyle with: ${styleString}`);
-          text = `<span style="${styleString}">${text}</span>`;
-        }
-      }
-      return text;
-    }
-    case "heading": {
-      const level = node.attrs?.level ?? 1;
-      const headingContent = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<h${level}>${headingContent}</h${level}>`;
-    }
-    case "bulletList": {
-      const listItems = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<ul>${listItems}</ul>`;
-    }
-    case "orderedList": {
-      const orderedItems = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<ol>${orderedItems}</ol>`;
-    }
-    case "listItem": {
-      const itemContent = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<li>${itemContent}</li>`;
-    }
-    case "blockquote": {
-      const quoteContent = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<blockquote>${quoteContent}</blockquote>`;
-    }
-    case "codeBlock": {
-      const codeContent = node.content
-        ? node.content
-            .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-            .join("")
-        : "";
-      return `<pre><code>${codeContent}</code></pre>`;
-    }
-    case "hardBreak": {
-      return "<br>";
-    }
-    case "horizontalRule": {
-      return "<hr>";
-    }
-    default: {
-      // For unknown node types, try to extract content
-      if (node.content && Array.isArray(node.content)) {
-        return node.content
-          .map((child: ProseMirrorNode) => convertNodeToHtml(child))
-          .join("");
-      }
-      return "";
-    }
-  }
-};
-// end convertNodeToHtml
+// OPTIMIZATION: Removed large unused convertNodeToHtml function (~172 lines)
 
 // Centralized function to atomically initialize document state
 // Prevents race conditions between onConnect and onChange
@@ -1685,9 +497,7 @@ const initializeDocumentStateIfNeeded = (documentName: string): void => {
       pendingSave: false,
       lastSavedContent: undefined, // Initialize last saved content
     });
-    console.log(
-      `[${new Date().toISOString()}] Initialized tracking for new document: ${documentName}`,
-    );
+    Logger.debug(`Initialized tracking for new document: ${documentName}`);
   }
 };
 
@@ -1741,12 +551,10 @@ const validateDocumentSession = async (
     const payload = {
       documentId,
       sessionToken,
-      userId: userId || undefined,
+      userId: userId ?? undefined,
     };
 
-    console.log(
-      `[${new Date().toISOString()}] 🔐 Validating session for document: ${documentId}`,
-    );
+    Logger.debug(`🔐 Validating session for document: ${documentId}`);
 
     const response = await fetch(url, {
       method: "POST",
@@ -1770,7 +578,7 @@ const validateDocumentSession = async (
 
     if (!result.valid) {
       console.warn(
-        `[${new Date().toISOString()}] 🚫 Session validation rejected: ${result.reason || "Unknown reason"}`,
+        `[${new Date().toISOString()}] 🚫 Session validation rejected: ${result.reason ?? "Unknown reason"}`,
       );
       return false;
     }
@@ -1891,7 +699,7 @@ const server = new Server({
     );
 
     // Log document access for security audit
-    logDocumentAccess(documentName, socketId, sessionToken || undefined);
+    logDocumentAccess(documentName, socketId, sessionToken ?? undefined);
 
     // Initialize document state atomically to prevent race conditions
     initializeDocumentStateIfNeeded(documentName);
@@ -1955,26 +763,14 @@ const server = new Server({
   },
 
   async onListen(_data: onListenPayload) {
-    console.log(
-      `[${new Date().toISOString()}] ${SERVER_NAME} listening on ${HOST}:${PORT}`,
-    );
-    console.log(`[${new Date().toISOString()}] Environment: ${NODE_ENV}`);
-    console.log(
-      `[${new Date().toISOString()}] Max connections: ${MAX_CONNECTIONS}`,
-    );
-    console.log(`[${new Date().toISOString()}] 🔗 Convex URL: ${CONVEX_URL}`);
-    console.log(
-      `[${new Date().toISOString()}] 🌐 Convex Site URL: ${CONVEX_SITE_URL}`,
-    );
-    console.log(
-      `[${new Date().toISOString()}] 📡 HTTP Save endpoint: ${CONVEX_SITE_URL}/updateDocumentContent`,
-    );
-    console.log(
-      `[${new Date().toISOString()}] 📡 HTTP Load endpoint: ${CONVEX_SITE_URL}/getDocumentContent`,
-    );
-    console.log(
-      `[${new Date().toISOString()}] Allowed origins: ${allowedOrigins.join(", ")}`,
-    );
+    Logger.info(`${SERVER_NAME} listening on ${HOST}:${PORT}`);
+    Logger.info(`Environment: ${NODE_ENV}`);
+    Logger.info(`Max connections: ${MAX_CONNECTIONS}`);
+    Logger.info(`🔗 Convex URL: ${CONVEX_URL}`);
+    Logger.info(`🌐 Convex Site URL: ${CONVEX_SITE_URL}`);
+    Logger.debug(`📡 HTTP Save endpoint: ${CONVEX_SITE_URL}/updateDocumentContent`);
+    Logger.debug(`📡 HTTP Load endpoint: ${CONVEX_SITE_URL}/getDocumentContent`);
+    Logger.debug(`Allowed origins: ${allowedOrigins.join(", ")}`);
   },
 
   async onDestroy(_data: onDestroyPayload) {
@@ -2032,8 +828,7 @@ const server = new Server({
 
       const hasExistingContent = document.share.size > 0;
 
-      // Get current Y.js document state
-      const currentState = Y.encodeStateAsUpdate(document);
+      // OPTIMIZATION: Removed unused currentState variable
 
       // Load Y.js binary state from database
       const existingYjsState = await loadYjsStateFromConvex(documentName);
