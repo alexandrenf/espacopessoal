@@ -1301,15 +1301,15 @@ export function DocumentEditor({
   const getStatusText = () => {
     switch (status) {
       case "connected":
-        return "Connected";
+        return "Conectado(a)";
       case "connecting":
         return "Connecting...";
       case "disconnected":
-        return "Offline";
+        return "Desconectado(a)";
       case "error":
-        return "Error";
+        return "Erro";
       default:
-        return "Unknown";
+        return "Desconhecido";
     }
   };
 
@@ -1439,16 +1439,6 @@ export function DocumentEditor({
                   {getStatusIcon()}
                   <span>{getStatusText()}</span>
                 </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleForceSave}
-                  className="text-xs"
-                >
-                  <Save className="mr-1 h-3 w-3" />
-                  Save Info
-                </Button>
 
                 {convexUserId ? (
                   <DropdownMenu>

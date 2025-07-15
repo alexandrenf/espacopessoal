@@ -53,3 +53,4 @@ deno/.env.*
 .env
 .env.local
 repomix-output-alexandrenf-espacopessoal-v2.xml
+.env.example

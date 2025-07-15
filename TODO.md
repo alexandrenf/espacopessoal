@@ -1,22 +1,3 @@
-⏺ Update Todos
-
-  ⎿  ☒ Implement graceful 'Notebook Not Found' error handling - truly fixed
-     ☒ Fix private notebook error handling (unauthorized access) -- access denied icon is weird
-     ☒ Fix inaccurate document count on /notas page - truly fixed
-     ☒ Fix mobile sidebar UI/UX overlap with document title -- not fixed yet
-     ☒ Implement case-insensitive notebook URLs -- truly fixed
-     ☒ Fix PDF export functionality -- truly fixed
-     ☐ Investigate and fix Deno deployment failures
-     ☐ Allow spaces in document titles when editing
-     ☐ Make header visible on document pages (/notas/url/id)
-     ☐ Implement persistent sidebar state across navigation
-     ☐ Add Markdown export feature
-     ☐ Implement new user onboarding flow
-     ☐ Optimize saving with diff-based logic
-     ☐ Remove save info display on document page
-     ☐ Add conditional logging in DocumentEditor.tsx
-     ☐ Add conditional logging in notebook page
-
 # Project Improvement Plan
 
 This document outlines the plan to address known issues and implement new features.
@@ -24,50 +5,6 @@ This document outlines the plan to address known issues and implement new featur
 ---
 
 ## High Priority
-
-### 1. Graceful "Notebook Not Found" Error
-
-*   **Priority:** High
-*   **Issue:** Accessing a non-existent notebook results in an unhandled server error on the frontend.
-*   **Plan:**
-    *   Modify the `notebooks:getMetadataByUrl` query in Convex to return `null` instead of throwing an error when a notebook is not found.
-    *   In the frontend component that calls this query (likely under `src/app/notas/`), check for a `null` response.
-    *   Render a dedicated, user-friendly "Notebook Not Found" page or component when the result is `null`.
-
----
-
-### 2. Notebook Privado (não o protegido) Error Handling
-
-*   **Priority:** High
-*   **Issue:** Attempting to access a private notebook without permission results in an unhandled server error.
-*   **Plan:**
-    *   Modify the `notebooks:getByUrlWithSession` query to perform an explicit ownership/permission check.
-    *   Instead of throwing a generic error, have the query return a specific status (e.g., `{ error: "unauthorized" }`).
-    *   The frontend should handle this response and display a clear, friendly message like "This notebook is private" or "You do not have permission to view this notebook."
-
----
-
-### 3. Deno Deployment Failures
-
-*   **Priority:** High
-*   **Issue:** The Deno service is failing to deploy correctly.
-*   **Plan:**
-    *   **Investigate:** Analyze the Deno Deploy logs to diagnose the root cause of the deployment errors.
-    *   **Evaluate Cloudflare:** As suggested, evaluate migrating the service to Cloudflare Workers. This includes assessing the effort, compatibility, and potential benefits.
-    *   **Migration (If Approved):** Create a new Cloudflare Worker, adapt the Deno code for the new environment, and configure deployment via the Wrangler CLI.
-
----
-
-### 4. Inaccurate Document Count
-
-*   **Priority:** High
-*   **Issue:** The number of documents displayed on the `/notas` page is incorrect.
-*   **Plan:**
-    *   Investigate the Convex query that fetches the document count for the `/notas` page.
-    *   Debug the query's filtering logic. It may be incorrectly including archived/deleted items or miscalculating user-owned documents.
-    *   Correct the query to ensure it returns an accurate count.
-
----
 
 ### 5. Mobile Sidebar UI/UX
 
@@ -81,26 +18,6 @@ This document outlines the plan to address known issues and implement new featur
 
 ## Medium Priority
 
-### 6. Case-Insensitive Notebook URLs
-
-*   **Priority:** Medium
-*   **Issue:** Notebook URLs are only checked for lowercase characters, leading to missed matches if the URL has uppercase characters.
-*   **Plan:**
-    *   Locate the Convex queries responsible for fetching notebooks by URL (e.g., `getMetadataByUrl`, `getByUrlWithSession`) in `convex/notebooks.ts`.
-    *   In these queries, normalize both the input URL and the stored URL to lowercase before comparison to ensure case-insensitive matching.
-
----
-
-### 7. PDF Export Improvements
-
-*   **Priority:** Medium
-*   **Issue:** The "Export as PDF" feature is not working as expected.
-*   **Plan:**
-    *   **Investigate:** Conduct a thorough review of the current PDF export implementation to identify the specific problems.
-    *   **Gather Requirements:** Clarify the expected output and functionality for the PDF export.
-    *   **Implement Fixes:** Address the identified issues, which might involve fixing styling, handling complex content, or replacing the underlying library.
-
----
 
 ### 8. Allow Spaces in Document Titles
 
@@ -134,15 +51,6 @@ This document outlines the plan to address known issues and implement new featur
 
 ---
 
-### 11. Relocate PDF Export Button
-
-*   **Priority:** Medium
-*   **Issue:** The "Export to PDF" button is currently in the toolbar.
-*   **Plan:**
-    *   Move the "Export to PDF" button from the toolbar to the menubar.
-    *   It should be located under the "Arquivo" -> "Exportar" menu in the `DocumentEditor` component.
-
----
 
 ## Low Priority
 
@@ -181,16 +89,6 @@ This document outlines the plan to address known issues and implement new featur
         *   Store the last-saved version of the document content in a state or ref.
         *   Before calling the Convex mutation to save, compare the current editor content with the last-saved content.
         *   Only execute the save mutation if there is a difference (a "diff").
-
----
-
-### 15. Remove Save Info on Document Page
-
-*   **Priority:** Low
-*   **Issue:** The save status information (e.g., "Saved") on the `/notas/url/id` page is considered redundant.
-*   **Plan:**
-    *   **Locate Component:** Find the UI element responsible for displaying the save status on the document page.
-    *   **Remove:** Delete the JSX or code that renders this information.
 
 ---
 
