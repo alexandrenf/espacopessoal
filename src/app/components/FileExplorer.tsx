@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Folder,
@@ -81,6 +81,39 @@ type ViewMode = "grid" | "list";
 type SortBy = "name" | "date" | "type";
 type SortOrder = "asc" | "desc";
 
+// Hook for detecting mobile devices
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+  
+  return isMobile;
+};
+
+// Mobile-optimized motion component
+const MobileOptimizedMotion = ({ 
+  children, 
+  isMobile, 
+  ...motionProps 
+}: { 
+  children: React.ReactNode; 
+  isMobile: boolean; 
+} & React.ComponentProps<typeof motion.div>) => {
+  if (isMobile) {
+    // On mobile, render as regular div to improve performance
+    return <div className={motionProps.className}>{children}</div>;
+  }
+  return <motion.div {...motionProps}>{children}</motion.div>;
+};
+
 const FileIcon = ({
   isFolder,
   isOpen,
@@ -113,6 +146,7 @@ const FileItem = ({
   viewMode,
   level = 0,
   onFolderClick,
+  isMobile,
 }: {
   document: Document;
   onDocumentClick: (documentId: string, isFolder: boolean) => void;
@@ -123,6 +157,7 @@ const FileItem = ({
   viewMode: ViewMode;
   level?: number;
   onFolderClick?: (folder: Document) => void;
+  isMobile: boolean;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -317,6 +352,7 @@ const FileItem = ({
                   currentUserId={currentUserId}
                   viewMode={viewMode}
                   level={level + 1}
+                  isMobile={isMobile}
                 />
               ))}
             </motion.div>
@@ -474,6 +510,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchTerm, setSearchTerm] = useState("");
+  const isMobile = useIsMobile();
   const [selectedFolder, setSelectedFolder] = useState<Document | null>(null);
   const [showFolderModal, setShowFolderModal] = useState(false);
 
@@ -524,12 +561,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-12 animate-pulse rounded-lg bg-gradient-to-r from-slate-200 to-slate-300" />
+        <div className="h-12 rounded-lg bg-slate-200 animate-pulse" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-40 animate-pulse rounded-xl bg-gradient-to-br from-slate-200 to-slate-300"
+              className="h-40 rounded-xl bg-slate-200 animate-pulse"
             />
           ))}
         </div>
@@ -540,26 +577,26 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-slate-400" />
             <Input
               placeholder="Buscar arquivos e pastas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64 border-slate-200/70 bg-white/70 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20"
+              className="w-full sm:w-64 border-slate-200/70 bg-white/70 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2">
           {/* Sort options */}
           <Select
             value={sortBy}
             onValueChange={(value: SortBy) => setSortBy(value)}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-28 sm:w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -588,6 +625,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            className="p-2 sm:px-3"
           >
             {sortOrder === "asc" ? (
               <SortAsc className="h-4 w-4" />
@@ -602,7 +640,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("grid")}
-              className="rounded-r-none"
+              className="rounded-r-none p-2 sm:px-3"
             >
               <Grid3X3 className="h-4 w-4" />
             </Button>
@@ -610,7 +648,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
-              className="rounded-l-none"
+              className="rounded-l-none p-2 sm:px-3"
             >
               <List className="h-4 w-4" />
             </Button>
@@ -618,17 +656,17 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
           {/* Create buttons */}
           {isAuthenticated && (
-            <div className="flex gap-1">
+            <div className="flex gap-1 w-full sm:w-auto justify-center sm:justify-start">
               {onCreateFolder && (
-                <Button variant="outline" size="sm" onClick={onCreateFolder}>
+                <Button variant="outline" size="sm" onClick={onCreateFolder} className="flex-1 sm:flex-none">
                   <FolderPlus className="mr-1 h-4 w-4" />
-                  Pasta
+                  <span className="hidden xs:inline">Pasta</span>
                 </Button>
               )}
               {onCreateDocument && (
-                <Button size="sm" onClick={onCreateDocument}>
+                <Button size="sm" onClick={onCreateDocument} className="flex-1 sm:flex-none">
                   <Plus className="mr-1 h-4 w-4" />
-                  Documento
+                  <span className="hidden xs:inline">Documento</span>
                 </Button>
               )}
             </div>
@@ -686,7 +724,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {processedDocuments.map((document) => (
             <FileItem
               key={document._id}
@@ -697,6 +735,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               onFolderClick={handleFolderClick}
               isAuthenticated={isAuthenticated}
               currentUserId={currentUserId}
+              isMobile={isMobile}
               viewMode={viewMode}
             />
           ))}
@@ -713,6 +752,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               onFolderClick={handleFolderClick}
               isAuthenticated={isAuthenticated}
               currentUserId={currentUserId}
+              isMobile={isMobile}
               viewMode={viewMode}
             />
           ))}

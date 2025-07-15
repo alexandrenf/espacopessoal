@@ -400,35 +400,47 @@ function NotebookPageContent() {
     if (normalizedUrl && normalizedUrl !== "" && normalizedUrl !== "/") {
       const validateSession = async () => {
         if (!hasValidSession && !isSessionValidationComplete) {
-          console.log("Checking for stored session...");
+          if (process.env.NODE_ENV === "development") {
+            console.log("Checking for stored session...");
+          }
 
           try {
             const storedSession = await getStoredSession(normalizedUrl);
 
             if (storedSession) {
-              console.log("Found stored session, checking expiration...");
+              if (process.env.NODE_ENV === "development") {
+                console.log("Found stored session, checking expiration...");
+              }
 
               // Check if session is expired
               if (storedSession.expiresAt <= Date.now()) {
-                console.log("Stored session is expired, removing from storage");
+                if (process.env.NODE_ENV === "development") {
+                  console.log("Stored session is expired, removing from storage");
+                }
                 await removeSession(normalizedUrl);
                 setIsSessionValidationComplete(true);
                 return;
               }
 
-              console.log("Session is valid, setting up for notebook access");
+              if (process.env.NODE_ENV === "development") {
+                console.log("Session is valid, setting up for notebook access");
+              }
               setSessionToken(storedSession.token);
               setHasValidSession(true);
               setIsSessionValidationComplete(true);
             } else {
               // No stored session, mark validation as complete immediately
-              console.log(
-                "No stored session found, marking validation complete",
-              );
+              if (process.env.NODE_ENV === "development") {
+                console.log(
+                  "No stored session found, marking validation complete",
+                );
+              }
               setIsSessionValidationComplete(true);
             }
           } catch (error) {
-            console.error("Error validating session:", error);
+            if (process.env.NODE_ENV === "development") {
+              console.error("Error validating session:", error);
+            }
             setIsSessionValidationComplete(true);
           }
         }
@@ -440,14 +452,16 @@ function NotebookPageContent() {
 
   // Debug effect to track hasValidSession changes
   useEffect(() => {
-    console.log(
-      "hasValidSession changed to:",
-      hasValidSession,
-      "validation complete:",
-      isSessionValidationComplete,
-      "sessionToken:",
-      sessionToken ? "***EXISTS***" : "none",
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "hasValidSession changed to:",
+        hasValidSession,
+        "validation complete:",
+        isSessionValidationComplete,
+        "sessionToken:",
+        sessionToken ? "***EXISTS***" : "none",
+      );
+    }
   }, [hasValidSession, isSessionValidationComplete, sessionToken]);
 
   // Get notebook metadata first (this works for all notebooks)
@@ -502,20 +516,22 @@ function NotebookPageContent() {
     ? publicNotebook
     : privateNotebook;
 
-  console.log("Notebook query state:", {
-    normalizedUrl,
-    hasValidSession,
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-    isSessionValidationComplete,
-    hasPassword,
-    ownerId: notebookMetadata?.ownerId,
-    convexUserId,
-    isOwner,
-    isPublicNotebook,
-    queryEnabled: isPublicNotebook
-      ? publicNotebook !== undefined
-      : privateNotebookQueryEnabled,
-  });
+  if (process.env.NODE_ENV === "development") {
+    console.log("Notebook query state:", {
+      normalizedUrl,
+      hasValidSession,
+      sessionToken: sessionToken ? "***EXISTS***" : "none",
+      isSessionValidationComplete,
+      hasPassword,
+      ownerId: notebookMetadata?.ownerId,
+      convexUserId,
+      isOwner,
+      isPublicNotebook,
+      queryEnabled: isPublicNotebook
+        ? publicNotebook !== undefined
+        : privateNotebookQueryEnabled,
+    });
+  }
 
   // Refetch function for after editing
   const refetchNotebook = () => {
@@ -544,24 +560,26 @@ function NotebookPageContent() {
       }
     : "skip";
 
-  console.log(
-    "About to run documents query with args:",
-    documentsQueryArgs === "skip"
-      ? "SKIP"
-      : {
-          userId:
-            typeof documentsQueryArgs === "object" &&
-            documentsQueryArgs !== null
-              ? documentsQueryArgs.userId
-              : undefined,
-          notebookId:
-            typeof documentsQueryArgs === "object" &&
-            documentsQueryArgs !== null
-              ? documentsQueryArgs.notebookId
-              : undefined,
-          sessionToken: sessionToken ? "***EXISTS***" : "none",
-        },
-  );
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      "About to run documents query with args:",
+      documentsQueryArgs === "skip"
+        ? "SKIP"
+        : {
+            userId:
+              typeof documentsQueryArgs === "object" &&
+              documentsQueryArgs !== null
+                ? documentsQueryArgs.userId
+                : undefined,
+            notebookId:
+              typeof documentsQueryArgs === "object" &&
+              documentsQueryArgs !== null
+                ? documentsQueryArgs.notebookId
+                : undefined,
+            sessionToken: sessionToken ? "***EXISTS***" : "none",
+          },
+    );
+  }
 
   const documents = useQuery(
     convexApi.documents.getAllForTreeLegacy,
@@ -580,7 +598,9 @@ function NotebookPageContent() {
   // Handle password submission with secure session creation
   const handlePasswordSubmit = async (enteredPassword: string) => {
     try {
-      console.log("Verifying password for:", normalizedUrl);
+      if (process.env.NODE_ENV === "development") {
+        console.log("Verifying password for:", normalizedUrl);
+      }
 
       // Generate device fingerprint for enhanced security
       const deviceFingerprint = generateDeviceFingerprint();
@@ -597,17 +617,21 @@ function NotebookPageContent() {
         throw new Error("Invalid password verification result");
       }
 
-      console.log("Password verification result:", {
-        valid: result.valid,
-        hasSessionToken: !!result.sessionToken,
-        expiresAt: result.expiresAt ? new Date(result.expiresAt) : undefined,
-      });
+      if (process.env.NODE_ENV === "development") {
+        console.log("Password verification result:", {
+          valid: result.valid,
+          hasSessionToken: !!result.sessionToken,
+          expiresAt: result.expiresAt ? new Date(result.expiresAt) : undefined,
+        });
+      }
 
       if (result.valid && result.sessionToken && result.expiresAt) {
         const sessionToken = result.sessionToken;
         const expiresAt = result.expiresAt;
 
-        console.log("Password is valid, storing secure session");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Password is valid, storing secure session");
+        }
 
         // Store secure session token instead of password
         const sessionStored = await storeSession(
@@ -628,7 +652,9 @@ function NotebookPageContent() {
             description: "Senha correta! Você pode agora acessar o notebook.",
           });
         } else {
-          console.error("Failed to store session");
+          if (process.env.NODE_ENV === "development") {
+            console.error("Failed to store session");
+          }
           toast({
             title: "Erro",
             description: "Falha ao salvar sessão. Tente novamente.",
@@ -636,7 +662,9 @@ function NotebookPageContent() {
           });
         }
       } else {
-        console.log("Password is invalid");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Password is invalid");
+        }
         toast({
           title: "Erro",
           description: "A senha digitada está incorreta. Tente novamente.",
@@ -644,7 +672,9 @@ function NotebookPageContent() {
         });
       }
     } catch (error) {
-      console.error("Password verification failed:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Password verification failed:", error);
+      }
       toast({
         title: "Erro",
         description: "A senha digitada está incorreta. Tente novamente.",
@@ -653,25 +683,31 @@ function NotebookPageContent() {
     }
   };
 
-  console.log("Password prompt logic:", {
-    hasPassword,
-    ownerId: notebookMetadata?.ownerId,
-    convexUserId,
-    isOwner,
-    hasValidSession,
-    sessionToken: sessionToken ? "***EXISTS***" : "none",
-    needsPassword,
-    showPasswordPrompt,
-  });
-
-  useEffect(() => {
-    console.log("Password prompt useEffect triggered:", {
+  if (process.env.NODE_ENV === "development") {
+    console.log("Password prompt logic:", {
+      hasPassword,
+      ownerId: notebookMetadata?.ownerId,
+      convexUserId,
+      isOwner,
+      hasValidSession,
+      sessionToken: sessionToken ? "***EXISTS***" : "none",
       needsPassword,
       showPasswordPrompt,
-      shouldShow: needsPassword && !showPasswordPrompt,
     });
+  }
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("Password prompt useEffect triggered:", {
+        needsPassword,
+        showPasswordPrompt,
+        shouldShow: needsPassword && !showPasswordPrompt,
+      });
+    }
     if (needsPassword && !showPasswordPrompt) {
-      console.log("Setting showPasswordPrompt to true");
+      if (process.env.NODE_ENV === "development") {
+        console.log("Setting showPasswordPrompt to true");
+      }
       setShowPasswordPrompt(true);
     }
   }, [needsPassword, showPasswordPrompt]);
@@ -755,16 +791,20 @@ function NotebookPageContent() {
   }
 
   // Handle password prompt
-  console.log("Render decision:", {
-    needsPassword,
-    showPasswordPrompt,
-    shouldShowPasswordPrompt: needsPassword && showPasswordPrompt,
-    notebookLoading: notebook === undefined,
-    notebookExists: !!notebook,
-  });
+  if (process.env.NODE_ENV === "development") {
+    console.log("Render decision:", {
+      needsPassword,
+      showPasswordPrompt,
+      shouldShowPasswordPrompt: needsPassword && showPasswordPrompt,
+      notebookLoading: notebook === undefined,
+      notebookExists: !!notebook,
+    });
+  }
 
   if (needsPassword && showPasswordPrompt) {
-    console.log("Rendering PasswordPrompt");
+    if (process.env.NODE_ENV === "development") {
+      console.log("Rendering PasswordPrompt");
+    }
     return <PasswordPrompt onSubmit={handlePasswordSubmit} isLoading={false} />;
   }
 
@@ -933,7 +973,9 @@ function NotebookPageContent() {
       // Navigate to the new document
       router.push(`/notas/${normalizedUrl}/${documentId}`);
     } catch (error) {
-      console.error("Error creating document:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error creating document:", error);
+      }
       toast({
         title: "Erro",
         description: "Falha ao criar documento. Tente novamente.",
@@ -969,7 +1011,9 @@ function NotebookPageContent() {
         description: "Nova pasta foi criada com sucesso.",
       });
     } catch (error) {
-      console.error("Error creating folder:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error creating folder:", error);
+      }
       toast({
         title: "Erro",
         description: "Falha ao criar pasta. Tente novamente.",
@@ -1017,7 +1061,9 @@ function NotebookPageContent() {
         description: "O arquivo foi excluído com sucesso.",
       });
     } catch (error) {
-      console.error("Error deleting document:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error deleting document:", error);
+      }
       toast({
         title: "Erro",
         description: "Falha ao excluir arquivo. Tente novamente.",
@@ -1049,7 +1095,9 @@ function NotebookPageContent() {
         description: "O arquivo foi renomeado com sucesso.",
       });
     } catch (error) {
-      console.error("Error renaming document:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error renaming document:", error);
+      }
       toast({
         title: "Erro",
         description: "Falha ao renomear arquivo. Tente novamente.",

@@ -173,7 +173,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex h-[85vh] flex-col gap-0 p-0 sm:max-w-[600px]">
+      <DialogContent className="flex h-[85vh] max-w-[95vw] flex-col gap-0 p-0 sm:max-w-[600px]">
         <div className="p-6 pb-4">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">
