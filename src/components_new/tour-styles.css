@@ -2,14 +2,16 @@
 
 /* Driver.js Custom Styling */
 .espacopessoal-tour-popover {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  max-width: 400px;
-  border-radius: 16px;
-  border: none;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  backdrop-filter: blur(20px);
-  animation: slideIn 0.3s ease-out forwards;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  max-width: 400px !important;
+  border-radius: 16px !important;
+  border: none !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  animation: slideIn 0.3s ease-out forwards !important;
+  z-index: 9999 !important;
+  position: fixed !important;
 }
 
 /* Dark theme support */
@@ -54,49 +56,64 @@
 
 /* Button styling */
 .espacopessoal-tour-popover .driver-popover-navigation-btns {
-  gap: 8px;
-  margin-top: 16px;
+  gap: 8px !important;
+  margin-top: 16px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  border: none;
-  cursor: pointer;
+  padding: 10px 20px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  cursor: pointer !important;
+  min-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  white-space: nowrap !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-next-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-  color: white;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%) !important;
+  color: white !important;
+  border: none !important;
+  outline: none !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-next-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4) !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-prev-btn {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: none !important;
+  outline: none !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-prev-btn:hover {
-  background: #e2e8f0;
-  color: #334155;
+  background: #e2e8f0 !important;
+  color: #334155 !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-close-btn {
-  background: #ef4444;
-  color: white;
-  padding: 8px 16px;
+  background: #ef4444 !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  border: none !important;
+  outline: none !important;
 }
 
 .espacopessoal-tour-popover .driver-popover-close-btn:hover {
-  background: #dc2626;
+  background: #dc2626 !important;
 }
 
 /* Content Styling */
@@ -473,20 +490,41 @@
 /* Touch-friendly adjustments */
 @media (max-width: 768px) {
   .espacopessoal-tour-popover .driver-popover-navigation-btns {
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
   }
   
   .espacopessoal-tour-popover .driver-popover-btn {
-    min-height: 44px; /* Touch-friendly minimum */
-    min-width: 80px;
+    min-height: 48px !important; /* Touch-friendly minimum */
+    min-width: 88px !important;
+    padding: 12px 20px !important;
+    font-size: 0.9rem !important;
+    border-radius: 10px !important;
+    flex: 1 !important;
+    max-width: 120px !important;
   }
   
   /* Ensure popover doesn't go off-screen */
   .espacopessoal-tour-popover {
     position: fixed !important;
-    max-height: 80vh;
-    overflow-y: auto;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+  
+  .espacopessoal-tour-popover .driver-popover-title {
+    font-size: 1.15rem !important;
+    line-height: 1.4 !important;
+  }
+  
+  .espacopessoal-tour-popover .driver-popover-description {
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
   }
 }
 
@@ -522,7 +560,9 @@
 /* Tour button custom styling */
 .tour-button {
   position: relative;
-  z-index: 45;
+  z-index: 55;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 /* Animation for floating elements */
@@ -545,12 +585,26 @@
 }
 
 .tour-button:hover {
-  animation: gentle-float 2s ease-in-out infinite, pulse-glow 1s ease-in-out infinite;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
 }
 
 /* Enhanced popover animations */
 .espacopessoal-tour-popover {
   animation: slideIn 0.3s ease-out forwards;
+}
+
+/* Ensure tour overlay is always on top */
+.driver-overlay {
+  z-index: 9998 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(2px) !important;
+}
+
+/* Fix driver stage (highlighted element) */
+.driver-active-element {
+  z-index: 9999 !important;
 }
 
 @keyframes slideIn {
@@ -587,7 +641,17 @@
 /* Improved mobile touch feedback */
 @media (max-width: 768px) {
   .espacopessoal-tour-popover .driver-popover-btn:active {
-    transform: scale(0.95);
-    transition: transform 0.1s ease;
+    transform: scale(0.95) !important;
+    transition: transform 0.1s ease !important;
+  }
+  
+  .espacopessoal-tour-popover .driver-popover-btn:focus {
+    outline: 2px solid #3b82f6 !important;
+    outline-offset: 2px !important;
+  }
+  
+  .espacopessoal-tour-popover .driver-popover-next-btn:focus {
+    outline: 2px solid #ffffff !important;
+    outline-offset: 2px !important;
   }
 }

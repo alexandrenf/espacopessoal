@@ -145,7 +145,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
 
   return (
     <div
-      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 h-10 transition-colors ${isActive ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"} `}
+      className={`group flex h-10 cursor-pointer items-center justify-between rounded-md p-2 transition-colors ${isActive ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"} `}
     >
       <div
         className="flex min-w-0 flex-1 items-center gap-2"

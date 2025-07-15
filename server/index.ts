@@ -31,8 +31,10 @@ const MAX_CONNECTIONS = safeParseInt(process.env.MAX_CONNECTIONS, 100);
 const TIMEOUT = safeParseInt(process.env.TIMEOUT, 30000);
 
 // OPTIMIZATION: Centralized logging configuration
-const LOG_LEVEL = process.env.LOG_LEVEL ?? (NODE_ENV === "production" ? "error" : "debug");
-const ENABLE_PERFORMANCE_LOGS = process.env.ENABLE_PERFORMANCE_LOGS === "true" || NODE_ENV === "development";
+const LOG_LEVEL =
+  process.env.LOG_LEVEL ?? (NODE_ENV === "production" ? "error" : "debug");
+const ENABLE_PERFORMANCE_LOGS =
+  process.env.ENABLE_PERFORMANCE_LOGS === "true" || NODE_ENV === "development";
 // OPTIMIZATION: Removed unused ENABLE_FORMATTING_ANALYSIS
 
 // Convex configuration
@@ -264,9 +266,13 @@ const saveYjsStateToConvex = async (
       await response.json(); // Consume response but don't store unused result
 
       if (attempt > 1) {
-        Logger.info(`✅ Successfully saved Y.js state for document ${documentName} to Convex after ${attempt} attempts`);
+        Logger.info(
+          `✅ Successfully saved Y.js state for document ${documentName} to Convex after ${attempt} attempts`,
+        );
       } else {
-        Logger.debug(`✅ Successfully saved Y.js state for document ${documentName} to Convex`);
+        Logger.debug(
+          `✅ Successfully saved Y.js state for document ${documentName} to Convex`,
+        );
       }
 
       return {
@@ -425,7 +431,8 @@ const scheduleDocumentSave = (documentName: string, document: Y.Doc) => {
 
 const performDocumentSave = async (documentName: string, document: Y.Doc) => {
   const state = documentStates.get(documentName);
-  if (!state?.pendingSave) { // OPTIMIZATION: Use optional chaining
+  if (!state?.pendingSave) {
+    // OPTIMIZATION: Use optional chaining
     Logger.debug(`Skipping save for ${documentName} - no pending changes`);
     return;
   }
@@ -437,12 +444,16 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     // OPTIMIZATION: Content diffing - only save if content actually changed
     const yjsStateString = Buffer.from(yjsState).toString("base64");
     if (state.lastSavedContent === yjsStateString) {
-      Logger.performance(`⚡ Skipping save for ${documentName} - content unchanged (${yjsState.length} bytes)`);
+      Logger.performance(
+        `⚡ Skipping save for ${documentName} - content unchanged (${yjsState.length} bytes)`,
+      );
       state.pendingSave = false;
       return;
     }
 
-    Logger.debug(`Saving document ${documentName} (${yjsState.length} bytes Y.js state)`);
+    Logger.debug(
+      `Saving document ${documentName} (${yjsState.length} bytes Y.js state)`,
+    );
 
     // Save Y.js binary state instead of HTML
     const result = await saveYjsStateToConvex(documentName, yjsState);
@@ -450,12 +461,20 @@ const performDocumentSave = async (documentName: string, document: Y.Doc) => {
     if (result.success) {
       // OPTIMIZATION: Store the successfully saved content for future comparisons
       state.lastSavedContent = yjsStateString;
-      Logger.debug(`✅ Successfully saved Y.js state for document ${documentName} to Convex`);
+      Logger.debug(
+        `✅ Successfully saved Y.js state for document ${documentName} to Convex`,
+      );
     } else {
-      Logger.error(`❌ Failed to save Y.js state for document ${documentName}:`, result.error);
+      Logger.error(
+        `❌ Failed to save Y.js state for document ${documentName}:`,
+        result.error,
+      );
     }
   } catch (error) {
-    Logger.error(`Error saving Y.js state for document ${documentName}:`, error);
+    Logger.error(
+      `Error saving Y.js state for document ${documentName}:`,
+      error,
+    );
   } finally {
     // Reset state
     state.pendingSave = false;
@@ -768,8 +787,12 @@ const server = new Server({
     Logger.info(`Max connections: ${MAX_CONNECTIONS}`);
     Logger.info(`🔗 Convex URL: ${CONVEX_URL}`);
     Logger.info(`🌐 Convex Site URL: ${CONVEX_SITE_URL}`);
-    Logger.debug(`📡 HTTP Save endpoint: ${CONVEX_SITE_URL}/updateDocumentContent`);
-    Logger.debug(`📡 HTTP Load endpoint: ${CONVEX_SITE_URL}/getDocumentContent`);
+    Logger.debug(
+      `📡 HTTP Save endpoint: ${CONVEX_SITE_URL}/updateDocumentContent`,
+    );
+    Logger.debug(
+      `📡 HTTP Load endpoint: ${CONVEX_SITE_URL}/getDocumentContent`,
+    );
     Logger.debug(`Allowed origins: ${allowedOrigins.join(", ")}`);
   },
 
