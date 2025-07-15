@@ -741,14 +741,12 @@ export const notebooksRouter = createTRPCRouter({
       ) {
         const typedResult = result as {
           migrationNeeded: boolean;
-          defaultUserDocumentsCount: number;
+          defaultUserDocumentsCount: string;
           userDocumentsCount: number;
         };
         return {
           migrationNeeded: Boolean(typedResult.migrationNeeded),
-          defaultUserDocumentsCount: Number(
-            typedResult.defaultUserDocumentsCount,
-          ),
+          defaultUserDocumentsCount: typedResult.defaultUserDocumentsCount === "1+" ? 1 : Number(typedResult.defaultUserDocumentsCount),
           userDocumentsCount: Number(typedResult.userDocumentsCount),
         };
       } else {
