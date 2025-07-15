@@ -25,6 +25,7 @@ interface DocumentItemProps {
   selected: boolean;
   isNested?: boolean;
   isPublicView?: boolean; // Flag for public view mode
+  isMobile?: boolean; // Flag for mobile view
 }
 
 const DocumentItem: React.FC<DocumentItemProps> = ({
@@ -36,6 +37,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   selected,
   isNested = false,
   isPublicView = false,
+  isMobile = false,
 }) => {
   const isDeleting = isDeletingId === document._id;
   const [isRenaming, setIsRenaming] = useState(false);
@@ -180,7 +182,11 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`h-6 w-6 transition-opacity touch-manipulation ${
+                isMobile
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100"
+              }`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

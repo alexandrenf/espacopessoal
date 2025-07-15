@@ -194,7 +194,7 @@ const DocumentSidebar = memo(
           return prevKeys;
         });
       }
-    }, [currentDocument?.parentId, documents, setExpandedKeys]);
+    }, [currentDocument?.parentId, documents]);
 
     const handleExpand = useCallback(
       (_e: React.MouseEvent, node: EventDataNode<unknown>) => {
@@ -326,6 +326,8 @@ const DocumentSidebar = memo(
               onSelect={() => setCurrentDocumentId(document._id)}
               selected={currentDocument?._id === document._id}
               isNested={level > 0}
+              isPublicView={isPublicNotebook}
+              isMobile={isMobile}
             />
           ),
           children: document.isFolder
