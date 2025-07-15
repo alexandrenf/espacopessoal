@@ -148,7 +148,7 @@ const FolderItem: React.FC<FolderItemProps> = ({
       className={`group flex cursor-pointer items-center justify-between rounded-md p-2 transition-colors ${isActive ? "bg-blue-100 text-blue-900" : "hover:bg-gray-100"} `}
     >
       <div
-        className="flex min-w-0 flex-1 items-center gap-1"
+        className="flex min-w-0 flex-1 items-center gap-2"
         onClick={handleFolderClick}
       >
         <Button

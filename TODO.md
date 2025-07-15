@@ -3,30 +3,6 @@
 This document outlines the plan to address known issues and implement new features.
 
 
-## Medium Priority
-
-### 9. Header Visibility on Document Pages
-
-*   **Priority:** Medium
-*   **Issue:** The main application header is not visible on the `/notas/url/id` pages.
-*   **Plan:**
-    *   Review the page layout structure for the document view (`/notas/[...slug]`).
-    *   Identify why the header component is not being rendered. It might be excluded from the layout or hidden with CSS.
-    *   Ensure the main header component is included and visible on this page for consistent navigation.
-
----
-
-### 10. Persistent Sidebar State
-
-*   **Priority:** Medium
-*   **Issue:** The sidebar's open/closed state is not preserved when navigating between documents.
-*   **Plan:**
-    *   **State Management:** Move the sidebar's state from a component-level `useState` to a persistent state solution.
-    *   **Implementation:** Use `localStorage` or a global state manager (e.g., Zustand, if available in the project) to store and retrieve the sidebar's state, ensuring it persists across navigation.
-
----
-
-
 ## Low Priority
 
 ### 12. Markdown Export and import Feature

@@ -25,6 +25,7 @@ interface DocumentItemProps {
   selected: boolean;
   isNested?: boolean;
   isPublicView?: boolean; // Flag for public view mode
+  isMobile?: boolean; // Flag for mobile view
 }
 
 const DocumentItem: React.FC<DocumentItemProps> = ({
@@ -36,6 +37,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
   selected,
   isNested = false,
   isPublicView = false,
+  isMobile = false,
 }) => {
   const isDeleting = isDeletingId === document._id;
   const [isRenaming, setIsRenaming] = useState(false);
@@ -135,7 +137,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   return (
     <div
-      className={`group flex cursor-pointer items-center justify-between rounded-md p-3 md:p-2 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
+      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -149,9 +151,9 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
         }
       }}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <FileText
-          className={`h-5 w-5 md:h-4 md:w-4 flex-shrink-0 ${selected ? "text-blue-600" : "text-gray-600"}`}
+          className={`h-4 w-4 flex-shrink-0 ${selected ? "text-blue-600" : "text-gray-600"}`}
         />
         {isRenaming ? (
           <input
@@ -166,7 +168,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
           />
         ) : (
           <span
-            className={`truncate text-base md:text-sm font-medium transition-colors ${selected ? "font-semibold text-blue-900" : "text-gray-800"}`}
+            className={`truncate text-sm font-medium transition-colors ${selected ? "font-semibold text-blue-900" : "text-gray-800"}`}
           >
             {document.title}
           </span>
@@ -180,30 +182,34 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 md:h-6 md:w-6 opacity-100 md:opacity-0 transition-opacity md:group-hover:opacity-100 touch-manipulation"
+              className={`h-6 w-6 transition-opacity touch-manipulation ${
+                isMobile
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100"
+              }`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
               }}
             >
-              <MoreHorizontal className="h-4 w-4 md:h-3 md:w-3" />
+              <MoreHorizontal className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 md:w-36">
+          <DropdownMenuContent align="end" className="w-36">
             <DropdownMenuItem
               onClick={handleRename}
-              className="focus:bg-blue-50 h-10 md:h-8"
+              className="focus:bg-blue-50"
               disabled={isDeleting || isRenaming}
             >
-              <Edit className="mr-2 h-4 w-4 md:h-3 md:w-3" />
+              <Edit className="mr-2 h-3 w-3" />
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleDelete}
-              className="text-red-600 focus:bg-red-50 focus:text-red-600 h-10 md:h-8"
+              className="text-red-600 focus:bg-red-50 focus:text-red-600"
               disabled={isDeleting}
             >
-              <Trash className="mr-2 h-4 w-4 md:h-3 md:w-3" />
+              <Trash className="mr-2 h-3 w-3" />
               {isDeleting ? "Deleting..." : "Delete"}
             </DropdownMenuItem>
           </DropdownMenuContent>
