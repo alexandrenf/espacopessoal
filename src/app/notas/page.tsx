@@ -368,7 +368,7 @@ export default function NotasPage() {
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                       >
                         <Link
-                          href="/api/auth/signin"
+                          href="/auth/signin"
                           className="flex items-center gap-2"
                         >
                           <LogIn className="h-4 w-4" />
@@ -503,7 +503,7 @@ export default function NotasPage() {
                     asChild
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                   >
-                    <Link href="/api/auth/signin">
+                    <Link href="/auth/signin">
                       <LogIn className="mr-2 h-4 w-4" />
                       Fazer Login
                     </Link>

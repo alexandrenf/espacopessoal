@@ -83,7 +83,7 @@ export default function HeroSection() {
             transition={{ duration: 0.8, delay: 0.3 }}
           >
             <Link
-              href={session ? "/profile" : "/api/auth/signin"}
+              href={session ? "/profile" : "/auth/signin"}
               className="group"
             >
               <Button

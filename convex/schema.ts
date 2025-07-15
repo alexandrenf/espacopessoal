@@ -222,6 +222,20 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_identifier_token", ["identifier", "token"]),
 
+  // Magic codes for 6-digit authentication
+  magicCodes: defineTable({
+    email: v.string(),
+    code: v.string(), // 6-digit code
+    expiresAt: v.number(),
+    attempts: v.number(), // Track failed attempts
+    isUsed: v.boolean(), // Prevent code reuse
+    createdAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_code", ["code"])
+    .index("by_expires", ["expiresAt"])
+    .index("by_email_code", ["email", "code"]),
+
   // User settings and configuration
   userSettings: defineTable({
     userId: v.id("users"),

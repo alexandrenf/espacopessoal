@@ -40,7 +40,7 @@ export default async function ProfilePage() {
 
           <ProfileUnauthenticatedClient />
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="absolute bottom-8 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 font-medium text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
           >
             Entrar

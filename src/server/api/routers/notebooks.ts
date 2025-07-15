@@ -119,10 +119,13 @@ export const notebooksRouter = createTRPCRouter({
       }
 
       try {
-        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
-          url: input.url,
-          userId: ctx.session?.user?.id as Id<"users">,
-        });
+        const notebookResult: unknown = await ctx.convex.query(
+          api.notebooks.getByUrl,
+          {
+            url: input.url,
+            userId: ctx.session?.user?.id as Id<"users">,
+          },
+        );
 
         if (!isNotebookDocument(notebookResult)) {
           throw new TRPCError({
@@ -438,10 +441,13 @@ export const notebooksRouter = createTRPCRouter({
       }
 
       try {
-        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
-          url: input.url,
-          userId: ctx.session?.user?.id as Id<"users">,
-        });
+        const notebookResult: unknown = await ctx.convex.query(
+          api.notebooks.getByUrl,
+          {
+            url: input.url,
+            userId: ctx.session?.user?.id as Id<"users">,
+          },
+        );
 
         if (!isNotebookDocument(notebookResult)) {
           throw new TRPCError({
@@ -540,10 +546,13 @@ export const notebooksRouter = createTRPCRouter({
 
       try {
         // First get the notebook to check access
-        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
-          url: input.url,
-          userId: ctx.session?.user?.id as Id<"users">,
-        });
+        const notebookResult: unknown = await ctx.convex.query(
+          api.notebooks.getByUrl,
+          {
+            url: input.url,
+            userId: ctx.session?.user?.id as Id<"users">,
+          },
+        );
 
         if (!isNotebookDocument(notebookResult)) {
           throw new TRPCError({
@@ -649,10 +658,13 @@ export const notebooksRouter = createTRPCRouter({
 
       try {
         // First get the notebook to check ownership
-        const notebookResult: unknown = await ctx.convex.query(api.notebooks.getByUrl, {
-          url: input.url,
-          userId: ctx.session.user.id as Id<"users">,
-        });
+        const notebookResult: unknown = await ctx.convex.query(
+          api.notebooks.getByUrl,
+          {
+            url: input.url,
+            userId: ctx.session.user.id as Id<"users">,
+          },
+        );
 
         if (!isNotebookDocument(notebookResult)) {
           throw new TRPCError({

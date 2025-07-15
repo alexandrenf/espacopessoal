@@ -102,7 +102,7 @@ export function Navbar({
             {session.user?.name?.[0]?.toUpperCase() ?? "U"}
           </div>
         ) : (
-          <Link href="/api/auth/signin">
+          <Link href="/auth/signin">
             <Button size="sm">Entrar</Button>
           </Link>
         )}

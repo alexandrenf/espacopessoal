@@ -309,7 +309,7 @@ export default function Header() {
                           </div>
                         </div>
                         {/* Sign out button */}
-                        <Link href="/api/auth/signout" className="block">
+                        <Link href="/auth/signout" className="block">
                           <Button
                             variant="outline"
                             className="w-full border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50"
@@ -320,7 +320,7 @@ export default function Header() {
                         </Link>
                       </div>
                     ) : (
-                      <Link href="/api/auth/signin" className="block">
+                      <Link href="/auth/signin" className="block">
                         <Button className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
                           Entrar
                         </Button>
@@ -392,7 +392,7 @@ export default function Header() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/api/auth/signout"
+                      href="/auth/signout"
                       className="flex cursor-pointer items-center gap-2 text-red-600 focus:text-red-700"
                     >
                       <X className="h-4 w-4" />
@@ -403,7 +403,7 @@ export default function Header() {
               </DropdownMenu>
             ) : (
               /* Sign In Button for Non-authenticated Users */
-              <Link href="/api/auth/signin">
+              <Link href="/auth/signin">
                 <Button className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2 font-medium text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
                   Entrar
                 </Button>

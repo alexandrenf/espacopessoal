@@ -74,7 +74,7 @@ export default function CTASection() {
               className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
               variants={itemVariants}
             >
-              <Link href="/api/auth/signin" className="group">
+              <Link href="/auth/signin" className="group">
                 <Button className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-semibold text-blue-700 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl group-hover:scale-105">
                   Começar Agora
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />

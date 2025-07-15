@@ -10,4 +10,11 @@ crons.daily(
   internal.users.cleanupUnusedProfilePictures,
 );
 
+// Cleanup expired magic codes every 30 minutes
+crons.interval(
+  "cleanup-expired-magic-codes",
+  { hours: 6 },
+  internal.magicCodes.cleanupExpiredCodes,
+);
+
 export default crons;

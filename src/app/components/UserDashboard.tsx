@@ -270,7 +270,7 @@ export function UserDashboard() {
               description="Gerencie suas tarefas e compromissos de forma eficiente com nossa lista de tarefas inteligente e intuitiva."
               icon={<CheckSquare className="h-8 w-8" />}
               isActive={status === "authenticated"}
-              href={status === "authenticated" ? "/lista" : "/api/auth/signin"}
+              href={status === "authenticated" ? "/lista" : "/auth/signin"}
             />
 
             <FeatureCard
@@ -375,7 +375,7 @@ export function UserDashboard() {
                       className="rounded-lg bg-blue-600 px-6 py-6 text-white shadow-sm transition-all duration-300 hover:bg-blue-700 hover:shadow-md"
                     >
                       <Link
-                        href="/api/auth/signin"
+                        href="/auth/signin"
                         className="group flex items-center gap-3"
                       >
                         <Zap className="h-5 w-5" />

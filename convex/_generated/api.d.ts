@@ -19,6 +19,7 @@ import type * as crons from "../crons.js";
 import type * as dictionary from "../dictionary.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
+import type * as magicCodes from "../magicCodes.js";
 import type * as migratedocumentstonotebooks from "../migratedocumentstonotebooks.js";
 import type * as migrations from "../migrations.js";
 import type * as notebooks from "../notebooks.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   dictionary: typeof dictionary;
   documents: typeof documents;
   http: typeof http;
+  magicCodes: typeof magicCodes;
   migratedocumentstonotebooks: typeof migratedocumentstonotebooks;
   migrations: typeof migrations;
   notebooks: typeof notebooks;
