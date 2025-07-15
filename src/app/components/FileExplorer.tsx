@@ -84,28 +84,28 @@ type SortOrder = "asc" | "desc";
 // Hook for detecting mobile devices
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  
+
   return isMobile;
 };
 
 // Mobile-optimized motion component
-const MobileOptimizedMotion = ({ 
-  children, 
-  isMobile, 
-  ...motionProps 
-}: { 
-  children: React.ReactNode; 
-  isMobile: boolean; 
+const MobileOptimizedMotion = ({
+  children,
+  isMobile,
+  ...motionProps
+}: {
+  children: React.ReactNode;
+  isMobile: boolean;
 } & React.ComponentProps<typeof motion.div>) => {
   if (isMobile) {
     // On mobile, render as regular div to improve performance
@@ -561,12 +561,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-12 rounded-lg bg-slate-200 animate-pulse" />
+        <div className="h-12 animate-pulse rounded-lg bg-slate-200" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-40 rounded-xl bg-slate-200 animate-pulse"
+              className="h-40 animate-pulse rounded-xl bg-slate-200"
             />
           ))}
         </div>
@@ -577,7 +577,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-slate-400" />
@@ -585,7 +585,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               placeholder="Buscar arquivos e pastas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64 border-slate-200/70 bg-white/70 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20"
+              className="w-full border-slate-200/70 bg-white/70 pl-10 backdrop-blur-sm focus:border-blue-500 focus:ring-blue-500/20 sm:w-64"
             />
           </div>
         </div>
@@ -656,17 +656,26 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
           {/* Create buttons */}
           {isAuthenticated && (
-            <div className="flex gap-1 w-full sm:w-auto justify-center sm:justify-start">
+            <div className="flex w-full justify-center gap-1 sm:w-auto sm:justify-start">
               {onCreateFolder && (
-                <Button variant="outline" size="sm" onClick={onCreateFolder} className="flex-1 sm:flex-none">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCreateFolder}
+                  className="flex-1 sm:flex-none"
+                >
                   <FolderPlus className="mr-1 h-4 w-4" />
-                  <span className="hidden xs:inline">Pasta</span>
+                  <span className="xs:inline hidden">Pasta</span>
                 </Button>
               )}
               {onCreateDocument && (
-                <Button size="sm" onClick={onCreateDocument} className="flex-1 sm:flex-none">
+                <Button
+                  size="sm"
+                  onClick={onCreateDocument}
+                  className="flex-1 sm:flex-none"
+                >
                   <Plus className="mr-1 h-4 w-4" />
-                  <span className="hidden xs:inline">Documento</span>
+                  <span className="xs:inline hidden">Documento</span>
                 </Button>
               )}
             </div>
@@ -724,7 +733,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="xs:grid-cols-2 grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {processedDocuments.map((document) => (
             <FileItem
               key={document._id}

@@ -182,10 +182,8 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-6 w-6 transition-opacity touch-manipulation ${
-                isMobile
-                  ? "opacity-100"
-                  : "opacity-0 group-hover:opacity-100"
+              className={`h-6 w-6 touch-manipulation transition-opacity ${
+                isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
               }`}
               onClick={(e) => {
                 e.preventDefault();

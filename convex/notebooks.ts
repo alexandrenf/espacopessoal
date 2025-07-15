@@ -605,47 +605,58 @@ export const getByUrl = query({
   },
 });
 
-// Get notebooks by owner
+// Get notebooks by owner - OPTIMIZED
 export const getByOwner = query({
   args: {
     userId: v.id("users"), // Make userId required
+    limit: v.optional(v.number()), // Add pagination support
   },
   handler: async (ctx, args) => {
+    // OPTIMIZATION: Use .take() instead of .collect() to prevent unbounded queries
+    const limit = args.limit ?? 50; // Default reasonable limit
     return await ctx.db
       .query("notebooks")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .order("desc")
-      .collect();
+      .take(limit);
   },
 });
 
-// Get notebooks by owner with document counts
+// Get notebooks by owner with document counts - OPTIMIZED
 export const getByOwnerWithDocumentCounts = query({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // OPTIMIZATION 1: Use pagination instead of .collect() for notebooks
     const notebooks = await ctx.db
       .query("notebooks")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", args.userId))
       .order("desc")
-      .collect();
+      .take(50); // Limit to reasonable number instead of unlimited .collect()
 
-    // Add document count for each notebook
-    const notebooksWithCounts = await Promise.all(
-      notebooks.map(async (notebook) => {
-        const documentCount = await ctx.db
-          .query("documents")
-          .withIndex("by_notebook_id", (q) => q.eq("notebookId", notebook._id))
-          .filter((q) => q.eq(q.field("isFolder"), false)) // Only count actual documents, not folders
-          .collect();
+    // OPTIMIZATION 2: Batch document counting to avoid N+1 queries
+    // Get all documents for this user in one query, then group by notebook
+    const allUserDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_owner_id_notebook_id", (q) => q.eq("ownerId", args.userId))
+      .filter((q) => q.eq(q.field("isFolder"), false))
+      .take(1000); // Reasonable limit to prevent excessive reads
 
-        return {
-          ...notebook,
-          documentCount: documentCount.length,
-        };
-      }),
-    );
+    // Group documents by notebook ID for efficient counting
+    const documentCountsByNotebook = new Map<string, number>();
+    for (const doc of allUserDocuments) {
+      if (doc.notebookId) {
+        const count = documentCountsByNotebook.get(doc.notebookId) ?? 0;
+        documentCountsByNotebook.set(doc.notebookId, count + 1);
+      }
+    }
+
+    // OPTIMIZATION 3: Map notebooks with pre-calculated counts (no additional queries)
+    const notebooksWithCounts = notebooks.map((notebook) => ({
+      ...notebook,
+      documentCount: documentCountsByNotebook.get(notebook._id) ?? 0,
+    }));
 
     return notebooksWithCounts;
   },
@@ -1455,33 +1466,55 @@ export const revokeSessions = mutation({
         }
       }
     } else if (args.notebookId) {
-      // Revoke all sessions for a notebook
-      const sessions = await ctx.db
-        .query("notebookSessions")
-        .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId!))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
+      // OPTIMIZATION: Revoke all sessions for a notebook with pagination to avoid large .collect()
+      let cursor: string | null = null;
+      do {
+        const sessionBatch = await ctx.db
+          .query("notebookSessions")
+          .withIndex("by_notebook", (q) => q.eq("notebookId", args.notebookId!))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .paginate({
+            cursor,
+            numItems: 50, // Process in batches of 50
+          });
 
-      for (const session of sessions) {
-        await ctx.db.patch(session._id, {
-          isActive: false,
-        });
-        revokedCount++;
-      }
+        // Batch update all sessions in this page
+        await Promise.all(
+          sessionBatch.page.map(async (session) => {
+            await ctx.db.patch(session._id, {
+              isActive: false,
+            });
+            revokedCount++;
+          }),
+        );
+
+        cursor = sessionBatch.continueCursor;
+      } while (cursor);
     } else if (args.revokeAll && args.userId) {
-      // Revoke all sessions for a user
-      const sessions = await ctx.db
-        .query("notebookSessions")
-        .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
+      // OPTIMIZATION: Revoke all sessions for a user with pagination
+      let cursor: string | null = null;
+      do {
+        const sessionBatch = await ctx.db
+          .query("notebookSessions")
+          .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .paginate({
+            cursor,
+            numItems: 50, // Process in batches of 50
+          });
 
-      for (const session of sessions) {
-        await ctx.db.patch(session._id, {
-          isActive: false,
-        });
-        revokedCount++;
-      }
+        // Batch update all sessions in this page
+        await Promise.all(
+          sessionBatch.page.map(async (session) => {
+            await ctx.db.patch(session._id, {
+              isActive: false,
+            });
+            revokedCount++;
+          }),
+        );
+
+        cursor = sessionBatch.continueCursor;
+      } while (cursor);
     }
 
     return { revokedCount };
@@ -1587,44 +1620,72 @@ export const updatePassword = mutation({
   },
 });
 
-// Cleanup expired sessions (internal function for scheduled cleanup)
+// Cleanup expired sessions (internal function for scheduled cleanup) - OPTIMIZED
 export const cleanupExpiredSessions = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    batchSize: v.optional(v.number()), // Allow configurable batch size
+  },
+  handler: async (ctx, args) => {
     const now = Date.now();
+    const batchSize = args.batchSize ?? 100; // Default batch size
+    let totalDeleted = 0;
 
-    // Find all expired or revoked sessions older than 7 days
+    // OPTIMIZATION: Process expired sessions in batches to avoid large .collect()
     const cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
-    const expiredSessions = await ctx.db
-      .query("notebookSessions")
-      .withIndex("by_active_sessions", (q) =>
-        q.eq("isActive", false).lt("expiresAt", cutoffTime),
-      )
-      .collect();
 
-    // Also find sessions that are expired but not revoked
-    const naturallyExpiredSessions = await ctx.db
-      .query("notebookSessions")
-      .withIndex("by_expiration", (q) =>
-        q.eq("expiresAt", now).eq("isActive", true),
-      )
-      .filter((q) => q.lt(q.field("expiresAt"), now))
-      .collect();
+    // Process expired/revoked sessions in batches
+    let cursor: string | null = null;
+    do {
+      const expiredBatch = await ctx.db
+        .query("notebookSessions")
+        .withIndex("by_active_sessions", (q) =>
+          q.eq("isActive", false).lt("expiresAt", cutoffTime),
+        )
+        .paginate({
+          cursor,
+          numItems: batchSize,
+        });
 
-    const allExpiredSessions = [
-      ...expiredSessions,
-      ...naturallyExpiredSessions,
-    ];
+      // Delete this batch
+      await Promise.all(
+        expiredBatch.page.map(async (session) => {
+          await ctx.db.delete(session._id);
+          totalDeleted++;
+        }),
+      );
 
-    // Delete expired sessions
-    for (const session of allExpiredSessions) {
-      await ctx.db.delete(session._id);
-    }
+      cursor = expiredBatch.continueCursor;
+    } while (cursor);
 
-    logger.debug("Cleaned up", allExpiredSessions.length, "expired sessions");
+    // Process naturally expired sessions in batches
+    cursor = null;
+    do {
+      const naturallyExpiredBatch = await ctx.db
+        .query("notebookSessions")
+        .withIndex("by_expiration", (q) =>
+          q.eq("expiresAt", now).eq("isActive", true),
+        )
+        .filter((q) => q.lt(q.field("expiresAt"), now))
+        .paginate({
+          cursor,
+          numItems: batchSize,
+        });
+
+      // Delete this batch
+      await Promise.all(
+        naturallyExpiredBatch.page.map(async (session) => {
+          await ctx.db.delete(session._id);
+          totalDeleted++;
+        }),
+      );
+
+      cursor = naturallyExpiredBatch.continueCursor;
+    } while (cursor);
+
+    logger.debug("Cleaned up", totalDeleted, "expired sessions");
 
     return {
-      cleanedCount: allExpiredSessions.length,
+      cleanedCount: totalDeleted,
     };
   },
 });

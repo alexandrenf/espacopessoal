@@ -33,10 +33,10 @@ class RateLimiter {
     remaining?: number;
   } {
     const now = Date.now();
-    
+
     // Lazy cleanup: remove expired entries during check
     this.cleanupExpiredEntries();
-    
+
     const entry = this.ipCache.get(ip);
 
     if (!entry || now >= entry.resetTime) {
@@ -77,10 +77,10 @@ class RateLimiter {
     cooldownTime?: number;
   } {
     const now = Date.now();
-    
+
     // Lazy cleanup: remove expired entries during check
     this.cleanupExpiredEntries();
-    
+
     const entry = this.emailCache.get(email);
 
     if (!entry || now >= entry.resetTime) {

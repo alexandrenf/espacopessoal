@@ -415,7 +415,9 @@ function NotebookPageContent() {
               // Check if session is expired
               if (storedSession.expiresAt <= Date.now()) {
                 if (process.env.NODE_ENV === "development") {
-                  console.log("Stored session is expired, removing from storage");
+                  console.log(
+                    "Stored session is expired, removing from storage",
+                  );
                 }
                 await removeSession(normalizedUrl);
                 setIsSessionValidationComplete(true);
