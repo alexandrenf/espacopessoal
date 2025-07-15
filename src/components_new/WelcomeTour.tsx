@@ -9,7 +9,6 @@ import { tourSteps } from "./tourSteps";
 import "driver.js/dist/driver.css";
 import "./tour-styles.css";
 
-
 interface WelcomeTourProps {
   autoStart?: boolean;
   showButton?: boolean;
@@ -17,7 +16,7 @@ interface WelcomeTourProps {
   onTourSkip?: () => void;
   onStepChange?: (step: number) => void;
   debug?: boolean;
-  theme?: 'light' | 'dark';
+  theme?: "light" | "dark";
   // TODO: Future feature - add progress indicator in welcome card
   showProgress?: boolean;
 }
@@ -29,7 +28,7 @@ export function WelcomeTour({
   onTourSkip,
   onStepChange,
   debug = false,
-  theme = 'light',
+  theme = "light",
 }: WelcomeTourProps) {
   const [mounted, setMounted] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
@@ -79,28 +78,39 @@ export function WelcomeTour({
       prevBtnText: "Anterior",
       doneBtnText: "Finalizar Tour",
       progressText: "{{current}} de {{total}}",
-      overlayColor: theme === 'dark' ? "rgba(0, 0, 0, 0.85)" : "rgba(0, 0, 0, 0.75)",
+      overlayColor:
+        theme === "dark" ? "rgba(0, 0, 0, 0.85)" : "rgba(0, 0, 0, 0.75)",
+      overlayOpacity: 0.75,
       stagePadding: 8,
-      popoverClass: `espacopessoal-tour-popover ${theme === 'dark' ? 'dark-theme' : 'light-theme'}`,
+      popoverClass: `espacopessoal-tour-popover ${theme === "dark" ? "dark-theme" : "light-theme"}`,
+      popoverOffset: 10,
       onNextClick: (_element, _step, options) => {
         const stepIndex = options.state?.activeIndex ?? 0;
         const nextStepIndex = stepIndex + 1;
         setCurrentStep(nextStepIndex);
         setTourProgress(Math.round((nextStepIndex / tourSteps.length) * 100));
-        
+
         onStepChange?.(nextStepIndex);
-        
+
         if (debug) {
-          console.log(`Tour: Avançando para passo ${nextStepIndex}/${tourSteps.length}`);
+          console.log(
+            `Tour: Avançando para passo ${nextStepIndex}/${tourSteps.length}`,
+          );
         }
-        
+
         // Garantir que elementos existem antes de prosseguir
         if (nextStepIndex < tourSteps.length) {
           const nextStepSelector = tourSteps[nextStepIndex]?.element;
-          if (nextStepSelector && typeof nextStepSelector === 'string' && nextStepSelector !== "body") {
+          if (
+            nextStepSelector &&
+            typeof nextStepSelector === "string" &&
+            nextStepSelector !== "body"
+          ) {
             const element = document.querySelector(nextStepSelector);
             if (!element) {
-              console.warn(`Tour: Elemento não encontrado - ${nextStepSelector}`);
+              console.warn(
+                `Tour: Elemento não encontrado - ${nextStepSelector}`,
+              );
               // Pular para próximo passo válido
               return;
             }
@@ -112,9 +122,9 @@ export function WelcomeTour({
         const prevStepIndex = Math.max(0, stepIndex - 1);
         setCurrentStep(prevStepIndex);
         setTourProgress(Math.round((prevStepIndex / tourSteps.length) * 100));
-        
+
         onStepChange?.(prevStepIndex);
-        
+
         if (debug) {
           console.log(`Tour: Retrocedendo para passo ${prevStepIndex}`);
         }
@@ -122,12 +132,17 @@ export function WelcomeTour({
       onDestroyed: () => {
         localStorage.setItem("espacopessoal-tour-completed", "true");
         localStorage.removeItem("espacopessoal-tour-skipped");
-        localStorage.setItem("espacopessoal-tour-completion-date", new Date().toISOString());
-        
+        localStorage.setItem(
+          "espacopessoal-tour-completion-date",
+          new Date().toISOString(),
+        );
+
         if (debug) {
-          console.log(`Tour: Completado com sucesso após ${currentStep + 1} passos`);
+          console.log(
+            `Tour: Completado com sucesso após ${currentStep + 1} passos`,
+          );
         }
-        
+
         onTourComplete?.();
       },
       onCloseClick: () => {
@@ -139,7 +154,7 @@ export function WelcomeTour({
 
   const startTour = () => {
     setShowWelcomeCard(false);
-    
+
     // Pequeno delay para garantir que a UI está estável antes de iniciar
     setTimeout(() => {
       const driverObj = createTourDriver();
@@ -163,7 +178,7 @@ export function WelcomeTour({
   const restartTour = () => {
     localStorage.removeItem("espacopessoal-tour-completed");
     localStorage.removeItem("espacopessoal-tour-skipped");
-    
+
     // Pequeno delay para garantir que a UI está estável
     setTimeout(() => {
       const driverObj = createTourDriver();
@@ -191,7 +206,7 @@ export function WelcomeTour({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0, y: 20 }}
@@ -219,7 +234,7 @@ export function WelcomeTour({
                   <PlayCircle className="text-white" size={32} />
                 </motion.div>
 
-                <motion.h2 
+                <motion.h2
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
@@ -228,7 +243,7 @@ export function WelcomeTour({
                   Bem-vindo ao Espaço Pessoal! 🎉
                 </motion.h2>
 
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
@@ -239,7 +254,7 @@ export function WelcomeTour({
                   organizar e colaborar em documentos de forma eficiente.
                 </motion.p>
 
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
@@ -277,10 +292,10 @@ export function WelcomeTour({
                     <span>Progresso do tour</span>
                     <span>{tourSteps.length} passos</span>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                    <div
                       className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300"
-                      style={{ width: '0%' }}
+                      style={{ width: "0%" }}
                     />
                   </div>
                   <p className="text-xs text-gray-500 sm:text-sm">
@@ -299,20 +314,19 @@ export function WelcomeTour({
           initial={{ opacity: 0, scale: 0.8, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1 }}
-          className="fixed bottom-4 right-4 z-40 sm:bottom-6 sm:right-6"
+          className="fixed bottom-4 right-4 z-[9997] sm:bottom-6 sm:right-6"
         >
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{ pointerEvents: "auto" }}
+          >
             <Button
               onClick={restartTour}
               className="tour-button flex items-center gap-2 rounded-full border-2 border-white/20 bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl sm:px-5 sm:py-3 sm:text-base"
               title="Clique para refazer o tour de boas-vindas"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              >
-                <PlayCircle size={16} className="sm:h-[18px] sm:w-[18px]" />
-              </motion.div>
+              <PlayCircle size={16} className="sm:h-[18px] sm:w-[18px]" />
               <span className="hidden font-medium sm:inline">Tour Guiado</span>
               <span className="font-medium sm:hidden">Tour</span>
               {tourProgress > 0 && (
@@ -322,20 +336,6 @@ export function WelcomeTour({
               )}
             </Button>
           </motion.div>
-
-          {/* Animação de Pulse */}
-          <motion.div
-            className="absolute inset-0 rounded-full border-2 border-blue-400/30"
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.5, 0, 0.5],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
         </motion.div>
       )}
     </>

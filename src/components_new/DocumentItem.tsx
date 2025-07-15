@@ -137,7 +137,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
 
   return (
     <div
-      className={`group flex cursor-pointer items-center justify-between rounded-md p-2 h-10 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
+      className={`group flex h-10 cursor-pointer items-center justify-between rounded-md p-2 transition-all duration-150 ${selected ? "bg-blue-100 text-blue-900 shadow-sm" : "hover:bg-gray-100"} ${isNested ? "ml-4" : ""} ${isDeleting ? "pointer-events-none opacity-50" : ""} `}
       onClick={handleClick}
       role="button"
       tabIndex={0}

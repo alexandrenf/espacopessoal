@@ -2,21 +2,6 @@
 
 This document outlines the plan to address known issues and implement new features.
 
-
-## Low Priority
-
-### 12. Markdown Export and import Feature -- DONE
-
-*   **Priority:** Low
-*   **Issue:** The application lacks a feature to export and import documents as Markdown.
-*   **Plan:**
-    *   **Add UI Element:** Add an "Export as Markdown" option to the document actions menu.
-    *   **Implement Conversion:**
-        *   Use a library like `turndown` to convert the document's HTML or rich-text format into Markdown.
-        *   Implement a client-side function that takes the editor's content, performs the conversion, and triggers a file download.
-
----
-
 ### 13. New User Onboarding
 
 *   **Priority:** Low

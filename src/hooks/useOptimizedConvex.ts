@@ -87,7 +87,9 @@ export function useOptimizedDocumentsTree(
   // OPTIMIZATION: Enhanced memoization with null safety and performance tracking
   return useMemo(() => {
     if (process.env.NODE_ENV === "development" && documentsQuery) {
-      console.log(`📊 Documents tree loaded: ${documentsQuery.length} items for notebook ${notebookId}`);
+      console.log(
+        `📊 Documents tree loaded: ${documentsQuery.length} items for notebook ${notebookId}`,
+      );
     }
     return documentsQuery ?? [];
   }, [documentsQuery, notebookId]);
@@ -273,10 +275,7 @@ export const ConvexOptimizations = {
   },
 
   // OPTIMIZATION: Smart debouncing for frequent updates
-  createDebouncedQuery: <T>(
-    queryFn: () => T | Promise<T>,
-    delay = 300,
-  ) => {
+  createDebouncedQuery: <T>(queryFn: () => T | Promise<T>, delay = 300) => {
     let timeoutId: NodeJS.Timeout;
     let pendingPromises: Array<{
       resolve: (value: T) => void;
