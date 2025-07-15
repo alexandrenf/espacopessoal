@@ -244,6 +244,10 @@ export default defineSchema({
     privateOrPublicUrl: v.optional(v.boolean()), // Private if true
     password: v.optional(v.string()), // Password for private notepad
     fcmToken: v.optional(v.string()), // Firebase Cloud Messaging token
+    // Welcome tour tracking
+    tourCompleted: v.optional(v.boolean()), // Whether user completed the welcome tour
+    tourSkipped: v.optional(v.boolean()), // Whether user skipped the welcome tour
+    tourCompletionDate: v.optional(v.number()), // When the tour was completed
     createdAt: v.number(),
     updatedAt: v.number(),
   })

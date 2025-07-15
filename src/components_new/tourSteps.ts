@@ -59,6 +59,7 @@ export const tourSteps: DriveStep[] = [
     },
   },
 
+  // Only show create notebook step if user is authenticated and element exists
   {
     element: "[data-tour='create-notebook']",
     popover: {
@@ -286,3 +287,25 @@ export const tourSteps: DriveStep[] = [
     },
   },
 ];
+
+export function getFilteredTourSteps(isAuthenticated: boolean): DriveStep[] {
+  return tourSteps.filter(step => {
+    // Always include body-level steps
+    if (step.element === "body") return true;
+    
+    // Check if step requires authentication
+    if (typeof step.element === "string") {
+      // Steps that are only available to authenticated users
+      const authRequiredElements = [
+        "[data-tour='create-notebook']"
+      ];
+      
+      if (authRequiredElements.includes(step.element)) {
+        return isAuthenticated;
+      }
+    }
+    
+    return true;
+  });
+}
+// Function to get tour steps filtered by authentication status

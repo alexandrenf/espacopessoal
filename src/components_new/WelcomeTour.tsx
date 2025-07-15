@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useConvexUser } from "../hooks/use-convex-user";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Button } from "~/components/ui/button";
 import { PlayCircle, X } from "lucide-react";
 import { driver } from "driver.js";
 import { motion, AnimatePresence } from "framer-motion";
-import { tourSteps } from "./tourSteps";
+import { getFilteredTourSteps } from "./tourSteps";
 import "driver.js/dist/driver.css";
 import "./tour-styles.css";
 
@@ -31,6 +35,21 @@ export function WelcomeTour({
 }: WelcomeTourProps) {
   const [mounted, setMounted] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
+
+  // Authentication checks
+  const { data: session, status } = useSession();
+  const { convexUserId, isLoading: isUserLoading } = useConvexUser();
+  const isAuthenticated = status === "authenticated" && session && convexUserId;
+
+    if (!mounted || !isAuthenticated) return;
+  const userSettings = useQuery(
+    
+    // Check if tour was completed/skipped for this specific user
+    const tourCompleted = userSettings?.tourCompleted;
+    const tourSkipped = userSettings?.tourSkipped;
+    convexUserId ? { userId: convexUserId } : "skip"
+  );
+  const updateUserSettings = useMutation(api.userSettings.updateTourStatus);
   const [showWelcomeCard, setShowWelcomeCard] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
@@ -42,8 +61,21 @@ export function WelcomeTour({
 
   useEffect(() => {
     if (!mounted) return;
-
+  }, [mounted, autoStart, isAuthenticated, convexUserId, isUserLoading, userSettings]);
     // Verificar se é a primeira visita do usuário
+  // Don't render anything if user is not authenticated
+    const authFilteredSteps = getFilteredTourSteps(isAuthenticated);
+    const availableSteps = authFilteredSteps.filter(step => {
+      if (step.element === "body") return true;
+      if (typeof step.element === "string") {
+        const element = document.querySelector(step.element);
+        return element !== null;
+      }
+      return true;
+    });
+  if (!isAuthenticated) {
+    return null;
+  }
     const tourCompleted = localStorage.getItem("espacopessoal-tour-completed");
     const tourSkipped = localStorage.getItem("espacopessoal-tour-skipped");
 
@@ -72,7 +104,7 @@ export function WelcomeTour({
       allowKeyboardControl: true,
       disableActiveInteraction: false,
       showButtons: ["next", "previous", "close"],
-      steps: tourSteps,
+      steps: availableSteps,
       nextBtnText: "Próximo",
       prevBtnText: "Anterior",
       doneBtnText: "Finalizar Tour",
@@ -87,18 +119,18 @@ export function WelcomeTour({
         const stepIndex = options.state?.activeIndex ?? 0;
         const nextStepIndex = stepIndex + 1;
         setCurrentStep(nextStepIndex);
-        setTourProgress(Math.round((nextStepIndex / tourSteps.length) * 100));
+        setTourProgress(Math.round((nextStepIndex / availableSteps.length) * 100));
 
         onStepChange?.(nextStepIndex);
 
         if (debug) {
           console.log(
-            `Tour: Avançando para passo ${nextStepIndex}/${tourSteps.length}`,
+            `Tour: Avançando para passo ${nextStepIndex}/${availableSteps.length}`,
           );
         }
 
         // Garantir que elementos existem antes de prosseguir
-        if (nextStepIndex < tourSteps.length) {
+        if (nextStepIndex < availableSteps.length) {
           const nextStepSelector = tourSteps[nextStepIndex]?.element;
           if (
             nextStepSelector &&
@@ -120,7 +152,7 @@ export function WelcomeTour({
         const stepIndex = options.state?.activeIndex ?? 0;
         const prevStepIndex = Math.max(0, stepIndex - 1);
         setCurrentStep(prevStepIndex);
-        setTourProgress(Math.round((prevStepIndex / tourSteps.length) * 100));
+        setTourProgress(Math.round((prevStepIndex / availableSteps.length) * 100));
 
         onStepChange?.(prevStepIndex);
 
@@ -128,13 +160,17 @@ export function WelcomeTour({
           console.log(`Tour: Retrocedendo para passo ${prevStepIndex}`);
         }
       },
-      onDestroyed: () => {
-        localStorage.setItem("espacopessoal-tour-completed", "true");
-        localStorage.removeItem("espacopessoal-tour-skipped");
-        localStorage.setItem(
-          "espacopessoal-tour-completion-date",
-          new Date().toISOString(),
-        );
+      onDestroyed: async () => {
+        try {
+          await updateUserSettings({
+            userId: convexUserId,
+            tourCompleted: true,
+            tourSkipped: false,
+            tourCompletionDate: Date.now(),
+          });
+        } catch (error) {
+          console.error("Error updating tour completion status:", error);
+        }
 
         if (debug) {
           console.log(
@@ -144,10 +180,19 @@ export function WelcomeTour({
 
         onTourComplete?.();
       },
-      onCloseClick: () => {
-        localStorage.setItem("espacopessoal-tour-skipped", "true");
+      },
+      onCloseClick: async () => {
+        try {
+          await updateUserSettings({
+            userId: convexUserId,
+            tourSkipped: true,
+          });
+        } catch (error) {
+          console.error("Error updating tour skip status:", error);
+        }
         onTourSkip?.();
       },
+  if (!mounted || isLoading || isUserLoading || userSettings === undefined) {
     });
   };
 
@@ -162,7 +207,10 @@ export function WelcomeTour({
       } catch (error) {
         console.error("Erro ao iniciar tour:", error);
         // Fallback: marcar como pulado se houver erro
-        localStorage.setItem("espacopessoal-tour-skipped", "true");
+        updateUserSettings({
+          userId: convexUserId,
+          tourSkipped: true,
+        }).catch(console.error);
         onTourSkip?.();
       }
     }, 300);
@@ -170,13 +218,19 @@ export function WelcomeTour({
 
   const skipTour = () => {
     setShowWelcomeCard(false);
-    localStorage.setItem("espacopessoal-tour-skipped", "true");
+        updateUserSettings({
+          userId: convexUserId,
+          tourSkipped: true,
+        }).catch(console.error);
     onTourSkip?.();
   };
 
   const restartTour = () => {
-    localStorage.removeItem("espacopessoal-tour-completed");
-    localStorage.removeItem("espacopessoal-tour-skipped");
+    updateUserSettings({
+      userId: convexUserId,
+      tourCompleted: false,
+      tourSkipped: false,
+    }).catch(console.error);
 
     // Pequeno delay para garantir que a UI está estável
     setTimeout(() => {
@@ -186,7 +240,10 @@ export function WelcomeTour({
       } catch (error) {
         console.error("Erro ao reiniciar tour:", error);
         // Fallback: marcar como pulado se houver erro
-        localStorage.setItem("espacopessoal-tour-skipped", "true");
+        updateUserSettings({
+          userId: convexUserId,
+          tourSkipped: true,
+        }).catch(console.error);
         onTourSkip?.();
       }
     }, 300);
@@ -289,7 +346,7 @@ export function WelcomeTour({
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Progresso do tour</span>
-                    <span>{tourSteps.length} passos</span>
+                    <span>{availableSteps.length} passos</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                     <div

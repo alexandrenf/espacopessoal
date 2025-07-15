@@ -2,6 +2,84 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 // Get user settings by user ID
+// Update tour status for a user
+export const updateTourStatus = mutation({
+  args: {
+    userId: v.id("users"),
+    tourCompleted: v.optional(v.boolean()),
+    tourSkipped: v.optional(v.boolean()),
+    tourCompletionDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, ...tourData } = args;
+    const now = Date.now();
+
+    // Check if settings already exist
+    const existingSettings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existingSettings) {
+      // Update existing settings
+      const updates: {
+        updatedAt: number;
+        tourCompleted?: boolean;
+        tourSkipped?: boolean;
+        tourCompletionDate?: number;
+      } = {
+        updatedAt: now,
+      };
+
+      if (tourData.tourCompleted !== undefined) {
+        updates.tourCompleted = tourData.tourCompleted;
+      }
+      if (tourData.tourSkipped !== undefined) {
+        updates.tourSkipped = tourData.tourSkipped;
+      }
+      if (tourData.tourCompletionDate !== undefined) {
+        updates.tourCompletionDate = tourData.tourCompletionDate;
+      }
+
+      await ctx.db.patch(existingSettings._id, updates);
+      return await ctx.db.get(existingSettings._id);
+    } else {
+      // Create new settings with tour data
+      return await ctx.db.insert("userSettings", {
+        userId,
+        notePadUrl: "",
+        privateOrPublicUrl: true,
+        password: undefined,
+        fcmToken: undefined,
+        tourCompleted: tourData.tourCompleted ?? false,
+        tourSkipped: tourData.tourSkipped ?? false,
+        tourCompletionDate: tourData.tourCompletionDate,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+// Get tour status for a user
+export const getTourStatus = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { userId }) => {
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    return {
+      tourCompleted: settings?.tourCompleted ?? false,
+      tourSkipped: settings?.tourSkipped ?? false,
+      tourCompletionDate: settings?.tourCompletionDate,
+    };
+  },
+});
+
 export const getByUserId = query({
   args: {
     userId: v.id("users"),
@@ -22,6 +100,12 @@ export const upsert = mutation({
     privateOrPublicUrl: v.optional(v.boolean()),
     password: v.optional(v.string()),
     fcmToken: v.optional(v.string()),
+    tourCompleted: v.optional(v.boolean()),
+    tourSkipped: v.optional(v.boolean()),
+    tourCompletionDate: v.optional(v.number()),
+    tourCompleted: v.optional(v.boolean()),
+    tourSkipped: v.optional(v.boolean()),
+    tourCompletionDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { userId, ...settingsData } = args;
@@ -41,6 +125,12 @@ export const upsert = mutation({
         privateOrPublicUrl?: boolean;
         password?: string;
         fcmToken?: string;
+      tourCompleted?: boolean;
+      tourSkipped?: boolean;
+      tourCompletionDate?: number;
+        tourCompleted?: boolean;
+        tourSkipped?: boolean;
+        tourCompletionDate?: number;
       } = { updatedAt: now };
 
       if (settingsData.notePadUrl !== undefined)
@@ -50,6 +140,18 @@ export const upsert = mutation({
       if (settingsData.password !== undefined)
         updates.password = settingsData.password;
       if (settingsData.fcmToken !== undefined)
+    if (settingsData.tourCompleted !== undefined)
+      updates.tourCompleted = settingsData.tourCompleted;
+    if (settingsData.tourSkipped !== undefined)
+      updates.tourSkipped = settingsData.tourSkipped;
+    if (settingsData.tourCompletionDate !== undefined)
+      updates.tourCompletionDate = settingsData.tourCompletionDate;
+      if (settingsData.tourCompleted !== undefined)
+        updates.tourCompleted = settingsData.tourCompleted;
+      if (settingsData.tourSkipped !== undefined)
+        updates.tourSkipped = settingsData.tourSkipped;
+      if (settingsData.tourCompletionDate !== undefined)
+        updates.tourCompletionDate = settingsData.tourCompletionDate;
         updates.fcmToken = settingsData.fcmToken;
 
       await ctx.db.patch(existingSettings._id, updates);
@@ -62,6 +164,9 @@ export const upsert = mutation({
         privateOrPublicUrl: settingsData.privateOrPublicUrl ?? true,
         password: settingsData.password,
         fcmToken: settingsData.fcmToken,
+        tourCompleted: settingsData.tourCompleted ?? false,
+        tourSkipped: settingsData.tourSkipped ?? false,
+        tourCompletionDate: settingsData.tourCompletionDate,
         createdAt: now,
         updatedAt: now,
       });
@@ -77,6 +182,12 @@ export const update = mutation({
     privateOrPublicUrl: v.optional(v.boolean()),
     password: v.optional(v.string()),
     fcmToken: v.optional(v.string()),
+    tourCompleted: v.optional(v.boolean()),
+    tourSkipped: v.optional(v.boolean()),
+    tourCompletionDate: v.optional(v.number()),
+    tourCompleted: v.optional(v.boolean()),
+    tourSkipped: v.optional(v.boolean()),
+    tourCompletionDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { userId, ...settingsData } = args;
@@ -96,6 +207,12 @@ export const update = mutation({
       privateOrPublicUrl?: boolean;
       password?: string;
       fcmToken?: string;
+      tourCompleted?: boolean;
+      tourSkipped?: boolean;
+      tourCompletionDate?: number;
+        tourCompleted?: boolean;
+        tourSkipped?: boolean;
+        tourCompletionDate?: number;
     } = { updatedAt: Date.now() };
 
     if (settingsData.notePadUrl !== undefined)
@@ -105,6 +222,18 @@ export const update = mutation({
     if (settingsData.password !== undefined)
       updates.password = settingsData.password;
     if (settingsData.fcmToken !== undefined)
+    if (settingsData.tourCompleted !== undefined)
+      updates.tourCompleted = settingsData.tourCompleted;
+    if (settingsData.tourSkipped !== undefined)
+      updates.tourSkipped = settingsData.tourSkipped;
+    if (settingsData.tourCompletionDate !== undefined)
+      updates.tourCompletionDate = settingsData.tourCompletionDate;
+      if (settingsData.tourCompleted !== undefined)
+        updates.tourCompleted = settingsData.tourCompleted;
+      if (settingsData.tourSkipped !== undefined)
+        updates.tourSkipped = settingsData.tourSkipped;
+      if (settingsData.tourCompletionDate !== undefined)
+        updates.tourCompletionDate = settingsData.tourCompletionDate;
       updates.fcmToken = settingsData.fcmToken;
 
     await ctx.db.patch(existingSettings._id, updates);
