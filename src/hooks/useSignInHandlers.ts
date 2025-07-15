@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { getProviders, signIn, getSession, getCsrfToken } from "next-auth/react";
+import {
+  getProviders,
+  signIn,
+  getSession,
+  getCsrfToken,
+} from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -25,7 +30,7 @@ interface UseSignInHandlersReturn {
   csrfToken: string | undefined;
   error: string | null;
   callbackUrl: string;
-  
+
   // Handlers
   handleEmailSignIn: (e: React.FormEvent) => Promise<void>;
   handleProviderSignIn: (providerId: string) => Promise<void>;
@@ -37,7 +42,9 @@ interface UseSignInHandlersReturn {
 }
 
 export function useSignInHandlers(): UseSignInHandlersReturn {
-  const [providers, setProviders] = useState<Record<string, Provider> | null>(null);
+  const [providers, setProviders] = useState<Record<string, Provider> | null>(
+    null,
+  );
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -45,7 +52,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
   const [codeSent, setCodeSent] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | undefined>(undefined);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
@@ -61,15 +68,14 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
 
     const fetchProviders = async () => {
       try {
-        const [res, csrf] = await Promise.all([
-          getProviders(),
-          getCsrfToken(),
-        ]);
+        const [res, csrf] = await Promise.all([getProviders(), getCsrfToken()]);
         setProviders(res);
         setCsrfToken(csrf);
       } catch (error) {
         console.error("Error fetching providers or CSRF token:", error);
-        toast.error("Erro ao carregar configurações de autenticação. Tente recarregar a página.");
+        toast.error(
+          "Erro ao carregar configurações de autenticação. Tente recarregar a página.",
+        );
       }
     };
     void fetchProviders();
@@ -120,7 +126,9 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
       await signIn(providerId, { callbackUrl });
     } catch (error) {
       console.error("Provider sign in error:", error);
-      toast.error("Erro ao conectar com o provedor de autenticação. Tente novamente.");
+      toast.error(
+        "Erro ao conectar com o provedor de autenticação. Tente novamente.",
+      );
       setIsLoading(false);
     }
   };
@@ -144,7 +152,10 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
-      const result = await response.json() as { success?: boolean; error?: string };
+      const result = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
 
       if (response.ok && result.success) {
         toast.success("Código enviado com sucesso! Verifique seu email.");
@@ -187,7 +198,9 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
 
       if (result?.error) {
         console.error("Error verifying code:", result.error);
-        toast.error("Código de verificação inválido ou expirado. Tente novamente.");
+        toast.error(
+          "Código de verificação inválido ou expirado. Tente novamente.",
+        );
         setIsLoading(false);
       } else if (result?.ok) {
         toast.success("Login realizado com sucesso! Redirecionando...");
@@ -245,7 +258,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
     csrfToken,
     error,
     callbackUrl,
-    
+
     // Handlers
     handleEmailSignIn,
     handleProviderSignIn,

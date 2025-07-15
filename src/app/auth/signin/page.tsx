@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -14,7 +15,7 @@ import { SignInForm } from "~/components/auth/SignInForm";
 import { MagicCodeInput } from "~/components/auth/MagicCodeInput";
 import { EmailSentConfirmation } from "~/components/auth/EmailSentConfirmation";
 
-export default function SignIn() {
+function SignInContent() {
   const {
     providers,
     email,
@@ -127,5 +128,37 @@ export default function SignIn() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+function SignInFallback() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex flex-grow items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+          <Card className="border-slate-200 shadow-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl text-transparent">
+                Carregando...
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={<SignInFallback />}>
+      <SignInContent />
+    </Suspense>
   );
 }

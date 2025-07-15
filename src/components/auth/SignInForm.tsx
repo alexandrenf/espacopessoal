@@ -39,12 +39,14 @@ export function SignInForm({
   handleSendCode,
   getErrorMessage,
 }: SignInFormProps) {
-  const oauthProviders = providers ? Object.values(providers).filter(
-    (provider) =>
-      provider.id !== "email" &&
-      provider.id !== "nodemailer" &&
-      provider.id !== "magic-numbers",
-  ) : [];
+  const oauthProviders = providers
+    ? Object.values(providers).filter(
+        (provider) =>
+          provider.id !== "email" &&
+          provider.id !== "nodemailer" &&
+          provider.id !== "magic-numbers",
+      )
+    : [];
 
   const hasEmailProvider = Boolean(providers?.email ?? providers?.nodemailer);
   const hasMultipleProviders = providers && Object.keys(providers).length > 1;
@@ -127,7 +129,7 @@ export function SignInForm({
               <Button
                 type="submit"
                 variant="outline"
-                className="w-full rounded-xl border-green-200 text-green-700 transition-all duration-300 hover:bg-green-50 hover:border-green-300"
+                className="w-full rounded-xl border-green-200 text-green-700 transition-all duration-300 hover:border-green-300 hover:bg-green-50"
                 disabled={isLoading || !email}
               >
                 {isLoading ? (

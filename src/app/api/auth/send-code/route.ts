@@ -3,7 +3,10 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
 import { createTransport } from "nodemailer";
 import { rateLimiter } from "../../../../lib/rate-limiter";
-import { validateEmail, isDomainSuspicious } from "../../../../lib/email-validation";
+import {
+  validateEmail,
+  isDomainSuspicious,
+} from "../../../../lib/email-validation";
 import { getClientIP, isLocalIP } from "../../../../lib/get-client-ip";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -13,15 +16,15 @@ export async function POST(request: NextRequest) {
     // Get client IP for rate limiting
     const clientIP = getClientIP(request);
     const isLocal = isLocalIP(clientIP);
-    
+
     // Parse request body
-    const { email } = await request.json() as { email: string };
+    const { email } = (await request.json()) as { email: string };
 
     // Basic input validation
     if (!email || typeof email !== "string") {
       return NextResponse.json(
         { error: "Email é obrigatório" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!emailValidation.isValid) {
       return NextResponse.json(
         { error: emailValidation.error },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (isDomainSuspicious(normalizedEmail)) {
       return NextResponse.json(
         { error: "Domínio de email não permitido" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,21 +53,21 @@ export async function POST(request: NextRequest) {
       if (!ipCheck.allowed) {
         const resetTime = rateLimiter.getTimeUntilReset(ipCheck.resetTime!);
         const minutes = Math.ceil(resetTime / (60 * 1000));
-        
+
         return NextResponse.json(
-          { 
+          {
             error: `Muitas tentativas deste IP. Tente novamente em ${minutes} minutos.`,
-            retryAfter: resetTime
+            retryAfter: resetTime,
           },
-          { 
+          {
             status: 429,
             headers: {
-              'Retry-After': Math.ceil(resetTime / 1000).toString(),
-              'X-RateLimit-Limit': '5',
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': ipCheck.resetTime!.toString()
-            }
-          }
+              "Retry-After": Math.ceil(resetTime / 1000).toString(),
+              "X-RateLimit-Limit": "5",
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": ipCheck.resetTime!.toString(),
+            },
+          },
         );
       }
     }
@@ -73,34 +76,38 @@ export async function POST(request: NextRequest) {
     const emailCheck = rateLimiter.checkEmailLimit(normalizedEmail);
     if (!emailCheck.allowed) {
       if (emailCheck.cooldownTime) {
-        const cooldownTime = rateLimiter.getTimeUntilReset(emailCheck.cooldownTime);
+        const cooldownTime = rateLimiter.getTimeUntilReset(
+          emailCheck.cooldownTime,
+        );
         const seconds = Math.ceil(cooldownTime / 1000);
-        
+
         return NextResponse.json(
-          { 
+          {
             error: `Aguarde ${seconds} segundos antes de solicitar outro código para este email.`,
-            retryAfter: cooldownTime
+            retryAfter: cooldownTime,
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
-      
+
       if (emailCheck.resetTime) {
         const resetTime = rateLimiter.getTimeUntilReset(emailCheck.resetTime);
         const minutes = Math.ceil(resetTime / (60 * 1000));
-        
+
         return NextResponse.json(
-          { 
+          {
             error: `Limite de códigos atingido para este email. Tente novamente em ${minutes} minutos.`,
-            retryAfter: resetTime
+            retryAfter: resetTime,
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
     }
 
     // Generate magic number
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString(); // 6-digit code
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
     // Store the code in Convex using normalized email
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     // Send email with code
     const transport = createTransport(process.env.EMAIL_SERVER);
-    
+
     await transport.sendMail({
       to: normalizedEmail,
       from: process.env.EMAIL_FROM!,
@@ -218,26 +225,29 @@ export async function POST(request: NextRequest) {
 
     // Log successful request (for monitoring)
     console.log(`Magic code sent to ${normalizedEmail} from IP ${clientIP}`);
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      message: "Código enviado com sucesso. Verifique sua caixa de entrada."
+      message: "Código enviado com sucesso. Verifique sua caixa de entrada.",
     });
   } catch (error) {
     console.error("Error sending magic code:", error);
-    
+
     // Enhanced error logging with context
     if (error instanceof Error) {
       console.error("Error details:", {
         message: error.message,
         stack: error.stack,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
-    
+
     return NextResponse.json(
-      { error: "Erro ao enviar código por email. Tente novamente em alguns instantes." },
-      { status: 500 }
+      {
+        error:
+          "Erro ao enviar código por email. Tente novamente em alguns instantes.",
+      },
+      { status: 500 },
     );
   }
 }

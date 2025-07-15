@@ -142,7 +142,7 @@ const DocumentItem: React.FC<DocumentItemProps> = ({
       onKeyDown={(e) => {
         // Don't handle keyboard events when user is renaming the document
         if (isRenaming) return;
-        
+
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();

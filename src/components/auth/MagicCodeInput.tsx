@@ -31,7 +31,7 @@ export function MagicCodeInput({
 }: MagicCodeInputProps) {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow digits and limit to 6 characters
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
     setCode(value);
   };
 
@@ -63,7 +63,7 @@ export function MagicCodeInput({
                 value={code}
                 onChange={handleCodeChange}
                 required
-                className="text-center text-2xl font-mono tracking-widest transition-all duration-300 focus:ring-2 focus:ring-blue-500"
+                className="text-center font-mono text-2xl tracking-widest transition-all duration-300 focus:ring-2 focus:ring-blue-500"
                 maxLength={6}
               />
             </div>

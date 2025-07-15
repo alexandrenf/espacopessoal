@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,7 +18,7 @@ import { LogOut, ArrowLeft, CheckCircle } from "lucide-react";
 import Header from "~/app/components/Header";
 import Footer from "~/app/components/Footer";
 
-export default function SignOut() {
+function SignOutContent() {
   const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isSignedOut, setIsSignedOut] = useState(false);
@@ -80,14 +81,17 @@ export default function SignOut() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-center text-sm text-slate-600">
-                  Obrigado por usar o Espaço Pessoal. Escolha para onde deseja ir:
+                  Obrigado por usar o Espaço Pessoal. Escolha para onde deseja
+                  ir:
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button
                     className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
                     onClick={handleNavigateToCallback}
                   >
-                    {callbackUrl === "/" ? "Ir para Início" : "Continuar onde parei"}
+                    {callbackUrl === "/"
+                      ? "Ir para Início"
+                      : "Continuar onde parei"}
                   </Button>
                   <div className="flex gap-2">
                     <Button
@@ -271,5 +275,34 @@ export default function SignOut() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+function SignOutFallback() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex flex-grow items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <Card className="border-slate-200 shadow-lg">
+            <CardContent className="flex items-center justify-center p-8">
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-r-transparent" />
+                <span className="text-slate-600">Carregando...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function SignOut() {
+  return (
+    <Suspense fallback={<SignOutFallback />}>
+      <SignOutContent />
+    </Suspense>
   );
 }

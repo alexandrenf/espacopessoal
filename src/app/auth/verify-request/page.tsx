@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
@@ -14,10 +15,9 @@ import { Mail, ArrowLeft, RefreshCw } from "lucide-react";
 import Header from "~/app/components/Header";
 import Footer from "~/app/components/Footer";
 
-export default function VerifyRequest() {
+function VerifyRequestContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
-  const provider = searchParams.get("provider");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -108,5 +108,40 @@ export default function VerifyRequest() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+function VerifyRequestFallback() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex flex-grow items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+          <Card className="border-slate-200 shadow-lg">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+                <Mail className="h-6 w-6 text-white" />
+              </div>
+              <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Carregando...
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function VerifyRequest() {
+  return (
+    <Suspense fallback={<VerifyRequestFallback />}>
+      <VerifyRequestContent />
+    </Suspense>
   );
 }

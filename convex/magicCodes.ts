@@ -80,7 +80,10 @@ export const verifyMagicCode = mutation({
     // Check for too many attempts (rate limiting)
     if (magicCodeRecord.attempts >= 5) {
       await ctx.db.delete(magicCodeRecord._id);
-      return { success: false, error: "Muitas tentativas incorretas. Solicite um novo código." };
+      return {
+        success: false,
+        error: "Muitas tentativas incorretas. Solicite um novo código.",
+      };
     }
 
     // Code is valid - mark as used and delete
@@ -102,7 +105,7 @@ export const cleanupExpiredCodes = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    
+
     const expiredCodes = await ctx.db
       .query("magicCodes")
       .withIndex("by_expires", (q) => q.lt("expiresAt", now))
