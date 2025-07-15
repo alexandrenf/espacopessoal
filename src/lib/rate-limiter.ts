@@ -33,6 +33,10 @@ class RateLimiter {
     remaining?: number;
   } {
     const now = Date.now();
+    
+    // Lazy cleanup: remove expired entries during check
+    this.cleanupExpiredEntries();
+    
     const entry = this.ipCache.get(ip);
 
     if (!entry || now >= entry.resetTime) {
@@ -73,6 +77,10 @@ class RateLimiter {
     cooldownTime?: number;
   } {
     const now = Date.now();
+    
+    // Lazy cleanup: remove expired entries during check
+    this.cleanupExpiredEntries();
+    
     const entry = this.emailCache.get(email);
 
     if (!entry || now >= entry.resetTime) {
@@ -116,9 +124,9 @@ class RateLimiter {
   }
 
   /**
-   * Clean up expired entries (called periodically)
+   * Clean up expired entries lazily during rate limit checks
    */
-  cleanup(): void {
+  private cleanupExpiredEntries(): void {
     const now = Date.now();
 
     // Clean IP cache
@@ -135,15 +143,14 @@ class RateLimiter {
       }
     }
   }
+
+  /**
+   * Manual cleanup method for external use if needed
+   */
+  cleanup(): void {
+    this.cleanupExpiredEntries();
+  }
 }
 
 // Singleton instance
 export const rateLimiter = new RateLimiter();
-
-// Cleanup expired entries every 5 minutes
-setInterval(
-  () => {
-    rateLimiter.cleanup();
-  },
-  5 * 60 * 1000,
-);

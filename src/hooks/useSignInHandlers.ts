@@ -109,7 +109,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
       const providerId = emailProvider?.id ?? "nodemailer";
 
       await signIn(providerId, {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         callbackUrl,
         redirect: true,
       });
@@ -204,7 +204,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
         setIsLoading(false);
       } else if (result?.ok) {
         toast.success("Login realizado com sucesso! Redirecionando...");
-        window.location.href = result.url ?? callbackUrl;
+        router.push(result.url ?? callbackUrl);
       } else {
         console.error("Unexpected result:", result);
         toast.error("Erro inesperado durante a verificação. Tente novamente.");
