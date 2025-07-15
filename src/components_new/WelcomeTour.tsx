@@ -17,7 +17,6 @@ interface WelcomeTourProps {
   onStepChange?: (step: number) => void;
   debug?: boolean;
   theme?: "light" | "dark";
-  // TODO: Future feature - add progress indicator in welcome card
   showProgress?: boolean;
 }
 
@@ -295,7 +294,7 @@ export function WelcomeTour({
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300"
-                      style={{ width: "0%" }}
+                      style={{ width: `${tourProgress}%` }}
                     />
                   </div>
                   <p className="text-xs text-gray-500 sm:text-sm">
