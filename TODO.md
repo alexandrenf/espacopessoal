@@ -2,33 +2,8 @@
 
 This document outlines the plan to address known issues and implement new features.
 
----
-
-## High Priority
-
-### 5. Mobile Sidebar UI/UX
-
-*   **Priority:** High
-*   **Issue:** The hamburger menu for the mobile sidebar overlaps with the document title, creating a poor user experience.
-*   **Plan:**
-    *   Inspect the CSS for the header and sidebar components on mobile screens.
-    *   Adjust the layout properties (e.g., using Flexbox `gap`, `margin`, or `padding`) to ensure the menu button and the title have adequate spacing and do not overlap.
-
----
 
 ## Medium Priority
-
-
-### 8. Allow Spaces in Document Titles
-
-*   **Priority:** Medium
-*   **Issue:** Users cannot add spaces to document titles when editing them in the sidebar.
-*   **Plan:**
-    *   **Debug Input:** Investigate the event handlers (`onChange`, `onKeyDown`, etc.) for the title input field in the sidebar/rename component.
-    *   **Identify Cause:** The issue is likely caused by incorrect event handling (e.g., `preventDefault()` on spacebar) or a validation/sanitization step that strips spaces.
-    *   **Fix:** Correct the handling to allow spaces while ensuring the title is updated correctly via its Convex mutation.
-
----
 
 ### 9. Header Visibility on Document Pages
 
@@ -54,10 +29,10 @@ This document outlines the plan to address known issues and implement new featur
 
 ## Low Priority
 
-### 12. Markdown Export Feature
+### 12. Markdown Export and import Feature
 
 *   **Priority:** Low
-*   **Issue:** The application lacks a feature to export documents as Markdown.
+*   **Issue:** The application lacks a feature to export and import documents as Markdown.
 *   **Plan:**
     *   **Add UI Element:** Add an "Export as Markdown" option to the document actions menu.
     *   **Implement Conversion:**
@@ -91,23 +66,3 @@ This document outlines the plan to address known issues and implement new featur
         *   Only execute the save mutation if there is a difference (a "diff").
 
 ---
-
-### 16. Conditional Logging in DocumentEditor
-
-*   **Priority:** Low
-*   **Issue:** `console.log` statements are present in the production build, which can expose internal debugging information and add unnecessary noise to the browser console.
-*   **Plan:**
-    *   Go through `src/components_new/DocumentEditor.tsx`.
-    *   Wrap all `console.log`, `console.warn`, and `console.error` statements in a condition to ensure they only execute in development mode.
-    *   **Example:** `if (process.env.NODE_ENV === 'development') { console.log('Your log message'); }`
-
----
-
-### 17. Conditional Logging in Notebook Page
-
-*   **Priority:** Low
-*   **Issue:** `console.log` statements are present in the production build in the notebook page, which can expose internal debugging information and add unnecessary noise to the browser console.
-*   **Plan:**
-    *   Go through `src/app/notas/[url]/page.tsx`.
-    *   Wrap all `console.log`, `console.warn`, and `console.error` statements in a condition to ensure they only execute in development mode.
-    *   **Example:** `if (process.env.NODE_ENV === 'development') { console.log('Your log message'); }`

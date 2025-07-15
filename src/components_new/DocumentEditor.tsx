@@ -230,7 +230,9 @@ export function DocumentEditor({
           const oldDoc = documentInstances.current.get(oldestDocId);
           if (oldDoc) {
             try {
-              console.log("🧹 Cleaning up old Y.js document:", oldestDocId);
+              if (process.env.NODE_ENV === "development") {
+                console.log("🧹 Destroying old Y.js document:", oldestDocId);
+              }
               oldDoc.destroy();
               documentInstances.current.delete(oldestDocId);
               documentCacheStats.current.evictions++;
@@ -255,7 +257,9 @@ export function DocumentEditor({
         try {
           // Check if document is still valid
           if (!doc || typeof doc.destroy !== "function") {
-            console.log("🧹 Removing invalid document instance:", docId);
+            if (process.env.NODE_ENV=== "development") {
+              console.log("🧹 Removing invalid document instance:", docId);
+            }
             documentInstances.current.delete(docId);
           }
         } catch (error) {
@@ -280,9 +284,9 @@ export function DocumentEditor({
     if (currentDocument && currentDocument._id === currentDocumentId) {
       // Document loaded successfully, ensure switching state is reset
       if (isSwitchingRef.current) {
-        console.log(
-          "🔄 Document loaded successfully, resetting switching state",
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔄 Document loaded successfully, resetting switching state");
+        }
         isSwitchingRef.current = false;
         setIsLoadingDocument(false);
       }
@@ -293,7 +297,9 @@ export function DocumentEditor({
   useEffect(() => {
     if (currentDocument === null && currentDocumentId !== initialDocument._id) {
       // Document was deleted or doesn't exist, redirect to home
-      console.log("📄 Document not found, redirecting to home");
+      if (process.env.NODE_ENV === "development") {
+        console.log("Document not found, redirecting to home");
+      }
       if (typeof window !== "undefined") {
         window.location.href = "/";
       }
@@ -326,16 +332,18 @@ export function DocumentEditor({
     setIsMounted(true);
 
     // Reset switching state on mount to prevent stuck states
-    console.log("🔄 Component mounted, ensuring switching state is clean");
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔄 Component mounted, ensuring switching state is clean");
+    }
     isSwitchingRef.current = false;
     pendingDocumentIdRef.current = null;
     setIsLoadingDocument(false);
 
     // Component cleanup on unmount - enhanced memory management
     return () => {
-      console.log(
-        "🧹 Component unmounting, cleaning up Y.js documents and connections",
-      );
+      if (process.env.NODE_ENV === "development") {
+        console.log("🧹 Component unmounting, cleaning up Y.js documents and connections");
+      }
 
       // Clear all timeouts to prevent memory leaks
       if (switchTimeoutRef.current) {
@@ -368,7 +376,9 @@ export function DocumentEditor({
       // Clean up all document instances with error handling
       for (const [docId, ydoc] of documentInstances.current.entries()) {
         try {
-          console.log("🧹 Destroying Y.js document for:", docId);
+          if (process.env.NODE_ENV === "development") {
+            console.log("🧹 Destroying Y.js document for:", docId);
+          }
           ydoc.destroy();
         } catch (error) {
           if (process.env.NODE_ENV === "development") {
@@ -390,7 +400,9 @@ export function DocumentEditor({
   useEffect(() => {
     const docName = currentDocumentId;
 
-    console.log("📄 Creating fresh Y.js document for:", docName);
+    if (process.env.NODE_ENV === "development") {
+      console.log("📄 Creating fresh Y.js document for:", docName);
+    }
 
     // Reset Y.js ready state to force editor recreation
     setIsYdocReady(false);
@@ -406,12 +418,9 @@ export function DocumentEditor({
     // Clean up old documents
     cleanupOldDocuments();
 
-    console.log(
-      "📄 Fresh Y.js document ready for collaboration with:",
-      docName,
-      "GUID:",
-      newDoc.guid,
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.log("📄 Created new Y.js document with GUID:", newDoc.guid);
+    }
 
     // Set ready state after a small delay to ensure document is fully initialized
     setTimeout(() => {
@@ -419,7 +428,9 @@ export function DocumentEditor({
     }, 50);
 
     return () => {
-      console.log("📄 Y.js document lifecycle ended for:", docName);
+      if (process.env.NODE_ENV === "development") {
+        console.log("📄 Destroying Y.js document for:", docName);
+      }
     };
   }, [currentDocumentId, cleanupOldDocuments]);
 
@@ -481,7 +492,9 @@ export function DocumentEditor({
       const { exportToPdf } = await import("~/lib/pdf-export");
       await exportToPdf({ documentTitle: doc.title });
     } catch (error) {
-      console.error("PDF export failed:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("PDF export failed:", error);
+      }
     }
   };
 
@@ -594,10 +607,12 @@ export function DocumentEditor({
               (attributes) =>
               ({ commands }) => {
                 if (attributes.href && !validateLinkUrl(attributes.href)) {
-                  console.warn(
-                    "Blocked attempt to set unsafe URL:",
-                    attributes.href,
-                  );
+                  if (process.env.NODE_ENV === "development") {
+                    console.warn(
+                      "Blocked attempt to set unsafe URL:",
+                      attributes.href,
+                    );
+                  }
                   return false;
                 }
 
@@ -640,10 +655,9 @@ export function DocumentEditor({
       editable: !isReadOnly,
       onCreate({ editor }) {
         setEditor(editor);
-        console.log(
-          "📝 Editor created with collaboration for document:",
-          currentDocumentId,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.log("📝 Editor created for document:", currentDocumentId);
+        }
 
         // Focus the editor after a short delay to ensure content is loaded
         if (!isReadOnly) {
@@ -654,38 +668,46 @@ export function DocumentEditor({
       },
       onDestroy() {
         setEditor(null);
-        console.log("📝 Editor destroyed for document:", currentDocumentId);
+        if (process.env.NODE_ENV === "development") {
+          console.log("📝 Editor destroyed for document:", currentDocumentId);
+        }
       },
       onUpdate({ editor, transaction }) {
         setEditor(editor);
         if (transaction.docChanged) {
-          console.log(
-            "📝 Document content changed - server will handle saving",
-          );
+          if (process.env.NODE_ENV === "development") {
+            console.log("📝 Document content changed for:", currentDocumentId);
+          }
 
           // Debug Y.js document state on frontend
           if (ydocRef.current) {
             const fragment = ydocRef.current.getXmlFragment("default");
-            console.log(
-              "📝 Frontend Y.js default fragment length:",
-              fragment.length,
-            );
-            console.log(
-              "📝 Frontend Y.js shared types:",
-              Array.from(ydocRef.current.share.keys()),
-            );
+            if (process.env.NODE_ENV === "development") {
+              console.log(
+                "📝 Frontend Y.js default fragment length:",
+                fragment.length,
+              );
+              console.log(
+                "📝 Frontend Y.js shared types:",
+                Array.from(ydocRef.current.share.keys()),
+              );
+            }
 
             if (fragment.length > 0) {
-              console.log("📝 Frontend has content in Y.js fragment!");
+              if (process.env.NODE_ENV === "development") {
+                console.log("📝 Frontend has content in Y.js fragment!");
+              }
             } else {
-              console.log(
-                "📝 Frontend Y.js fragment is empty - this is the problem!",
-              );
-              console.log("📝 Editor HTML content:", editor.getHTML());
-              console.log(
-                "📝 Editor JSON content:",
-                JSON.stringify(editor.getJSON(), null, 2),
-              );
+              if (process.env.NODE_ENV === "development") {
+                console.log(
+                  "📝 Frontend Y.js fragment is empty - this is the problem!",
+                );
+                console.log("📝 Editor HTML content:", editor.getHTML());
+                console.log(
+                  "📝 Editor JSON content:",
+                  JSON.stringify(editor.getJSON(), null, 2),
+                );
+              }
             }
           }
         }
@@ -704,10 +726,12 @@ export function DocumentEditor({
       },
       onContentError({ editor }) {
         setEditor(editor);
-        console.error(
-          "📝 Editor content error for document:",
-          currentDocumentId,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.error(
+            "📝 Editor content error for document:",
+            currentDocumentId,
+          );
+        }
       },
       editorProps: {
         attributes: {
@@ -750,16 +774,20 @@ export function DocumentEditor({
     async (newDocumentId: Id<"documents">) => {
       // Prevent switching to the same document
       if (newDocumentId === currentDocumentId) {
-        console.log("🔄 Ignoring switch to same document:", newDocumentId);
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔄 Ignoring switch to same document:", newDocumentId);
+        }
         return;
       }
 
       // Prevent multiple simultaneous switches with atomic flag
       if (isSwitchingRef.current) {
-        console.log(
-          "🔄 Switch in progress, rejecting new switch request to:",
-          newDocumentId,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "🔄 Switch in progress, rejecting new switch request to:",
+            newDocumentId,
+          );
+        }
         return; // Don't queue, just reject to prevent buildup
       }
 
@@ -768,12 +796,14 @@ export function DocumentEditor({
       setIsLoadingDocument(true);
       pendingDocumentIdRef.current = null; // Clear any pending switches
 
-      console.log(
-        "🔄 Starting atomic document switch from:",
-        currentDocumentId,
-        "to:",
-        newDocumentId,
-      );
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "🔄 Starting atomic document switch from:",
+          currentDocumentId,
+          "to:",
+          newDocumentId,
+        );
+      }
 
       try {
         // Step 1: Immediately disconnect current provider to prevent conflicts
@@ -782,7 +812,9 @@ export function DocumentEditor({
           const providerName =
             (currentProvider as { configuration?: { name?: string } })
               .configuration?.name ?? "unknown";
-          console.log("🔄 Forcefully disconnecting provider:", providerName);
+          if (process.env.NODE_ENV === "development") {
+            console.log("🔄 Forcefully disconnecting provider:", providerName);
+          }
 
           // Synchronous cleanup
           currentProvider.disconnect();
@@ -792,7 +824,9 @@ export function DocumentEditor({
 
         // Step 2: Clear editor content immediately
         if (editor) {
-          console.log("🔄 Clearing editor content");
+          if (process.env.NODE_ENV === "development") {
+            console.log("🔄 Clearing editor content");
+          }
           editor.commands.clearContent();
         }
 
@@ -812,7 +846,9 @@ export function DocumentEditor({
         const newUrl = `/documents/${newDocumentId}`;
         window.history.pushState({ documentId: newDocumentId }, "", newUrl);
 
-        console.log("🔄 Document switch initiated successfully");
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔄 Document switch initiated successfully");
+        }
       } catch (error) {
         if (process.env.NODE_ENV === "development") {
           console.error("🔄 Critical error during document switch:", error);
@@ -831,11 +867,15 @@ export function DocumentEditor({
     // Only proceed if we're in a valid switching state
     if (!isSwitchingRef.current && currentDocumentId === initialDocument._id) {
       // This is the initial load, not a switch
-      console.log("📄 Initial document load for:", currentDocumentId);
+      if (process.env.NODE_ENV === "development") {
+        console.log("📄 Initial document load for:", currentDocumentId);
+      }
     }
 
     const docName = currentDocumentId;
-    console.log("📄 Setting up Y.js document for:", docName);
+    if (process.env.NODE_ENV === "development") {
+      console.log("📄 Setting up Y.js document for:", docName);
+    }
 
     // Force cleanup any existing provider connection
     if (providerRef.current) {
@@ -843,7 +883,9 @@ export function DocumentEditor({
       const providerName =
         (existingProvider as { configuration?: { name?: string } })
           .configuration?.name ?? "unknown";
-      console.log("🧹 Forcing cleanup of existing provider:", providerName);
+      if (process.env.NODE_ENV === "development") {
+        console.log("🧹 Forcing cleanup of existing provider:", providerName);
+      }
       try {
         existingProvider.disconnect();
         existingProvider.destroy();
@@ -855,7 +897,9 @@ export function DocumentEditor({
       providerRef.current = null;
     }
 
-    console.log("📄 Y.js document ready for collaboration with:", docName);
+    if (process.env.NODE_ENV === "development") {
+      console.log("📄 Y.js document ready for collaboration with:", docName);
+    }
 
     // Clean up old cached documents
     cleanupOldDocuments();
@@ -871,7 +915,9 @@ export function DocumentEditor({
       return;
     }
 
-    console.log("🔗 Initializing WebSocket connection for:", docName);
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔗 Initializing WebSocket connection for:", docName);
+    }
 
     // Reset states
     setIsPersistenceReady(false);
@@ -881,13 +927,17 @@ export function DocumentEditor({
     setIsPersistenceReady(true);
 
     // Create new WebSocket provider with the current Y.js document and session authentication
-    console.log("🔗 Creating WebSocket provider for:", docName);
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔗 Creating WebSocket provider for:", docName);
+    }
 
     // Build WebSocket URL with authentication parameters
     const wsUrlWithAuth = new URL(wsUrl);
     if (sessionToken) {
       wsUrlWithAuth.searchParams.set("sessionToken", sessionToken);
-      console.log("🔐 Adding session token to WebSocket connection");
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔐 Adding session token to WebSocket connection");
+      }
     }
     if (convexUserId) {
       wsUrlWithAuth.searchParams.set("userId", convexUserId);
@@ -903,7 +953,9 @@ export function DocumentEditor({
 
     // Enhanced connection event handlers
     const handleConnected = () => {
-      console.log("✅ WebSocket connected for:", docName);
+      if (process.env.NODE_ENV === "development") {
+        console.log("✅ WebSocket connected for:", docName);
+      }
       if (currentDocumentIdRef.current === docName) {
         setStatus("connected");
         setIsContentLoading(true); // Show loading while server loads content
@@ -915,7 +967,9 @@ export function DocumentEditor({
 
         // Complete the document switch
         if (isSwitchingRef.current) {
-          console.log("🔄 Document switch completed successfully");
+          if (process.env.NODE_ENV === "development") {
+            console.log("🔄 Document switch completed successfully");
+          }
           isSwitchingRef.current = false;
           setIsLoadingDocument(false);
           toast.success("Document loaded successfully");
@@ -924,7 +978,9 @@ export function DocumentEditor({
     };
 
     const handleDisconnected = ({ event }: { event: CloseEvent }) => {
-      console.log("❌ WebSocket disconnected for:", docName, event.code);
+      if (process.env.NODE_ENV === "development") {
+        console.log("❌ WebSocket disconnected for:", docName, event.code);
+      }
       if (currentDocumentIdRef.current === docName) {
         setStatus("disconnected");
         setIsContentLoading(false); // Reset loading state on disconnect
@@ -932,7 +988,9 @@ export function DocumentEditor({
     };
 
     const handleError = (error: Error) => {
-      console.error("💥 WebSocket error for:", docName, error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("💥 WebSocket error for:", docName, error);
+      }
       if (currentDocumentIdRef.current === docName) {
         setStatus("error");
 
@@ -964,7 +1022,9 @@ export function DocumentEditor({
 
     // Enhanced cleanup
     return () => {
-      console.log("🧹 Cleaning up document setup for:", docName);
+      if (process.env.NODE_ENV === "development") {
+        console.log("🧹 Cleaning up document setup for:", docName);
+      }
 
       setIsPersistenceReady(false);
 
@@ -975,7 +1035,9 @@ export function DocumentEditor({
 
       // Only destroy if this is the current provider
       if (providerRef.current === newProvider) {
-        console.log("🧹 Destroying current provider for:", docName);
+        if (process.env.NODE_ENV === "development") {
+          console.log("🧹 Destroying current provider for:", docName);
+        }
         try {
           newProvider.disconnect();
           newProvider.destroy();
@@ -993,7 +1055,9 @@ export function DocumentEditor({
   useEffect(() => {
     if (isSwitchingRef.current) {
       const timeout = setTimeout(() => {
-        console.warn("🔄 Document switch timeout reached, forcing reset");
+        if (process.env.NODE_ENV === "development") {
+          console.warn("🔄 Document switch timeout reached, forcing reset");
+        }
         isSwitchingRef.current = false;
         setIsLoadingDocument(false);
         toast.error("Document switch timed out");
@@ -1325,11 +1389,15 @@ export function DocumentEditor({
       setTimeout(() => {
         try {
           const fragment = ydocRef.current?.getXmlFragment("default");
-          console.log(
-            `[FRONTEND] Reconnected to document ${currentDocumentId}, fragment length: ${fragment?.length || 0}`,
-          );
+          if (process.env.NODE_ENV === "development") {
+            console.log(
+              `[FRONTEND] Reconnected to document ${currentDocumentId}, fragment length: ${fragment?.length || 0}`,
+            );
+          }
         } catch (error) {
-          console.error(`[FRONTEND] Error during reconnect check:`, error);
+          if (process.env.NODE_ENV === "development") {
+            console.error(`[FRONTEND] Error during reconnect check:`, error);
+          }
         }
       }, 500);
     };
@@ -1400,29 +1468,33 @@ export function DocumentEditor({
       {/* Main content */}
       <div className="min-w-0 flex-1">
         {/* Enhanced header with better status indicators */}
-        <header className="no-export relative z-20 border-b bg-white px-4 py-3">
+        <header className="no-export relative z-20 border-b bg-white py-3 pl-0 pr-4 md:px-4">
           <div className="mx-auto max-w-6xl">
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {isEditingTitle ? (
-                  <input
-                    type="text"
-                    value={documentTitle}
-                    onChange={(e) => setDocumentTitle(e.target.value)}
-                    onBlur={() => void handleTitleSubmit()}
-                    onKeyDown={handleTitleKeyDown}
-                    className={`${showSidebar ? "" : isMobile ? "ml-[64px]" : "ml-[56px] md:ml-[40px] xl:ml-0"} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
-                    autoFocus
-                  />
-                ) : (
-                  <h1
-                    className={`${showSidebar ? "" : isMobile ? "ml-[64px]" : "ml-[56px] md:ml-[40px] xl:ml-0"} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    {documentTitle}
-                  </h1>
-                )}
+                {(() => {
+                  const titleMargin = isMobile ? "ml-[40px] mt-0.5" : "ml-[56px] md:ml-[40px] xl:ml-0";
+
+                  return isEditingTitle ? (
+                    <input
+                      type="text"
+                      value={documentTitle}
+                      onChange={(e) => setDocumentTitle(e.target.value)}
+                      onBlur={() => void handleTitleSubmit()}
+                      onKeyDown={handleTitleKeyDown}
+                      className={`${titleMargin} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
+                      autoFocus
+                    />
+                  ) : (
+                    <h1
+                      className={`${titleMargin} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
+                      onClick={() => setIsEditingTitle(true)}
+                    >
+                      {documentTitle}
+                    </h1>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center gap-4">

@@ -438,7 +438,7 @@ const NotebookSettingsDialog: React.FC<NotebookSettingsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-[600px]">
+      <DialogContent className="max-h-[80vh] max-w-[95vw] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Notebook Settings</DialogTitle>
           <DialogDescription>
