@@ -78,8 +78,6 @@ export default function SignIn() {
           getProviders(),
           getCsrfToken(),
         ]);
-        console.log("Available providers:", res);
-        console.log("CSRF token:", csrf);
         setProviders(res);
         setCsrfToken(csrf);
       } catch (error) {
@@ -113,15 +111,10 @@ export default function SignIn() {
     setIsLoading(true);
 
     try {
-      console.log("Attempting email sign in with:", email);
-      console.log("Available providers:", providers);
-
       // Find the email provider ID (could be "email" or "nodemailer")
       const emailProvider =
         providers && Object.values(providers).find((p) => p.type === "email");
       const providerId = emailProvider?.id ?? "nodemailer";
-
-      console.log("Using provider ID:", providerId);
 
       // Use signIn with redirect: true for email providers to properly handle the flow
       await signIn(providerId, {
@@ -129,9 +122,6 @@ export default function SignIn() {
         callbackUrl,
         redirect: true, // Let NextAuth handle the redirect to verify-request page
       });
-
-      // If we reach here, something went wrong
-      console.log("Sign in completed without redirect");
     } catch (error) {
       console.error("Email sign in error:", error);
       setIsLoading(false);

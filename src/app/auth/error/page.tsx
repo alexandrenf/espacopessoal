@@ -103,7 +103,6 @@ export default function AuthError() {
           description: "Você precisa estar logado para acessar esta página.",
           suggestion: "Faça login para continuar.",
         };
-      case "Default":
       default:
         return {
           title: "Erro de Autenticação",

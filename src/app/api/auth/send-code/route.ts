@@ -1,40 +1,120 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
+import { createTransport } from "nodemailer";
+import { rateLimiter } from "../../../../lib/rate-limiter";
+import { validateEmail, isDomainSuspicious } from "../../../../lib/email-validation";
+import { getClientIP, isLocalIP } from "../../../../lib/get-client-ip";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
+    // Get client IP for rate limiting
+    const clientIP = getClientIP(request);
+    const isLocal = isLocalIP(clientIP);
+    
+    // Parse request body
     const { email } = await request.json() as { email: string };
 
+    // Basic input validation
     if (!email || typeof email !== "string") {
       return NextResponse.json(
-        { error: "Email is required" },
+        { error: "Email é obrigatório" },
         { status: 400 }
       );
+    }
+
+    // Enhanced email validation
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return NextResponse.json(
+        { error: emailValidation.error },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = emailValidation.normalizedEmail!;
+
+    // Check for suspicious domains (additional security)
+    if (isDomainSuspicious(normalizedEmail)) {
+      return NextResponse.json(
+        { error: "Domínio de email não permitido" },
+        { status: 400 }
+      );
+    }
+
+    // Rate limiting by IP address (skip for localhost in development)
+    if (!isLocal) {
+      const ipCheck = rateLimiter.checkIpLimit(clientIP);
+      if (!ipCheck.allowed) {
+        const resetTime = rateLimiter.getTimeUntilReset(ipCheck.resetTime!);
+        const minutes = Math.ceil(resetTime / (60 * 1000));
+        
+        return NextResponse.json(
+          { 
+            error: `Muitas tentativas deste IP. Tente novamente em ${minutes} minutos.`,
+            retryAfter: resetTime
+          },
+          { 
+            status: 429,
+            headers: {
+              'Retry-After': Math.ceil(resetTime / 1000).toString(),
+              'X-RateLimit-Limit': '5',
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': ipCheck.resetTime!.toString()
+            }
+          }
+        );
+      }
+    }
+
+    // Rate limiting by email
+    const emailCheck = rateLimiter.checkEmailLimit(normalizedEmail);
+    if (!emailCheck.allowed) {
+      if (emailCheck.cooldownTime) {
+        const cooldownTime = rateLimiter.getTimeUntilReset(emailCheck.cooldownTime);
+        const seconds = Math.ceil(cooldownTime / 1000);
+        
+        return NextResponse.json(
+          { 
+            error: `Aguarde ${seconds} segundos antes de solicitar outro código para este email.`,
+            retryAfter: cooldownTime
+          },
+          { status: 429 }
+        );
+      }
+      
+      if (emailCheck.resetTime) {
+        const resetTime = rateLimiter.getTimeUntilReset(emailCheck.resetTime);
+        const minutes = Math.ceil(resetTime / (60 * 1000));
+        
+        return NextResponse.json(
+          { 
+            error: `Limite de códigos atingido para este email. Tente novamente em ${minutes} minutos.`,
+            retryAfter: resetTime
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // Generate magic number
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
-    // Store the code in Convex
+    // Store the code in Convex using normalized email
     await convex.mutation(api.magicCodes.storeMagicCode, {
-      email,
+      email: normalizedEmail,
       code: verificationCode,
       expiresAt,
     });
 
     // Send email with code
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { createTransport } = await import("nodemailer");
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const transport = createTransport(process.env.EMAIL_SERVER);
     
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await transport.sendMail({
-      to: email,
+      to: normalizedEmail,
       from: process.env.EMAIL_FROM!,
       subject: "Seu código de acesso - Espaço Pessoal",
       text: `Seu código de acesso: ${verificationCode}\n\nEste código expira em 10 minutos.\n\nSe você não solicitou este código, pode ignorar este email com segurança.\n\nEquipe Espaço Pessoal`,
@@ -136,11 +216,27 @@ export async function POST(request: NextRequest) {
       `,
     });
 
-    return NextResponse.json({ success: true });
+    // Log successful request (for monitoring)
+    console.log(`Magic code sent to ${normalizedEmail} from IP ${clientIP}`);
+    
+    return NextResponse.json({ 
+      success: true,
+      message: "Código enviado com sucesso. Verifique sua caixa de entrada."
+    });
   } catch (error) {
     console.error("Error sending magic code:", error);
+    
+    // Enhanced error logging with context
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     return NextResponse.json(
-      { error: "Erro ao enviar código por email" },
+      { error: "Erro ao enviar código por email. Tente novamente em alguns instantes." },
       { status: 500 }
     );
   }
