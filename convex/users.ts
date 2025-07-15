@@ -577,7 +577,8 @@ export const createForAuth = mutation({
       .first();
 
     if (existingUser) {
-      throw new ConvexError("User with this email already exists");
+      // For auth flows like magic numbers, return existing user ID instead of throwing error
+      return existingUser._id;
     }
 
     return await ctx.db.insert("users", {

@@ -1,6 +1,6 @@
 "use client";
 
-import { getProviders, signIn, getSession } from "next-auth/react";
+import { getProviders, signIn, getSession, getCsrfToken } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +15,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Alert } from "~/components/ui/alert";
-import { Mail, MessageSquare, AlertCircle, ArrowLeft } from "lucide-react";
+import {  Mail, MessageSquare, AlertCircle, ArrowLeft } from "lucide-react";
 import Header from "~/app/components/Header";
 import Footer from "~/app/components/Footer";
 
@@ -29,30 +29,8 @@ interface Provider {
 
 const providerIcons: Record<string, React.ReactNode> = {
   google: (
-    <svg
-      width="256"
-      height="262"
-      viewBox="0 0 256 262"
-      xmlns="http://www.w3.org/2000/svg"
-      preserveAspectRatio="xMidYMid"
-    >
-      <path
-        d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"
-        fill="#4285F4"
-      />
-      <path
-        d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"
-        fill="#34A853"
-      />
-      <path
-        d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782"
-        fill="#FBBC05"
-      />
-      <path
-        d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
-        fill="#EB4335"
-      />
-    </svg>
+    <svg width="256" height="262" viewBox="0 0 256 262" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid"><path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/><path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"/><path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"/><path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"/></svg>
+    
   ),
   discord: (
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -77,25 +55,43 @@ export default function SignIn() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | undefined>(undefined);
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
 
+  // Prevent hydration mismatch
   useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        const res = await getProviders();
-        console.log("Available providers:", res);
-        setProviders(res);
-      } catch (error) {
-        console.error("Error fetching providers:", error);
-      }
-    };
-    void fetchProviders();
+    setMounted(true);
   }, []);
 
   useEffect(() => {
+    if (!mounted) return; // Only fetch providers after mounting
+
+    const fetchProviders = async () => {
+      try {
+        const [res, csrf] = await Promise.all([
+          getProviders(),
+          getCsrfToken(),
+        ]);
+        console.log("Available providers:", res);
+        console.log("CSRF token:", csrf);
+        setProviders(res);
+        setCsrfToken(csrf);
+      } catch (error) {
+        console.error("Error fetching providers or CSRF token:", error);
+      }
+    };
+    void fetchProviders();
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!mounted) return; // Only check session after mounting
+
     const checkSession = async () => {
       const session = await getSession();
       if (session) {
@@ -103,7 +99,7 @@ export default function SignIn() {
       }
     };
     void checkSession();
-  }, [router, callbackUrl]);
+  }, [router, callbackUrl, mounted]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +148,84 @@ export default function SignIn() {
     }
   };
 
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!email?.trim()) {
+      console.error("Email is required");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      const result = await response.json() as { success?: boolean; error?: string };
+
+      if (response.ok && result.success) {
+        console.log("Code sent successfully, showing code input");
+        setCodeSent(true);
+      } else {
+        console.error("Error sending code:", result.error);
+        // You could add a toast notification here for better UX
+      }
+    } catch (error) {
+      console.error("Magic code send error:", error);
+      // You could add a toast notification here for better UX
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!email?.trim() || !code?.trim()) {
+      console.error("Email and code are required");
+      return;
+    }
+
+    if (!csrfToken) {
+      console.error("CSRF token not available");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await signIn("magic-numbers", {
+        email: email.trim().toLowerCase(),
+        code: code.trim(),
+        csrfToken,
+        callbackUrl,
+        redirect: false, // Handle redirect manually for better error handling
+      });
+
+      if (result?.error) {
+        console.error("Error verifying code:", result.error);
+        // You could add a toast notification here for better UX
+        setIsLoading(false);
+      } else if (result?.ok) {
+        // Successful sign in - redirect manually
+        window.location.href = result.url ?? callbackUrl;
+      } else {
+        console.error("Unexpected result:", result);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Magic code verify error:", error);
+      // You could add a toast notification here for better UX
+      setIsLoading(false);
+    }
+  };
+
   const getErrorMessage = (error: string) => {
     switch (error) {
       case "OAuthSignin":
@@ -169,13 +243,40 @@ export default function SignIn() {
       case "EmailSignin":
         return "Não foi possível enviar o email de verificação.";
       case "CredentialsSignin":
-        return "Credenciais inválidas.";
+        return "Código de verificação inválido ou expirado. Tente novamente ou solicite um novo código.";
       case "SessionRequired":
         return "Você precisa estar logado para acessar esta página.";
+      case "Configuration":
+        return "Erro de configuração do servidor. Tente novamente mais tarde.";
       default:
         return "Ocorreu um erro durante a autenticação.";
     }
   };
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex flex-grow items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md">
+            <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+            <Card className="border-slate-200 shadow-lg">
+              <CardHeader className="text-center">
+                <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl text-transparent">
+                  Carregando...
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (emailSent) {
     return (
@@ -220,6 +321,82 @@ export default function SignIn() {
     );
   }
 
+  if (codeSent) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex flex-grow items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md">
+            {/* Subtle top accent line */}
+            <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
+
+            <Card className="border-slate-200 shadow-lg">
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+                  <Mail className="h-6 w-6 text-white" />
+                </div>
+                <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Digite seu código
+                </CardTitle>
+                <CardDescription>
+                  Enviamos um código de 6 dígitos para <strong>{email}</strong>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={handleVerifyCode} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Código de verificação</Label>
+                    <Input
+                      id="code"
+                      type="text"
+                      placeholder="000000"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      required
+                      className="text-center text-2xl font-mono tracking-widest transition-all duration-300 focus:ring-2 focus:ring-blue-500"
+                      maxLength={6}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+                    disabled={isLoading || code.length !== 6 || !csrfToken}
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                        Verificando...
+                      </div>
+                    ) : (
+                      "Verificar código"
+                    )}
+                  </Button>
+                </form>
+                <p className="text-center text-sm text-slate-600">
+                  O código expira em 10 minutos.
+                </p>
+                {!csrfToken && (
+                  <p className="text-center text-sm text-amber-600">
+                    Carregando dados de segurança...
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setCodeSent(false)}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -244,12 +421,14 @@ export default function SignIn() {
               )}
 
               {/* OAuth Providers */}
-              {providers && (
+              {mounted && providers && (
                 <div className="space-y-3">
                   {Object.values(providers)
                     .filter(
                       (provider) =>
-                        provider.id !== "email" && provider.id !== "nodemailer",
+                        provider.id !== "email" &&
+                        provider.id !== "nodemailer" &&
+                        provider.id !== "magic-numbers",
                     )
                     .map((provider) => (
                       <Button
@@ -273,7 +452,7 @@ export default function SignIn() {
               )}
 
               {/* Divider */}
-              {providers && Object.keys(providers).length > 1 && (
+              {mounted && providers && Object.keys(providers).length > 1 && (
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-slate-200" />
@@ -285,8 +464,9 @@ export default function SignIn() {
               )}
 
               {/* Email Sign In */}
-              {(providers?.email ?? providers?.nodemailer) && (
-                <form onSubmit={handleEmailSignIn} className="space-y-4">
+              {mounted && (providers?.email ?? providers?.nodemailer) && (
+                <div className="space-y-4">
+                  {/* Email input */}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -299,24 +479,51 @@ export default function SignIn() {
                       className="transition-all duration-300 focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
-                    disabled={isLoading || !email}
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
-                        Enviando...
-                      </div>
-                    ) : (
-                      <>
-                        <Mail className="mr-2 h-4 w-4" />
-                        Enviar link de acesso
-                      </>
-                    )}
-                  </Button>
-                </form>
+
+                  {/* Submit buttons */}
+                  <div className="space-y-3">
+                    <form onSubmit={handleEmailSignIn}>
+                      <Button
+                        type="submit"
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+                        disabled={isLoading || !email}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                            Enviando...
+                          </div>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Enviar link de acesso
+                          </>
+                        )}
+                      </Button>
+                    </form>
+
+                    <form onSubmit={handleSendCode}>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        className="w-full rounded-xl border-green-200 text-green-700 transition-all duration-300 hover:bg-green-50 hover:border-green-300"
+                        disabled={isLoading || !email}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-r-transparent" />
+                            Enviando...
+                          </div>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Enviar código de acesso
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </div>
+                </div>
               )}
 
               {/* Back to home */}

@@ -2,8 +2,13 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import EmailProvider from "next-auth/providers/nodemailer";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { ConvexHttpClient } from "convex/browser";
 
 import { ConvexAdapter } from "./convex-adapter";
+import { api } from "../../../convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -33,6 +38,9 @@ declare module "next-auth" {
  */
 export const authConfig = {
   trustHost: true,
+  session: {
+    strategy: "jwt", // Use JWT for credentials providers
+  },
   pages: {
     signIn: "/auth/signin",
     signOut: "/auth/signout",
@@ -52,9 +60,12 @@ export const authConfig = {
       server: process.env.EMAIL_SERVER,
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier: email, url, provider }) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const { createTransport } = await import("nodemailer");
-        const transport = createTransport(provider.server);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+        const transport = createTransport(provider.server as string);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         const result = await transport.sendMail({
           to: email,
           from: provider.from,
@@ -209,6 +220,68 @@ export const authConfig = {
         console.log("Email sent successfully:", result);
       },
     }),
+    CredentialsProvider({
+      id: "magic-numbers",
+      name: "Magic Numbers",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        code: { label: "Code", type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || typeof credentials.email !== "string") {
+          throw new Error("Email é obrigatório");
+        }
+
+        if (!credentials?.code || typeof credentials.code !== "string") {
+          throw new Error("Código é obrigatório");
+        }
+
+        const email = credentials.email.trim().toLowerCase();
+        const code = credentials.code.trim();
+
+        try {
+          // Verify the magic code using Convex
+          const verificationResult = await convex.mutation(api.magicCodes.verifyMagicCode, {
+            email,
+            code,
+          });
+
+          if (!verificationResult.success) {
+            throw new Error(verificationResult.error);
+          }
+
+          // Code is valid, now check if user exists or create one
+          let existingUser = await convex.query(api.users.getByEmail, { email });
+          
+          if (!existingUser) {
+            // Create new user if they don't exist
+            const userId = await convex.mutation(api.users.createForAuth, {
+              name: email.split('@')[0] ?? email,
+              email: email,
+              emailVerified: Date.now(), // Email is verified since they got the code
+            });
+            
+            // Get the created user
+            existingUser = await convex.query(api.users.getById, { id: userId });
+          }
+
+          if (!existingUser) {
+            throw new Error("Falha na criação ou recuperação do usuário");
+          }
+
+          // Return user object with database ID
+          return {
+            id: existingUser._id,
+            email: existingUser.email,
+            name: existingUser.name ?? email.split('@')[0] ?? email,
+            emailVerified: existingUser.emailVerified ? new Date(existingUser.emailVerified) : null,
+          };
+        } catch (error) {
+          // Re-throw with user-friendly message
+          throw new Error(error instanceof Error ? error.message : "Erro na verificação do código");
+        }
+      },
+    }),
     /**
      * ...add more providers here.
      *
@@ -221,12 +294,32 @@ export const authConfig = {
   ],
   adapter: ConvexAdapter(process.env.CONVEX_URL!),
   callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
-      },
-    }),
+    session: ({ session, token }) => {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token?.sub ?? session.user?.id,
+          name: token?.name ?? session.user?.name,
+          email: token?.email ?? session.user?.email,
+          image: token?.picture ?? session.user?.image,
+        },
+      };
+    },
+    
+    jwt: ({ token, user }) => {
+      if (user) {
+        token.sub = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.picture = user.image;
+      }
+      
+      return token;
+    },
+    
+    signIn: () => {
+      return true; // Allow sign in
+    },
   },
 } satisfies NextAuthConfig;
