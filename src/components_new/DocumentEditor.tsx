@@ -1474,7 +1474,7 @@ export function DocumentEditor({
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 {(() => {
-                  const titleMargin = isMobile ? "ml-[40px] mt-0.5" : "ml-[56px] md:ml-[40px] xl:ml-0";
+                  const titleMargin = isMobile ? "ml-[40px] mt-0.5" : showSidebar ? "" : "ml-[56px] md:ml-[40px] xl:ml-0";
 
                   return isEditingTitle ? (
                     <input

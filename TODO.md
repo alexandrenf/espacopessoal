@@ -19,7 +19,7 @@ This document outlines the plan to address known issues and implement new featur
 ### 10. Persistent Sidebar State
 
 *   **Priority:** Medium
-*   **Issue:** The sidebar's open/closed state is not preserved when navigating between documents.
+*   **Issue:** The sidebar's folders open/closed state is not preserved when navigating between documents.
 *   **Plan:**
     *   **State Management:** Move the sidebar's state from a component-level `useState` to a persistent state solution.
     *   **Implementation:** Use `localStorage` or a global state manager (e.g., Zustand, if available in the project) to store and retrieve the sidebar's state, ensuring it persists across navigation.

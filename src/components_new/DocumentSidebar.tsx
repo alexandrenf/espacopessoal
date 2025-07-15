@@ -38,6 +38,7 @@ import type { EventDataNode, Key } from "rc-tree/lib/interface";
 import { toast } from "sonner";
 import { useConvexUser } from "../hooks/use-convex-user";
 import { type DocumentWithTreeProps } from "../types/document";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import "./DocumentSidebar.css";
 
 interface CustomDataNode {
@@ -150,8 +151,11 @@ const DocumentSidebar = memo(
       api.documents.updateStructureInPublicNotebook,
     );
 
-    // Local state
-    const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+    // Local state with localStorage persistence
+    const [expandedKeys, setExpandedKeys] = useLocalStorage<string[]>(
+      `sidebar-expanded-keys-${notebookId ?? "default"}`,
+      [],
+    );
     const [isCreating, setIsCreating] = useState(false);
     const [isDeletingId, setIsDeletingId] = useState<
       Id<"documents"> | undefined
@@ -190,7 +194,7 @@ const DocumentSidebar = memo(
           return prevKeys;
         });
       }
-    }, [currentDocument?.parentId, documents]);
+    }, [currentDocument?.parentId, documents, setExpandedKeys]);
 
     const handleExpand = useCallback(
       (_e: React.MouseEvent, node: EventDataNode<unknown>) => {
@@ -206,7 +210,7 @@ const DocumentSidebar = memo(
           }
         });
       },
-      [],
+      [setExpandedKeys],
     );
 
     const handleDeleteDocument = useCallback(
