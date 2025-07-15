@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getProviders, signIn, getSession, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 interface Provider {
   id: string;
@@ -68,6 +69,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
         setCsrfToken(csrf);
       } catch (error) {
         console.error("Error fetching providers or CSRF token:", error);
+        toast.error("Erro ao carregar configurações de autenticação. Tente recarregar a página.");
       }
     };
     void fetchProviders();
@@ -89,7 +91,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
     e.preventDefault();
 
     if (!email?.trim()) {
-      console.error("Email is required");
+      toast.error("Por favor, insira um endereço de email válido.");
       return;
     }
 
@@ -107,6 +109,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
       });
     } catch (error) {
       console.error("Email sign in error:", error);
+      toast.error("Erro ao enviar link de verificação. Tente novamente.");
       setIsLoading(false);
     }
   };
@@ -117,6 +120,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
       await signIn(providerId, { callbackUrl });
     } catch (error) {
       console.error("Provider sign in error:", error);
+      toast.error("Erro ao conectar com o provedor de autenticação. Tente novamente.");
       setIsLoading(false);
     }
   };
@@ -125,7 +129,7 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
     e.preventDefault();
 
     if (!email?.trim()) {
-      console.error("Email is required");
+      toast.error("Por favor, insira um endereço de email válido.");
       return;
     }
 
@@ -143,13 +147,15 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
       const result = await response.json() as { success?: boolean; error?: string };
 
       if (response.ok && result.success) {
-        console.log("Code sent successfully, showing code input");
+        toast.success("Código enviado com sucesso! Verifique seu email.");
         setCodeSent(true);
       } else {
         console.error("Error sending code:", result.error);
+        toast.error("Erro ao enviar código de verificação. Tente novamente.");
       }
     } catch (error) {
       console.error("Magic code send error:", error);
+      toast.error("Erro ao enviar código de verificação. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -159,12 +165,12 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
     e.preventDefault();
 
     if (!email?.trim() || !code?.trim()) {
-      console.error("Email and code are required");
+      toast.error("Por favor, insira o email e o código de verificação.");
       return;
     }
 
     if (!csrfToken) {
-      console.error("CSRF token not available");
+      toast.error("Erro de segurança. Recarregue a página e tente novamente.");
       return;
     }
 
@@ -181,15 +187,19 @@ export function useSignInHandlers(): UseSignInHandlersReturn {
 
       if (result?.error) {
         console.error("Error verifying code:", result.error);
+        toast.error("Código de verificação inválido ou expirado. Tente novamente.");
         setIsLoading(false);
       } else if (result?.ok) {
+        toast.success("Login realizado com sucesso! Redirecionando...");
         window.location.href = result.url ?? callbackUrl;
       } else {
         console.error("Unexpected result:", result);
+        toast.error("Erro inesperado durante a verificação. Tente novamente.");
         setIsLoading(false);
       }
     } catch (error) {
       console.error("Magic code verify error:", error);
+      toast.error("Erro ao verificar código. Tente novamente.");
       setIsLoading(false);
     }
   };

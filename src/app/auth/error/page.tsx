@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "~/components/ui/button";
@@ -15,7 +16,7 @@ import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import Header from "~/app/components/Header";
 import Footer from "~/app/components/Footer";
 
-export default function AuthError() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -116,75 +117,104 @@ export default function AuthError() {
   const errorDetails = getErrorDetails(error);
 
   return (
+    <div className="w-full max-w-md">
+      {/* Subtle top accent line */}
+      <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-red-500 to-rose-500" />
+
+      <Card className="border-red-200 shadow-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-600">
+            <AlertTriangle className="h-6 w-6 text-white" />
+          </div>
+          <CardTitle className="bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
+            {errorDetails.title}
+          </CardTitle>
+          <CardDescription>{errorDetails.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <div className="text-amber-800">
+              <strong>Sugestão:</strong> {errorDetails.suggestion}
+            </div>
+          </Alert>
+
+          {/* Error code for debugging */}
+          {error && (
+            <div className="rounded-lg bg-slate-100 p-3">
+              <p className="text-xs text-slate-600">
+                <strong>Código do erro:</strong> {error}
+              </p>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-3">
+            <Button
+              className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+              asChild
+            >
+              <Link href="/auth/signin">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Tentar novamente
+              </Link>
+            </Button>
+
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar ao início
+              </Link>
+            </Button>
+          </div>
+
+          {/* Help section */}
+          <div className="border-t border-slate-200 pt-4 text-center">
+            <p className="text-xs text-slate-500">
+              Precisa de ajuda?{" "}
+              <Link
+                href="mailto:contato@espacopessoal.com"
+                className="text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Entre em contato
+              </Link>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="w-full max-w-md">
+      <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-red-500 to-rose-500" />
+      <Card className="border-red-200 shadow-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-600">
+            <AlertTriangle className="h-6 w-6 text-white" />
+          </div>
+          <CardTitle className="bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
+            Carregando...
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-r-transparent" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function AuthError() {
+  return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex flex-grow items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          {/* Subtle top accent line */}
-          <div className="mb-8 h-[1px] w-full bg-gradient-to-r from-red-500 to-rose-500" />
-
-          <Card className="border-red-200 shadow-lg">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-600">
-                <AlertTriangle className="h-6 w-6 text-white" />
-              </div>
-              <CardTitle className="bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
-                {errorDetails.title}
-              </CardTitle>
-              <CardDescription>{errorDetails.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Alert className="border-amber-200 bg-amber-50">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <div className="text-amber-800">
-                  <strong>Sugestão:</strong> {errorDetails.suggestion}
-                </div>
-              </Alert>
-
-              {/* Error code for debugging */}
-              {error && (
-                <div className="rounded-lg bg-slate-100 p-3">
-                  <p className="text-xs text-slate-600">
-                    <strong>Código do erro:</strong> {error}
-                  </p>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="flex flex-col gap-3">
-                <Button
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
-                  asChild
-                >
-                  <Link href="/auth/signin">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Tentar novamente
-                  </Link>
-                </Button>
-
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href="/">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Voltar ao início
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Help section */}
-              <div className="border-t border-slate-200 pt-4 text-center">
-                <p className="text-xs text-slate-500">
-                  Precisa de ajuda?{" "}
-                  <Link
-                    href="mailto:contato@espacopessoal.com"
-                    className="text-blue-600 hover:text-blue-700 hover:underline"
-                  >
-                    Entre em contato
-                  </Link>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Suspense fallback={<LoadingFallback />}>
+          <AuthErrorContent />
+        </Suspense>
       </main>
       <Footer />
     </div>

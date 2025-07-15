@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -39,14 +40,17 @@ export default function SignOut() {
         redirect: false,
       });
       setIsSignedOut(true);
-      // Redirect after a short delay to show the success message
-      setTimeout(() => {
-        router.push(callbackUrl);
-      }, 2000);
+      toast.success("Logout realizado com sucesso!");
     } catch (error) {
       console.error("Sign out error:", error);
+      toast.error("Erro ao fazer logout. Tente novamente.");
+      setIsSignedOut(false);
       setIsLoading(false);
     }
+  };
+
+  const handleNavigateToCallback = () => {
+    router.push(callbackUrl);
   };
 
   const handleCancel = () => {
@@ -76,24 +80,32 @@ export default function SignOut() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-center text-sm text-slate-600">
-                  Obrigado por usar o Espaço Pessoal. Você será redirecionado em
-                  instantes.
+                  Obrigado por usar o Espaço Pessoal. Escolha para onde deseja ir:
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3">
                   <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => router.push("/")}
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+                    onClick={handleNavigateToCallback}
                   >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Início
+                    {callbackUrl === "/" ? "Ir para Início" : "Continuar onde parei"}
                   </Button>
-                  <Button
-                    className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-medium text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
-                    onClick={() => router.push("/auth/signin")}
-                  >
-                    Entrar novamente
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.push("/")}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Início
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.push("/auth/signin")}
+                    >
+                      Entrar novamente
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -197,9 +209,11 @@ export default function SignOut() {
               <div className="rounded-lg bg-slate-50 p-4">
                 <div className="flex items-center gap-3">
                   {session.user.image ? (
-                    <img
+                    <Image
                       src={session.user.image}
                       alt={session.user.name ?? "User"}
+                      width={40}
+                      height={40}
                       className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (

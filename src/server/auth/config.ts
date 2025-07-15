@@ -7,8 +7,9 @@ import { ConvexHttpClient } from "convex/browser";
 
 import { ConvexAdapter } from "./convex-adapter";
 import { api } from "../../../convex/_generated/api";
+import { env } from "../../env.js";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const convex = new ConvexHttpClient(env.CONVEX_URL);
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -292,7 +293,7 @@ export const authConfig = {
      * @see https://next-auth.js.org/providers/github
      */
   ],
-  adapter: ConvexAdapter(process.env.CONVEX_URL!),
+  adapter: ConvexAdapter(env.CONVEX_URL),
   callbacks: {
     session: ({ session, token }) => {
       return {
