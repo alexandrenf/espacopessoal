@@ -1473,24 +1473,28 @@ export function DocumentEditor({
             {/* Title and controls row */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {isEditingTitle ? (
-                  <input
-                    type="text"
-                    value={documentTitle}
-                    onChange={(e) => setDocumentTitle(e.target.value)}
-                    onBlur={() => void handleTitleSubmit()}
-                    onKeyDown={handleTitleKeyDown}
-                    className={`${isMobile ? "ml-[40px] mt-0.5" : "ml-[56px] md:ml-[40px] xl:ml-0"} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
-                    autoFocus
-                  />
-                ) : (
-                  <h1
-                    className={`${isMobile ? "ml-[40px] mt-0.5" : "ml-[56px] md:ml-[40px] xl:ml-0"} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
-                    onClick={() => setIsEditingTitle(true)}
-                  >
-                    {documentTitle}
-                  </h1>
-                )}
+                {(() => {
+                  const titleMargin = isMobile ? "ml-[40px] mt-0.5" : "ml-[56px] md:ml-[40px] xl:ml-0";
+
+                  return isEditingTitle ? (
+                    <input
+                      type="text"
+                      value={documentTitle}
+                      onChange={(e) => setDocumentTitle(e.target.value)}
+                      onBlur={() => void handleTitleSubmit()}
+                      onKeyDown={handleTitleKeyDown}
+                      className={`${titleMargin} rounded border-none bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:bg-gray-50`}
+                      autoFocus
+                    />
+                  ) : (
+                    <h1
+                      className={`${titleMargin} cursor-pointer rounded px-2 py-1 text-lg font-semibold hover:bg-gray-50`}
+                      onClick={() => setIsEditingTitle(true)}
+                    >
+                      {documentTitle}
+                    </h1>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center gap-4">
