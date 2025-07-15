@@ -1,0 +1,89 @@
+/* Task List Checkbox Styling */
+.ProseMirror .task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ProseMirror .task-item {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ProseMirror .task-item > label {
+  display: flex;
+  align-items: flex-start;
+  margin-right: 0.5rem;
+  user-select: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.ProseMirror .task-item > label > input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.25rem;
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.ProseMirror .task-item > label > input[type="checkbox"]:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.ProseMirror .task-item > label > input[type="checkbox"]:checked::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 8px;
+  border: 2px solid white;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg);
+}
+
+.ProseMirror .task-item > label > input[type="checkbox"]:hover {
+  border-color: #9ca3af;
+}
+
+.ProseMirror .task-item > label > input[type="checkbox"]:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.ProseMirror .task-item > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ProseMirror .task-item[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* Nested task lists */
+.ProseMirror .task-item .task-list {
+  margin-left: 1.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Ensure proper spacing */
+.ProseMirror .task-item p {
+  margin: 0;
+}
+
+.ProseMirror .task-item + .task-item {
+  margin-top: 0.25rem;
+}

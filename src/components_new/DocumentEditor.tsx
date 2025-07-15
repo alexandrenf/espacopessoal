@@ -45,6 +45,9 @@ import {
   LogOut,
   LogIn,
   ChevronDown,
+  Menu,
+  Home,
+  NotebookPen,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -105,6 +108,7 @@ import {
 } from "../constants/margins";
 import { useConvexUser } from "../hooks/use-convex-user";
 import { debounce } from "lodash";
+import "./DocumentEditor.css";
 
 type Document = {
   _id: Id<"documents">;
@@ -1511,6 +1515,33 @@ export function DocumentEditor({
                   {getStatusIcon()}
                   <span>{getStatusText()}</span>
                 </div>
+
+                {/* Quick Actions Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/" className="cursor-pointer">
+                        <Home className="mr-2 h-4 w-4" />
+                        <span>Página inicial</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/notas" className="cursor-pointer">
+                        <NotebookPen className="mr-2 h-4 w-4" />
+                        <span>Notas</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {convexUserId ? (
                   <DropdownMenu>
