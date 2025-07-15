@@ -134,3 +134,4 @@ export function WelcomeTour({
   if (!mounted || isLoading || isUserLoading || userSettings === undefined) {
     return null;
   }
+}
