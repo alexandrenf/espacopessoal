@@ -1189,10 +1189,10 @@ export const cleanupTourFields = internalMutation({
   args: {},
   handler: async (ctx) => {
     logger.log("Starting tour fields cleanup from userSettings...");
-    
+
     // Get all userSettings documents
     const allUserSettings = await ctx.db.query("userSettings").collect();
-    
+
     const results = {
       total: allUserSettings.length,
       cleaned: 0,
@@ -1203,10 +1203,10 @@ export const cleanupTourFields = internalMutation({
       try {
         // Check if the document has tour-related fields
         const doc = userSetting as any;
-        const hasTourFields = 
-          'tourCompleted' in doc || 
-          'tourSkipped' in doc || 
-          'tourCompletionDate' in doc;
+        const hasTourFields =
+          "tourCompleted" in doc ||
+          "tourSkipped" in doc ||
+          "tourCompletionDate" in doc;
 
         if (hasTourFields) {
           // Create a clean version without tour fields
@@ -1222,7 +1222,7 @@ export const cleanupTourFields = internalMutation({
           };
 
           // Remove undefined fields
-          Object.keys(cleanedData).forEach(key => {
+          Object.keys(cleanedData).forEach((key) => {
             if (cleanedData[key] === undefined) {
               delete cleanedData[key];
             }
@@ -1231,16 +1231,23 @@ export const cleanupTourFields = internalMutation({
           // Replace the document with cleaned data
           await ctx.db.replace(userSetting._id, cleanedData);
           results.cleaned++;
-          
-          logger.log(`Cleaned tour fields from userSettings document ${userSetting._id}`);
+
+          logger.log(
+            `Cleaned tour fields from userSettings document ${userSetting._id}`,
+          );
         }
       } catch (error) {
-        logger.error(`Failed to clean userSettings document ${userSetting._id}:`, error);
+        logger.error(
+          `Failed to clean userSettings document ${userSetting._id}:`,
+          error,
+        );
         results.errors++;
       }
     }
 
-    logger.log(`Tour cleanup completed. Total: ${results.total}, Cleaned: ${results.cleaned}, Errors: ${results.errors}`);
+    logger.log(
+      `Tour cleanup completed. Total: ${results.total}, Cleaned: ${results.cleaned}, Errors: ${results.errors}`,
+    );
     return results;
   },
 });
@@ -1248,7 +1255,9 @@ export const cleanupTourFields = internalMutation({
 // Public endpoint for tour cleanup
 export const runTourFieldsCleanup = mutation({
   args: {},
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx,
+  ): Promise<{
     total: number;
     cleaned: number;
     errors: number;

@@ -1,8 +1,15 @@
-import { ValidationRule, CalculatorValidation } from "~/types/medical-calculators";
+import {
+  ValidationRule,
+  CalculatorValidation,
+} from "~/types/medical-calculators";
 import { INPUT_VALIDATION_RANGES } from "./sbc-2020-config";
 
 // Generic validation functions
-export const createRangeValidator = (min: number, max: number, fieldName: string): ValidationRule => ({
+export const createRangeValidator = (
+  min: number,
+  max: number,
+  fieldName: string,
+): ValidationRule => ({
   field: fieldName,
   type: "range",
   min,
@@ -19,7 +26,7 @@ export const createRequiredValidator = (fieldName: string): ValidationRule => ({
 export const createCustomValidator = (
   fieldName: string,
   validator: (value: unknown) => boolean,
-  message: string
+  message: string,
 ): ValidationRule => ({
   field: fieldName,
   type: "custom",
@@ -40,10 +47,12 @@ export const imcValidation: CalculatorValidation = {
     const errors: string[] = [];
 
     if (!data.peso) errors.push("Peso é obrigatório");
-    else if (data.peso < 1 || data.peso > 500) errors.push("Peso deve estar entre 1 e 500 kg");
+    else if (data.peso < 1 || data.peso > 500)
+      errors.push("Peso deve estar entre 1 e 500 kg");
 
     if (!data.altura) errors.push("Altura é obrigatória");
-    else if (data.altura < 0.5 || data.altura > 2.5) errors.push("Altura deve estar entre 0.5 e 2.5 m");
+    else if (data.altura < 0.5 || data.altura > 2.5)
+      errors.push("Altura deve estar entre 0.5 e 2.5 m");
 
     return { isValid: errors.length === 0, errors };
   },
@@ -62,13 +71,19 @@ export const ldlValidation: CalculatorValidation = {
       "cholesterolRatio",
       (inputs: unknown) => {
         const data = inputs as { colesterolTotal?: number; hdl?: number };
-        return !data.colesterolTotal || !data.hdl || data.hdl < data.colesterolTotal;
+        return (
+          !data.colesterolTotal || !data.hdl || data.hdl < data.colesterolTotal
+        );
       },
-      "HDL deve ser menor que o colesterol total"
+      "HDL deve ser menor que o colesterol total",
     ),
   ],
   validate: (inputs: unknown) => {
-    const data = inputs as { colesterolTotal?: number; hdl?: number; triglicerideos?: number };
+    const data = inputs as {
+      colesterolTotal?: number;
+      hdl?: number;
+      triglicerideos?: number;
+    };
     const errors: string[] = [];
 
     if (!data.colesterolTotal) errors.push("Colesterol total é obrigatório");
@@ -92,7 +107,9 @@ export const ldlValidation: CalculatorValidation = {
     }
 
     if (data.triglicerideos && data.triglicerideos >= 400) {
-      errors.push("Fórmula de Friedewald não é válida para triglicerídeos ≥ 400 mg/dL");
+      errors.push(
+        "Fórmula de Friedewald não é válida para triglicerídeos ≥ 400 mg/dL",
+      );
     }
 
     return { isValid: errors.length === 0, errors };
@@ -109,7 +126,11 @@ export const ckdEpiValidation: CalculatorValidation = {
     createRangeValidator(18, 120, "idade"),
   ],
   validate: (inputs: unknown) => {
-    const data = inputs as { creatinina?: number; idade?: number; sexo?: string };
+    const data = inputs as {
+      creatinina?: number;
+      idade?: number;
+      sexo?: string;
+    };
     const errors: string[] = [];
 
     if (!data.creatinina) errors.push("Creatinina é obrigatória");
@@ -160,21 +181,32 @@ export const obstetricValidation: CalculatorValidation = {
         if (!data.dum) errors.push("Data da última menstruação é obrigatória");
         break;
       case "ultrasound":
-        if (!data.ultrasoundDate) errors.push("Data do ultrassom é obrigatória");
-        if (!data.ultrasoundWeeks) errors.push("Semanas no ultrassom são obrigatórias");
-        if (data.ultrasoundDays === undefined) errors.push("Dias no ultrassom são obrigatórios");
-        if (data.ultrasoundWeeks && (data.ultrasoundWeeks < 4 || data.ultrasoundWeeks > 42)) {
+        if (!data.ultrasoundDate)
+          errors.push("Data do ultrassom é obrigatória");
+        if (!data.ultrasoundWeeks)
+          errors.push("Semanas no ultrassom são obrigatórias");
+        if (data.ultrasoundDays === undefined)
+          errors.push("Dias no ultrassom são obrigatórios");
+        if (
+          data.ultrasoundWeeks &&
+          (data.ultrasoundWeeks < 4 || data.ultrasoundWeeks > 42)
+        ) {
           errors.push("Semanas devem estar entre 4 e 42");
         }
-        if (data.ultrasoundDays !== undefined && (data.ultrasoundDays < 0 || data.ultrasoundDays > 6)) {
+        if (
+          data.ultrasoundDays !== undefined &&
+          (data.ultrasoundDays < 0 || data.ultrasoundDays > 6)
+        ) {
           errors.push("Dias devem estar entre 0 e 6");
         }
         break;
       case "conception":
-        if (!data.conceptionDate) errors.push("Data da concepção é obrigatória");
+        if (!data.conceptionDate)
+          errors.push("Data da concepção é obrigatória");
         break;
       case "ivf":
-        if (!data.transferDate) errors.push("Data da transferência é obrigatória");
+        if (!data.transferDate)
+          errors.push("Data da transferência é obrigatória");
         if (!data.embryoAge) errors.push("Idade do embrião é obrigatória");
         if (data.embryoAge && ![3, 5, 6].includes(data.embryoAge)) {
           errors.push("Idade do embrião deve ser 3, 5 ou 6 dias");
@@ -197,22 +229,22 @@ export const cardiovascularRiskValidation: CalculatorValidation = {
     createRangeValidator(
       INPUT_VALIDATION_RANGES.age.min,
       INPUT_VALIDATION_RANGES.age.max,
-      "age"
+      "age",
     ),
     createRangeValidator(
       INPUT_VALIDATION_RANGES.systolicBP.min,
       INPUT_VALIDATION_RANGES.systolicBP.max,
-      "systolicBP"
+      "systolicBP",
     ),
     createRangeValidator(
       INPUT_VALIDATION_RANGES.totalCholesterol.min,
       INPUT_VALIDATION_RANGES.totalCholesterol.max,
-      "totalCholesterol"
+      "totalCholesterol",
     ),
     createRangeValidator(
       INPUT_VALIDATION_RANGES.hdlCholesterol.min,
       INPUT_VALIDATION_RANGES.hdlCholesterol.max,
-      "hdlCholesterol"
+      "hdlCholesterol",
     ),
   ],
   validate: (inputs: unknown) => {
@@ -230,8 +262,13 @@ export const cardiovascularRiskValidation: CalculatorValidation = {
 
     // Required fields
     if (!data.age) errors.push("Idade é obrigatória");
-    else if (data.age < INPUT_VALIDATION_RANGES.age.min || data.age > INPUT_VALIDATION_RANGES.age.max) {
-      errors.push(`Idade deve estar entre ${INPUT_VALIDATION_RANGES.age.min} e ${INPUT_VALIDATION_RANGES.age.max} anos`);
+    else if (
+      data.age < INPUT_VALIDATION_RANGES.age.min ||
+      data.age > INPUT_VALIDATION_RANGES.age.max
+    ) {
+      errors.push(
+        `Idade deve estar entre ${INPUT_VALIDATION_RANGES.age.min} e ${INPUT_VALIDATION_RANGES.age.max} anos`,
+      );
     }
 
     if (!data.sex) errors.push("Sexo é obrigatório");
@@ -240,41 +277,77 @@ export const cardiovascularRiskValidation: CalculatorValidation = {
     }
 
     if (!data.systolicBP) errors.push("Pressão sistólica é obrigatória");
-    else if (data.systolicBP < INPUT_VALIDATION_RANGES.systolicBP.min || data.systolicBP > INPUT_VALIDATION_RANGES.systolicBP.max) {
-      errors.push(`Pressão sistólica deve estar entre ${INPUT_VALIDATION_RANGES.systolicBP.min} e ${INPUT_VALIDATION_RANGES.systolicBP.max} mmHg`);
+    else if (
+      data.systolicBP < INPUT_VALIDATION_RANGES.systolicBP.min ||
+      data.systolicBP > INPUT_VALIDATION_RANGES.systolicBP.max
+    ) {
+      errors.push(
+        `Pressão sistólica deve estar entre ${INPUT_VALIDATION_RANGES.systolicBP.min} e ${INPUT_VALIDATION_RANGES.systolicBP.max} mmHg`,
+      );
     }
 
     if (!data.totalCholesterol) errors.push("Colesterol total é obrigatório");
-    else if (data.totalCholesterol < INPUT_VALIDATION_RANGES.totalCholesterol.min || data.totalCholesterol > INPUT_VALIDATION_RANGES.totalCholesterol.max) {
-      errors.push(`Colesterol total deve estar entre ${INPUT_VALIDATION_RANGES.totalCholesterol.min} e ${INPUT_VALIDATION_RANGES.totalCholesterol.max} mg/dL`);
+    else if (
+      data.totalCholesterol < INPUT_VALIDATION_RANGES.totalCholesterol.min ||
+      data.totalCholesterol > INPUT_VALIDATION_RANGES.totalCholesterol.max
+    ) {
+      errors.push(
+        `Colesterol total deve estar entre ${INPUT_VALIDATION_RANGES.totalCholesterol.min} e ${INPUT_VALIDATION_RANGES.totalCholesterol.max} mg/dL`,
+      );
     }
 
     if (!data.hdlCholesterol) errors.push("HDL é obrigatório");
-    else if (data.hdlCholesterol < INPUT_VALIDATION_RANGES.hdlCholesterol.min || data.hdlCholesterol > INPUT_VALIDATION_RANGES.hdlCholesterol.max) {
-      errors.push(`HDL deve estar entre ${INPUT_VALIDATION_RANGES.hdlCholesterol.min} e ${INPUT_VALIDATION_RANGES.hdlCholesterol.max} mg/dL`);
+    else if (
+      data.hdlCholesterol < INPUT_VALIDATION_RANGES.hdlCholesterol.min ||
+      data.hdlCholesterol > INPUT_VALIDATION_RANGES.hdlCholesterol.max
+    ) {
+      errors.push(
+        `HDL deve estar entre ${INPUT_VALIDATION_RANGES.hdlCholesterol.min} e ${INPUT_VALIDATION_RANGES.hdlCholesterol.max} mg/dL`,
+      );
     }
 
     // Optional fields validation
     if (data.microalbuminuria !== undefined) {
-      if (data.microalbuminuria < INPUT_VALIDATION_RANGES.microalbuminuria.min || data.microalbuminuria > INPUT_VALIDATION_RANGES.microalbuminuria.max) {
-        errors.push(`Microalbuminúria deve estar entre ${INPUT_VALIDATION_RANGES.microalbuminuria.min} e ${INPUT_VALIDATION_RANGES.microalbuminuria.max} mg/g`);
+      if (
+        data.microalbuminuria < INPUT_VALIDATION_RANGES.microalbuminuria.min ||
+        data.microalbuminuria > INPUT_VALIDATION_RANGES.microalbuminuria.max
+      ) {
+        errors.push(
+          `Microalbuminúria deve estar entre ${INPUT_VALIDATION_RANGES.microalbuminuria.min} e ${INPUT_VALIDATION_RANGES.microalbuminuria.max} mg/g`,
+        );
       }
     }
 
     if (data.hsCRP !== undefined) {
-      if (data.hsCRP < INPUT_VALIDATION_RANGES.hsCRP.min || data.hsCRP > INPUT_VALIDATION_RANGES.hsCRP.max) {
-        errors.push(`PCR-us deve estar entre ${INPUT_VALIDATION_RANGES.hsCRP.min} e ${INPUT_VALIDATION_RANGES.hsCRP.max} mg/L`);
+      if (
+        data.hsCRP < INPUT_VALIDATION_RANGES.hsCRP.min ||
+        data.hsCRP > INPUT_VALIDATION_RANGES.hsCRP.max
+      ) {
+        errors.push(
+          `PCR-us deve estar entre ${INPUT_VALIDATION_RANGES.hsCRP.min} e ${INPUT_VALIDATION_RANGES.hsCRP.max} mg/L`,
+        );
       }
     }
 
     if (data.coronaryCalciumScore !== undefined) {
-      if (data.coronaryCalciumScore < INPUT_VALIDATION_RANGES.coronaryCalciumScore.min || data.coronaryCalciumScore > INPUT_VALIDATION_RANGES.coronaryCalciumScore.max) {
-        errors.push(`Escore de cálcio deve estar entre ${INPUT_VALIDATION_RANGES.coronaryCalciumScore.min} e ${INPUT_VALIDATION_RANGES.coronaryCalciumScore.max}`);
+      if (
+        data.coronaryCalciumScore <
+          INPUT_VALIDATION_RANGES.coronaryCalciumScore.min ||
+        data.coronaryCalciumScore >
+          INPUT_VALIDATION_RANGES.coronaryCalciumScore.max
+      ) {
+        errors.push(
+          `Escore de cálcio deve estar entre ${INPUT_VALIDATION_RANGES.coronaryCalciumScore.min} e ${INPUT_VALIDATION_RANGES.coronaryCalciumScore.max}`,
+        );
       }
     }
 
     // Cross-validation
-    if (data.totalCholesterol && data.hdlCholesterol && data.hdlCholesterol >= data.totalCholesterol) {
+    if (
+      data.totalCholesterol &&
+      data.hdlCholesterol &&
+      data.hdlCholesterol >= data.totalCholesterol
+    ) {
       errors.push("HDL deve ser menor que o colesterol total");
     }
 

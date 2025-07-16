@@ -164,5 +164,3 @@ export const getUserSettingsAndHealth = query({
     };
   },
 });
-
-

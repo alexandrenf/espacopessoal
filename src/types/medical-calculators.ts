@@ -88,14 +88,14 @@ export interface CardiovascularRiskInputs {
   hdlCholesterol: number;
   diabetes: boolean;
   smoking: boolean;
-  
+
   // Optional aggravating factors
   familyHistory?: boolean;
   metabolicSyndrome?: boolean;
   microalbuminuria?: number;
   hsCRP?: number;
   coronaryCalciumScore?: number;
-  
+
   // Additional risk conditions
   ldlCholesterol?: number;
   chronicKidneyDisease?: boolean;
@@ -128,31 +128,31 @@ export interface SBCRiskConfig {
   version: string;
   source: string;
   targetPopulation: string;
-  
+
   inclusionCriteria: {
     ageMin: number;
     ageMax: number;
     preventionType: string;
     excludeHighRiskConditions: boolean;
   };
-  
+
   automaticHighRiskConditions: string[];
-  
+
   framinghamCoefficients: {
     male: Record<string, number>;
     female: Record<string, number>;
   };
-  
+
   baselineSurvival: {
     male: number;
     female: number;
   };
-  
+
   riskThresholds: {
     male: { low: number; intermediate: number };
     female: { low: number; intermediate: number };
   };
-  
+
   therapeuticTargets: Record<RiskCategory, TherapeuticTargets>;
 }
 

@@ -4,22 +4,22 @@ export const SBC_2020_CONFIG: SBCRiskConfig = {
   version: "2020",
   source: "Sociedade Brasileira de Cardiologia",
   targetPopulation: "Brazilian",
-  
+
   inclusionCriteria: {
     ageMin: 40,
     ageMax: 74,
     preventionType: "primary",
     excludeHighRiskConditions: true,
   },
-  
+
   automaticHighRiskConditions: [
     "manifested_atherosclerotic_cvd",
-    "diabetes_with_additional_risk_factors", 
+    "diabetes_with_additional_risk_factors",
     "chronic_kidney_disease_gfr_less_than_60",
     "familial_hypercholesterolemia",
-    "ldl_cholesterol_greater_equal_190"
+    "ldl_cholesterol_greater_equal_190",
   ],
-  
+
   framinghamCoefficients: {
     male: {
       age: 0.04826,
@@ -38,12 +38,12 @@ export const SBC_2020_CONFIG: SBCRiskConfig = {
       smoking: 0.29246,
     },
   },
-  
+
   baselineSurvival: {
     male: 0.88936,
     female: 0.95012,
   },
-  
+
   riskThresholds: {
     male: {
       low: 10,
@@ -54,7 +54,7 @@ export const SBC_2020_CONFIG: SBCRiskConfig = {
       intermediate: 10,
     },
   },
-  
+
   therapeuticTargets: {
     baixo: {
       ldl: "< 130 mg/dL",
@@ -64,18 +64,18 @@ export const SBC_2020_CONFIG: SBCRiskConfig = {
         "Mudanças no estilo de vida",
         "Atividade física regular",
         "Dieta saudável",
-        "Controle do peso"
+        "Controle do peso",
       ],
     },
     intermediário: {
       ldl: "< 100 mg/dL",
-      bloodPressure: "< 130/80 mmHg", 
+      bloodPressure: "< 130/80 mmHg",
       followUp: "2 anos",
       additionalRecommendations: [
         "Considerar estatina se LDL acima da meta",
         "Mudanças intensivas no estilo de vida",
         "Controle rigoroso da pressão arterial",
-        "Avaliação de fatores agravantes"
+        "Avaliação de fatores agravantes",
       ],
     },
     alto: {
@@ -87,7 +87,7 @@ export const SBC_2020_CONFIG: SBCRiskConfig = {
         "Considerar ezetimiba se meta não atingida",
         "Anti-hipertensivo + mudanças no estilo de vida",
         "Controle rigoroso de todos os fatores de risco",
-        "Considerar AAS em prevenção primária"
+        "Considerar AAS em prevenção primária",
       ],
     },
   },
@@ -98,7 +98,8 @@ export const AGGRAVATING_FACTORS = {
   familyHistory: {
     criteria: "first_degree_relative",
     ageCutoff: { male: 55, female: 65 },
-    description: "História familiar precoce de DCV (parente de 1º grau: homem < 55 anos ou mulher < 65 anos)",
+    description:
+      "História familiar precoce de DCV (parente de 1º grau: homem < 55 anos ou mulher < 65 anos)",
   },
   metabolicSyndrome: {
     criteria: "standard_definition",
@@ -135,7 +136,7 @@ export const INPUT_VALIDATION_RANGES = {
 // Risk category colors for UI
 export const RISK_COLORS = {
   baixo: "text-green-600",
-  intermediário: "text-yellow-600", 
+  intermediário: "text-yellow-600",
   alto: "text-red-600",
 };
 
@@ -148,8 +149,10 @@ export const ALGORITHM_NOTES = {
     "4. Aplicar pontos de corte específicos por sexo",
     "5. Se risco intermediário, verificar fatores agravantes",
     "6. Reclassificar para alto risco se fatores agravantes presentes",
-    "7. Definir metas terapêuticas e seguimento"
+    "7. Definir metas terapêuticas e seguimento",
   ],
-  framinghamFormula: "Risco = 1 - S₀^exp(β), onde β = Σ(coeficiente × variável)",
-  reclassificationLogic: "Aplica-se apenas ao risco intermediário na presença de qualquer fator agravante",
+  framinghamFormula:
+    "Risco = 1 - S₀^exp(β), onde β = Σ(coeficiente × variável)",
+  reclassificationLogic:
+    "Aplica-se apenas ao risco intermediário na presença de qualquer fator agravante",
 };

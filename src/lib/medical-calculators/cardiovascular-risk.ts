@@ -57,18 +57,21 @@ export class CardiovascularRiskCalculator {
 
     // Step 4: Calculate Framingham score
     const framinghamResult = this.calculateFraminghamScore(inputs);
-    
+
     // Step 5: Determine initial risk category
-    let riskCategory = this.classifyRisk(framinghamResult.riskPercentage, inputs.sex);
-    
+    let riskCategory = this.classifyRisk(
+      framinghamResult.riskPercentage,
+      inputs.sex,
+    );
+
     // Step 6: Check aggravating factors for intermediate risk
     const aggravatingFactors: string[] = [];
     let reclassified = false;
-    
+
     if (riskCategory === "intermediário") {
       const aggravatingResult = this.checkAggravatingFactors(inputs);
       aggravatingFactors.push(...aggravatingResult.factors);
-      
+
       if (aggravatingResult.factors.length > 0) {
         riskCategory = "alto";
         reclassified = true;
@@ -125,7 +128,10 @@ export class CardiovascularRiskCalculator {
     }
 
     // Diabetes with additional risk factors (simplified check)
-    if (inputs.diabetes && (inputs.age >= 40 || inputs.familyHistory || inputs.metabolicSyndrome)) {
+    if (
+      inputs.diabetes &&
+      (inputs.age >= 40 || inputs.familyHistory || inputs.metabolicSyndrome)
+    ) {
       conditions.push("Diabetes com fatores de risco adicionais");
     }
 
@@ -145,8 +151,15 @@ export class CardiovascularRiskCalculator {
     }
 
     // Estimated LDL from total cholesterol (simplified Friedewald)
-    if (!inputs.ldlCholesterol && inputs.totalCholesterol && inputs.hdlCholesterol) {
-      const estimatedLDL = inputs.totalCholesterol - inputs.hdlCholesterol - (inputs.totalCholesterol * 0.2);
+    if (
+      !inputs.ldlCholesterol &&
+      inputs.totalCholesterol &&
+      inputs.hdlCholesterol
+    ) {
+      const estimatedLDL =
+        inputs.totalCholesterol -
+        inputs.hdlCholesterol -
+        inputs.totalCholesterol * 0.2;
       if (estimatedLDL >= 190) {
         conditions.push("LDL-c estimado ≥ 190 mg/dL");
       }
@@ -165,10 +178,20 @@ export class CardiovascularRiskCalculator {
     riskPercentage: number;
     betaScore: number;
   } {
-    const { sex, age, totalCholesterol, hdlCholesterol, systolicBP, diabetes, smoking } = inputs;
-    
-    const coefficients = this.config.framinghamCoefficients[sex === "M" ? "male" : "female"];
-    const baselineSurvival = this.config.baselineSurvival[sex === "M" ? "male" : "female"];
+    const {
+      sex,
+      age,
+      totalCholesterol,
+      hdlCholesterol,
+      systolicBP,
+      diabetes,
+      smoking,
+    } = inputs;
+
+    const coefficients =
+      this.config.framinghamCoefficients[sex === "M" ? "male" : "female"];
+    const baselineSurvival =
+      this.config.baselineSurvival[sex === "M" ? "male" : "female"];
 
     // Calculate beta score (linear predictor)
     const betaScore =
@@ -180,7 +203,8 @@ export class CardiovascularRiskCalculator {
       (smoking ? (coefficients.smoking ?? 0) : 0);
 
     // Calculate risk percentage using Framingham formula
-    const riskPercentage = (1 - Math.pow(baselineSurvival, Math.exp(betaScore))) * 100;
+    const riskPercentage =
+      (1 - Math.pow(baselineSurvival, Math.exp(betaScore))) * 100;
 
     return {
       riskPercentage: Math.max(0, Math.min(100, riskPercentage)), // Clamp between 0-100%
@@ -192,7 +216,8 @@ export class CardiovascularRiskCalculator {
    * Classify risk based on percentage and sex-specific thresholds
    */
   private classifyRisk(riskPercentage: number, sex: Sex): RiskCategory {
-    const thresholds = this.config.riskThresholds[sex === "M" ? "male" : "female"];
+    const thresholds =
+      this.config.riskThresholds[sex === "M" ? "male" : "female"];
 
     if (riskPercentage < thresholds.low) {
       return "baixo";
@@ -235,7 +260,11 @@ export class CardiovascularRiskCalculator {
     }
 
     // Coronary calcium score
-    if (inputs.coronaryCalciumScore && inputs.coronaryCalciumScore >= AGGRAVATING_FACTORS.coronaryCalciumScore.threshold) {
+    if (
+      inputs.coronaryCalciumScore &&
+      inputs.coronaryCalciumScore >=
+        AGGRAVATING_FACTORS.coronaryCalciumScore.threshold
+    ) {
       factors.push(AGGRAVATING_FACTORS.coronaryCalciumScore.description);
     }
 
@@ -245,17 +274,26 @@ export class CardiovascularRiskCalculator {
   /**
    * Generate personalized recommendations based on risk category
    */
-  private generateRecommendations(riskCategory: RiskCategory, inputs: CardiovascularRiskInputs): string[] {
-    const baseRecommendations = this.config.therapeuticTargets[riskCategory].additionalRecommendations ?? [];
+  private generateRecommendations(
+    riskCategory: RiskCategory,
+    inputs: CardiovascularRiskInputs,
+  ): string[] {
+    const baseRecommendations =
+      this.config.therapeuticTargets[riskCategory].additionalRecommendations ??
+      [];
     const personalizedRecommendations: string[] = [...baseRecommendations];
 
     // Add specific recommendations based on risk factors
     if (inputs.diabetes) {
-      personalizedRecommendations.push("Controle rigoroso da glicemia (HbA1c < 7%)");
+      personalizedRecommendations.push(
+        "Controle rigoroso da glicemia (HbA1c < 7%)",
+      );
     }
 
     if (inputs.smoking) {
-      personalizedRecommendations.push("Cessação do tabagismo (prioridade máxima)");
+      personalizedRecommendations.push(
+        "Cessação do tabagismo (prioridade máxima)",
+      );
     }
 
     if (inputs.metabolicSyndrome) {
@@ -268,7 +306,9 @@ export class CardiovascularRiskCalculator {
 
     // Risk category specific recommendations
     if (riskCategory === "alto") {
-      personalizedRecommendations.push("Considerar AAS 100mg/dia em prevenção primária");
+      personalizedRecommendations.push(
+        "Considerar AAS 100mg/dia em prevenção primária",
+      );
       personalizedRecommendations.push("Avaliação cardiológica especializada");
     }
 
@@ -282,8 +322,10 @@ export class CardiovascularRiskCalculator {
     if (!result.success || !result.riskCategory) return "";
 
     const interpretations = {
-      baixo: "Risco baixo para eventos cardiovasculares em 10 anos. Manter estilo de vida saudável e reavaliação periódica.",
-      intermediário: "Risco intermediário para eventos cardiovasculares em 10 anos. Considerar intervenções preventivas e avaliação de fatores agravantes.",
+      baixo:
+        "Risco baixo para eventos cardiovasculares em 10 anos. Manter estilo de vida saudável e reavaliação periódica.",
+      intermediário:
+        "Risco intermediário para eventos cardiovasculares em 10 anos. Considerar intervenções preventivas e avaliação de fatores agravantes.",
       alto: "Risco alto para eventos cardiovasculares em 10 anos. Intervenção terapêutica intensiva recomendada.",
     };
 
@@ -309,6 +351,8 @@ export class CardiovascularRiskCalculator {
 export const cardiovascularRiskCalculator = new CardiovascularRiskCalculator();
 
 // Export convenience function
-export const calculateCardiovascularRisk = (inputs: CardiovascularRiskInputs): CardiovascularRiskResult => {
+export const calculateCardiovascularRisk = (
+  inputs: CardiovascularRiskInputs,
+): CardiovascularRiskResult => {
   return cardiovascularRiskCalculator.calculate(inputs);
 };

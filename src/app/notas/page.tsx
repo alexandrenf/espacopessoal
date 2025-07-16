@@ -305,9 +305,7 @@ export default function NotasPage() {
           <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
           <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-          <div
-            className="container relative mx-auto px-4 py-12"
-          >
+          <div className="container relative mx-auto px-4 py-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -529,7 +527,6 @@ export default function NotasPage() {
           setEditingNotebook(null);
         }}
       />
-
     </>
   );
 }

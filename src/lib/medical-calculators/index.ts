@@ -5,7 +5,11 @@ import React from "react";
 export * from "~/types/medical-calculators";
 
 // Configuration
-export { SBC_2020_CONFIG, AGGRAVATING_FACTORS, RISK_COLORS } from "./sbc-2020-config";
+export {
+  SBC_2020_CONFIG,
+  AGGRAVATING_FACTORS,
+  RISK_COLORS,
+} from "./sbc-2020-config";
 
 // Validation
 export { validations } from "./validation";
@@ -77,9 +81,12 @@ export const CALCULATOR_REGISTRY: CalculatorInfo[] = [
   {
     id: "ckd-epi",
     title: "CKD-EPI 2021 (TFG)",
-    description: "Taxa de Filtração Glomerular Estimada - versão 2021 sem coeficiente racial",
-    formula: "eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^(-1.200) × 0.9938^idade × 1.012 (se mulher)",
-    details: "κ = 0.7 (mulheres) ou 0.9 (homens); α = -0.241 (mulheres) ou -0.302 (homens)",
+    description:
+      "Taxa de Filtração Glomerular Estimada - versão 2021 sem coeficiente racial",
+    formula:
+      "eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^(-1.200) × 0.9938^idade × 1.012 (se mulher)",
+    details:
+      "κ = 0.7 (mulheres) ou 0.9 (homens); α = -0.241 (mulheres) ou -0.302 (homens)",
     icon: React.createElement(Activity, { className: "h-6 w-6" }),
     category: "Nefrologia",
     color: "from-green-500 to-emerald-500",
@@ -114,7 +121,8 @@ export const CALCULATOR_REGISTRY: CalculatorInfo[] = [
   {
     id: "risco-cardiovascular",
     title: "Risco Cardiovascular (SBC)",
-    description: "Calculadora de risco cardiovascular baseada no escore de Framingham adaptado para população brasileira",
+    description:
+      "Calculadora de risco cardiovascular baseada no escore de Framingham adaptado para população brasileira",
     formula: "Risco = 1 - S₀^exp(β)",
     details: "Diretrizes da Sociedade Brasileira de Cardiologia 2020",
     icon: React.createElement(Shield, { className: "h-6 w-6" }),
@@ -135,15 +143,17 @@ export const CALCULATOR_REGISTRY: CalculatorInfo[] = [
 
 // Utility functions
 export const getCalculatorById = (id: string): CalculatorInfo | undefined => {
-  return CALCULATOR_REGISTRY.find(calc => calc.id === id);
+  return CALCULATOR_REGISTRY.find((calc) => calc.id === id);
 };
 
-export const getCalculatorsByCategory = (category: string): CalculatorInfo[] => {
-  return CALCULATOR_REGISTRY.filter(calc => calc.category === category);
+export const getCalculatorsByCategory = (
+  category: string,
+): CalculatorInfo[] => {
+  return CALCULATOR_REGISTRY.filter((calc) => calc.category === category);
 };
 
 export const getAllCategories = (): string[] => {
-  return [...new Set(CALCULATOR_REGISTRY.map(calc => calc.category))];
+  return [...new Set(CALCULATOR_REGISTRY.map((calc) => calc.category))];
 };
 
 // Calculator factory function
@@ -166,7 +176,9 @@ export const createCalculator = async (id: string) => {
       return obstetricCalculator;
     }
     case "risco-cardiovascular": {
-      const { cardiovascularRiskCalculator } = await import("./cardiovascular-risk");
+      const { cardiovascularRiskCalculator } = await import(
+        "./cardiovascular-risk"
+      );
       return cardiovascularRiskCalculator;
     }
     default:
@@ -195,7 +207,10 @@ export const MEDICAL_FORMULAS = {
   },
   ldl: {
     formula: "LDL = Colesterol Total - HDL - (Triglicerídeos / 5)",
-    limitations: ["Válido apenas para TG < 400 mg/dL", "Jejum de 12 horas recomendado"],
+    limitations: [
+      "Válido apenas para TG < 400 mg/dL",
+      "Jejum de 12 horas recomendado",
+    ],
     interpretation: {
       "< 100": "Ótimo",
       "100 - 129": "Desejável",
@@ -205,10 +220,11 @@ export const MEDICAL_FORMULAS = {
     },
   },
   ckdEpi: {
-    formula: "eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^(-1.200) × 0.9938^idade × 1.012 (se mulher)",
+    formula:
+      "eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^(-1.200) × 0.9938^idade × 1.012 (se mulher)",
     parameters: {
-      "κ": "0.7 (mulheres) ou 0.9 (homens)",
-      "α": "-0.241 (mulheres) ou -0.302 (homens)",
+      κ: "0.7 (mulheres) ou 0.9 (homens)",
+      α: "-0.241 (mulheres) ou -0.302 (homens)",
     },
     interpretation: {
       "≥ 90": "Normal ou alta (Estágio 1)",

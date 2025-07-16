@@ -60,7 +60,7 @@ export class IMCCalculator {
       imc: Math.round(imc * 10) / 10,
       classificacao,
       cor,
-      formula: `IMC = ${peso} ÷ (${altura})² = ${(imc).toFixed(1)}`,
+      formula: `IMC = ${peso} ÷ (${altura})² = ${imc.toFixed(1)}`,
     };
   }
 }
@@ -84,7 +84,8 @@ export class LDLCalculator {
     if (triglicerideos >= 400) {
       return {
         success: false,
-        error: "Fórmula de Friedewald não válida para TG ≥ 400 mg/dL. Use fórmula de Martin-Hopkins.",
+        error:
+          "Fórmula de Friedewald não válida para TG ≥ 400 mg/dL. Use fórmula de Martin-Hopkins.",
         warnings: ["Considere dosagem direta de LDL ou fórmula alternativa"],
       };
     }
@@ -113,7 +114,9 @@ export class LDLCalculator {
 
     const warnings: string[] = [];
     if (triglicerideos > 300) {
-      warnings.push("Triglicerídeos elevados podem afetar a precisão do cálculo");
+      warnings.push(
+        "Triglicerídeos elevados podem afetar a precisão do cálculo",
+      );
     }
 
     return {
@@ -133,20 +136,43 @@ export class LDLCalculator {
    */
   calculateMartinHopkins(inputs: LDLInputs): LDLResult {
     const { colesterolTotal, hdl, triglicerideos } = inputs;
-    
+
     // Simplified Martin-Hopkins approximation
     // In practice, this would use a more complex lookup table
-    const adjustmentFactor = triglicerideos < 400 ? 5 : 
-                           triglicerideos < 800 ? 6 : 
-                           triglicerideos < 1200 ? 7 : 8;
-    
+    const adjustmentFactor =
+      triglicerideos < 400
+        ? 5
+        : triglicerideos < 800
+          ? 6
+          : triglicerideos < 1200
+            ? 7
+            : 8;
+
     const ldl = colesterolTotal - hdl - triglicerideos / adjustmentFactor;
 
     return {
       success: true,
       ldl: Math.round(ldl * 10) / 10,
-      classificacao: ldl < 100 ? "Ótimo" : ldl < 130 ? "Desejável" : ldl < 160 ? "Limítrofe" : ldl < 190 ? "Alto" : "Muito alto",
-      cor: ldl < 100 ? "text-green-600" : ldl < 130 ? "text-blue-600" : ldl < 160 ? "text-yellow-600" : ldl < 190 ? "text-orange-600" : "text-red-600",
+      classificacao:
+        ldl < 100
+          ? "Ótimo"
+          : ldl < 130
+            ? "Desejável"
+            : ldl < 160
+              ? "Limítrofe"
+              : ldl < 190
+                ? "Alto"
+                : "Muito alto",
+      cor:
+        ldl < 100
+          ? "text-green-600"
+          : ldl < 130
+            ? "text-blue-600"
+            : ldl < 160
+              ? "text-yellow-600"
+              : ldl < 190
+                ? "text-orange-600"
+                : "text-red-600",
       formula: `LDL = ${colesterolTotal} - ${hdl} - (${triglicerideos}/${adjustmentFactor}) = ${ldl.toFixed(1)}`,
       method: "martin-hopkins",
       warnings: ["Fórmula de Martin-Hopkins (aproximação simplificada)"],
@@ -258,15 +284,18 @@ export class ObstetricCalculator {
           inputs.ultrasoundDate!,
           inputs.ultrasoundWeeks!,
           inputs.ultrasoundDays!,
-          currentDate
+          currentDate,
         );
       case "conception":
-        return this.calculateFromConception(inputs.conceptionDate!, currentDate);
+        return this.calculateFromConception(
+          inputs.conceptionDate!,
+          currentDate,
+        );
       case "ivf":
         return this.calculateFromIVF(
           inputs.transferDate!,
           inputs.embryoAge!,
-          currentDate
+          currentDate,
         );
       default:
         return {
@@ -303,12 +332,12 @@ export class ObstetricCalculator {
     ultrasoundDate: string,
     weeks: number,
     days: number,
-    currentDate: string
+    currentDate: string,
   ): ObstetricResult {
     const ultrasoundDateObj = new Date(ultrasoundDate);
     const gestDaysAtUltrasound = weeks * 7 + days;
     const effectiveDUMDate = new Date(
-      ultrasoundDateObj.getTime() - gestDaysAtUltrasound * 24 * 60 * 60 * 1000
+      ultrasoundDateObj.getTime() - gestDaysAtUltrasound * 24 * 60 * 60 * 1000,
     );
     const effectiveDUM = effectiveDUMDate.toISOString().split("T")[0]!;
 
@@ -322,11 +351,11 @@ export class ObstetricCalculator {
 
   private calculateFromConception(
     conceptionDate: string,
-    currentDate: string
+    currentDate: string,
   ): ObstetricResult {
     const conceptionDateObj = new Date(conceptionDate);
     const effectiveDUMDate = new Date(
-      conceptionDateObj.getTime() - 14 * 24 * 60 * 60 * 1000
+      conceptionDateObj.getTime() - 14 * 24 * 60 * 60 * 1000,
     );
     const effectiveDUM = effectiveDUMDate.toISOString().split("T")[0]!;
 
@@ -341,11 +370,11 @@ export class ObstetricCalculator {
   private calculateFromIVF(
     transferDate: string,
     embryoAge: number,
-    currentDate: string
+    currentDate: string,
   ): ObstetricResult {
     const transferDateObj = new Date(transferDate);
     const effectiveDUMDate = new Date(
-      transferDateObj.getTime() - (14 + embryoAge) * 24 * 60 * 60 * 1000
+      transferDateObj.getTime() - (14 + embryoAge) * 24 * 60 * 60 * 1000,
     );
     const effectiveDUM = effectiveDUMDate.toISOString().split("T")[0]!;
 
@@ -365,7 +394,11 @@ export const ckdEpiCalculator = new CKDEPICalculator();
 export const obstetricCalculator = new ObstetricCalculator();
 
 // Export convenience functions
-export const calculateIMC = (inputs: IMCInputs): IMCResult => imcCalculator.calculate(inputs);
-export const calculateLDL = (inputs: LDLInputs): LDLResult => ldlCalculator.calculate(inputs);
-export const calculateCKDEPI = (inputs: CKDEPIInputs): CKDEPIResult => ckdEpiCalculator.calculate(inputs);
-export const calculateObstetric = (inputs: ObstetricInputs): ObstetricResult => obstetricCalculator.calculate(inputs);
+export const calculateIMC = (inputs: IMCInputs): IMCResult =>
+  imcCalculator.calculate(inputs);
+export const calculateLDL = (inputs: LDLInputs): LDLResult =>
+  ldlCalculator.calculate(inputs);
+export const calculateCKDEPI = (inputs: CKDEPIInputs): CKDEPIResult =>
+  ckdEpiCalculator.calculate(inputs);
+export const calculateObstetric = (inputs: ObstetricInputs): ObstetricResult =>
+  obstetricCalculator.calculate(inputs);
