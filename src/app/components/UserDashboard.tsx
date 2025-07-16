@@ -279,8 +279,8 @@ export function UserDashboard() {
               title="Calculadoras Médicas"
               description="Acesse calculadoras específicas para a área médica, facilitando seu dia a dia clínico com precisão."
               icon={<Calculator className="h-8 w-8" />}
-              isActive={false}
-              comingSoon="Chegando em Março"
+              isActive={true}
+              href="/calculadoras"
             />
           </AnimatePresence>
         </div>

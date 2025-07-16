@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Edit3, Shield, Palette } from "lucide-react";
+import { Edit3, Shield, Palette, Calculator } from "lucide-react";
+import Link from "next/link";
 
 export default function FeaturesSection() {
   return (
@@ -80,6 +81,17 @@ export default function FeaturesSection() {
             index={2}
             color="purple"
           />
+
+          <Link href="/calculadoras" className="group">
+            <FeatureCard
+              icon={<Calculator className="h-6 w-6" aria-hidden="true" />}
+              title="Calculadoras Médicas"
+              description="Ferramentas precisas para cálculos clínicos. IMC, pressão arterial, risco cardiovascular e mais."
+              index={3}
+              color="green"
+              isClickable={true}
+            />
+          </Link>
         </div>
       </div>
     </section>
@@ -91,7 +103,8 @@ interface FeatureCardProps {
   title: string;
   description: string;
   index: number;
-  color: "blue" | "indigo" | "purple";
+  color: "blue" | "indigo" | "purple" | "green";
+  isClickable?: boolean;
 }
 
 function FeatureCard({
@@ -100,6 +113,7 @@ function FeatureCard({
   description,
   index,
   color,
+  isClickable = false,
 }: FeatureCardProps) {
   const colorClasses = {
     blue: {
@@ -126,13 +140,21 @@ function FeatureCard({
       text: "text-purple-600",
       hoverText: "group-hover:text-white",
     },
+    green: {
+      gradient: "from-green-500 to-green-600",
+      hoverGradient: "from-green-600 to-green-700",
+      bg: "bg-green-100",
+      hoverBg: "group-hover:bg-green-600",
+      text: "text-green-600",
+      hoverText: "group-hover:text-white",
+    },
   };
 
   const classes = colorClasses[color];
 
   return (
     <motion.div
-      className="group rounded-2xl border border-white/50 bg-white/80 p-8 backdrop-blur-sm transition-all duration-300 hover:bg-white hover:shadow-xl"
+      className={`group rounded-2xl border border-white/50 bg-white/80 p-8 backdrop-blur-sm transition-all duration-300 hover:bg-white hover:shadow-xl ${isClickable ? "cursor-pointer" : ""}`}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: index * 0.1 }}

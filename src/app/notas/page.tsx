@@ -51,7 +51,6 @@ import {
   NotebookDialog,
   CreateNotebookDialog,
 } from "~/components_new/NotebookEditDialog";
-import { WelcomeTour } from "~/components_new/WelcomeTour";
 
 interface NotebookData {
   _id: string;
@@ -306,16 +305,12 @@ export default function NotasPage() {
           <div className="absolute right-1/4 top-1/4 h-96 w-96 animate-pulse rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-500/10 blur-3xl" />
           <div className="absolute bottom-1/4 left-1/4 h-80 w-80 animate-pulse rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-500/10 blur-3xl" />
 
-          <div
-            className="container relative mx-auto px-4 py-12"
-            data-tour="notebooks-dashboard"
-          >
+          <div className="container relative mx-auto px-4 py-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               className="mb-12"
-              data-tour="notebooks-dashboard"
             >
               <div className="mx-auto max-w-4xl text-center">
                 <motion.div
@@ -393,7 +388,7 @@ export default function NotasPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="mb-8 flex flex-col gap-4 sm:flex-row"
             >
-              <div className="relative flex-1" data-tour="search-bar">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder={
@@ -407,7 +402,7 @@ export default function NotasPage() {
                 />
               </div>
               {status === "authenticated" && (
-                <div data-tour="create-notebook">
+                <div>
                   <CreateNotebookDialog onSuccess={() => refetch()} />
                 </div>
               )}
@@ -530,18 +525,6 @@ export default function NotasPage() {
         onSuccess={() => {
           void refetch();
           setEditingNotebook(null);
-        }}
-      />
-
-      {/* Welcome Tour */}
-      <WelcomeTour
-        autoStart={true}
-        showButton={true}
-        onTourComplete={() => {
-          console.log("Tour completed!");
-        }}
-        onTourSkip={() => {
-          console.log("Tour skipped!");
         }}
       />
     </>
