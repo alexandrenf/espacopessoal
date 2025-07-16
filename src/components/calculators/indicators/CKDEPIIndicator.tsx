@@ -70,19 +70,21 @@ const CKD_STAGES = [
   },
 ];
 
-export function CKDEPIIndicator({ 
-  eGFR, 
-  classification, 
-  color, 
-  age, 
-  sex, 
-  creatinine 
+export function CKDEPIIndicator({
+  eGFR,
+  classification,
+  color,
+  age,
+  sex,
+  creatinine,
 }: CKDEPIIndicatorProps) {
   const maxScale = 120;
   const gfrPosition = Math.min((eGFR / maxScale) * 100, 100);
 
   // Find current stage
-  const currentStage = CKD_STAGES.find(stage => eGFR >= stage.min && eGFR <= stage.max) ?? CKD_STAGES[CKD_STAGES.length - 1]!;
+  const currentStage =
+    CKD_STAGES.find((stage) => eGFR >= stage.min && eGFR <= stage.max) ??
+    CKD_STAGES[CKD_STAGES.length - 1]!;
 
   // Risk assessment based on eGFR
   const getRiskIcon = () => {
@@ -119,9 +121,11 @@ export function CKDEPIIndicator({
         </div>
         <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
           <riskIcon.icon className={`h-4 w-4 ${riskIcon.color}`} />
-          <span>Estágio {currentStage.stage} - Risco {currentStage.riskLevel}</span>
+          <span>
+            Estágio {currentStage.stage} - Risco {currentStage.riskLevel}
+          </span>
         </div>
-        <div className="text-xs text-slate-500 mt-1">
+        <div className="mt-1 text-xs text-slate-500">
           CKD-EPI 2021 (sem coeficiente racial)
         </div>
       </div>
@@ -198,7 +202,10 @@ export function CKDEPIIndicator({
               <div className="flex-1">
                 <div className="font-medium text-slate-700">{stage.label}</div>
                 <div className="text-slate-500">
-                  {stage.min === 0 ? `< ${stage.max + 1}` : `${stage.min}-${stage.max}`} mL/min/1.73m²
+                  {stage.min === 0
+                    ? `< ${stage.max + 1}`
+                    : `${stage.min}-${stage.max}`}{" "}
+                  mL/min/1.73m²
                 </div>
               </div>
               <div className="text-right">
@@ -219,19 +226,23 @@ export function CKDEPIIndicator({
         className="grid grid-cols-2 gap-4"
       >
         <div className="rounded-lg bg-white/60 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <Activity className="h-4 w-4 text-blue-500" />
             <h4 className="font-semibold text-slate-800">Dados do Paciente</h4>
           </div>
           <div className="space-y-1 text-sm text-slate-600">
-            <div>Idade: {age} anos ({sex === "M" ? "Masculino" : "Feminino"})</div>
+            <div>
+              Idade: {age} anos ({sex === "M" ? "Masculino" : "Feminino"})
+            </div>
             <div>Creatinina: {creatinine} mg/dL</div>
-            <div>eGFR esperada: ~{normalGFRForAge.toFixed(0)} mL/min/1.73m²</div>
+            <div>
+              eGFR esperada: ~{normalGFRForAge.toFixed(0)} mL/min/1.73m²
+            </div>
           </div>
         </div>
 
         <div className="rounded-lg bg-white/60 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-500" />
             <h4 className="font-semibold text-slate-800">Interpretação</h4>
           </div>
@@ -252,7 +263,9 @@ export function CKDEPIIndicator({
         transition={{ delay: 0.8 }}
         className="rounded-lg bg-white/60 p-4"
       >
-        <h4 className="mb-3 font-semibold text-slate-800">Recomendações Clínicas:</h4>
+        <h4 className="mb-3 font-semibold text-slate-800">
+          Recomendações Clínicas:
+        </h4>
         <div className="space-y-2 text-sm text-slate-600">
           {eGFR >= 90 && (
             <>
@@ -302,12 +315,12 @@ export function CKDEPIIndicator({
           transition={{ delay: 1.0 }}
           className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3"
         >
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 text-blue-600 mt-0.5" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
           <div className="text-sm text-blue-700">
-            <strong>Nota:</strong> {isElderly && eGFR >= 45 
+            <strong>Nota:</strong>{" "}
+            {isElderly && eGFR >= 45
               ? "Em idosos, eGFR entre 45-59 pode ser normal para a idade. Considere outros marcadores de lesão renal."
-              : "Confirme com segunda dosagem em 3 meses. Considere causas reversíveis de redução da TFG."
-            }
+              : "Confirme com segunda dosagem em 3 meses. Considere causas reversíveis de redução da TFG."}
           </div>
         </motion.div>
       )}

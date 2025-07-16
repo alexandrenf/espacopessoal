@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Calculator,
-  ArrowRight,
-  Users,
-  Clock,
-  Shield,
-} from "lucide-react";
+import { Calculator, ArrowRight, Users, Clock, Shield } from "lucide-react";
 import Header from "~/app/components/Header";
 import Footer from "~/app/components/Footer";
 import { Button } from "~/components/ui/button";
@@ -34,7 +28,8 @@ import { CalculatorModal } from "~/components/calculators/CalculatorModal";
 const calculators = CALCULATOR_REGISTRY;
 
 export default function CalculadorasPage() {
-  const [selectedCalculator, setSelectedCalculator] = useState<CalculatorInfo | null>(null);
+  const [selectedCalculator, setSelectedCalculator] =
+    useState<CalculatorInfo | null>(null);
 
   return (
     <div className="flex min-h-screen flex-col">

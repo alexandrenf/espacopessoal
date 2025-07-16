@@ -36,7 +36,7 @@ export class IMCCalculator {
     let cor = "";
 
     if (imc < 18.5) {
-      classificacao = "Abaixo do peso";
+      classificacao = "Baixo peso";
       cor = "text-blue-600";
     } else if (imc < 25) {
       classificacao = "Peso normal";

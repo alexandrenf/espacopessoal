@@ -61,12 +61,19 @@ const BMI_RANGES = [
   },
 ];
 
-export function BMIIndicator({ bmi, classification, color, warnings }: BMIIndicatorProps) {
+export function BMIIndicator({
+  bmi,
+  classification,
+  color,
+  warnings,
+}: BMIIndicatorProps) {
   const maxScale = 45; // Maximum BMI for scale display
   const bmiPosition = Math.min((bmi / maxScale) * 100, 100);
 
   // Find current range for additional info
-  const currentRange = BMI_RANGES.find(range => bmi >= range.min && bmi < range.max) ?? BMI_RANGES[BMI_RANGES.length - 1]!;
+  const currentRange =
+    BMI_RANGES.find((range) => bmi >= range.min && bmi < range.max) ??
+    BMI_RANGES[BMI_RANGES.length - 1]!;
 
   return (
     <motion.div
@@ -88,9 +95,7 @@ export function BMIIndicator({ bmi, classification, color, warnings }: BMIIndica
         <div className={`text-xl font-semibold ${color} mb-2`}>
           {classification}
         </div>
-        <div className="text-sm text-slate-600">
-          {currentRange.description}
-        </div>
+        <div className="text-sm text-slate-600">{currentRange.description}</div>
       </div>
 
       {/* Visual BMI Scale */}
@@ -178,10 +183,8 @@ export function BMIIndicator({ bmi, classification, color, warnings }: BMIIndica
           transition={{ delay: 0.6 }}
           className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3"
         >
-          <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-600 mt-0.5" />
-          <div className="text-sm text-yellow-700">
-            {warnings.join("; ")}
-          </div>
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600" />
+          <div className="text-sm text-yellow-700">{warnings.join("; ")}</div>
         </motion.div>
       )}
 
@@ -197,7 +200,9 @@ export function BMIIndicator({ bmi, classification, color, warnings }: BMIIndica
           {bmi < 18.5 && (
             <>
               <p>• Consulte um nutricionista para ganho de peso saudável</p>
-              <p>• Considere avaliação médica para descartar causas subjacentes</p>
+              <p>
+                • Considere avaliação médica para descartar causas subjacentes
+              </p>
             </>
           )}
           {bmi >= 18.5 && bmi < 25 && (

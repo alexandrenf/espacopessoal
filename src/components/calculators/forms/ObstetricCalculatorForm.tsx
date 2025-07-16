@@ -16,12 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "~/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   Calculator,
   Baby,
@@ -33,6 +28,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { ObstetricCalculator } from "~/lib/medical-calculators/basic-calculators";
+import { GestationalTimeline } from "~/components/calculators/indicators/GestationalTimeline";
 
 interface ObstetricCalculatorFormProps {
   onCalculationStart: () => void;
@@ -41,6 +37,7 @@ interface ObstetricCalculatorFormProps {
 }
 
 interface ObstetricResult {
+  success: boolean;
   weeks: number;
   days: number;
   totalDays: number;
@@ -55,20 +52,24 @@ export function ObstetricCalculatorForm({
   onCalculationComplete,
   isCalculating,
 }: ObstetricCalculatorFormProps) {
-  const [mode, setMode] = useState<"dum" | "ultrasound" | "conception" | "ivf" | "">("");
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  
+  const [mode, setMode] = useState<
+    "dum" | "ultrasound" | "conception" | "ivf" | ""
+  >("");
+  const [currentDate, setCurrentDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+
   // DUM fields
   const [dum, setDum] = useState("");
-  
+
   // Ultrasound fields
   const [ultrasoundDate, setUltrasoundDate] = useState("");
   const [ultrasoundWeeks, setUltrasoundWeeks] = useState("");
   const [ultrasoundDays, setUltrasoundDays] = useState("");
-  
+
   // Conception fields
   const [conceptionDate, setConceptionDate] = useState("");
-  
+
   // IVF fields
   const [transferDate, setTransferDate] = useState("");
   const [embryoAge, setEmbryoAge] = useState<3 | 5 | 6 | "">("");
@@ -108,21 +109,33 @@ export function ObstetricCalculatorForm({
     if (!mode) newErrors.mode = "Método de cálculo é obrigatório";
     if (!currentDate) newErrors.currentDate = "Data atual é obrigatória";
 
+    // Early return if there are basic errors
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      onCalculationComplete(false);
+      return;
+    }
+
     // Mode-specific validation
     switch (mode) {
       case "dum":
         if (!dum) newErrors.dum = "Data da última menstruação é obrigatória";
         break;
       case "ultrasound":
-        if (!ultrasoundDate) newErrors.ultrasoundDate = "Data do ultrassom é obrigatória";
-        if (!ultrasoundWeeks) newErrors.ultrasoundWeeks = "Semanas no ultrassom são obrigatórias";
-        if (ultrasoundDays === "") newErrors.ultrasoundDays = "Dias no ultrassom são obrigatórios";
+        if (!ultrasoundDate)
+          newErrors.ultrasoundDate = "Data do ultrassom é obrigatória";
+        if (!ultrasoundWeeks)
+          newErrors.ultrasoundWeeks = "Semanas no ultrassom são obrigatórias";
+        if (ultrasoundDays === "")
+          newErrors.ultrasoundDays = "Dias no ultrassom são obrigatórios";
         break;
       case "conception":
-        if (!conceptionDate) newErrors.conceptionDate = "Data da concepção é obrigatória";
+        if (!conceptionDate)
+          newErrors.conceptionDate = "Data da concepção é obrigatória";
         break;
       case "ivf":
-        if (!transferDate) newErrors.transferDate = "Data da transferência é obrigatória";
+        if (!transferDate)
+          newErrors.transferDate = "Data da transferência é obrigatória";
         if (!embryoAge) newErrors.embryoAge = "Idade do embrião é obrigatória";
         break;
     }
@@ -135,7 +148,7 @@ export function ObstetricCalculatorForm({
 
     try {
       // Simulate calculation delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       let inputs;
 
@@ -143,14 +156,14 @@ export function ObstetricCalculatorForm({
         case "dum":
           inputs = {
             mode,
-            currentDate,
+            currentDate: currentDate!,
             dum,
           };
           break;
         case "ultrasound":
           inputs = {
             mode,
-            currentDate,
+            currentDate: currentDate!,
             ultrasoundDate,
             ultrasoundWeeks: parseInt(ultrasoundWeeks),
             ultrasoundDays: parseInt(ultrasoundDays),
@@ -159,26 +172,27 @@ export function ObstetricCalculatorForm({
         case "conception":
           inputs = {
             mode,
-            currentDate,
+            currentDate: currentDate!,
             conceptionDate,
           };
           break;
         case "ivf":
           inputs = {
             mode,
-            currentDate,
+            currentDate: currentDate!,
             transferDate,
-            embryoAge,
+            embryoAge: embryoAge as 3 | 5 | 6,
           };
           break;
         default:
-          inputs = { mode, currentDate };
+          inputs = { mode: mode as "dum", currentDate: currentDate! };
       }
 
       const calculationResult = calculator.calculate(inputs);
 
       if (calculationResult.success) {
         const enhancedResult: ObstetricResult = {
+          success: true,
           weeks: calculationResult.weeks!,
           days: calculationResult.days!,
           totalDays: calculationResult.totalDays!,
@@ -200,36 +214,39 @@ export function ObstetricCalculatorForm({
     }
   };
 
-  const getGestationalStage = (weeks: number): { stage: string; color: string; description: string } => {
+  const getGestationalStage = (
+    weeks: number,
+  ): { stage: string; color: string; description: string } => {
     if (weeks < 12) {
       return {
         stage: "1º Trimestre",
         color: "text-blue-600 bg-blue-50 border-blue-200",
-        description: "Período de organogênese e maior risco de malformações"
+        description: "Período de organogênese e maior risco de malformações",
       };
     } else if (weeks < 28) {
       return {
         stage: "2º Trimestre",
         color: "text-green-600 bg-green-50 border-green-200",
-        description: "Período de crescimento fetal e menor risco de complicações"
+        description:
+          "Período de crescimento fetal e menor risco de complicações",
       };
     } else if (weeks < 37) {
       return {
         stage: "3º Trimestre",
         color: "text-orange-600 bg-orange-50 border-orange-200",
-        description: "Período de maturação fetal e preparação para o parto"
+        description: "Período de maturação fetal e preparação para o parto",
       };
     } else if (weeks < 42) {
       return {
         stage: "A Termo",
         color: "text-green-700 bg-green-100 border-green-300",
-        description: "Período ideal para o nascimento"
+        description: "Período ideal para o nascimento",
       };
     } else {
       return {
         stage: "Pós-termo",
         color: "text-red-600 bg-red-50 border-red-200",
-        description: "Gravidez prolongada - monitoramento intensivo necessário"
+        description: "Gravidez prolongada - monitoramento intensivo necessário",
       };
     }
   };
@@ -305,15 +322,22 @@ export function ObstetricCalculatorForm({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mode">Selecione o método de cálculo</Label>
-            <Select value={mode} onValueChange={(value: "dum" | "ultrasound" | "conception" | "ivf") => {
-              setMode(value);
-              setErrors({});
-            }}>
+            <Select
+              value={mode}
+              onValueChange={(
+                value: "dum" | "ultrasound" | "conception" | "ivf",
+              ) => {
+                setMode(value);
+                setErrors({});
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Escolha o método" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="dum">Data da Última Menstruação (DUM)</SelectItem>
+                <SelectItem value="dum">
+                  Data da Última Menstruação (DUM)
+                </SelectItem>
                 <SelectItem value="ultrasound">Ultrassom</SelectItem>
                 <SelectItem value="conception">Data da Concepção</SelectItem>
                 <SelectItem value="ivf">Fertilização in Vitro (FIV)</SelectItem>
@@ -328,10 +352,12 @@ export function ObstetricCalculatorForm({
               type="date"
               value={currentDate}
               onChange={(e) => setCurrentDate(e.target.value)}
-              className={errors.currentDate ? "border-red-500 focus:border-red-500" : ""}
+              className={
+                errors.currentDate ? "border-red-500 focus:border-red-500" : ""
+              }
             />
             {errors.currentDate && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="flex items-center gap-1 text-sm text-red-600">
                 <AlertCircle className="h-4 w-4" />
                 {errors.currentDate}
               </p>
@@ -361,10 +387,12 @@ export function ObstetricCalculatorForm({
                   type="date"
                   value={dum}
                   onChange={(e) => setDum(e.target.value)}
-                  className={errors.dum ? "border-red-500 focus:border-red-500" : ""}
+                  className={
+                    errors.dum ? "border-red-500 focus:border-red-500" : ""
+                  }
                 />
                 {errors.dum && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
+                  <p className="flex items-center gap-1 text-sm text-red-600">
                     <AlertCircle className="h-4 w-4" />
                     {errors.dum}
                   </p>
@@ -373,7 +401,7 @@ export function ObstetricCalculatorForm({
             )}
 
             {mode === "ultrasound" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="ultrasoundDate">Data do Ultrassom</Label>
                   <Input
@@ -381,10 +409,14 @@ export function ObstetricCalculatorForm({
                     type="date"
                     value={ultrasoundDate}
                     onChange={(e) => setUltrasoundDate(e.target.value)}
-                    className={errors.ultrasoundDate ? "border-red-500 focus:border-red-500" : ""}
+                    className={
+                      errors.ultrasoundDate
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
+                    }
                   />
                   {errors.ultrasoundDate && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-sm text-red-600">
                       <AlertCircle className="h-4 w-4" />
                       {errors.ultrasoundDate}
                     </p>
@@ -400,14 +432,21 @@ export function ObstetricCalculatorForm({
                     value={ultrasoundWeeks}
                     onChange={(e) => {
                       setUltrasoundWeeks(e.target.value);
-                      setTouched(prev => ({ ...prev, ultrasoundWeeks: true }));
+                      setTouched((prev) => ({
+                        ...prev,
+                        ultrasoundWeeks: true,
+                      }));
                     }}
-                    className={errors.ultrasoundWeeks ? "border-red-500 focus:border-red-500" : ""}
+                    className={
+                      errors.ultrasoundWeeks
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
+                    }
                     min="4"
                     max="42"
                   />
                   {errors.ultrasoundWeeks && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-sm text-red-600">
                       <AlertCircle className="h-4 w-4" />
                       {errors.ultrasoundWeeks}
                     </p>
@@ -423,14 +462,18 @@ export function ObstetricCalculatorForm({
                     value={ultrasoundDays}
                     onChange={(e) => {
                       setUltrasoundDays(e.target.value);
-                      setTouched(prev => ({ ...prev, ultrasoundDays: true }));
+                      setTouched((prev) => ({ ...prev, ultrasoundDays: true }));
                     }}
-                    className={errors.ultrasoundDays ? "border-red-500 focus:border-red-500" : ""}
+                    className={
+                      errors.ultrasoundDays
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
+                    }
                     min="0"
                     max="6"
                   />
                   {errors.ultrasoundDays && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-sm text-red-600">
                       <AlertCircle className="h-4 w-4" />
                       {errors.ultrasoundDays}
                     </p>
@@ -447,10 +490,14 @@ export function ObstetricCalculatorForm({
                   type="date"
                   value={conceptionDate}
                   onChange={(e) => setConceptionDate(e.target.value)}
-                  className={errors.conceptionDate ? "border-red-500 focus:border-red-500" : ""}
+                  className={
+                    errors.conceptionDate
+                      ? "border-red-500 focus:border-red-500"
+                      : ""
+                  }
                 />
                 {errors.conceptionDate && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
+                  <p className="flex items-center gap-1 text-sm text-red-600">
                     <AlertCircle className="h-4 w-4" />
                     {errors.conceptionDate}
                   </p>
@@ -459,7 +506,7 @@ export function ObstetricCalculatorForm({
             )}
 
             {mode === "ivf" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="transferDate">Data da Transferência</Label>
                   <Input
@@ -467,10 +514,14 @@ export function ObstetricCalculatorForm({
                     type="date"
                     value={transferDate}
                     onChange={(e) => setTransferDate(e.target.value)}
-                    className={errors.transferDate ? "border-red-500 focus:border-red-500" : ""}
+                    className={
+                      errors.transferDate
+                        ? "border-red-500 focus:border-red-500"
+                        : ""
+                    }
                   />
                   {errors.transferDate && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-sm text-red-600">
                       <AlertCircle className="h-4 w-4" />
                       {errors.transferDate}
                     </p>
@@ -479,10 +530,19 @@ export function ObstetricCalculatorForm({
 
                 <div className="space-y-2">
                   <Label htmlFor="embryoAge">Idade do Embrião</Label>
-                  <Select value={embryoAge.toString()} onValueChange={(value: "3" | "5" | "6") => {
-                    setEmbryoAge(parseInt(value) as 3 | 5 | 6);
-                  }}>
-                    <SelectTrigger className={errors.embryoAge ? "border-red-500 focus:border-red-500" : ""}>
+                  <Select
+                    value={embryoAge.toString()}
+                    onValueChange={(value: "3" | "5" | "6") => {
+                      setEmbryoAge(parseInt(value) as 3 | 5 | 6);
+                    }}
+                  >
+                    <SelectTrigger
+                      className={
+                        errors.embryoAge
+                          ? "border-red-500 focus:border-red-500"
+                          : ""
+                      }
+                    >
                       <SelectValue placeholder="Selecione a idade" />
                     </SelectTrigger>
                     <SelectContent>
@@ -492,7 +552,7 @@ export function ObstetricCalculatorForm({
                     </SelectContent>
                   </Select>
                   {errors.embryoAge && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-sm text-red-600">
                       <AlertCircle className="h-4 w-4" />
                       {errors.embryoAge}
                     </p>
@@ -539,89 +599,42 @@ export function ObstetricCalculatorForm({
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  Idade Gestacional
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Main Result */}
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-slate-900 mb-2">
-                    {result.weeks}s{result.days}d
-                  </div>
-                  <p className="text-lg text-slate-600 mb-4">
-                    {result.weeks} semanas e {result.days} dias
-                  </p>
-                  <Badge className={`text-sm px-3 py-1 ${getGestationalStage(result.weeks).color}`}>
-                    <Baby className="h-4 w-4 mr-2" />
-                    {getGestationalStage(result.weeks).stage}
-                  </Badge>
-                </div>
+            <div className="space-y-6">
+              {/* Visual Timeline */}
+              <GestationalTimeline
+                weeks={result.weeks}
+                days={result.days}
+                totalDays={result.totalDays}
+                dpp={result.dpp}
+                method={result.method}
+                effectiveDUM={result.effectiveDUM}
+              />
 
-                <Separator />
-
-                {/* Gestational Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="h-5 w-5 text-blue-600" />
-                      <span className="font-semibold text-blue-900">Data Provável do Parto</span>
-                    </div>
-                    <p className="text-lg font-bold text-blue-800">
-                      {new Date(result.dpp).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold text-green-900">Método Utilizado</span>
-                    </div>
-                    <p className="text-lg font-bold text-green-800">{result.method}</p>
-                  </div>
-
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Heart className="h-5 w-5 text-purple-600" />
-                      <span className="font-semibold text-purple-900">DUM Efetiva</span>
-                    </div>
-                    <p className="text-lg font-bold text-purple-800">
-                      {new Date(result.effectiveDUM).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-orange-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Stethoscope className="h-5 w-5 text-orange-600" />
-                      <span className="font-semibold text-orange-900">Total de Dias</span>
-                    </div>
-                    <p className="text-lg font-bold text-orange-800">{result.totalDays} dias</p>
-                  </div>
-                </div>
-
-                {/* Stage Description */}
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <h4 className="font-semibold text-slate-900 mb-2">Características do Período</h4>
-                  <p className="text-sm text-slate-700">{getGestationalStage(result.weeks).description}</p>
-                </div>
-
-                {/* Recommendations */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-900">Recomendações para este Período</h4>
+              {/* Detailed Recommendations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Recomendações para este Período
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                   <ul className="space-y-2">
-                    {getRecommendations(result.weeks).map((recommendation, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        {recommendation}
-                      </li>
-                    ))}
+                    {getRecommendations(result.weeks).map(
+                      (recommendation, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start gap-2 text-sm text-slate-700"
+                        >
+                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
+                          {recommendation}
+                        </li>
+                      ),
+                    )}
                   </ul>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

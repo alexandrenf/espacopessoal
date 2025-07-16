@@ -60,19 +60,21 @@ const LDL_RANGES = [
   },
 ];
 
-export function LDLIndicator({ 
-  ldl, 
-  classification, 
-  color, 
-  totalCholesterol, 
-  hdl, 
-  triglycerides 
+export function LDLIndicator({
+  ldl,
+  classification,
+  color,
+  totalCholesterol,
+  hdl,
+  triglycerides,
 }: LDLIndicatorProps) {
   const maxScale = 300;
   const ldlPosition = Math.min((ldl / maxScale) * 100, 100);
 
   // Find current range
-  const currentRange = LDL_RANGES.find(range => ldl >= range.min && ldl < range.max) ?? LDL_RANGES[LDL_RANGES.length - 1]!;
+  const currentRange =
+    LDL_RANGES.find((range) => ldl >= range.min && ldl < range.max) ??
+    LDL_RANGES[LDL_RANGES.length - 1]!;
 
   // Calculate additional metrics
   const nonHDLCholesterol = totalCholesterol - hdl;
@@ -80,10 +82,18 @@ export function LDLIndicator({
 
   // Risk assessment
   const getRiskLevel = () => {
-    if (ldl < 100) return { level: "Baixo", icon: TrendingDown, color: "text-green-600" };
-    if (ldl < 130) return { level: "Baixo-Moderado", icon: TrendingDown, color: "text-blue-600" };
-    if (ldl < 160) return { level: "Moderado", icon: TrendingUp, color: "text-yellow-600" };
-    if (ldl < 190) return { level: "Alto", icon: TrendingUp, color: "text-orange-600" };
+    if (ldl < 100)
+      return { level: "Baixo", icon: TrendingDown, color: "text-green-600" };
+    if (ldl < 130)
+      return {
+        level: "Baixo-Moderado",
+        icon: TrendingDown,
+        color: "text-blue-600",
+      };
+    if (ldl < 160)
+      return { level: "Moderado", icon: TrendingUp, color: "text-yellow-600" };
+    if (ldl < 190)
+      return { level: "Alto", icon: TrendingUp, color: "text-orange-600" };
     return { level: "Muito Alto", icon: TrendingUp, color: "text-red-600" };
   };
 
@@ -200,28 +210,33 @@ export function LDLIndicator({
         className="grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
         <div className="rounded-lg bg-white/60 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <Heart className="h-4 w-4 text-red-500" />
             <h4 className="font-semibold text-slate-800">Colesterol não-HDL</h4>
           </div>
           <div className="text-2xl font-bold text-slate-700">
-            {nonHDLCholesterol} <span className="text-sm font-normal">mg/dL</span>
+            {nonHDLCholesterol}{" "}
+            <span className="text-sm font-normal">mg/dL</span>
           </div>
-          <div className="text-xs text-slate-600 mt-1">
+          <div className="mt-1 text-xs text-slate-600">
             Meta: &lt; {ldl < 100 ? "130" : ldl < 130 ? "160" : "190"} mg/dL
           </div>
         </div>
 
         <div className="rounded-lg bg-white/60 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-blue-500" />
             <h4 className="font-semibold text-slate-800">Razão CT/HDL</h4>
           </div>
           <div className="text-2xl font-bold text-slate-700">
             {cholesterolRatio.toFixed(1)}
           </div>
-          <div className="text-xs text-slate-600 mt-1">
-            {cholesterolRatio < 4.5 ? "Ideal" : cholesterolRatio < 5.0 ? "Aceitável" : "Elevada"}
+          <div className="mt-1 text-xs text-slate-600">
+            {cholesterolRatio < 4.5
+              ? "Ideal"
+              : cholesterolRatio < 5.0
+                ? "Aceitável"
+                : "Elevada"}
           </div>
         </div>
       </motion.div>
@@ -234,10 +249,11 @@ export function LDLIndicator({
           transition={{ delay: 0.8 }}
           className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3"
         >
-          <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600 mt-0.5" />
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
           <div className="text-sm text-red-700">
-            <strong>Atenção:</strong> Triglicerídeos ≥ 400 mg/dL. A fórmula de Friedewald pode não ser precisa. 
-            Considere dosagem direta do LDL ou fórmula de Martin-Hopkins.
+            <strong>Atenção:</strong> Triglicerídeos ≥ 400 mg/dL. A fórmula de
+            Friedewald pode não ser precisa. Considere dosagem direta do LDL ou
+            fórmula de Martin-Hopkins.
           </div>
         </motion.div>
       )}
@@ -252,8 +268,12 @@ export function LDLIndicator({
         <h4 className="mb-2 font-semibold text-slate-800">Recomendações:</h4>
         <div className="space-y-1 text-sm text-slate-600">
           <p>• {currentRange.recommendation}</p>
-          {ldl >= 130 && <p>• Considere avaliação de risco cardiovascular global</p>}
-          {ldl >= 160 && <p>• Avaliação médica para possível terapia medicamentosa</p>}
+          {ldl >= 130 && (
+            <p>• Considere avaliação de risco cardiovascular global</p>
+          )}
+          {ldl >= 160 && (
+            <p>• Avaliação médica para possível terapia medicamentosa</p>
+          )}
           {ldl >= 190 && <p>• Investigação de hipercolesterolemia familiar</p>}
           <p>• Dieta com redução de gorduras saturadas e trans</p>
           <p>• Atividade física regular (150 min/semana)</p>

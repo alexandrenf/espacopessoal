@@ -34,6 +34,7 @@ interface CKDEPICalculatorFormProps {
 }
 
 interface CKDEPIResult {
+  success: boolean;
   eGFR: number;
   classificacao: string;
   cor: string;
@@ -78,8 +79,8 @@ export function CKDEPICalculatorForm({
   }, [creatinina, idade, touched]);
 
   const handleInputChange = (field: string, value: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    
+    setTouched((prev) => ({ ...prev, [field]: true }));
+
     switch (field) {
       case "creatinina":
         setCreatinina(value);
@@ -111,7 +112,7 @@ export function CKDEPICalculatorForm({
 
     try {
       // Simulate calculation delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const inputs = {
         creatinina: parseFloat(creatinina),
@@ -123,6 +124,7 @@ export function CKDEPICalculatorForm({
 
       if (calculationResult.success) {
         const enhancedResult: CKDEPIResult = {
+          success: true,
           eGFR: calculationResult.eGFR!,
           classificacao: calculationResult.classificacao!,
           cor: calculationResult.cor!,
@@ -225,7 +227,8 @@ export function CKDEPICalculatorForm({
     return baseRecommendations;
   };
 
-  const canCalculate = creatinina && idade && sexo && Object.keys(errors).length === 0;
+  const canCalculate =
+    creatinina && idade && sexo && Object.keys(errors).length === 0;
 
   return (
     <div className="space-y-6">
@@ -238,7 +241,7 @@ export function CKDEPICalculatorForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Creatinina Input */}
             <div className="space-y-2">
               <Label htmlFor="creatinina">Creatinina (mg/dL)</Label>
@@ -247,14 +250,18 @@ export function CKDEPICalculatorForm({
                 type="number"
                 placeholder="Ex: 1.2"
                 value={creatinina}
-                onChange={(e) => handleInputChange("creatinina", e.target.value)}
-                className={errors.creatinina ? "border-red-500 focus:border-red-500" : ""}
+                onChange={(e) =>
+                  handleInputChange("creatinina", e.target.value)
+                }
+                className={
+                  errors.creatinina ? "border-red-500 focus:border-red-500" : ""
+                }
                 step="0.1"
                 min="0.3"
                 max="15"
               />
               {errors.creatinina && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.creatinina}
                 </p>
@@ -270,12 +277,14 @@ export function CKDEPICalculatorForm({
                 placeholder="Ex: 45"
                 value={idade}
                 onChange={(e) => handleInputChange("idade", e.target.value)}
-                className={errors.idade ? "border-red-500 focus:border-red-500" : ""}
+                className={
+                  errors.idade ? "border-red-500 focus:border-red-500" : ""
+                }
                 min="18"
                 max="120"
               />
               {errors.idade && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.idade}
                 </p>
@@ -285,11 +294,18 @@ export function CKDEPICalculatorForm({
             {/* Sexo Select */}
             <div className="space-y-2">
               <Label htmlFor="sexo">Sexo</Label>
-              <Select value={sexo} onValueChange={(value: "M" | "F") => {
-                setSexo(value);
-                setTouched(prev => ({ ...prev, sexo: true }));
-              }}>
-                <SelectTrigger className={errors.sexo ? "border-red-500 focus:border-red-500" : ""}>
+              <Select
+                value={sexo}
+                onValueChange={(value: "M" | "F") => {
+                  setSexo(value);
+                  setTouched((prev) => ({ ...prev, sexo: true }));
+                }}
+              >
+                <SelectTrigger
+                  className={
+                    errors.sexo ? "border-red-500 focus:border-red-500" : ""
+                  }
+                >
                   <SelectValue placeholder="Selecione o sexo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -298,7 +314,7 @@ export function CKDEPICalculatorForm({
                 </SelectContent>
               </Select>
               {errors.sexo && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.sexo}
                 </p>
@@ -307,14 +323,15 @@ export function CKDEPICalculatorForm({
           </div>
 
           {/* Formula Info */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
               <div>
                 <h4 className="font-semibold text-blue-900">CKD-EPI 2021</h4>
-                <p className="text-sm text-blue-800 mt-1">
-                  Esta calculadora utiliza a equação CKD-EPI 2021, que não inclui o coeficiente racial, 
-                  sendo mais adequada para populações diversas.
+                <p className="mt-1 text-sm text-blue-800">
+                  Esta calculadora utiliza a equação CKD-EPI 2021, que não
+                  inclui o coeficiente racial, sendo mais adequada para
+                  populações diversas.
                 </p>
               </div>
             </div>
@@ -367,34 +384,48 @@ export function CKDEPICalculatorForm({
               <CardContent className="space-y-6">
                 {/* Main Result */}
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-slate-900 mb-2">
-                    {result.eGFR.toFixed(1)} <span className="text-lg font-normal text-slate-600">mL/min/1.73m²</span>
+                  <div className="mb-2 text-4xl font-bold text-slate-900">
+                    {result.eGFR.toFixed(1)}{" "}
+                    <span className="text-lg font-normal text-slate-600">
+                      mL/min/1.73m²
+                    </span>
                   </div>
-                  <Badge className={`text-sm px-3 py-1 ${getStageColor(result.stage)}`}>
+                  <Badge
+                    className={`px-3 py-1 text-sm ${getStageColor(result.stage)}`}
+                  >
                     {getStageIcon(result.stage)}
-                    <span className="ml-2">Estágio {result.stage} - {result.classificacao}</span>
+                    <span className="ml-2">
+                      Estágio {result.stage} - {result.classificacao}
+                    </span>
                   </Badge>
                 </div>
 
                 <Separator />
 
                 {/* Stage Information */}
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <h4 className="font-semibold text-slate-900 mb-2">Classificação da DRC</h4>
-                  <p className="text-sm text-slate-700">{getStageDescription(result.stage)}</p>
+                <div className="rounded-lg bg-slate-50 p-4">
+                  <h4 className="mb-2 font-semibold text-slate-900">
+                    Classificação da DRC
+                  </h4>
+                  <p className="text-sm text-slate-700">
+                    {getStageDescription(result.stage)}
+                  </p>
                 </div>
 
                 {/* Warnings */}
                 {result.warnings && result.warnings.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <h4 className="flex items-center gap-2 font-semibold text-slate-900">
                       <AlertCircle className="h-4 w-4 text-yellow-600" />
                       Alertas Clínicos
                     </h4>
                     <ul className="space-y-1">
                       {result.warnings.map((warning, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm text-yellow-800 bg-yellow-50 p-2 rounded">
-                          <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <li
+                          key={index}
+                          className="flex items-start gap-2 rounded bg-yellow-50 p-2 text-sm text-yellow-800"
+                        >
+                          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600" />
                           {warning}
                         </li>
                       ))}
@@ -403,54 +434,69 @@ export function CKDEPICalculatorForm({
                 )}
 
                 {/* Clinical Assessment */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
                       <Activity className="h-5 w-5 text-blue-600" />
-                      <span className="font-semibold text-blue-900">Função Renal</span>
+                      <span className="font-semibold text-blue-900">
+                        Função Renal
+                      </span>
                     </div>
                     <p className="text-sm text-blue-800">
-                      {result.eGFR >= 90 
-                        ? "Função renal preservada" 
+                      {result.eGFR >= 90
+                        ? "Função renal preservada"
                         : result.eGFR >= 60
-                        ? "Leve redução da função renal"
-                        : result.eGFR >= 30
-                        ? "Moderada a severa redução"
-                        : "Falência renal avançada"}
+                          ? "Leve redução da função renal"
+                          : result.eGFR >= 30
+                            ? "Moderada a severa redução"
+                            : "Falência renal avançada"}
                     </p>
                   </div>
 
-                  <div className="p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg border border-red-200 bg-gradient-to-r from-red-50 to-orange-50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
                       <TrendingDown className="h-5 w-5 text-red-600" />
-                      <span className="font-semibold text-red-900">Urgência</span>
+                      <span className="font-semibold text-red-900">
+                        Urgência
+                      </span>
                     </div>
                     <p className="text-sm text-red-800">
-                      {result.stage <= 2 
-                        ? "Monitoramento de rotina" 
+                      {result.stage <= 2
+                        ? "Monitoramento de rotina"
                         : result.stage === 3
-                        ? "Avaliação nefrológica recomendada"
-                        : "Acompanhamento nefrológico urgente"}
+                          ? "Avaliação nefrológica recomendada"
+                          : "Acompanhamento nefrológico urgente"}
                     </p>
                   </div>
                 </div>
 
                 {/* Formula */}
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">Fórmula Utilizada:</h4>
-                  <p className="text-sm text-green-800 font-mono">{result.formula}</p>
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                  <h4 className="mb-2 font-semibold text-green-900">
+                    Fórmula Utilizada:
+                  </h4>
+                  <p className="font-mono text-sm text-green-800">
+                    {result.formula}
+                  </p>
                 </div>
 
                 {/* Recommendations */}
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-900">Recomendações Clínicas</h4>
+                  <h4 className="font-semibold text-slate-900">
+                    Recomendações Clínicas
+                  </h4>
                   <ul className="space-y-2">
-                    {getRecommendations(result.stage, result.eGFR).map((recommendation, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        {recommendation}
-                      </li>
-                    ))}
+                    {getRecommendations(result.stage, result.eGFR).map(
+                      (recommendation, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start gap-2 text-sm text-slate-700"
+                        >
+                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
+                          {recommendation}
+                        </li>
+                      ),
+                    )}
                   </ul>
                 </div>
               </CardContent>

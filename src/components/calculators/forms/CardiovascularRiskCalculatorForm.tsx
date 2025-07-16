@@ -17,12 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "~/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   Calculator,
   Heart,
@@ -35,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { CardiovascularRiskCalculator } from "~/lib/medical-calculators/cardiovascular-risk";
+import { CardiovascularRiskGauge } from "~/components/calculators/indicators/CardiovascularRiskGauge";
 
 interface CardiovascularRiskCalculatorFormProps {
   onCalculationStart: () => void;
@@ -43,6 +39,7 @@ interface CardiovascularRiskCalculatorFormProps {
 }
 
 interface CardiovascularRiskResult {
+  success: boolean;
   framinghamScore: number;
   riskPercentage: number;
   riskCategory: string;
@@ -64,12 +61,12 @@ export function CardiovascularRiskCalculatorForm({
   const [systolicBP, setSystolicBP] = useState("");
   const [totalCholesterol, setTotalCholesterol] = useState("");
   const [hdlCholesterol, setHdlCholesterol] = useState("");
-  
+
   // Risk factors
   const [diabetes, setDiabetes] = useState(false);
   const [smoking, setSmoking] = useState(false);
   const [hypertensionTreatment, setHypertensionTreatment] = useState(false);
-  
+
   // Optional factors
   const [familyHistory, setFamilyHistory] = useState(false);
   const [microalbuminuria, setMicroalbuminuria] = useState("");
@@ -96,14 +93,16 @@ export function CardiovascularRiskCalculatorForm({
     if (touched.systolicBP && systolicBP) {
       const bpNum = parseInt(systolicBP);
       if (isNaN(bpNum) || bpNum < 90 || bpNum > 200) {
-        newErrors.systolicBP = "Pressão sistólica deve estar entre 90 e 200 mmHg";
+        newErrors.systolicBP =
+          "Pressão sistólica deve estar entre 90 e 200 mmHg";
       }
     }
 
     if (touched.totalCholesterol && totalCholesterol) {
       const cholNum = parseInt(totalCholesterol);
       if (isNaN(cholNum) || cholNum < 130 || cholNum > 320) {
-        newErrors.totalCholesterol = "Colesterol total deve estar entre 130 e 320 mg/dL";
+        newErrors.totalCholesterol =
+          "Colesterol total deve estar entre 130 e 320 mg/dL";
       }
     }
 
@@ -115,7 +114,12 @@ export function CardiovascularRiskCalculatorForm({
     }
 
     // Cross-validation
-    if (totalCholesterol && hdlCholesterol && touched.totalCholesterol && touched.hdlCholesterol) {
+    if (
+      totalCholesterol &&
+      hdlCholesterol &&
+      touched.totalCholesterol &&
+      touched.hdlCholesterol
+    ) {
       const totalNum = parseInt(totalCholesterol);
       const hdlNum = parseInt(hdlCholesterol);
       if (!isNaN(totalNum) && !isNaN(hdlNum) && hdlNum >= totalNum) {
@@ -127,8 +131,8 @@ export function CardiovascularRiskCalculatorForm({
   }, [age, systolicBP, totalCholesterol, hdlCholesterol, touched]);
 
   const handleInputChange = (field: string, value: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    
+    setTouched((prev) => ({ ...prev, [field]: true }));
+
     switch (field) {
       case "age":
         setAge(value);
@@ -158,12 +162,12 @@ export function CardiovascularRiskCalculatorForm({
     onCalculationStart();
 
     // Validate all required inputs
-    const allTouched = { 
-      age: true, 
-      sex: true, 
-      systolicBP: true, 
-      totalCholesterol: true, 
-      hdlCholesterol: true 
+    const allTouched = {
+      age: true,
+      sex: true,
+      systolicBP: true,
+      totalCholesterol: true,
+      hdlCholesterol: true,
     };
     setTouched(allTouched);
 
@@ -172,7 +176,8 @@ export function CardiovascularRiskCalculatorForm({
     if (!age) newErrors.age = "Idade é obrigatória";
     if (!sex) newErrors.sex = "Sexo é obrigatório";
     if (!systolicBP) newErrors.systolicBP = "Pressão sistólica é obrigatória";
-    if (!totalCholesterol) newErrors.totalCholesterol = "Colesterol total é obrigatório";
+    if (!totalCholesterol)
+      newErrors.totalCholesterol = "Colesterol total é obrigatório";
     if (!hdlCholesterol) newErrors.hdlCholesterol = "HDL é obrigatório";
 
     if (Object.keys(newErrors).length > 0) {
@@ -183,7 +188,7 @@ export function CardiovascularRiskCalculatorForm({
 
     try {
       // Simulate calculation delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const inputs = {
         age: parseInt(age),
@@ -195,23 +200,32 @@ export function CardiovascularRiskCalculatorForm({
         smoking,
         hypertensionTreatment,
         familyHistory,
-        microalbuminuria: microalbuminuria ? parseFloat(microalbuminuria) : undefined,
+        microalbuminuria: microalbuminuria
+          ? parseFloat(microalbuminuria)
+          : undefined,
         hsCRP: hsCRP ? parseFloat(hsCRP) : undefined,
-        coronaryCalciumScore: coronaryCalciumScore ? parseInt(coronaryCalciumScore) : undefined,
+        coronaryCalciumScore: coronaryCalciumScore
+          ? parseInt(coronaryCalciumScore)
+          : undefined,
       };
 
       const calculationResult = calculator.calculate(inputs);
 
       if (calculationResult.success) {
         const enhancedResult: CardiovascularRiskResult = {
+          success: true,
           framinghamScore: calculationResult.framinghamScore!,
           riskPercentage: calculationResult.riskPercentage!,
           riskCategory: calculationResult.riskCategory!,
           recommendations: calculationResult.recommendations!,
           hasHighRiskConditions: calculationResult.automaticHighRisk!,
-          highRiskConditions: calculationResult.automaticHighRiskReason ? [calculationResult.automaticHighRiskReason] : [],
+          highRiskConditions: calculationResult.automaticHighRiskReason
+            ? [calculationResult.automaticHighRiskReason]
+            : [],
           aggravatingFactors: calculationResult.aggravatingFactors!,
-          reclassification: calculationResult.reclassified ? "Risco reclassificado de intermediário para alto devido a fatores agravantes" : undefined,
+          reclassification: calculationResult.reclassified
+            ? "Risco reclassificado de intermediário para alto devido a fatores agravantes"
+            : undefined,
         };
 
         setResult(enhancedResult);
@@ -228,9 +242,9 @@ export function CardiovascularRiskCalculatorForm({
 
   const getRiskColor = (category: string) => {
     const colorMap: Record<string, string> = {
-      "Baixo": "text-green-600 bg-green-50 border-green-200",
-      "Intermediário": "text-yellow-600 bg-yellow-50 border-yellow-200",
-      "Alto": "text-red-600 bg-red-50 border-red-200",
+      Baixo: "text-green-600 bg-green-50 border-green-200",
+      Intermediário: "text-yellow-600 bg-yellow-50 border-yellow-200",
+      Alto: "text-red-600 bg-red-50 border-red-200",
       "Muito Alto": "text-red-800 bg-red-100 border-red-300",
     };
     return colorMap[category] ?? "text-gray-600 bg-gray-50 border-gray-200";
@@ -242,7 +256,13 @@ export function CardiovascularRiskCalculatorForm({
     return <AlertCircle className="h-5 w-5" />;
   };
 
-  const canCalculate = age && sex && systolicBP && totalCholesterol && hdlCholesterol && Object.keys(errors).length === 0;
+  const canCalculate =
+    age &&
+    sex &&
+    systolicBP &&
+    totalCholesterol &&
+    hdlCholesterol &&
+    Object.keys(errors).length === 0;
 
   return (
     <div className="space-y-6">
@@ -255,7 +275,7 @@ export function CardiovascularRiskCalculatorForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Age Input */}
             <div className="space-y-2">
               <Label htmlFor="age">Idade (anos)</Label>
@@ -265,12 +285,14 @@ export function CardiovascularRiskCalculatorForm({
                 placeholder="Ex: 45"
                 value={age}
                 onChange={(e) => handleInputChange("age", e.target.value)}
-                className={errors.age ? "border-red-500 focus:border-red-500" : ""}
+                className={
+                  errors.age ? "border-red-500 focus:border-red-500" : ""
+                }
                 min="30"
                 max="74"
               />
               {errors.age && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.age}
                 </p>
@@ -280,11 +302,18 @@ export function CardiovascularRiskCalculatorForm({
             {/* Sex Select */}
             <div className="space-y-2">
               <Label htmlFor="sex">Sexo</Label>
-              <Select value={sex} onValueChange={(value: "M" | "F") => {
-                setSex(value);
-                setTouched(prev => ({ ...prev, sex: true }));
-              }}>
-                <SelectTrigger className={errors.sex ? "border-red-500 focus:border-red-500" : ""}>
+              <Select
+                value={sex}
+                onValueChange={(value: "M" | "F") => {
+                  setSex(value);
+                  setTouched((prev) => ({ ...prev, sex: true }));
+                }}
+              >
+                <SelectTrigger
+                  className={
+                    errors.sex ? "border-red-500 focus:border-red-500" : ""
+                  }
+                >
                   <SelectValue placeholder="Selecione o sexo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -293,7 +322,7 @@ export function CardiovascularRiskCalculatorForm({
                 </SelectContent>
               </Select>
               {errors.sex && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.sex}
                 </p>
@@ -308,13 +337,17 @@ export function CardiovascularRiskCalculatorForm({
                 type="number"
                 placeholder="Ex: 140"
                 value={systolicBP}
-                onChange={(e) => handleInputChange("systolicBP", e.target.value)}
-                className={errors.systolicBP ? "border-red-500 focus:border-red-500" : ""}
+                onChange={(e) =>
+                  handleInputChange("systolicBP", e.target.value)
+                }
+                className={
+                  errors.systolicBP ? "border-red-500 focus:border-red-500" : ""
+                }
                 min="90"
                 max="200"
               />
               {errors.systolicBP && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.systolicBP}
                 </p>
@@ -322,7 +355,7 @@ export function CardiovascularRiskCalculatorForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Total Cholesterol Input */}
             <div className="space-y-2">
               <Label htmlFor="totalCholesterol">Colesterol Total (mg/dL)</Label>
@@ -331,13 +364,19 @@ export function CardiovascularRiskCalculatorForm({
                 type="number"
                 placeholder="Ex: 200"
                 value={totalCholesterol}
-                onChange={(e) => handleInputChange("totalCholesterol", e.target.value)}
-                className={errors.totalCholesterol ? "border-red-500 focus:border-red-500" : ""}
+                onChange={(e) =>
+                  handleInputChange("totalCholesterol", e.target.value)
+                }
+                className={
+                  errors.totalCholesterol
+                    ? "border-red-500 focus:border-red-500"
+                    : ""
+                }
                 min="130"
                 max="320"
               />
               {errors.totalCholesterol && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.totalCholesterol}
                 </p>
@@ -352,13 +391,19 @@ export function CardiovascularRiskCalculatorForm({
                 type="number"
                 placeholder="Ex: 50"
                 value={hdlCholesterol}
-                onChange={(e) => handleInputChange("hdlCholesterol", e.target.value)}
-                className={errors.hdlCholesterol ? "border-red-500 focus:border-red-500" : ""}
+                onChange={(e) =>
+                  handleInputChange("hdlCholesterol", e.target.value)
+                }
+                className={
+                  errors.hdlCholesterol
+                    ? "border-red-500 focus:border-red-500"
+                    : ""
+                }
                 min="20"
                 max="100"
               />
               {errors.hdlCholesterol && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.hdlCholesterol}
                 </p>
@@ -377,7 +422,7 @@ export function CardiovascularRiskCalculatorForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="diabetes"
@@ -400,18 +445,26 @@ export function CardiovascularRiskCalculatorForm({
               <Checkbox
                 id="hypertensionTreatment"
                 checked={hypertensionTreatment}
-                onCheckedChange={(checked) => setHypertensionTreatment(checked as boolean)}
+                onCheckedChange={(checked) =>
+                  setHypertensionTreatment(checked as boolean)
+                }
               />
-              <Label htmlFor="hypertensionTreatment">Tratamento para hipertensão</Label>
+              <Label htmlFor="hypertensionTreatment">
+                Tratamento para hipertensão
+              </Label>
             </div>
 
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="familyHistory"
                 checked={familyHistory}
-                onCheckedChange={(checked) => setFamilyHistory(checked as boolean)}
+                onCheckedChange={(checked) =>
+                  setFamilyHistory(checked as boolean)
+                }
               />
-              <Label htmlFor="familyHistory">História familiar de DAC prematura</Label>
+              <Label htmlFor="familyHistory">
+                História familiar de DAC prematura
+              </Label>
             </div>
           </div>
         </CardContent>
@@ -426,7 +479,7 @@ export function CardiovascularRiskCalculatorForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="microalbuminuria">Microalbuminúria (mg/g)</Label>
               <Input
@@ -434,7 +487,9 @@ export function CardiovascularRiskCalculatorForm({
                 type="number"
                 placeholder="Ex: 30"
                 value={microalbuminuria}
-                onChange={(e) => handleInputChange("microalbuminuria", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("microalbuminuria", e.target.value)
+                }
                 step="0.1"
               />
             </div>
@@ -458,7 +513,9 @@ export function CardiovascularRiskCalculatorForm({
                 type="number"
                 placeholder="Ex: 100"
                 value={coronaryCalciumScore}
-                onChange={(e) => handleInputChange("coronaryCalciumScore", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("coronaryCalciumScore", e.target.value)
+                }
               />
             </div>
           </div>
@@ -500,107 +557,100 @@ export function CardiovascularRiskCalculatorForm({
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
           >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  Risco Cardiovascular
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Main Result */}
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-slate-900 mb-2">
-                    {result.riskPercentage.toFixed(1)}%
-                  </div>
-                  <p className="text-lg text-slate-600 mb-4">
-                    Risco em 10 anos
-                  </p>
-                  <Badge className={`text-sm px-3 py-1 ${getRiskColor(result.riskCategory)}`}>
-                    {getRiskIcon(result.riskCategory)}
-                    <span className="ml-2">Risco {result.riskCategory}</span>
-                  </Badge>
-                </div>
+            <div className="space-y-6">
+              {/* Visual Gauge */}
+              <CardiovascularRiskGauge
+                riskPercentage={result.riskPercentage}
+                riskCategory={result.riskCategory}
+                framinghamScore={result.framinghamScore}
+                hasHighRiskConditions={result.hasHighRiskConditions}
+                aggravatingFactors={result.aggravatingFactors}
+                reclassification={result.reclassification}
+              />
 
-                <Separator />
+              {/* Detailed Results */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Detalhes do Cálculo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* High Risk Conditions */}
+                  {result.hasHighRiskConditions && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                      <h4 className="mb-2 flex items-center gap-2 font-semibold text-red-900">
+                        <AlertCircle className="h-5 w-5" />
+                        Condições de Alto Risco Detectadas
+                      </h4>
+                      <ul className="space-y-1">
+                        {result.highRiskConditions.map((condition, index) => (
+                          <li
+                            key={index}
+                            className="flex items-center gap-2 text-sm text-red-800"
+                          >
+                            <TrendingUp className="h-4 w-4" />
+                            {condition}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                {/* High Risk Conditions */}
-                {result.hasHighRiskConditions && (
-                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                    <h4 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5" />
-                      Condições de Alto Risco Detectadas
+                  {/* Aggravating Factors */}
+                  {result.aggravatingFactors.length > 0 && (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                      <h4 className="mb-2 flex items-center gap-2 font-semibold text-yellow-900">
+                        <Zap className="h-5 w-5" />
+                        Fatores Agravantes
+                      </h4>
+                      <ul className="space-y-1">
+                        {result.aggravatingFactors.map((factor, index) => (
+                          <li
+                            key={index}
+                            className="flex items-center gap-2 text-sm text-yellow-800"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                            {factor}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Reclassification */}
+                  {result.reclassification && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                      <h4 className="mb-2 font-semibold text-blue-900">
+                        Reclassificação
+                      </h4>
+                      <p className="text-sm text-blue-800">
+                        {result.reclassification}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Recommendations */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-slate-900">
+                      Recomendações Terapêuticas
                     </h4>
-                    <ul className="space-y-1">
-                      {result.highRiskConditions.map((condition, index) => (
-                        <li key={index} className="text-sm text-red-800 flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4" />
-                          {condition}
+                    <ul className="space-y-2">
+                      {result.recommendations.map((recommendation, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start gap-2 text-sm text-slate-700"
+                        >
+                          <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
+                          {recommendation}
                         </li>
                       ))}
                     </ul>
                   </div>
-                )}
-
-                {/* Aggravating Factors */}
-                {result.aggravatingFactors.length > 0 && (
-                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
-                      <Zap className="h-5 w-5" />
-                      Fatores Agravantes
-                    </h4>
-                    <ul className="space-y-1">
-                      {result.aggravatingFactors.map((factor, index) => (
-                        <li key={index} className="text-sm text-yellow-800 flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4" />
-                          {factor}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Reclassification */}
-                {result.reclassification && (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-2">Reclassificação</h4>
-                    <p className="text-sm text-blue-800">{result.reclassification}</p>
-                  </div>
-                )}
-
-                {/* Framingham Score */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target className="h-5 w-5 text-slate-600" />
-                      <span className="font-semibold text-slate-900">Escore de Framingham</span>
-                    </div>
-                    <p className="text-2xl font-bold text-slate-800">{result.framinghamScore}</p>
-                  </div>
-
-                  <div className="p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Heart className="h-5 w-5 text-red-600" />
-                      <span className="font-semibold text-red-900">Categoria de Risco</span>
-                    </div>
-                    <p className="text-2xl font-bold text-red-800">{result.riskCategory}</p>
-                  </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-900">Recomendações Terapêuticas</h4>
-                  <ul className="space-y-2">
-                    {result.recommendations.map((recommendation, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        {recommendation}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

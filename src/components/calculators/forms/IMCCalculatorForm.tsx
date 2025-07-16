@@ -35,6 +35,7 @@ interface IMCCalculatorFormProps {
 }
 
 interface IMCResult {
+  success: boolean;
   imc: number;
   classification: string;
   healthRisk: string;
@@ -87,8 +88,8 @@ export function IMCCalculatorForm({
   }, [weight, height, age, touched]);
 
   const handleInputChange = (field: string, value: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    
+    setTouched((prev) => ({ ...prev, [field]: true }));
+
     switch (field) {
       case "weight":
         setWeight(value);
@@ -124,7 +125,7 @@ export function IMCCalculatorForm({
 
     try {
       // Simulate calculation delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const inputs = {
         peso: parseFloat(weight),
@@ -136,14 +137,20 @@ export function IMCCalculatorForm({
       if (calculationResult.success) {
         const imc = calculationResult.imc!;
         const classification = calculationResult.classificacao!;
-        
+
         // Enhanced result with additional calculations
         const idealWeightRange = calculateIdealWeightRange(parseFloat(height));
-        const weightDifference = parseFloat(weight) - (idealWeightRange.min + idealWeightRange.max) / 2;
-        const recommendations = getRecommendations(classification, weightDifference);
+        const weightDifference =
+          parseFloat(weight) -
+          (idealWeightRange.min + idealWeightRange.max) / 2;
+        const recommendations = getRecommendations(
+          classification,
+          weightDifference,
+        );
         const healthRisk = getHealthRisk(classification);
 
         const enhancedResult: IMCResult = {
+          success: true,
           imc,
           classification,
           healthRisk,
@@ -176,7 +183,7 @@ export function IMCCalculatorForm({
     const riskMap: Record<string, string> = {
       "Baixo peso": "Aumentado",
       "Peso normal": "Baixo",
-      "Sobrepeso": "Pouco aumentado",
+      Sobrepeso: "Pouco aumentado",
       "Obesidade grau I": "Aumentado",
       "Obesidade grau II": "Muito aumentado",
       "Obesidade grau III": "Extremamente aumentado",
@@ -184,7 +191,10 @@ export function IMCCalculatorForm({
     return riskMap[classification] ?? "Indeterminado";
   };
 
-  const getRecommendations = (classification: string, weightDiff: number): string[] => {
+  const getRecommendations = (
+    classification: string,
+    weightDiff: number,
+  ): string[] => {
     const baseRecommendations = [
       "Mantenha uma alimentação equilibrada",
       "Pratique atividade física regularmente",
@@ -222,22 +232,27 @@ export function IMCCalculatorForm({
     const colorMap: Record<string, string> = {
       "Baixo peso": "text-blue-600 bg-blue-50 border-blue-200",
       "Peso normal": "text-green-600 bg-green-50 border-green-200",
-      "Sobrepeso": "text-yellow-600 bg-yellow-50 border-yellow-200",
+      Sobrepeso: "text-yellow-600 bg-yellow-50 border-yellow-200",
       "Obesidade grau I": "text-orange-600 bg-orange-50 border-orange-200",
       "Obesidade grau II": "text-red-600 bg-red-50 border-red-200",
       "Obesidade grau III": "text-red-800 bg-red-100 border-red-300",
       "Abaixo do peso": "text-blue-600 bg-blue-50 border-blue-200",
     };
-    return colorMap[classification] ?? "text-gray-600 bg-gray-50 border-gray-200";
+    return (
+      colorMap[classification] ?? "text-gray-600 bg-gray-50 border-gray-200"
+    );
   };
 
   const getRiskIcon = (classification: string) => {
-    if (classification === "Peso normal") return <CheckCircle className="h-5 w-5" />;
-    if (classification === "Baixo peso" || classification === "Sobrepeso") return <Minus className="h-5 w-5" />;
+    if (classification === "Peso normal")
+      return <CheckCircle className="h-5 w-5" />;
+    if (classification === "Baixo peso" || classification === "Sobrepeso")
+      return <Minus className="h-5 w-5" />;
     return <AlertCircle className="h-5 w-5" />;
   };
 
-  const canCalculate = weight && height && age && gender && Object.keys(errors).length === 0;
+  const canCalculate =
+    weight && height && age && gender && Object.keys(errors).length === 0;
 
   return (
     <div className="space-y-6">
@@ -250,7 +265,7 @@ export function IMCCalculatorForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Weight Input */}
             <div className="space-y-2">
               <Label htmlFor="weight">Peso (kg)</Label>
@@ -260,13 +275,15 @@ export function IMCCalculatorForm({
                 placeholder="Ex: 70.5"
                 value={weight}
                 onChange={(e) => handleInputChange("weight", e.target.value)}
-                className={errors.weight ? "border-red-500 focus:border-red-500" : ""}
+                className={
+                  errors.weight ? "border-red-500 focus:border-red-500" : ""
+                }
                 step="0.1"
                 min="1"
                 max="300"
               />
               {errors.weight && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.weight}
                 </p>
@@ -282,13 +299,15 @@ export function IMCCalculatorForm({
                 placeholder="Ex: 175"
                 value={height}
                 onChange={(e) => handleInputChange("height", e.target.value)}
-                className={errors.height ? "border-red-500 focus:border-red-500" : ""}
+                className={
+                  errors.height ? "border-red-500 focus:border-red-500" : ""
+                }
                 step="0.1"
                 min="50"
                 max="250"
               />
               {errors.height && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.height}
                 </p>
@@ -304,12 +323,14 @@ export function IMCCalculatorForm({
                 placeholder="Ex: 30"
                 value={age}
                 onChange={(e) => handleInputChange("age", e.target.value)}
-                className={errors.age ? "border-red-500 focus:border-red-500" : ""}
+                className={
+                  errors.age ? "border-red-500 focus:border-red-500" : ""
+                }
                 min="1"
                 max="120"
               />
               {errors.age && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.age}
                 </p>
@@ -319,11 +340,18 @@ export function IMCCalculatorForm({
             {/* Gender Select */}
             <div className="space-y-2">
               <Label htmlFor="gender">Sexo</Label>
-              <Select value={gender} onValueChange={(value: "masculino" | "feminino") => {
-                setGender(value);
-                setTouched(prev => ({ ...prev, gender: true }));
-              }}>
-                <SelectTrigger className={errors.gender ? "border-red-500 focus:border-red-500" : ""}>
+              <Select
+                value={gender}
+                onValueChange={(value: "masculino" | "feminino") => {
+                  setGender(value);
+                  setTouched((prev) => ({ ...prev, gender: true }));
+                }}
+              >
+                <SelectTrigger
+                  className={
+                    errors.gender ? "border-red-500 focus:border-red-500" : ""
+                  }
+                >
                   <SelectValue placeholder="Selecione o sexo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -332,7 +360,7 @@ export function IMCCalculatorForm({
                 </SelectContent>
               </Select>
               {errors.gender && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   {errors.gender}
                 </p>
@@ -387,10 +415,12 @@ export function IMCCalculatorForm({
               <CardContent className="space-y-6">
                 {/* Main Result */}
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-slate-900 mb-2">
+                  <div className="mb-2 text-4xl font-bold text-slate-900">
                     {result.imc.toFixed(1)}
                   </div>
-                  <Badge className={`text-sm px-3 py-1 ${getClassificationColor(result.classification)}`}>
+                  <Badge
+                    className={`px-3 py-1 text-sm ${getClassificationColor(result.classification)}`}
+                  >
                     {getRiskIcon(result.classification)}
                     <span className="ml-2">{result.classification}</span>
                   </Badge>
@@ -399,8 +429,10 @@ export function IMCCalculatorForm({
                 <Separator />
 
                 {/* Health Risk */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                  <span className="font-medium text-slate-700">Risco para a saúde:</span>
+                <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4">
+                  <span className="font-medium text-slate-700">
+                    Risco para a saúde:
+                  </span>
                   <Badge variant="outline" className="font-medium">
                     {result.healthRisk}
                   </Badge>
@@ -408,19 +440,32 @@ export function IMCCalculatorForm({
 
                 {/* Weight Analysis */}
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-900">Análise do Peso</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <div className="text-sm text-blue-600 font-medium">Peso Ideal</div>
+                  <h4 className="font-semibold text-slate-900">
+                    Análise do Peso
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="rounded-lg bg-blue-50 p-3">
+                      <div className="text-sm font-medium text-blue-600">
+                        Peso Ideal
+                      </div>
                       <div className="text-lg font-semibold text-blue-900">
-                        {result.idealWeightRange.min} - {result.idealWeightRange.max} kg
+                        {result.idealWeightRange.min} -{" "}
+                        {result.idealWeightRange.max} kg
                       </div>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <div className="text-sm text-slate-600 font-medium">Diferença</div>
-                      <div className={`text-lg font-semibold flex items-center gap-1 ${
-                        result.weightDifference > 0 ? "text-red-600" : result.weightDifference < 0 ? "text-blue-600" : "text-green-600"
-                      }`}>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <div className="text-sm font-medium text-slate-600">
+                        Diferença
+                      </div>
+                      <div
+                        className={`flex items-center gap-1 text-lg font-semibold ${
+                          result.weightDifference > 0
+                            ? "text-red-600"
+                            : result.weightDifference < 0
+                              ? "text-blue-600"
+                              : "text-green-600"
+                        }`}
+                      >
                         {result.weightDifference > 0 ? (
                           <TrendingUp className="h-4 w-4" />
                         ) : result.weightDifference < 0 ? (
@@ -428,7 +473,8 @@ export function IMCCalculatorForm({
                         ) : (
                           <CheckCircle className="h-4 w-4" />
                         )}
-                        {result.weightDifference > 0 ? "+" : ""}{result.weightDifference.toFixed(1)} kg
+                        {result.weightDifference > 0 ? "+" : ""}
+                        {result.weightDifference.toFixed(1)} kg
                       </div>
                     </div>
                   </div>
@@ -436,11 +482,16 @@ export function IMCCalculatorForm({
 
                 {/* Recommendations */}
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-900">Recomendações</h4>
+                  <h4 className="font-semibold text-slate-900">
+                    Recomendações
+                  </h4>
                   <ul className="space-y-2">
                     {result.recommendations.map((recommendation, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <li
+                        key={index}
+                        className="flex items-start gap-2 text-sm text-slate-700"
+                      >
+                        <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" />
                         {recommendation}
                       </li>
                     ))}
