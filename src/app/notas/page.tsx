@@ -51,7 +51,6 @@ import {
   NotebookDialog,
   CreateNotebookDialog,
 } from "~/components_new/NotebookEditDialog";
-import { WelcomeTour } from "~/components_new/WelcomeTour";
 
 interface NotebookData {
   _id: string;
@@ -308,14 +307,12 @@ export default function NotasPage() {
 
           <div
             className="container relative mx-auto px-4 py-12"
-            data-tour="notebooks-dashboard"
           >
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               className="mb-12"
-              data-tour="notebooks-dashboard"
             >
               <div className="mx-auto max-w-4xl text-center">
                 <motion.div
@@ -393,7 +390,7 @@ export default function NotasPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="mb-8 flex flex-col gap-4 sm:flex-row"
             >
-              <div className="relative flex-1" data-tour="search-bar">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder={
@@ -407,7 +404,7 @@ export default function NotasPage() {
                 />
               </div>
               {status === "authenticated" && (
-                <div data-tour="create-notebook">
+                <div>
                   <CreateNotebookDialog onSuccess={() => refetch()} />
                 </div>
               )}
@@ -533,17 +530,6 @@ export default function NotasPage() {
         }}
       />
 
-      {/* Welcome Tour */}
-      <WelcomeTour
-        autoStart={true}
-        showButton={true}
-        onTourComplete={() => {
-          console.log("Tour completed!");
-        }}
-        onTourSkip={() => {
-          console.log("Tour skipped!");
-        }}
-      />
     </>
   );
 }
