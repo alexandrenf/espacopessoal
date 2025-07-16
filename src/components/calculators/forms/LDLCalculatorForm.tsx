@@ -36,6 +36,9 @@ interface LDLResult {
   warnings?: string[];
 }
 
+// Create calculator instance outside component to avoid recreation on every render
+const calculator = new LDLCalculator();
+
 export function LDLCalculatorForm({
   onCalculationStart,
   onCalculationComplete,
@@ -47,8 +50,6 @@ export function LDLCalculatorForm({
   const [result, setResult] = useState<LDLResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  const calculator = new LDLCalculator();
 
   // Real-time validation
   useEffect(() => {

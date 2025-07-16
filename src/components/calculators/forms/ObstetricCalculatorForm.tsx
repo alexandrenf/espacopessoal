@@ -147,9 +147,6 @@ export function ObstetricCalculatorForm({
     }
 
     try {
-      // Simulate calculation delay for better UX
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
       let inputs;
 
       switch (mode) {
@@ -193,13 +190,13 @@ export function ObstetricCalculatorForm({
       if (calculationResult.success) {
         const enhancedResult: ObstetricResult = {
           success: true,
-          weeks: calculationResult.weeks!,
-          days: calculationResult.days!,
-          totalDays: calculationResult.totalDays!,
-          dpp: calculationResult.dpp!,
-          gestationalAge: calculationResult.gestationalAge!,
-          effectiveDUM: calculationResult.effectiveDUM!,
-          method: calculationResult.method!,
+          weeks: calculationResult.weeks ?? 0,
+          days: calculationResult.days ?? 0,
+          totalDays: calculationResult.totalDays ?? 0,
+          dpp: calculationResult.dpp ?? "",
+          gestationalAge: calculationResult.gestationalAge ?? "",
+          effectiveDUM: calculationResult.effectiveDUM ?? "",
+          method: calculationResult.method ?? "dum",
         };
 
         setResult(enhancedResult);

@@ -31,6 +31,37 @@ export function GestationalTimeline({
   effectiveDUM,
   className = "",
 }: GestationalTimelineProps) {
+  // Utility function to safely format dates for Brazilian locale
+  const formatDateToBrazilian = (dateString: string): string => {
+    try {
+      // Parse the date string as ISO date to avoid timezone issues
+      const parts = dateString.split("-");
+      if (parts.length !== 3) {
+        throw new Error("Invalid date format");
+      }
+
+      const year = parseInt(parts[0]!, 10);
+      const month = parseInt(parts[1]!, 10);
+      const day = parseInt(parts[2]!, 10);
+
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        throw new Error("Invalid date components");
+      }
+
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+
+      return date.toLocaleDateString("pt-BR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: "America/Sao_Paulo", // Ensure Brazilian timezone
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return dateString; // Fallback to original string
+    }
+  };
+
   const getGestationalStage = (
     weeks: number,
   ): {
@@ -48,7 +79,7 @@ export function GestationalTimeline({
         description: "Organogênese e formação dos órgãos",
         icon: Heart,
       };
-    } else if (weeks < 28) {
+    } else if (weeks < 27) {
       return {
         stage: "2º Trimestre",
         color: "rgb(34, 197, 94)", // green-500
@@ -64,7 +95,7 @@ export function GestationalTimeline({
         description: "Maturação e preparação para o parto",
         icon: Clock,
       };
-    } else if (weeks < 42) {
+    } else if (weeks < 41) {
       return {
         stage: "A Termo",
         color: "rgb(34, 197, 94)", // green-500
@@ -89,23 +120,64 @@ export function GestationalTimeline({
   // Timeline milestones
   const milestones = [
     {
-      week: 4,
+      week: 2,
       label: "Implantação",
       description: "Embrião se implanta no útero",
     },
+    {
+      week: 4,
+      label: "Teste positivo",
+      description: "Detecção de gravidez em teste domiciliar",
+    },
     { week: 8, label: "Embrião", description: "Formação básica dos órgãos" },
-    { week: 12, label: "Feto", description: "Fim do 1º trimestre" },
-    { week: 20, label: "Anatomia", description: "Ultrassom morfológico" },
-    { week: 24, label: "Viabilidade", description: "Viabilidade extrauterina" },
-    { week: 28, label: "3º Trimestre", description: "Crescimento acelerado" },
+    {
+      week: 11,
+      label: "Translucência nucal",
+      description: "Ultrassom para rastreio cromossômico",
+    },
+    { week: 13, label: "Feto", description: "Fim do 1º trimestre" },
+    {
+      week: 16,
+      label: "Quickening",
+      description: "Percepção dos primeiros movimentos fetais",
+    },
+    {
+      week: 20,
+      label: "Anatomia",
+      description: "Ultrassom morfológico (18–22 s)",
+    },
+    {
+      week: 24,
+      label: "Glicose",
+      description: "Triagem de diabetes gestacional",
+    },
+    {
+      week: 24,
+      label: "Viabilidade",
+      description: "Viabilidade extrauterina (23–24 s)",
+    },
+    { week: 27, label: "3º trimestre", description: "Início do 3º trimestre" },
     { week: 32, label: "Maturação", description: "Maturação pulmonar" },
-    { week: 37, label: "A Termo", description: "Parto pode ocorrer" },
+    {
+      week: 35,
+      label: "Streptococcus B",
+      description: "Rastreamento vaginal/retal",
+    },
+    {
+      week: 39,
+      label: "Termo pleno",
+      description: "Período de termo completo (39–40 s)",
+    },
     { week: 40, label: "DPP", description: "Data provável do parto" },
-    { week: 42, label: "Pós-termo", description: "Gravidez prolongada" },
+    {
+      week: 41,
+      label: "Pós-termo",
+      description: "Gestação prolongada (>41 s)",
+    },
   ];
 
   // Calculate progress percentage (0-100%)
-  const maxWeeks = 42;
+  const maxWeeks = 41;
   const progressPercentage = Math.min((weeks / maxWeeks) * 100, 100);
 
   // Calculate current milestone
@@ -182,10 +254,10 @@ export function GestationalTimeline({
         {/* Week markers */}
         <div className="mt-2 flex justify-between text-xs text-slate-500">
           <span>0w</span>
-          <span>12w</span>
-          <span>24w</span>
-          <span>36w</span>
-          <span>42w</span>
+          <span>13w</span>
+          <span>27w</span>
+          <span>37w</span>
+          <span>41w</span>
         </div>
       </div>
 
@@ -231,7 +303,7 @@ export function GestationalTimeline({
             </span>
           </div>
           <p className="text-lg font-bold text-blue-800">
-            {new Date(dpp).toLocaleDateString("pt-BR")}
+            {formatDateToBrazilian(dpp)}
           </p>
         </div>
 
@@ -251,7 +323,7 @@ export function GestationalTimeline({
             <span className="font-semibold text-purple-900">DUM Efetiva</span>
           </div>
           <p className="text-lg font-bold text-purple-800">
-            {new Date(effectiveDUM).toLocaleDateString("pt-BR")}
+            {formatDateToBrazilian(effectiveDUM)}
           </p>
         </div>
 
@@ -294,9 +366,13 @@ export function GestationalTimeline({
             <span className="font-medium text-green-600">
               Na data provável do parto
             </span>
+          ) : weeks < 41 ? (
+            <span className="font-medium text-orange-600">
+              {weeks - 40} semanas além da DPP (ainda a termo)
+            </span>
           ) : (
             <span className="font-medium text-red-600">
-              {weeks - 40} semanas além da data provável
+              {weeks - 40} semanas além da DPP (pós-termo)
             </span>
           )}
         </p>

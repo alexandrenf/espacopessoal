@@ -193,14 +193,36 @@ export class CardiovascularRiskCalculator {
     const baselineSurvival =
       this.config.baselineSurvival[sex === "M" ? "male" : "female"];
 
+    // Validate that all required coefficients are present
+    const requiredCoefficients = [
+      "age",
+      "totalCholesterol",
+      "hdlCholesterol",
+      "systolicBP",
+      "diabetes",
+      "smoking",
+    ];
+
+    const missingCoefficients = requiredCoefficients.filter(
+      (coeff) =>
+        coefficients[coeff] === undefined || coefficients[coeff] === null,
+    );
+
+    if (missingCoefficients.length > 0) {
+      throw new Error(
+        `Missing required Framingham coefficients for ${sex === "M" ? "male" : "female"}: ${missingCoefficients.join(", ")}`,
+      );
+    }
+
     // Calculate beta score (linear predictor)
+    // TypeScript assertions are safe here because we've validated all coefficients exist above
     const betaScore =
-      (coefficients.age ?? 0) * age +
-      (coefficients.totalCholesterol ?? 0) * totalCholesterol +
-      (coefficients.hdlCholesterol ?? 0) * hdlCholesterol +
-      (coefficients.systolicBP ?? 0) * systolicBP +
-      (diabetes ? (coefficients.diabetes ?? 0) : 0) +
-      (smoking ? (coefficients.smoking ?? 0) : 0);
+      coefficients.age! * age +
+      coefficients.totalCholesterol! * totalCholesterol +
+      coefficients.hdlCholesterol! * hdlCholesterol +
+      coefficients.systolicBP! * systolicBP +
+      (diabetes ? coefficients.diabetes! : 0) +
+      (smoking ? coefficients.smoking! : 0);
 
     // Calculate risk percentage using Framingham formula
     const riskPercentage =

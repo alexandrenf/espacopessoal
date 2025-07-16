@@ -6,9 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
 import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Separator } from "~/components_new/ui/separator";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
@@ -17,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   Calculator,
   Heart,
@@ -25,11 +22,9 @@ import {
   AlertCircle,
   CheckCircle,
   TrendingUp,
-  Shield,
-  Target,
   Zap,
 } from "lucide-react";
-import { CardiovascularRiskCalculator } from "~/lib/medical-calculators/cardiovascular-risk";
+import { cardiovascularRiskCalculator } from "~/lib/medical-calculators/cardiovascular-risk";
 import { CardiovascularRiskGauge } from "~/components/calculators/indicators/CardiovascularRiskGauge";
 
 interface CardiovascularRiskCalculatorFormProps {
@@ -76,8 +71,6 @@ export function CardiovascularRiskCalculatorForm({
   const [result, setResult] = useState<CardiovascularRiskResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  const calculator = new CardiovascularRiskCalculator();
 
   // Real-time validation
   useEffect(() => {
@@ -187,9 +180,6 @@ export function CardiovascularRiskCalculatorForm({
     }
 
     try {
-      // Simulate calculation delay for better UX
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       const inputs = {
         age: parseInt(age),
         sex: sex as "M" | "F",
@@ -209,7 +199,7 @@ export function CardiovascularRiskCalculatorForm({
           : undefined,
       };
 
-      const calculationResult = calculator.calculate(inputs);
+      const calculationResult = cardiovascularRiskCalculator.calculate(inputs);
 
       if (calculationResult.success) {
         const enhancedResult: CardiovascularRiskResult = {
@@ -234,26 +224,10 @@ export function CardiovascularRiskCalculatorForm({
         setErrors({ general: calculationResult.error ?? "Erro no cálculo" });
         onCalculationComplete(false);
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: "Erro inesperado no cálculo" });
       onCalculationComplete(false);
     }
-  };
-
-  const getRiskColor = (category: string) => {
-    const colorMap: Record<string, string> = {
-      Baixo: "text-green-600 bg-green-50 border-green-200",
-      Intermediário: "text-yellow-600 bg-yellow-50 border-yellow-200",
-      Alto: "text-red-600 bg-red-50 border-red-200",
-      "Muito Alto": "text-red-800 bg-red-100 border-red-300",
-    };
-    return colorMap[category] ?? "text-gray-600 bg-gray-50 border-gray-200";
-  };
-
-  const getRiskIcon = (category: string) => {
-    if (category === "Baixo") return <Shield className="h-5 w-5" />;
-    if (category === "Intermediário") return <Target className="h-5 w-5" />;
-    return <AlertCircle className="h-5 w-5" />;
   };
 
   const canCalculate =
@@ -566,6 +540,7 @@ export function CardiovascularRiskCalculatorForm({
                 hasHighRiskConditions={result.hasHighRiskConditions}
                 aggravatingFactors={result.aggravatingFactors}
                 reclassification={result.reclassification}
+                gender={sex as "M" | "F"}
               />
 
               {/* Detailed Results */}

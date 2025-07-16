@@ -11,6 +11,7 @@ interface CardiovascularRiskGaugeProps {
   hasHighRiskConditions: boolean;
   aggravatingFactors: string[];
   reclassification?: string;
+  gender: "M" | "F";
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export function CardiovascularRiskGauge({
   hasHighRiskConditions,
   aggravatingFactors,
   reclassification,
+  gender,
   className = "",
 }: CardiovascularRiskGaugeProps) {
   // Calculate the angle for the gauge (0-180 degrees)
@@ -38,49 +40,60 @@ export function CardiovascularRiskGauge({
   } => {
     const configs = {
       Baixo: {
-        color: "rgb(34, 197, 94)", // green-500
+        color: "rgb(21, 128, 61)", // green-700 - stronger color for better visibility
         bgColor: "rgb(240, 253, 244)", // green-50
-        borderColor: "rgb(34, 197, 94)", // green-500
+        borderColor: "rgb(21, 128, 61)", // green-700 - stronger border
         icon: Shield,
         description: "Baixo risco de eventos cardiovasculares",
       },
       Intermediário: {
-        color: "rgb(234, 179, 8)", // yellow-500
+        color: "rgb(161, 98, 7)", // yellow-700 - stronger color for better visibility
         bgColor: "rgb(254, 252, 232)", // yellow-50
-        borderColor: "rgb(234, 179, 8)", // yellow-500
+        borderColor: "rgb(161, 98, 7)", // yellow-700 - stronger border
         icon: Target,
         description: "Risco intermediário - avaliação adicional recomendada",
       },
       Alto: {
-        color: "rgb(239, 68, 68)", // red-500
+        color: "rgb(185, 28, 28)", // red-700 - stronger color for better visibility
         bgColor: "rgb(254, 242, 242)", // red-50
-        borderColor: "rgb(239, 68, 68)", // red-500
+        borderColor: "rgb(185, 28, 28)", // red-700 - stronger border
         icon: AlertCircle,
         description: "Alto risco - intervenção terapêutica necessária",
       },
       "Muito Alto": {
-        color: "rgb(153, 27, 27)", // red-800
+        color: "rgb(127, 29, 29)", // red-900 - even stronger color for critical risk
         bgColor: "rgb(254, 242, 242)", // red-50
-        borderColor: "rgb(153, 27, 27)", // red-800
+        borderColor: "rgb(127, 29, 29)", // red-900 - stronger border
         icon: AlertCircle,
         description: "Risco muito alto - intervenção imediata",
       },
     } as const;
-    
+
     return configs[category as keyof typeof configs] ?? configs.Baixo;
   };
 
   const config = getRiskConfig(riskCategory);
   const IconComponent = config.icon;
 
-  const getGaugeColor = (percentage: number) => {
-    if (percentage < 5) return "rgb(34, 197, 94)"; // green-500
-    if (percentage < 10) return "rgb(234, 179, 8)"; // yellow-500
-    if (percentage < 20) return "rgb(239, 68, 68)"; // red-500
-    return "rgb(153, 27, 27)"; // red-800
+  const getGaugeColor = (percentage: number, gender: "M" | "F") => {
+    // SBC 2020 sex-specific risk thresholds
+    // Low risk: < 5% (both sexes)
+    // Moderate risk: 5–20% (men), 5–10% (women)
+    // High risk: > 20% (men), > 10% (women)
+    // Note: Risk stratifiers may affect these thresholds - see cardiovascular risk calculator logic
+    if (percentage < 5) {
+      return "rgb(34, 197, 94)"; // green-500 - Low risk for both sexes
+    } else if (
+      (gender === "M" && percentage < 20) ||
+      (gender === "F" && percentage < 10)
+    ) {
+      return "rgb(234, 179, 8)"; // yellow-500 - Moderate risk (men: 5-20%, women: 5-10%)
+    } else {
+      return "rgb(239, 68, 68)"; // red-500 - High risk (men: ≥20%, women: ≥10%)
+    }
   };
 
-  const gaugeColor = getGaugeColor(riskPercentage);
+  const gaugeColor = getGaugeColor(riskPercentage, gender);
 
   return (
     <div className={`rounded-xl border bg-white p-6 shadow-sm ${className}`}>
@@ -170,7 +183,10 @@ export function CardiovascularRiskGauge({
               borderColor: config.borderColor,
             }}
           >
-            <IconComponent className="mr-1 h-4 w-4" />
+            <IconComponent
+              className="mr-1 h-4 w-4 drop-shadow-sm"
+              style={{ color: config.color }}
+            />
             Risco {riskCategory}
           </Badge>
         </div>

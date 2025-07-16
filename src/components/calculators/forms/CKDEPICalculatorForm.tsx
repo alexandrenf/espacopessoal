@@ -43,6 +43,9 @@ interface CKDEPIResult {
   warnings?: string[];
 }
 
+// Create calculator instance outside component to avoid recreation on every render
+const calculator = new CKDEPICalculator();
+
 export function CKDEPICalculatorForm({
   onCalculationStart,
   onCalculationComplete,
@@ -54,8 +57,6 @@ export function CKDEPICalculatorForm({
   const [result, setResult] = useState<CKDEPIResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  const calculator = new CKDEPICalculator();
 
   // Real-time validation
   useEffect(() => {

@@ -6,6 +6,32 @@ import typography from "@tailwindcss/typography";
 const config: Config = {
   darkMode: ["class"],
   content: ["./src/**/*.tsx"],
+  safelist: [
+    // Medical calculator gradient colors
+    "from-orange-500",
+    "to-red-500",
+    "from-blue-500",
+    "to-cyan-500",
+    "from-red-500",
+    "to-pink-500",
+    "from-green-500",
+    "to-emerald-500",
+    "from-purple-500",
+    "to-violet-500",
+    "bg-gradient-to-br",
+    // Background colors
+    "bg-blue-50",
+    "bg-red-50",
+    "bg-green-50",
+    "bg-purple-50",
+    "bg-orange-50",
+    // Border colors
+    "border-blue-200",
+    "border-red-200",
+    "border-green-200",
+    "border-purple-200",
+    "border-orange-200",
+  ],
   theme: {
     extend: {
       fontFamily: {

@@ -309,7 +309,7 @@ export class ObstetricCalculator {
     const dumDate = new Date(dum);
     const current = new Date(currentDate);
     const diffTime = current.getTime() - dumDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     const weeks = Math.floor(diffDays / 7);
     const days = diffDays % 7;

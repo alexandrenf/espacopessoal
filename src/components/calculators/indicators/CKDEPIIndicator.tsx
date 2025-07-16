@@ -16,8 +16,8 @@ const CKD_STAGES = [
   {
     stage: 1,
     min: 90,
-    max: 200,
-    label: "Normal ou Alto",
+    max: Infinity,
+    label: "Normal ou Alto (G1)",
     color: "bg-green-500",
     textColor: "text-green-600",
     description: "Função renal normal",
@@ -28,7 +28,7 @@ const CKD_STAGES = [
     stage: 2,
     min: 60,
     max: 89,
-    label: "Levemente Diminuída",
+    label: "Levemente Diminuída (G2)",
     color: "bg-blue-500",
     textColor: "text-blue-600",
     description: "Leve redução da função",
@@ -36,21 +36,32 @@ const CKD_STAGES = [
     riskLevel: "Baixo",
   },
   {
-    stage: 3,
-    min: 30,
+    stage: "3a",
+    min: 45,
     max: 59,
-    label: "Moderadamente Diminuída",
+    label: "Moderadamente Diminuída (G3a)",
     color: "bg-yellow-500",
     textColor: "text-yellow-600",
-    description: "Redução moderada",
+    description: "Redução leve a moderada",
     recommendation: "Acompanhamento nefrológico",
     riskLevel: "Moderado",
+  },
+  {
+    stage: "3b",
+    min: 30,
+    max: 44,
+    label: "Moderadamente Diminuída (G3b)",
+    color: "bg-amber-500",
+    textColor: "text-amber-600",
+    description: "Redução moderada a severa",
+    recommendation: "Acompanhamento nefrológico intensivo",
+    riskLevel: "Moderado-Alto",
   },
   {
     stage: 4,
     min: 15,
     max: 29,
-    label: "Severamente Diminuída",
+    label: "Severamente Diminuída (G4)",
     color: "bg-orange-500",
     textColor: "text-orange-600",
     description: "Redução severa",
@@ -61,7 +72,7 @@ const CKD_STAGES = [
     stage: 5,
     min: 0,
     max: 14,
-    label: "Falência Renal",
+    label: "Falência Renal (G5)",
     color: "bg-red-500",
     textColor: "text-red-600",
     description: "Falência renal",
@@ -179,6 +190,7 @@ export function CKDEPIIndicator({
           <span>0</span>
           <span>15</span>
           <span>30</span>
+          <span>45</span>
           <span>60</span>
           <span>90</span>
           <span>120+</span>
@@ -249,7 +261,7 @@ export function CKDEPIIndicator({
           <div className="space-y-1 text-sm text-slate-600">
             <div>{currentStage.description}</div>
             <div className="font-medium">{currentStage.recommendation}</div>
-            {isElderly && eGFR >= 45 && (
+            {isElderly && eGFR >= 45 && eGFR < 60 && (
               <div className="text-blue-600">* Considerar idade avançada</div>
             )}
           </div>
@@ -281,12 +293,21 @@ export function CKDEPIIndicator({
               <p>• Investigar causas de DRC se presente</p>
             </>
           )}
-          {eGFR >= 30 && eGFR < 60 && (
+          {eGFR >= 45 && eGFR < 60 && (
             <>
               <p>• Encaminhamento para nefrologia</p>
               <p>• Monitoramento semestral</p>
               <p>• Ajuste de medicações conforme TFG</p>
               <p>• Rastreamento de complicações da DRC</p>
+            </>
+          )}
+          {eGFR >= 30 && eGFR < 45 && (
+            <>
+              <p>• Acompanhamento nefrológico intensivo</p>
+              <p>• Monitoramento trimestral</p>
+              <p>• Ajuste rigoroso de medicações</p>
+              <p>• Rastreamento intensivo de complicações</p>
+              <p>• Preparação gradual para TRS</p>
             </>
           )}
           {eGFR >= 15 && eGFR < 30 && (
@@ -318,8 +339,8 @@ export function CKDEPIIndicator({
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
           <div className="text-sm text-blue-700">
             <strong>Nota:</strong>{" "}
-            {isElderly && eGFR >= 45
-              ? "Em idosos, eGFR entre 45-59 pode ser normal para a idade. Considere outros marcadores de lesão renal."
+            {isElderly && eGFR >= 45 && eGFR < 60
+              ? "Em idosos, eGFR entre 45-59 (G3a) pode ser normal para a idade. Considere outros marcadores de lesão renal."
               : "Confirme com segunda dosagem em 3 meses. Considere causas reversíveis de redução da TFG."}
           </div>
         </motion.div>
